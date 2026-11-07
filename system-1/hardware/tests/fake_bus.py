@@ -100,3 +100,5 @@ class FakeServos:
             s.app.update(s.m, s.d)
         self.collisions.update(s.collisions())
         self.peak_true_n = max(self.peak_true_n, float(np.linalg.norm(s.contact_force_vec())))
+        if s.on_tick:  # explore.py's film draws from here, as SimArm.tick would call it
+            s.on_tick(s)

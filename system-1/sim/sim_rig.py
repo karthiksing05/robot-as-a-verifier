@@ -1,5 +1,9 @@
 """The sim's rig: a device on the desk, the simulated SO-101 and its cameras, as explore.py and the tool server use
 them. Everything random is drawn from the seed in a fixed order, so the same arguments give the same rig every run."""
+import os
+import sys
+import tempfile
+
 import numpy as np
 
 import rig
@@ -7,13 +11,17 @@ import robot
 import sensors
 import world
 
+HARDWARE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hardware")
+
 
 def make_rig(seed=None, placement="nominal", ideal=False, offsets=None, slop=False, stiffness=None, sensing="perfect",
-             depth=False, stereo=False, realtime=False):
+             depth=False, stereo=False, realtime=False, driver="sim"):
     """seed: a generated device (None: preset C), moved on the desk with placement="random". ideal: no sensor noise and
     no joint error. offsets: joint calibration error, uniform in +-offsets deg on all five joints (default N(0, 0.5 deg)
     on four). stiffness: robot.SERVO_NM_PER_RAD, for slop. sensing: "perfect", "current", "tactile" or "loadcell" (all
-    but perfect need slop). depth: a D405 on the wrist and the phone for the survey, else the USB wrist camera alone."""
+    but perfect need slop). depth: a D405 on the wrist and the phone for the survey, else the USB wrist camera alone.
+    driver="real": the rig's arm is real_arm.RealArm, torque on, over a simulated motor bus whose servos are the SimArm
+    (see real_driver). The cameras and the device's readout stay the sim's."""
     rng = np.random.default_rng(seed or 0)  # the same placement and joint offsets every run
     w = world.build_world(seed)
     if placement == "random":
@@ -31,4 +39,20 @@ def make_rig(seed=None, placement="nominal", ideal=False, offsets=None, slop=Fal
     seed = seed or 0
     phone = sensors.PhoneCamera(arm, ideal=ideal, seed=seed + 1) if depth else None
     wrist = sensors.WristCamera(arm, ideal=ideal, seed=seed + 2, stereo=stereo, usb=not depth)
+    if driver == "real":
+        return rig.Rig(real_driver(arm, realtime), wrist, phone, name=f"sim {w.name} through RealArm")
     return rig.Rig(arm, wrist, phone, name=f"sim {w.name}")
+
+
+def real_driver(sim, pace=False):
+    """real_arm.RealArm over hardware/tests/fake_bus.py, which steps sim one control tick per goal written and reads
+    its encoders back in raw steps: the real driver's conversions, force estimate and hard cap on the sim's servos.
+    sim needs slop and sensing="current", as RealArm estimates force from the servos. The bus opens no port, so
+    enable() here moves nothing real. The SimArm stays at arm.bus.fake.sim, for sim truth."""
+    assert sim.sensing == "current", "RealArm senses force with the servos: it needs slop=True, sensing='current'"
+    sys.path[:0] = [HARDWARE, os.path.join(HARDWARE, "tests")]  # here, so the sim alone needs no LeRobot
+    import fake_bus
+    import real_arm
+    arm = real_arm.RealArm(fake_bus.make(sim, tempfile.mkdtemp(prefix="fake_bus_")), app=sim.app, pace=pace)
+    arm.enable(confirm=True)
+    return arm
