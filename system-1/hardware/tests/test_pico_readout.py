@@ -5,9 +5,11 @@ import sys
 import threading
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+HARDWARE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path[:0] = [HARDWARE, os.path.join(os.path.dirname(HARDWARE), "core")]
 
 import pico_readout  # noqa: E402
+from rig import SafetyStop  # noqa: E402
 
 
 def test_pico_readout_follows_the_device_and_logs_presses():
@@ -39,14 +41,14 @@ def test_pico_readout_follows_the_device_and_logs_presses():
     try:
         r.events
         raise AssertionError("a quiet Pico's events should raise")
-    except RuntimeError:
+    except SafetyStop:
         pass
     pico[0].close()  # unplugged: the thread stops, and readings, which never go stale, raise with the reason
     r._thread.join(1)
     try:
         r.readings
         raise AssertionError("an unplugged Pico's readings should raise")
-    except RuntimeError as e:
+    except SafetyStop as e:
         assert "disconnected" in str(e), e
     r.close()
     assert not r._thread.is_alive() and not r.serial.is_open

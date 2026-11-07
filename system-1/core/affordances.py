@@ -850,7 +850,10 @@ def run_step(arm, parts, step, known=None, refine=None):
             if app.readings != before and verdict != "MISSED":
                 parts[i] = _moved(p, skill, params, g, plan, counted)
     except SafetyStop as e:
-        seq, _ = _changes(app, before, n_events)
+        try:
+            seq, _ = _changes(app, before, n_events)
+        except SafetyStop:  # the readout itself is what stopped (an unplugged Pico): back off without it
+            seq = {}
         result.update(verdict="ABORTED", reason=f"safety stop: {e}", readout_change=seq)
         trace = arm.force_log[log0:]
         arm.tare(False)

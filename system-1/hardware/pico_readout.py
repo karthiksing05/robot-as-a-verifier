@@ -11,14 +11,17 @@ lines and keeps what DeviceMCU keeps: readings, each channel's latest value, and
 time an int channel changes after its first line. Floats are continuous, like the sim's FAN, and log no events. time is
 the laptop's time.monotonic(), which nothing reads. Reading readings every tick costs nothing: the thread swaps in a new
 dict, so a reader never sees one half updated. Once the port fails, as it does when the Pico is unplugged, the thread
-stops and the next read of either raises with the port's error. events is read when a step starts and ends, and also
-raises once no line has come for STALE_S, so a crashed Pico stops the next step instead of failing every part.
+stops and the next read of either raises SafetyStop with the port's error, so a step mid-push backs the pad off as it
+would at the force cap. events is read when a step starts and ends, and also raises once no line has come for STALE_S,
+so a crashed Pico stops the next step instead of failing every part.
 """
 import json
 import threading
 import time
 
 import serial
+
+from rig import SafetyStop
 
 STALE_S = 2.0  # the Pico sends a line at least every 0.5 s; this long without one, it's gone
 
@@ -47,7 +50,8 @@ class PicoReadout:
         self._alive()
         quiet = time.monotonic() - self.last
         if quiet > STALE_S:
-            raise RuntimeError(f"no line from the Pico on {self.port} for {quiet:.1f} s: unplugged, or main.py stopped")
+            raise SafetyStop(f"device readout lost: no line from the Pico on {self.port} for {quiet:.1f} s: unplugged, "
+                             "or main.py stopped")
         return self._events
 
     def close(self):
@@ -58,7 +62,7 @@ class PicoReadout:
 
     def _alive(self):
         if self.error:
-            raise RuntimeError(f"the Pico on {self.port} stopped reading: {self.error}") from self.error
+            raise SafetyStop(f"device readout lost: Pico on {self.port} stopped reading: {self.error}") from self.error
 
     def _read(self):
         rest = b""
