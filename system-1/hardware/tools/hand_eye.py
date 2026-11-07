@@ -1,10 +1,11 @@
 """Hand-eye calibration of the wrist camera: where the camera really sits relative to the model's wrist_cam.
 
-It writes real_wrist.HAND_EYE, which real_wrist.WristCamera multiplies onto every frame's pose. Torque stays off the
-whole time: you pose the arm by hand, and at each pose the script reads the joints and takes a frame of the desk board.
+It shows the result and, if you type yes, writes real_wrist.HAND_EYE, which real_wrist.WristCamera multiplies onto
+every frame's pose. Torque stays off the whole time: you pose the arm by hand, and at each pose the script reads the
+joints and takes a frame of the desk board.
 
-    python tools/hand_eye.py COM5 CAL.json              # 20 views, then the solve and real_wrist.HAND_EYE
-    python tools/hand_eye.py COM5 CAL.json --views 30
+    python tools/hand_eye.py COM5 CAL.json              # 50 views, the solve, then asks before writing HAND_EYE
+    python tools/hand_eye.py COM5 CAL.json --views 70
 
 CAL.json is lerobot-calibrate's file. Run arm_check.py first: the joint mapping has to be right. The board is the desk
 board (vision.BOARD, which `tools/cam_check.py board` prints), left where it is fixed. At each pose, hold the arm still
@@ -14,11 +15,15 @@ deg toward each side and roll the wrist both ways. Views turned about one axis a
 Each view gives the model's wrist_cam pose, by forward kinematics of the joint readings, and the board's pose in the
 camera, by PnP. Park's method (OpenCV's calibrateHandEye, eye in hand) gives a first mount from those, and least
 squares then fits the mount and the board's pose to every corner seen. The encoders' 0.088 deg steps are what limit
-it, and they leave about 1.5 px of reprojection error in each view (sim/docs/real-arm.md has the sim's numbers).
+it, and they leave about 1.5 px of reprojection error in each view. More views, well spread, is what brings the error
+down: in the sim, 20 views left it 0.09 deg and 0.47 mm rms, 50 views 0.05 deg and 0.24 mm (sim/docs/real-arm.md).
+Solving again with each view left out in turn gives the result's expected error, and the script says when that is
+over TARGET.
 
 Hand-eye only fixes the mount. A joint offset that real_arm.OFFSET_RAD doesn't know moves the camera differently at
 each pose, so the mount can't absorb it, except wrist_roll's, which folds in. Such offsets show as views well over
-1.5 px and as the board found millimetres from vision.T_BASE_BOARD. shoulder_pan's shows only in the board's place.
+1.5 px and as the board found millimetres from vision.T_BASE_BOARD, which only means something if the printed board
+sits there to well under a millimetre. shoulder_pan's shows only in the board's place.
 """
 import argparse
 import json
@@ -40,6 +45,7 @@ from rig import TICK_RAD, _cv_pose  # noqa: E402
 MIN_CORNERS = 12   # of the board's 24
 READS = 5          # joint readings before the frame and again after it, averaged
 STILL_RAD = 2 * TICK_RAD  # the readings after the frame moved this far from those before: the arm moved
+TARGET = (0.1, 0.5)  # deg, mm: under the per-photo error that lost the scan (system-1/arm/camera/results.md)
 
 
 def fk(arm, q):
@@ -106,6 +112,18 @@ def solve(views, K):
     return X, T_board, np.array(rms)
 
 
+def expected_error(X, views, K):
+    """X's expected error (deg, mm), by the jackknife: X solved again with each view left out in turn. On the sim's
+    views it came within about 10% of the true rms error."""
+    d = []
+    for i in range(len(views)):
+        D = np.linalg.inv(X) @ solve(views[:i] + views[i + 1:], K)[0]
+        d.append(np.r_[cv2.Rodrigues(D[:3, :3])[0].ravel(), D[:3, 3]])
+    d = np.array(d)
+    var = (len(d) - 1) / len(d) * np.sum((d - d.mean(axis=0)) ** 2, axis=0)
+    return np.degrees(np.sqrt(var[:3].sum())), np.sqrt(var[3:].sum()) * 1000
+
+
 def _read(arm):
     arm.tick()  # torque off: this only reads the joints
     return arm.read_q()
@@ -133,20 +151,24 @@ def collect(arm, wrist, n, ask):
     return views
 
 
-def report(X, T_board, rms):
+def report(X, T_board, rms, err):
     print("Reprojection rms per view (px): " + " ".join(f"{e:.2f}" for e in rms))
     off = np.linalg.inv(vision.T_BASE_BOARD) @ T_board
     deg = lambda T: np.degrees(np.linalg.norm(cv2.Rodrigues(T[:3, :3])[0]))  # noqa: E731
     print(f"All views {np.sqrt(np.mean(rms ** 2)):.2f} px rms, worst {rms.max():.2f}. Mount: {deg(X):.2f} deg and "
           f"{np.linalg.norm(X[:3, 3]) * 1000:.1f} mm from the model's wrist_cam. Board: {deg(off):.2f} deg and "
           f"{np.linalg.norm(off[:3, 3]) * 1000:.1f} mm from vision.T_BASE_BOARD.")
+    print(f"Expected error of the mount: {err[0]:.3f} deg and {err[1]:.2f} mm.")
+    if err[0] > TARGET[0] or err[1] > TARGET[1]:
+        print(f"That is over the target of {TARGET[0]} deg and {TARGET[1]} mm, so this mount isn't good enough for "
+              f"the scan. Run again with more views, turned further apart.")
 
 
 def main(argv=None, bus=None, ask=input, camera=real_wrist.WristCamera):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("port", help="the follower's serial port, e.g. COM5")
     ap.add_argument("calibration", help="lerobot-calibrate's JSON file for this arm")
-    ap.add_argument("--views", type=int, default=20, help="how many poses (default 20)")
+    ap.add_argument("--views", type=int, default=50, help="how many poses (default 50)")
     ap.add_argument("--out", default=real_wrist.HAND_EYE, help="where to write the result (default real_wrist's)")
     args = ap.parse_args(argv)
     ask("Connecting turns torque off on every motor, and the arm goes limp. Support it, then press Enter: ")
@@ -157,7 +179,10 @@ def main(argv=None, bus=None, ask=input, camera=real_wrist.WristCamera):
         finally:
             wrist.close()
     X, T_board, rms = solve(views, wrist.K)
-    report(X, T_board, rms)
+    report(X, T_board, rms, expected_error(X, views, wrist.K))
+    if ask(f"Write this to {args.out}, for WristCamera to use? Type yes to save: ").strip().lower() != "yes":
+        print("Not saved.")
+        return X, views
     with open(args.out, "w") as f:
         json.dump({"T_hand_eye": X.tolist(), "T_base_board": T_board.tolist(), "rms_px": rms.tolist(),
                    "views": [{k: v[k].tolist() for k in ("q", "obj", "img")} for v in views]}, f)

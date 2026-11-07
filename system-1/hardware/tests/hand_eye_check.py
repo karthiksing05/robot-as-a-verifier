@@ -1,8 +1,9 @@
 """A one-off check of tools/hand_eye.py on the sim, about 2 minutes, so not in test_real_arm.py (whose
 test_hand_eye_solve_finds_a_moved_camera checks the solver alone). The sim's USB wrist camera, with its lens, noise and
 MJPEG, renders from a wrist_cam turned 1 deg and moved 2 mm. RealArm reads the joints through tests/fake_bus.py, as
-encoder steps, and hand_eye.main runs as it would on the real arm. The same views are then solved again with joint
-offsets added to the readings, as the arm would read them with real_arm.OFFSET_RAD wrong.
+encoder steps, and hand_eye.main runs as it would on the real arm, from 20 views as in real-arm.md. The same views
+are then solved again with joint offsets added to the readings, as the arm would read them with real_arm.OFFSET_RAD
+wrong.
 
     python tests/hand_eye_check.py         # from system-1/hardware
 """
@@ -79,7 +80,7 @@ def main():
             mujoco.mj_forward(sim.m, sim.d)
         return ""
     tmp = tempfile.mkdtemp()
-    X, views = hand_eye.main(["FAKE", "cal.json", "--out", os.path.join(tmp, "hand_eye.json")],
+    X, views = hand_eye.main(["FAKE", "cal.json", "--views", "20", "--out", os.path.join(tmp, "hand_eye.json")],
                              bus=fake_bus.make(sim, tmp), ask=ask, camera=lambda _: wrist)
     print("Found the mount to within %.3f deg and %.2f mm.\n" % off_by(X, T_MOUNT))
     held = board_poses(arm, wrist.K, sensors.USB_RES, 200, rng)

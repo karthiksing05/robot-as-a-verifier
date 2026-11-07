@@ -115,7 +115,10 @@ class WristCamera:
         self.cam = arm.m.camera("wrist_cam").id
         self.fk = mujoco.MjData(self.m)
         if T_hand_eye is None:
-            T_hand_eye = json.load(open(HAND_EYE))["T_hand_eye"] if os.path.exists(HAND_EYE) else np.eye(4)
+            found = os.path.exists(HAND_EYE)
+            T_hand_eye = json.load(open(HAND_EYE))["T_hand_eye"] if found else np.eye(4)
+            print(f"WristCamera: mount from {os.path.normpath(HAND_EYE)}" if found else
+                  f"WristCamera: no {os.path.normpath(HAND_EYE)}, so the mount is the model's")
         self.T_hand_eye = np.asarray(T_hand_eye, float)
         self.K, dist = load_calib(size[0], calib)
         self.maps = cv2.initUndistortRectifyMap(self.K, dist, None, self.K, tuple(size), cv2.CV_16SC2)

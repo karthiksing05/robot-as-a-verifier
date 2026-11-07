@@ -77,19 +77,28 @@ with real_arm.RealArm(real_arm.make_bus("COM5", CAL)) as arm:
 
 After the press, the terminal asks what changed on the device. Type `BTN1` if it responded, or press Enter if it didn't. That gives a PASS or a FAIL. To type a value rather than a press (`POWER 1`, `FAN 0.8`), declare the channel first in the `OperatorReadout(...)` line with where it starts. Sliders and dials need that.
 
-5. **The camera's mount.** Run `python tools/hand_eye.py COM5 CAL` with the wrist camera plugged in and the desk board in place. Torque stays off: you hold the arm at 20 poses over the board and press Enter at each. See [the next section](#the-wrist-cameras-mount).
+5. **The camera's mount.** Run `python tools/hand_eye.py COM5 CAL` with the wrist camera plugged in and the desk board in place. Torque stays off: you hold the arm at 50 poses over the board and press Enter at each. It shows the result and saves it only if you type `yes`. See [the next section](#the-wrist-cameras-mount).
 
 The sim's arm sits on a 140 mm post above the desk (`rig.TABLE_Z`), and the skills were only tested at that height. Mount the real arm the same way, or expect different reach.
 
 ## The wrist camera's mount
 
-Each wrist photo's pose is the model's `wrist_cam` by forward kinematics of the joint readings, times a fixed correction for where the camera really sits on the arm (`T_hand_eye`). Measuring that correction is called hand-eye calibration. `tools/hand_eye.py` measures it and writes `system-1/arm/camera/camera_out/hand_eye.json`, which `real_wrist.WristCamera` loads. Without the file the correction is identity.
+Each wrist photo's pose is the model's `wrist_cam` by forward kinematics of the joint readings, times a fixed correction for where the camera really sits on the arm (`T_hand_eye`). Measuring that correction is called hand-eye calibration. `tools/hand_eye.py` measures it and, once you have seen the result and typed `yes`, writes `system-1/arm/camera/camera_out/hand_eye.json`. `real_wrist.WristCamera` loads that file and prints that it did. Without the file the correction is identity.
 
 At each pose the script reads the joints five times before the frame and five times after, and averages them. If the two averages differ by over 2 encoder steps, the arm moved and it asks for that view again. It finds the board's pose in the camera with PnP. It then solves for the correction that keeps the board still across all views, first with Park's method, then with a least-squares fit to every board corner seen. On the sim's frames, Park's method alone was 0.15° and 1.5 mm off, because one view's PnP is only good to a few tenths of a degree. OpenCV's own `calibrateHandEye` would have done the first step, but opencv-contrib-python 5.0 doesn't include it.
 
-**In the sim** (`tests/hand_eye_check.py`, one run), the USB camera's render was moved 1° and 2 mm off the model's `wrist_cam`, and the joints were read through the fake bus as encoder steps. From 20 views, the tool found the move to within 0.07° and 0.6 mm. Given the exact joint angles instead, it finds it to 0.02° and 0.07 mm, so the encoders' 0.088° step is what limits it. Over 15 runs on synthetic corners, 20 views each with the joints read as steps, the median error was 0.07° and 0.3 mm, and the worst 0.17° and 0.6 mm. Views turned less (about 40° apart instead of 50°) nearly doubled those errors. The steps also leave each view about 1.5 px off.
+**In the sim** (`tests/hand_eye_check.py`, one run), the USB camera's render was moved 1° and 2 mm off the model's `wrist_cam`, and the joints were read through the fake bus as encoder steps. From 20 views, the tool found the move to within 0.07° and 0.6 mm. Given the exact joint angles instead, it finds it to 0.02° and 0.07 mm, so the encoders' 0.088° step is what limits it. The steps also leave each view about 1.5 px off. More views is the way around them. On synthetic corners with the joints read as steps, 30 runs for each count:
 
-The encoders' resolution alone also leaves each wrist photo's pose about 0.056° and 0.16 mm off (rms), calibrated or not. That is the "0.05°, 0.2 mm" row of [the camera bench's table](../../arm/camera/results.md), where the coins' height came out right in one run and one coin was lost in another. Expect to need `rgbperceive.adjust` on the real arm.
+| Views | Mount off by (rms) | Worst | Runs over 0.1° or 0.5 mm | Expected error, as the script reports it (median) |
+|---|---|---|---|---|
+| 20 | 0.087°, 0.47 mm | 0.18°, 1.2 mm | 14 of 30 | 0.095°, 0.42 mm |
+| 30 | 0.071°, 0.36 mm | 0.15°, 0.67 mm | 5 | 0.075°, 0.34 mm |
+| 40 | 0.063°, 0.28 mm | 0.12°, 0.62 mm | 2 | 0.060°, 0.29 mm |
+| 50 | 0.051°, 0.24 mm | 0.09°, 0.45 mm | 0 | 0.053°, 0.24 mm |
+
+The target is 0.1° and 0.5 mm, the error per photo at which the bench's scan lost the coins, so the default is 50 views. The script estimates its own result's error by solving again with each view left out in turn. That estimate came within about 10% of the true rms, and the script says plainly when it is over the target. Views turned less (about 40° apart instead of 50°) nearly doubled the errors, so spread the poses.
+
+The encoders' resolution alone also leaves each wrist photo's pose about 0.056° and 0.16 mm off (rms), calibrated or not. That is the "0.05°, 0.2 mm" row of [the camera bench's table](../../arm/camera/results.md), where the coins' height came out right in one run and one coin was lost in another. That figure counts encoder rounding only, as with torque off. With torque on, as in a scan, a holding servo's reading flickers about 0.95 steps (1 sigma, the bench's figure, unmeasured on this arm). From one reading per photo, as `WristCamera` takes, the pose is then about 0.2° and 0.54 mm off, past the "0.1°, 0.5 mm" row where the scan was lost. Expect to need `rgbperceive.adjust` on the real arm.
 
 **Joint offsets.** Hand-eye can only correct the camera's mount. A joint offset that `real_arm.OFFSET_RAD` doesn't know moves the camera differently at each pose, so the correction can't absorb it. The same 20 views, solved again with offsets added to the readings:
 
@@ -102,7 +111,7 @@ The encoders' resolution alone also leaves each wrist photo's pose about 0.056°
 | elbow_flex +2° | 0.58°, 2.9 mm | 10.1 px | 1.33°, 9.2 mm | 2.4°, 3.5 mm |
 | all five, random within ±2° | 1.65°, 2.5 mm | 3.8 px | 1.65°, 9.0 mm | 1.8°, 6.1 mm |
 
-"Board off by" is where the views put the board, against where `vision.T_BASE_BOARD` says it is fixed. Only `wrist_roll`'s offset folds into the mount, because nothing moves between that joint and the camera. `shoulder_pan`'s turns the whole arm frame. It leaves the mount and reprojection alone, so only the board's place shows it. The others pass almost whole into every photo's pose. They show as reprojection errors over about 2 px and as the board several millimetres away. Offsets can partly cancel, as in the last row, so check the board's place as well as the reprojection error. Fix them with `arm_check.py` first, then run `hand_eye.py` again. The script saves each view's joint readings and corners in the file, so a later fit could solve for the offsets from the same views. Nothing does that yet.
+"Board off by" is where the views put the board, against where `vision.T_BASE_BOARD` says it is fixed. Only `wrist_roll`'s offset folds into the mount, because nothing moves between that joint and the camera. `shoulder_pan`'s turns the whole arm frame. It leaves the mount and reprojection alone, so only the board's place shows it. The others pass almost whole into every photo's pose. They show as reprojection errors over about 2 px and as the board several millimetres away. Offsets can partly cancel, as in the last row, so check the board's place as well as the reprojection error. That check only works if the printed board sits where `vision.T_BASE_BOARD` says to well under a millimetre: a board placed 2 mm off looks like a joint offset. Fix offsets with `arm_check.py` first, then run `hand_eye.py` again. The script saves each view's joint readings and corners in the file, so a later fit could solve for the offsets from the same views. Nothing does that yet.
 
 ## Safety
 
