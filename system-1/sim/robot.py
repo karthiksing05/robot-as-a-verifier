@@ -1,7 +1,6 @@
-"""SO-101 in MuJoCo: IK, a safety layer, and the same calls a real-arm backend would expose.
+"""SO-101 in MuJoCo: a safety layer, and the calls the pipeline makes on an arm (rig.Arm).
 
-Skills only use: read_q(), send(q), tick(), tip_force(), tip_pose(). A LeRobot
-backend that implements those five calls can run the same skills on hardware.
+real_arm.RealArm answers the same calls on hardware. The IK and the shared constants are in rig.py.
 """
 import copy
 import os

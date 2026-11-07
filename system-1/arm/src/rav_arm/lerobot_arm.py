@@ -1,7 +1,7 @@
-"""SUPERSEDED: the real-arm backend is system-1/sim/real_arm.py (RealArm), which reuses robot.py's IK and force estimate.
-This skeleton stays as the interface notes it was written as.
+"""SUPERSEDED: the real-arm backend is system-1/hardware/real_arm.py (RealArm), which shares the sim's IK through
+system-1/core/rig.py. This skeleton stays as the interface notes it was written as.
 
-The real SO-101 behind the interface system-1/sim's skills already use.
+The real SO-101 behind the interface system-1/core's skills already use.
 
 Kanban: "LeRobot arm backend". Implementing this lets affordances.py, skills.py and touch.py run on the real
 arm unchanged. Method meanings are in the SimArm docstring (system-1/sim/robot.py). All values are SI: metres,
@@ -27,7 +27,7 @@ class LeRobotArm:
         self.port, self.pad_port, self.readout_port = port, pad_port, readout_port
 
     def _todo(self):
-        raise NotImplementedError("LeRobotArm is superseded: use RealArm in system-1/sim/real_arm.py")
+        raise NotImplementedError("LeRobotArm is superseded: use RealArm in system-1/hardware/real_arm.py")
 
     def read_q(self):
         """Joint angles (rad) as believed, from lerobot's SO follower."""

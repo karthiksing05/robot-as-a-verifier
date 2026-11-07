@@ -1,7 +1,7 @@
 """The real wrist camera, an Innomaker U20CAM-1080P, with sensors.WristCamera(usb=True)'s interface.
 
     wrist = WristCamera(arm)        # arm: real_arm.RealArm or robot.SimArm (anything with m, qadr and read_q())
-    frame = wrist.capture()         # sensors.Frame: undistorted BGR, depth None, K, T_base_cam
+    frame = wrist.capture()         # rig.Frame: undistorted BGR, depth None, K, T_base_cam
     wrist.close()
 
 Frames come through ffmpeg's DirectShow input, by the camera's name, as the module's own MJPEG at 30 fps. That makes
