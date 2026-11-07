@@ -4,6 +4,8 @@
     uv sync --extra sim
     uv run rav-server --robot sim --depth          # the sim, D405 route: no model downloads
     RAV_TOKEN=... uv run rav-server --robot sim --host 0.0.0.0     # System 2 on another laptop
+    uv sync --extra sim --extra arm
+    uv run rav-server --robot real --arm-port COM5 --calibration makecu.json   # asks before torque goes on
 """
 from __future__ import annotations
 
@@ -36,12 +38,43 @@ class RequireToken:
         await self.app(scope, receive, send)
 
 
+class Server(uvicorn.Server):
+    """Ctrl+C stops the routine at its next step first. uvicorn then waits for open requests, and a routine_wait can hold
+    one for a minute while the arm goes on moving."""
+
+    def __init__(self, config, engine):
+        super().__init__(config)
+        self.engine = engine
+
+    def handle_exit(self, sig, frame):
+        if (r := self.engine.active) is not None:
+            self.engine.stop(r.id)
+        super().handle_exit(sig, frame)
+
+
 def make_robot(args):
     if args.robot == "mock":
         from .mock_robot import MockRobot
         return lambda: MockRobot()
+    if args.robot == "real":  # built once, here on the main thread, so that main can ask before torque goes on
+        from .real_backend import RealBackend
+        robot = RealBackend(args.arm_port, args.calibration, refine=not args.no_refine)
+        return lambda: robot
     from .sim_backend import SimBackend  # imports MuJoCo and torch
     return lambda: SimBackend(seed=args.seed, sensing=args.sensing, depth=args.depth, refine=not args.no_refine)
+
+
+def enable_torque(robot, confirmed: bool) -> None:
+    """The real arm's gate: say what torque on means, then turn it on only on a yes, or with --enable-torque."""
+    print(f"{robot.rig.name}: torque goes on next, and the five arm joints hold where they are. System 2 can then start "
+          "routines that move the arm, and after each test motion this terminal asks what changed on the device. "
+          "Ctrl+C stops the server once the current step ends and turns torque off: the arm goes limp and falls, so "
+          "support it first. In an emergency, switch off the arm's power.")
+    if confirmed:
+        print("--enable-torque: not asking")
+    elif input("Type yes to turn torque on: ").strip().lower() != "yes":
+        raise SystemExit("torque stays off, so the server won't start")
+    robot.arm.enable(confirm=True)
 
 
 def build_app(engine: RoutineEngine, host: str, token: str | None):
@@ -57,18 +90,32 @@ def build_app(engine: RoutineEngine, host: str, token: str | None):
 
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(prog="rav-server", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--robot", default="mock", choices=["mock", "sim"])
+    ap.add_argument("--robot", default="mock", choices=["mock", "sim", "real"])
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8780)
     ap.add_argument("--seed", type=int, default=None, help="generated device (default: preset C)")
     ap.add_argument("--sensing", default="tactile", choices=["tactile", "loadcell", "current", "perfect"])
     ap.add_argument("--depth", action="store_true", help="the D405 pipeline: no OWLv2 or SAM download")
     ap.add_argument("--no-refine", action="store_true")
+    ap.add_argument("--arm-port", help="real: the servo bus's serial port, such as COM5")
+    ap.add_argument("--calibration", help="real: the file lerobot-calibrate wrote for the arm")
+    ap.add_argument("--enable-torque", action="store_true", help="real: turn torque on at startup without asking")
     args = ap.parse_args(argv)
-    engine = RoutineEngine(make_robot(args), robot_name=args.robot)
-    app = build_app(engine, args.host, os.environ.get("RAV_TOKEN"))
-    print(f"System 1 ({args.robot}) waiting on http://{args.host}:{args.port}/mcp")
-    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    if args.robot == "real" and (args.depth or not (args.arm_port and args.calibration)):
+        ap.error("--robot real needs --arm-port and --calibration, and has no depth camera for --depth")
+    make = make_robot(args)
+    real = make() if args.robot == "real" else None  # the backend make_robot built, torque still off
+    engine = RoutineEngine(make, robot_name=args.robot)
+    try:
+        app = build_app(engine, args.host, os.environ.get("RAV_TOKEN"))
+        if real:
+            enable_torque(real, args.enable_torque)
+        print(f"System 1 ({args.robot}) waiting on http://{args.host}:{args.port}/mcp")
+        Server(uvicorn.Config(app, host=args.host, port=args.port, log_level="warning"), engine).run()
+    finally:
+        engine.shutdown()  # the worker closes the robot once the routine stops
+        if real:
+            real.close()  # torque off even if no routine ran, or the worker is stuck
 
 
 if __name__ == "__main__":

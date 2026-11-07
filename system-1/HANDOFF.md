@@ -8,7 +8,7 @@ System 1's code is now three folders of flat modules. `core/` is the pipeline: p
 
 The server now shares two of explore.py's rules. Each touch falls back on its own, so a failed part touch keeps a good touched plane. A last look that raises leaves the part as scanned and the step goes on, where before the routine stopped with a `safety_abort`.
 
-A `--robot real` backend would be `PipelineRobot` over `hw_rig.make_rig`, with its own flag for the serial port, such as `--arm-port` (`--port` is the HTTP port). Before it's useful it needs:
+`rav-server --robot real --arm-port COM5 --calibration <file>` runs `PipelineRobot` over `hw_rig.make_rig`. It asks at the terminal before torque goes on, and has only run against the fake bus. Before it's useful it needs:
 
 - A streaming device readout instead of `OperatorReadout`. That one asks the operator once a step ends, but `affordances` reads `arm.app.readings` during a slide or turn.
 - A hand-eye calibration. Wrist poses from forward kinematics are good to about a degree, and the plane sweep needs about 0.1°.
