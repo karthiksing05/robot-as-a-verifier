@@ -4,7 +4,7 @@ system-1/core/rig.py. This skeleton stays as the interface notes it was written 
 The real SO-101 behind the interface system-1/core's skills already use.
 
 Kanban: "LeRobot arm backend". Implementing this lets affordances.py, skills.py and touch.py run on the real
-arm unchanged. Method meanings are in the SimArm docstring (system-1/sim/robot.py). All values are SI: metres,
+arm unchanged. Method meanings are in rig.Arm (system-1/core/rig.py). All values are SI: metres,
 radians, newtons.
 
 Besides these methods, the sim's code reads:
@@ -12,7 +12,7 @@ Besides these methods, the sim's code reads:
   arm.app                    the device readout (.readings, .events). On the printed appliance this is the
                              ground-truth Pico (system-1/subjects/appliance/firmware), read over serial.
   arm.ik, arm.noise_n, arm.noise_axial, arm.axial_sensor, arm.on_tick
-robot.IK solves on the MuJoCo model, so the real arm can reuse it for IK: no placo (docs/decisions.md D6).
+rig.IK solves on the MuJoCo model, so the real arm can reuse it for IK: no placo (docs/decisions.md D6).
 Keep LeRobot's max_relative_target on, and lower the servo torque limit during contact moves.
 """
 from __future__ import annotations

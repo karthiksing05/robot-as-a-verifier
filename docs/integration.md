@@ -4,7 +4,7 @@ How the sim, the harness, the real arm, the CAD step and the Console connect. Co
 
 ## Joseph's sim and the server
 
-The sim keeps its own flat modules. [`sim_backend.py`](../system-1/server/src/rav_server/sim_backend.py) calls the same functions `explore.py` does, without the film, and converts the results. The server's engine drives it, so the harness reaches the sim only through [the tools](system-boundary.md). Nothing in `system-1/sim` imports the server.
+System 1's code is flat modules in `core/`, `sim/` and `hardware/`. [`sim_backend.py`](../system-1/server/src/rav_server/sim_backend.py) runs `core/pipeline.py`, the stages `explore.py` films, on the sim's rig, and converts the results. The server's engine drives it, so the harness reaches the sim only through [the tools](system-boundary.md). Nothing in `system-1/sim` imports the server.
 
 | Harness tool (mockup and Doc) | Sim function | State |
 |---|---|---|

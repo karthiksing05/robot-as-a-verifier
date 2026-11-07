@@ -41,7 +41,7 @@ How sure each part is:
 
 ## Install
 
-From the repo root:
+From `system-1/`:
 
 ```bash
 uv sync --extra sim --extra arm
@@ -49,7 +49,7 @@ uv sync --extra sim --extra arm
 
 That installs the sim and LeRobot 0.7.0 together. The backend needs LeRobot 0.7 or later: from 0.7 its `SerialMotorsBus` talks to the servos through rustypot, the same bus class the bring-up scripts in `system-1/arm/bringup/` use. LeRobot 0.6 used a different Feetech bus, and the backend won't run on it. The tests in this repo were run against both LeRobot 0.7.0 from PyPI and the team's 0.7.1 checkout.
 
-The workspace keeps only `opencv-contrib-python` (see the root `pyproject.toml`), because LeRobot's own OpenCV package would overwrite the `cv2` module and lose the ChArUco code the sim needs.
+The workspace keeps only `opencv-contrib-python` (see `system-1/pyproject.toml`), because LeRobot's own OpenCV package would overwrite the `cv2` module and lose the ChArUco code the sim needs.
 
 ## First run
 
