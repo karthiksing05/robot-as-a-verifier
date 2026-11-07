@@ -46,8 +46,9 @@ OFFSET_RAD = np.radians([0.0, 0.0, 0.0, 0.0, 0.0])
 # steps short (system-1/arm/bringup/results.md).
 SERVO_P = 160
 # Servo stiffness the force estimate assumes (N.m/rad). The sim's 36 is fitted to a bench test at an unstated P gain,
-# and the stiffness at SERVO_P is unmeasured. 36 errs safe: on softer servos the estimate reads high and the hard cap
-# trips early, never late. Measure it with system-1/arm/bringup/stiffness_test.py and put the result here.
+# and the stiffness at SERVO_P is unmeasured. On softer servos the estimate reads high and drifts with the pose (slides
+# miss, the cap trips with nothing touching); on stiffer ones it reads low and the cap trips late (sim/docs/real-arm.md,
+# Servo numbers). Measure it with system-1/arm/bringup/stiffness_test.py and put the result here before any test step.
 SERVO_NM_PER_RAD = 36.0
 MOTOR_IDS = {"shoulder_pan": 1, "shoulder_lift": 2, "elbow_flex": 3, "wrist_flex": 4, "wrist_roll": 5, "gripper": 6}
 

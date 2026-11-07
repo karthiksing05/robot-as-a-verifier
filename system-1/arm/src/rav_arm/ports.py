@@ -6,7 +6,8 @@ from typing import Any, Protocol, runtime_checkable
 
 @runtime_checkable
 class ArmBackend(Protocol):
-    """What system-1/sim's skills call on an arm: robot.SimArm's interface, SI units.
+    """What system-1/core's skills call on an arm: robot.SimArm's interface, SI units.
+    Superseded by rig.Arm in system-1/core/rig.py.
 
     A real arm implements this so that affordances.py, skills.py and touch.py run on it unchanged.
     system-1/arm/src/rav_arm/lerobot_arm.py is the skeleton. The sim also reads arm.d.time (the clock)

@@ -1,6 +1,7 @@
 """A stand-in for rustypot's serial bus, backed by a SimArm, under LeRobot's real SerialMotorsBus: real_arm runs with no
 hardware and no serial port. A Goal_Position write moves the simulated arm one control tick (while torque is on); a
-Present_Position read is the sim's encoder reading, with its jitter, in raw steps through real_arm.to_raw.
+Present_Position read is the sim's encoder reading, with its jitter, in raw steps through real_arm.to_raw. FakePad is
+the sim's fingertip pad, with sensing="tactile", as RealArm's pad.
 
     sim = robot.SimArm(world=world.build_world(None), slop=True, sensing="current")
     bus = fake_bus.make(sim, tmp_dir)       # a SerialMotorsBus whose port opens FakeServos
@@ -100,3 +101,18 @@ class FakeServos:
             s.app.update(s.m, s.d)
         self.collisions.update(s.collisions())
         self.peak_true_n = max(self.peak_true_n, float(np.linalg.norm(s.contact_force_vec())))
+        if s.on_tick:  # explore.py's film draws from here, as SimArm.tick would call it
+            s.on_tick(s)
+
+
+class FakePad:
+    """RealArm's pad from a SimArm(sensing="tactile"): read() is the pad reading the sim took in the tick FakeServos
+    last ran (SimArm._pad: the force pressing into the face in N, with the film's noise and threshold)."""
+
+    noise_n = robot.PAD_NOISE_N
+
+    def __init__(self, sim):
+        self.sim = sim
+
+    def read(self):
+        return self.sim.pad_n

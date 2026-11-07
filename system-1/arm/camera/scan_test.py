@@ -33,7 +33,7 @@ HEIGHTS = np.arange(-1.0, 35.01, 0.5)   # mm above the board image: the remote i
 RAISED_MM = 0.5                        # a part standing this far above the surface around it is raised
 TAG = "_720" if "--720" in sys.argv else ""   # --720: shrink the photos to 1280x720 first, to compare with 1080p
 ORTHO_MM_PX = 0.1                      # the straight-on picture's resolution: fine enough for SAM to find small buttons
-sys.path.insert(0, ct.SIM)  # segmodels.py
+sys.path.insert(0, ct.CORE)  # segmodels.py
 
 
 def orthophoto(frames_bgr, poses, K, dist, h_mm, region, mm_px):

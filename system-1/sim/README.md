@@ -44,11 +44,11 @@ There are four outcomes:
 
 | Setup | Tests passed | Devices where every test passed |
 |---|---|---|
-| Team's setup, with the bench-measured camera and servos (Nov 7) | **110 of 115 (96%)** | 13 of 16 |
+| Team's setup, with the bench-measured camera and servos (Nov 7) | **124 of 124 (100%)** | 16 of 16 |
 | Team's setup, earlier camera and servo model | 119 of 122 (98%) | 14 of 16 |
 | Earlier model with ±2° joint calibration error | 104 of 109 (95%) | 12 of 16 |
 
-There were no FAILs and no crashes. Buttons and doors never missed. Toggles are the hardest kind: on the new model they passed 13 of 18, and on one device (1660) the scan found no parts at all. [All results](docs/results.md)
+There were no FAILs and no crashes. Buttons and doors never missed. Toggles were the hardest kind, and pass 20 of 20 since the Nov 7 toggle fix. One device, 1660, is flaky: in three of four runs the scan found none of its parts. [All results](docs/results.md)
 
 Read those numbers with four limits in mind:
 - They count only the parts the robot found and attempted. A part it couldn't recognise is skipped and doesn't appear in the count. With calibration error it found 101 parts instead of 109, which is most of why that row has fewer tests.
@@ -113,5 +113,6 @@ PYTHONUTF8=1 .venv/Scripts/python tools/bench.py runs/bench.jsonl slop18 1650 --
 | `--offsets DEG` | Joint calibration error up to ±DEG on every joint (default: random errors with a standard deviation of 0.5° on the four joints that position the probe) |
 | `--no-refine` | Skip the camera's last look before each test |
 | `--depth [--stereo]` | The earlier version of the pipeline, which used a depth camera on the wrist instead of the USB camera |
+| `--real-driver` | The real arm's driver, `RealArm`, drives the sim through a simulated motor bus (needs `--slop`, `--sensing current` or `tactile`, and LeRobot; see [the real arm](docs/real-arm.md#tests)) |
 
 Without `--sensing`, the arm reads the exact simulated contact force (`--sensing perfect`). That's handy for development, but no real sensor works like that (see [Force sensing](docs/sensing.md)).

@@ -4,7 +4,7 @@
 
 All numbers are from the simulation; nothing has run on hardware yet (see [Sim vs real](sim-vs-real.md)). The headline is the team's setup: the USB camera, servos as soft as the team's (18 N·m/rad), and the SensX 25 pad.
 
-**Nov 7: the sim now uses the bench-measured camera and servos, and surveys with the wrist camera instead of the iPhone.** The team's setup was rerun on the new model on the same 16 devices; its rows are marked "new model". Every other number on this page is from the earlier model (a 1280x720 camera from the datasheet, guessed servo numbers, an iPhone survey) and wasn't rerun.
+**Nov 7: the sim now uses the bench-measured camera and servos, and surveys with the wrist camera instead of the iPhone.** The team's setup was rerun on the new model on the same 16 devices, before and after a fix to how the scan reads a toggle; its rows are marked "new model". Every other number on this page is from the earlier model (a 1280x720 camera from the datasheet, guessed servo numbers, an iPhone survey) and wasn't rerun.
 
 ## Headline: end to end on devices nobody had seen
 
@@ -12,7 +12,8 @@ The whole pipeline, from survey to report, on preset device C and 15 generated d
 
 | Setup | Tests attempted | Passed | Failed | Missed | Devices with every test passed |
 |---|---|---|---|---|---|
-| **Team's setup, new model** | 115 | **110 (96%)** | 0 | 5 | 13 of 16 |
+| **Team's setup, new model** | 124 | **124 (100%)** | 0 | 0 | 16 of 16 |
+| Same, before the toggle fix | 115 | 110 (96%) | 0 | 5 | 13 of 16 |
 | Team's setup: soft servos + SensX pad | 122 | 119 (98%) | 0 | 3 | 14 of 16 |
 | Same arm, load cell instead of the pad | 122 | 120 (98%) | 0 | 2 | 14 of 16 |
 | Same arm, servo current only | 122 | 116 (95%) | 0 | 6 | 11 of 16 |
@@ -21,7 +22,7 @@ The whole pipeline, from survey to report, on preset device C and 15 generated d
 
 "Attempted" leaves out tests the planner refused before moving. Those were all knobs, which need a pinch grip: 3 or 4 per setup. It also leaves out parts the robot never found, because a part it can't recognise gets no test at all. That's why the ±2° row is smaller: with calibration error the robot found 101 parts on these 16 devices, against 109 in the team's setup. The ideal sensor's arm has no gearbox friction model ([why](sensing.md#ideal-3d-sensor-default)), so its scans and plans differ slightly too.
 
-On the new model the team's setup found 102 parts against 109. Nearly all of the gap is device 1660, where it found none (see [what it still misses](#what-the-teams-setup-still-misses)). Elsewhere it found a slider on 1653 and 1663 and a door on 1661 that the earlier model missed, and missed a toggle on 1659 and a door on 1662 that the earlier model found.
+On the new model the team's setup found 110 parts, against 109 on the earlier model. Device 1660 is flaky: in three of four runs it found none of its 8 parts (see [what it still misses](#what-the-teams-setup-still-misses)), and the run in the table found them all. Elsewhere the new model found a slider on 1653 and 1663 and a door on 1661 that the earlier model missed.
 
 The earlier-model numbers include all three overnight fixes. The last one (installed Nov 6, 03:16) only changes lever pushes in the three sensing modes, so for it the 11 devices with toggles were rerun on the installed code; runs on the other devices, and with the ideal sensor, are unchanged by it.
 
@@ -31,29 +32,30 @@ No test anywhere came back FAIL. A FAIL here would have meant the robot reported
 
 | Setup | Buttons | Toggles | Sliders | Dials | Doors |
 |---|---|---|---|---|---|
-| **Team's setup, new model** | 41/41 | **13/18** | 20/20 | 22/22 | 14/14 |
+| **Team's setup, new model** | 45/45 | **20/20** | 22/22 | 22/22 | 15/15 |
 | Team's setup | 45/45 | 21/22 | 17/18 | 21/22 | 15/15 |
 | Load cell | 45/45 | 21/22 | 18/18 | 21/22 | 15/15 |
 | Servo current only | 45/45 | 20/22 | 17/18 | 19/22 | 15/15 |
 | Ideal sensor | 45/45 | 16/18 | 20/20 | 20/20 | 14/14 |
 | Team's setup, ±2° error | 44/44 | 13/16 | 16/16 | 16/18 | 15/15 |
 
-Buttons and doors never missed. Toggles were the weakest kind before the Nov 5-6 fixes, and on the new model they are again: every miss in the team's setup is a toggle flip. The "Dials" column counts dial turns only, since every knob turn was refused.
+Buttons and doors never missed. Toggles were the weakest kind before the Nov 5-6 fixes, and on the new model they were again until the toggle fix below: all five misses were toggle flips. The "Dials" column counts dial turns only, since every knob turn was refused.
 
 ### What the team's setup still misses
 
-On the new model:
+On the new model, nothing, apart from one flaky device:
 
-| Device | Test | What happened | Notes |
-|---|---|---|---|
-| 1660 | Every part | The survey found the panel (tilted 50°, true 49°), but segmenting the scan gave 1 outline from OWLv2's 20 boxes, and that outline fitted no kind of control. The robot planned 0 tests | The earlier model found all 8 parts here and passed 9 of 9. Not investigated yet |
-| 1654 | Both toggle flips | "The force let go before the push ended: the pad slipped off the lever" | The scan underestimates how far this lever leans (the lever's tip is taken from its highest height readings, and stray readings pull it toward the pivot), so both flips are aimed short. The earlier model missed one of the two |
-| 1656 | Both toggle flips | "The lever still pushed back (3.2 N) when the push ran out, so it never went over centre" | Passed on the earlier model. Not investigated yet |
-| 1664 | The toggle flip | The same: the lever still pushed back (4.0 N) when the push ran out | Passed on the earlier model. The slide and the dial turn the earlier model missed here now pass |
+| Device | What happened | Notes |
+|---|---|---|
+| 1660 | In three of four benchmark runs the robot found no parts and planned no tests. The survey found the panel (tilted 50°, true 49°), but segmenting the scan gave 1 outline from OWLv2's 20 boxes, and that outline fitted no kind of control | The fourth run, and four runs outside the benchmark, found all 8 parts and passed 9 of 9. Runs aren't exactly repeatable (see below), and on this device a small difference in the frames tips segmentation over. Cause not found |
+
+### The toggle fix
+
+Before it, the new model missed both flips on 1654 and 1656 and one on 1664. The scan read the lever wrong, so the push was planned short or at an angle before the arm moved. On 1656 the panel just past the lever's tip read at the base's height, stretching the base's outline toward the tip, so the hinge, taken as the outline's middle, landed under the tip. On 1664 the base is nearly square, so the axis taken from its outline came out 18° off the lever's swing. The fix trims the base's outline to the lever's far side before finding the hinge and the axis. A trace of 1654 then showed the push's let-go check arming about 1 mm early, at the centre the scanned lean predicts, so the check now waits until 5° past it. Several flips still cross centre only in the push's last few ticks, so the margin is thin.
 
 ### How long a test takes
 
-On the development laptop (an RTX 4050 laptop GPU), the earlier model took about 2 minutes of computing per device from survey to report, about 48 s of it in processing the camera scan (image models, stitching and the height sweep). The new model's 1080p frames make that about 2.5 to 3 minutes, with two devices running at once (the last two runs took 46 minutes each, for a reason not looked into, and are left out). In simulated robot time a full run is 4 to 8 minutes. Soft servos and sensing slow the arm's moves near contact.
+On the development laptop (an RTX 4050 laptop GPU), the earlier model took about 2 minutes of computing per device from survey to report, about 48 s of it in processing the camera scan (image models, stitching and the height sweep). The new model's 1080p frames make that about 2.5 to 5 minutes, with two devices running at once, depending on what else the laptop is running. In simulated robot time a full run is 4 to 8 minutes. Soft servos and sensing slow the arm's moves near contact.
 
 ## Before and after the Nov 5-6 fixes
 
@@ -105,7 +107,7 @@ There were no FAILs, no safety stops, and the largest force held for 20 ms was 1
 - In the sim, verdicts come from each device's simulated microcontroller. A real product would need its state read some other way, for example from its display.
 - The pad's and load cell's noise and calibration figures are assumptions. A bench test with known weights would replace them.
 - The servo stiffness is uncertain. The skills matrix covers both 18 and 36 N·m/rad, but the end-to-end benchmark ran at 18 only.
-- There was one run per device and setup. The sim is deterministic, so a rerun gives the same answer, but 16 devices is a small sample: one device more or less moves a percentage by several points.
+- There was one run per device and setup, and runs aren't exactly repeatable: two identical runs of a device can give slightly different camera frames. The renderer, the random generators and the generated asset files each repeat exactly, so the cause is still unknown. Usually it changes nothing, but on 1660 it decides whether the robot finds the device's parts. And 16 devices is a small sample: one device more or less moves a percentage by several points.
 
 ## Reproduce
 
@@ -114,6 +116,6 @@ cd system-1/sim
 PYTHONUTF8=1 python tools/bench.py runs/bench.jsonl slop18 1650 --sensing tactile
 ```
 
-The new model's results are in [`data/bench_nov7_team.jsonl`](data/bench_nov7_team.jsonl), measured at commit `56e7895`. Since then main has changed only docstrings and the real-camera driver, which the sim doesn't run. The earlier model's raw results are in [`data/bench_final.jsonl`](data/bench_final.jsonl), with the md5 of every code file they were measured on in [`data/bench_final_code_md5.txt`](data/bench_final_code_md5.txt). The "before" run is [`data/bench_before_night_fixes.jsonl`](data/bench_before_night_fixes.jsonl). Each line holds one device's full step list with every verdict and reason.
+The new model's results are in [`data/bench_nov7_toggle.jsonl`](data/bench_nov7_toggle.jsonl), measured with the toggle fix on robot-as-a-verifier's first commit, and before the fix in [`data/bench_nov7_team.jsonl`](data/bench_nov7_team.jsonl). The core/sim/hardware split gave the same step list, verdict and reason on all 16 devices as the code before it. The earlier model's raw results are in [`data/bench_final.jsonl`](data/bench_final.jsonl), with the md5 of every code file they were measured on in [`data/bench_final_code_md5.txt`](data/bench_final_code_md5.txt). The "before" run is [`data/bench_before_night_fixes.jsonl`](data/bench_before_night_fixes.jsonl). Each line holds one device's full step list with every verdict and reason.
 
 Next: [Force sensing](sensing.md) · [How we got here](iteration-history.md) · [Sim vs real](sim-vs-real.md)
