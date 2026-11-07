@@ -8,7 +8,8 @@ joints and takes a frame of the desk board.
     python tools/hand_eye.py COM5 CAL.json --views 40
 
 CAL.json is lerobot-calibrate's file. Run arm_check.py first: the joint mapping has to be right. The board is the desk
-board (vision.BOARD, which `tools/cam_check.py board` prints), left where it is fixed. At each pose, hold the arm still
+board (vision.BOARD, which `tools/cam_check.py board` prints, or arm/camera/hand_eye_board_tab_s9fe.png full screen on
+the Galaxy Tab S9 FE), left where it is fixed. At each pose, hold the arm still
 with at least half the board in the frame from 15 to 25 cm, and press Enter. Spread the poses: tilt the camera 20 to 30
 deg toward each side and roll the wrist both ways. Views turned about one axis alone leave the mount undetermined.
 
