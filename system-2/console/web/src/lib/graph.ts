@@ -31,6 +31,15 @@ export interface PlacedNode extends GraphNode {
 
 const GLYPH: Record<string, string> = { passed: "✓", failed: "✕", observed: "◐", skipped: "⊘", inconclusive: "?" };
 
+/** A retest runs the same step id again, and each attempt needs its own node: s2, then s2-2. */
+export function stepNodeId(run: Run, index: number): string {
+  const id = run.steps[index].step.id;
+  const attempt = run.steps.slice(0, index + 1).filter((s) => s.step.id === id).length;
+  return attempt === 1 ? id : `${id}-${attempt}`;
+}
+
+export const recordOfNode = (run: Run, node: string) => run.steps.find((_, i) => stepNodeId(run, i) === node);
+
 function logNodes(run: Run, next: Run | undefined): GraphNode[] {
   const nodes: GraphNode[] = [];
   const flags: string[] = [];
@@ -40,11 +49,11 @@ function logNodes(run: Run, next: Run | undefined): GraphNode[] {
   const planApproval = run.approvals.find((a) => a.kind === "plan");
   add({ id: "plan", kind: "plan", title: "Plan", sub: planApproval ? `by ${planApproval.by}` : "not approved", provenance: "log", parents: ["scene"], seq: planApproval?.seq });
   let previous = "plan";
-  for (const s of run.steps) {
-    const status = s.verdict?.status;
-    add({ id: s.step.id, kind: "step", title: `${s.step.id} ${status ? GLYPH[status] : ""}`.trim(), sub: s.step.target, provenance: "log", parents: [previous], status, seq: s.endSeq ?? s.startSeq, target: s.step.target });
-    previous = s.step.id;
-  }
+  run.steps.forEach((s, i) => {
+    const status = s.verdict?.status, id = stepNodeId(run, i);
+    add({ id, kind: "step", title: `${s.step.id} ${status ? GLYPH[status] : ""}`.trim(), sub: s.step.target, provenance: "log", parents: [previous], status, seq: s.endSeq ?? s.startSeq, target: s.step.target });
+    previous = id;
+  });
   const patchIds: string[] = [];
   for (const f of run.findings) {
     add({ id: f.id, kind: "finding", title: f.id, sub: f.label, provenance: "log", parents: [f.step_ids[0]], status: "failed", seq: f.seq, target: f.target });

@@ -1,3 +1,4 @@
+import { ProjectBar } from "../components/ProjectBar";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EditForm } from "../components/EditForm";
 import { ExplorationGraph } from "../components/ExplorationGraph";
@@ -6,7 +7,7 @@ import { ModelTrace, TraceSummary } from "../components/ModelTrace";
 import { HBar, Pill, Stat, downloadText, stagger } from "../components/ui";
 import { useAppSession, useRuns } from "../lib/context";
 import { ACTION_LABEL, useEdits, type OperatorEdit } from "../lib/edits";
-import { addEdits, buildGraph, type GraphNode } from "../lib/graph";
+import { addEdits, buildGraph, type GraphNode, recordOfNode, stepNodeId } from "../lib/graph";
 import { markAt, recordedNodes, videoMarks } from "../lib/live";
 import { projectOf, useProjects } from "../lib/projects";
 import type { Route } from "../lib/route";
@@ -62,7 +63,7 @@ function RunPage({ run, runs, edits, route }: { run: Run; runs: Run[]; edits: Op
     const t = run.recording?.timeline.events[String(seq)];
     if (t !== undefined) seekVideo(t);
     const owner = run.steps.find((s) => s.startSeq <= seq && (s.endSeq ?? Infinity) >= seq);
-    if (owner) { setSelected(owner.step.id); setPinned(true); }
+    if (owner) { setSelected(stepNodeId(run, run.steps.indexOf(owner))); setPinned(true); }
     document.querySelector(".main")?.scrollTo({ top: 0, behavior: "smooth" });
   };
   const pick = (id: string) => {
@@ -91,11 +92,12 @@ function RunPage({ run, runs, edits, route }: { run: Run; runs: Run[]; edits: Op
 
   return (
     <div className="runpage">
+      {project && <ProjectBar project={project} />}
       <div className="runtop">
-        {project && <a className="note" href={`#/project/${project.id}`}>← {project.name}</a>}
         <h1 className="title">{run.product}</h1>
         <span className="mono muted">Rev {run.revision} / {run.id} / {run.status}</span>
         <span className="spacer" style={{ flex: 1 }} />
+        {run.events.some((e) => e.type === "model_turn") && <a className="btn ghost" href={`#/live?replay=${run.id}`}>Watch the model</a>}
         <span className="display" style={{ fontSize: 20 }}>REWARD {run.report.reward.value.toFixed(2)}</span>
       </div>
 
@@ -159,7 +161,7 @@ function Stagebar({ run, marks, selected, onPick }: Pick<PlayerProps, "run" | "m
   const timeline = run.recording!.timeline;
   const bars = marks.filter((m) => m.id.startsWith("stage-") || m.id === "approve");
   const widths = bars.map((m, i) => (bars[i + 1]?.t ?? timeline.duration) - m.t);
-  const current = selected && bars.some((b) => b.id === selected) ? selected : run.steps.some((s) => s.step.id === selected) ? "approve" : null;
+  const current = selected && bars.some((b) => b.id === selected) ? selected : recordOfNode(run, selected ?? "") ? "approve" : null;
   return (
     <div className="stagebar" aria-label="Stages">
       {bars.map((m, i) => (
@@ -273,7 +275,7 @@ function EventPlayer({ run, next, at, setAt, onPick }: { run: Run; next?: Run; a
       const seq = at + 1;
       setAt(seq);
       const step = [...run.steps].reverse().find((s) => s.startSeq <= seq);
-      if (step) onPick(step.step.id);
+      if (step) onPick(stepNodeId(run, run.steps.indexOf(step)));
     }, 420);
     return () => window.clearTimeout(timer);
   }, [playing, at, max, run, setAt, onPick]);
@@ -325,7 +327,7 @@ function EditList({ edits }: { edits: OperatorEdit[] }) {
 
 /** Everything known about whatever was clicked. */
 function Inspector({ node, run, edits, marks, onAdded, onSeek, onFollow }: { node: GraphNode; run: Run; edits: OperatorEdit[]; marks: { id: string; t: number }[]; onAdded: (id: string) => void; onSeek: (seq: number) => void; onFollow?: () => void }) {
-  const record = run.steps.find((s) => s.step.id === node.id);
+  const record = recordOfNode(run, node.id);
   const finding = run.findings.find((f) => f.id === node.id);
   const cause = finding ? run.causes.find((c) => c.finding === finding.id) : undefined;
   const series = record ? traceSeries(record, record.verdict?.status === "failed" ? "fail" : "pass") : null;

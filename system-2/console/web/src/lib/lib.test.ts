@@ -1,20 +1,21 @@
 import { FORE, HAND, Joints, REST, UPPER, forward, sideFor, solve, solveFree, type Point } from "./so101";
 import fs from "node:fs";
 import path from "node:path";
-import { controlStatus, projectOf, reviewOf, type Project } from "./projects";
+import { EMPTY_AGENT, agentReducer, isPaused, pendingApproval, planRows, replayItems, stateLine, telemetryOf, timelineOf } from "./agent";
+import { controlStatus, evidenceOf, liveProject, projectOf, reviewOf, type Project } from "./projects";
 import { ReplayClock, nextDelay } from "./simsource";
 import { diagnose, traceFor, traceOf } from "./trace";
 import { describe, expect, it } from "vitest";
-import type { RunEvent } from "./contracts";
+import type { RunEvent, Status, StepVerdict } from "./contracts";
 import { approvalBlock, parsePrompt, type OperatorEdit } from "./edits";
-import { EMPTY_LIVE, liveFocus, liveNodes, liveReducer, markAt } from "./live";
-import { buildGraph, placeNodes } from "./graph";
-import { coverageOf, fixtureRuns, rewardOf } from "./runs";
+import { EMPTY_LIVE, TELEMETRY_URL, liveFocus, liveNodes, liveReducer, markAt } from "./live";
+import { buildGraph, placeNodes, recordOfNode } from "./graph";
+import { coverageOf, eventTimes, fixtureRuns, outcomeOf, rewardOf, toRun } from "./runs";
 import { OPERATORS, canEnter } from "./session";
 
 const runs = fixtureRuns();
-const revA = runs.find((r) => r.revision === "A")!;
-const revB = runs.find((r) => r.revision === "B")!;
+const revA = runs.find((r) => r.id === "sample-revA")!;
+const revB = runs.find((r) => r.id === "sample-revB")!;
 
 const edit: OperatorEdit = {
   id: "E9", runId: revA.id, nodeId: "s2", target: "button_2", action: "retry", reason: "cap may rub", params: {},
@@ -81,7 +82,7 @@ describe("live flowchart", () => {
 
 describe("runs", () => {
   it("loads every fixture run", () => {
-    expect(runs.map((r) => r.id)).toEqual(["sample-revA", "sample-revB", "sample-sim", "sample-trace"]);
+    expect(runs.map((r) => r.id)).toEqual(["sample-agent", "sample-revA", "sample-revB", "sample-sim", "sample-trace"]);
   });
 
   it.each(runs.map((r) => [r.id, r] as const))("recomputes the reward of %s from its events", (_id, run) => {
@@ -339,6 +340,15 @@ describe("project review", () => {
     expect(review.headline).toBe("1 open fault");
   });
 
+  it("Live follows the link, then the run on screen, then the first sim device", () => {
+    expect(liveProject("appliance", { project: projects[1] }, projects)?.id).toBe("appliance");
+    expect(liveProject(null, { project: projects[2] }, projects)?.id).toBe("sim-14");
+    expect(liveProject(null, null, projects)?.id).toBe("sim-preset-c");
+    expect(liveProject(null, { project: undefined }, projects)).toBeUndefined();
+    expect(liveProject("none", { project: projects[1] }, projects)).toBeUndefined();
+    expect(liveProject("gone", null, projects)?.id).toBe("sim-preset-c");
+  });
+
   it("has nothing to say about a project with no runs", () => {
     expect(reviewOf([])).toMatchObject({ latest: null, evidence: null, headline: "Not tested yet", revisions: [] });
   });
@@ -350,4 +360,129 @@ describe("live pose delay", () => {
   it("grows when they arrive slowly, so the view doesn't run out", () => expect(settle(100)).toBeCloseTo(220, 0));
   it("isn't fooled by a long pause", () => expect(settle(5000)).toBeLessThanOrEqual(300));
   it("barely moves for a single gap", () => expect(nextDelay(70, 1000)).toBeLessThan(90));
+});
+
+describe("the model's run", () => {
+  const agent = runs.find((r) => r.id === "sample-agent")!;
+  const verdict = (status: Status, n = 1): StepVerdict => ({ step: `s${n}`, target: "c", attempt: n, status, label: null, reason: status, channel: null, decided_by: "rule", evidence: [] });
+  const finalState = replayItems(agent).reduce((s, r) => agentReducer(s, r.item), EMPTY_AGENT);
+
+  it("adds up a control's attempts the way verdicts.py does", () => {
+    const of = (...s: Status[]) => outcomeOf(s.map((x, i) => verdict(x, i)))?.status;
+    expect(of("failed", "failed")).toBe("failed");
+    expect(of("failed")).toBe("failed");
+    expect(of("failed", "passed")).toBe("intermittent");
+    expect(of("passed", "failed")).toBe("intermittent");
+    expect(of("failed", "passed", "failed")).toBe("intermittent");
+    expect(of("failed", "inconclusive", "failed")).toBe("failed");
+    expect(of("inconclusive", "passed")).toBe("passed");
+    expect(of("inconclusive", "skipped")).toBe("inconclusive");
+    expect(of("observed")).toBe("observed");
+    expect(of()).toBeUndefined();
+  });
+
+  it("gives a retest its own graph node, so a retried step can't make a cycle", () => {
+    const placed = placeNodes(buildGraph(agent, undefined, []));
+    expect(placed.filter((n) => n.kind === "step" && n.target === "dial_1").map((n) => n.id)).toEqual(["s4", "s4-2"]);
+    expect(recordOfNode(agent, "s4-2")!.trace!.attempt).toBe(2);
+  });
+
+  it("previews a turn from deltas until its record arrives, and then only shows the record", () => {
+    let s = agentReducer(EMPTY_AGENT, { name: "delta", body: { turn: "turn-1", kind: "thought", text: "Hm" } });
+    s = agentReducer(s, { name: "delta", body: { turn: "turn-1", kind: "thought", text: "m." } });
+    s = agentReducer(s, { name: "delta", body: { turn: "turn-1", kind: "text", text: "Go" } });
+    expect(timelineOf(s)).toMatchObject([{ kind: "turn", streaming: true, thought: "Hmm.", text: "Go" }]);
+    expect(stateLine(s).state).toBe("thinking");
+    const turn = agent.events.find((e) => e.type === "model_turn")!;
+    s = agentReducer(s, { name: "run", body: turn });
+    const items = timelineOf(s);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ kind: "turn", streaming: false, thought: turn.payload.thinking });
+    expect(agentReducer(s, { name: "reset" })).toEqual(EMPTY_AGENT);
+  });
+
+  it("puts a turn's tool calls inside it, and fills each step with its result", () => {
+    const items = timelineOf(finalState);
+    const rejected = items.flatMap((i) => (i.kind === "turn" ? i.calls : [])).find((c) => !c.ok)!;
+    expect(rejected.tool).toBe("propose_plan");
+    const steps = items.filter((i) => i.kind === "step");
+    expect(steps.every((i) => i.kind === "step" && !!i.verdict)).toBe(true);
+    expect(steps.filter((i) => i.kind === "step" && i.step.id === "s4").map((i) => i.kind === "step" && i.trace?.attempt)).toEqual([1, 2]);
+  });
+
+  it("says who it's waiting on, and an open approval beats the last state", () => {
+    const upto = (type: string) => agent.events.slice(0, agent.events.findIndex((e) => e.type === type) + 1);
+    const asked = agentReducer(EMPTY_AGENT, { name: "meta", body: { run_id: "x", product: "x", stages: [], route: "" } });
+    const waiting = { ...asked, events: upto("approval_needed") };
+    expect(stateLine(waiting).state).toBe("waiting_person");
+    expect(pendingApproval(timelineOf(waiting))?.ref).toBe("plan-1");
+    expect(pendingApproval(timelineOf({ ...asked, events: upto("approved") }))).toBeUndefined();
+    expect(stateLine(finalState).state).toBe("done");
+    expect(stateLine(EMPTY_AGENT).label).toBe("Idle");
+  });
+
+  it("closes an approval the run has moved on from, since a refusal logs no event", () => {
+    const at = agent.events.findIndex((e) => e.type === "approval_needed");
+    const refused = [...agent.events.slice(0, at + 1), { ...agent.events[at], seq: 9000, type: "model_turn" as const, payload: { id: "x", model: "m" } }];
+    const items = timelineOf({ events: refused, deltas: {} });
+    expect(items.find((i) => i.kind === "approval")).toMatchObject({ state: "closed" });
+    expect(pendingApproval(items)).toBeUndefined();
+  });
+
+  it("uses the telemetry a run names, and none if it says none", () => {
+    const meta = { run_id: "x", product: "x", stages: [], route: "" };
+    expect(telemetryOf({ ...meta, telemetry: "http://127.0.0.1:9" })).toBe("http://127.0.0.1:9");
+    expect(telemetryOf({ ...meta, telemetry: null })).toBeNull();
+    expect(telemetryOf(meta)).toBe(TELEMETRY_URL);
+  });
+
+  it("knows the plan as amendments and steering leave it", () => {
+    const upto = (n: number) => ({ ...agent, events: agent.events.slice(0, n) });
+    const at = agent.events.findIndex((e) => e.type === "plan_amended" && e.payload.level === 1);
+    const live = toRun(upto(at + 1).events, agent.report);
+    const pending = planRows(live).filter((r) => r.state === "pending").map((r) => r.id);
+    expect(pending).toEqual(["s4", "s3", "s5", "s6", "s7"]);
+    const run = toRun(agent.events, agent.report);
+    expect(planRows(run).filter((r) => r.state === "pending")).toEqual([]);
+    const steer = { seq: 9999, t: 0, run_id: "x", type: "steer_applied" as const, payload: { kind: "skip", target: "dial_1", by: "op", note: "" } };
+    const skipped = planRows(toRun([...upto(at + 1).events, steer], agent.report));
+    expect(skipped.find((r) => r.state === "skipped")?.target).toBe("dial_1");
+    expect(skipped.filter((r) => r.state === "pending").map((r) => r.id)).toEqual(["s3", "s5", "s6", "s7"]);
+  });
+
+  it("tracks pause and resume from what was applied, not what was asked", () => {
+    const steer = (kind: string, seq: number) => ({ seq, t: 0, run_id: "x", type: "steer_applied" as const, payload: { kind } });
+    expect(isPaused([])).toBe(false);
+    expect(isPaused([steer("pause", 1)])).toBe(true);
+    expect(isPaused([steer("pause", 1), steer("resume", 2)])).toBe(false);
+  });
+
+  it("shows a turn with no reasoning as just what it did", () => {
+    const silent = agent.events.filter((e) => e.type === "model_turn" && !e.payload.thinking);
+    expect(silent.length).toBeGreaterThan(1);
+    const turns = timelineOf(finalState).filter((i) => i.kind === "turn");
+    const toolOnly = turns.find((i) => !i.thought && !i.text);
+    expect(toolOnly).toBeTruthy();
+    expect(toolOnly!.calls.length).toBeGreaterThan(0);
+    for (const t of turns) if (silent.some((e) => e.payload.id === t.id)) expect(t.thought).toBe("");
+  });
+
+  it("leaves the harness's own successful calls out of the timeline but not the totals", () => {
+    const call = (seq: number, caller: string, ok: boolean) => ({ seq, t: seq, run_id: "r", type: "tool_call" as const, payload: { id: `c${seq}`, tool: "system1.routine_start", args: {}, caller, turn: null, stage: null, ok } });
+    const shown = timelineOf({ events: [call(1, "rules", true), call(2, "rules", false), call(3, "model", true)] as never, deltas: {} }).filter((i) => i.kind === "tool");
+    expect(shown.map((i) => i.call.seq)).toEqual([2, 3]);
+  });
+
+  it("lines a System 1 recording up with the run's events by step", () => {
+    const e = (seq: number, type: string, payload: object) => ({ seq, t: seq, run_id: "r", type, payload }) as never;
+    const events = [e(1, "model_turn", {}), e(2, "step_started", { id: "s1" }), e(3, "step_finished", {}), e(4, "model_turn", {}), e(5, "step_started", { id: "s1" }), e(6, "step_finished", {})];
+    const timeline = { fps: 30, duration: 9, meta: {} as never, stages: [], events: {}, steps: [{ id: "s1", t: 2, end: 3 }, { id: "s1", t: 6, end: 7 }] };
+    expect(eventTimes(events, timeline)).toEqual({ 1: 2, 2: 2, 3: 3, 4: 3, 5: 6, 6: 7 });
+    expect(eventTimes(events, { ...timeline, events: { 1: 5 } })).toEqual({ 1: 5 });
+  });
+
+  it("labels the scripted run as not real", () => {
+    expect(evidenceOf(agent)).toBe("mock");
+    expect(agent.events.filter((e) => e.type === "model_turn").every((e) => e.payload.model.includes("not a real model"))).toBe(true);
+  });
 });

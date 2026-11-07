@@ -1,41 +1,67 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type RefObject } from "react";
 import { ExplorationGraph } from "../components/ExplorationGraph";
+import { Feeds } from "../components/Feeds";
 import { ForceChart } from "../components/ForceChart";
 import { CountUp, Pill, stagger } from "../components/ui";
 import { useAppSession } from "../lib/context";
 import type { GraphNode } from "../lib/graph";
 import { LIVE_URL, liveCommand, liveFocus, liveRun, stepQueue, useLive, type LiveState } from "../lib/live";
-import { useProjects, type Project } from "../lib/projects";
+import { liveProject, projectOf, useProjects, type Project } from "../lib/projects";
+import { ProjectBar } from "../components/ProjectBar";
 import type { Route } from "../lib/route";
 import { ENVIRONMENTS } from "../lib/session";
-import type { SimFocus } from "../components/Sim3D";
 import { ModelTrace } from "../components/ModelTrace";
-import { LiveSource } from "../lib/simsource";
+import { useAgentHealth } from "../lib/agent";
+import { AgentLive, AgentReplay } from "./AgentLive";
 import { coverageOf, rewardOf, statusOfControl, type Run } from "../lib/runs";
-
-const Sim3D = lazy(() => import("../components/Sim3D"));
 
 /** Watch and steer a real MuJoCo run while it happens. */
 export function Live({ route }: { route: Route }) {
   const { env, operator } = useAppSession();
   const projects = useProjects();
-  const project = projects.find((p) => p.id === route.query.get("project"));
   const { state, connected, nodes, lastTelemetry } = useLive();
+  const agent = useAgentHealth();
   const [error, setError] = useState<string | null>(null);
   const send = (path: string, body: object = {}) => { void liveCommand(path, body).then(setError); };
+  const runProject = useMemo(() => (state.meta ? projectOf(liveRun(state), projects) : undefined), [state.meta, state.events, projects]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!ENVIRONMENTS[env].connected) {
     return <div className="page"><div className="empty"><h2>Real arm and real CAD: not connected yet</h2></div></div>;
   }
 
+  const replay = route.query.get("replay");
+  if (replay) return <AgentReplay key={replay} id={replay} />;
+
   const finished = state.events.find((e) => e.type === "run_finished")?.payload.status as string | undefined;
   const going = !!state.meta && !finished;
+  if (agent.up && !going) return <AgentLive route={route} health={agent} />; // the bridge is the fallback when rav-agent isn't running
+  const asked = route.query.get("project");
+  const selected = liveProject(asked, state.meta ? { project: runProject } : null, projects);
+  const physical = selected?.kind === "physical";
+  const showFinished = !!state.meta && !!finished && (asked === "none" || runProject?.id === selected?.id); // another project's result isn't this one's
+  const waitingFor = going && selected && !physical && selected.id !== runProject?.id ? selected : undefined;
   return (
     <div className="livepage">
-      {!connected && <Offline />}
-      {connected && !going && <StartPanel again={!!finished} judge={operator.role === "judge"} project={project} onStart={(body) => send("/start", body)} />}
+      <ProjectBar project={going ? runProject : selected} tab="live" locked={going} />
+      {waitingFor && <p className="note" role="status">{waitingFor.name} can start when this run ends.</p>}
+      {!going && physical && <NoArm sim={projects.find((p) => p.kind === "sim")} />}
+      {!going && !physical && !connected && <Offline />}
+      {!going && !physical && connected && <StartPanel key={selected?.id ?? "none"} again={showFinished} judge={operator.role === "judge"} project={selected} onStart={(body) => send("/start", body)} />}
       {error && <p className="error" role="alert">{error}</p>}
-      {state.meta && <Running state={state} nodes={nodes} finished={finished} send={send} lastTelemetry={lastTelemetry} />}
+      {(going || showFinished) && <Running state={state} nodes={nodes} finished={finished} send={send} lastTelemetry={lastTelemetry} />}
+    </div>
+  );
+}
+
+/** Physical products run on the real arm, so what you can watch today is the sim. */
+function NoArm({ sim }: { sim?: Project }) {
+  return (
+    <div className="empty rise">
+      <h2>The real arm isn't connected</h2>
+      <div className="row">
+        {sim && <a className="btn accent" href={`#/live?project=${sim.id}`}>Run {sim.name}</a>}
+        <a className="btn ghost" href="#/run/sample-sim">Watch a recorded run</a>
+      </div>
     </div>
   );
 }
@@ -43,8 +69,14 @@ export function Live({ route }: { route: Route }) {
 function Offline() {
   return (
     <div className="empty rise">
-      <h2>The sim bridge isn't running</h2>
-      <a className="btn accent" href="#/run/sample-sim">Watch a recorded run</a>
+      <h2>Nothing to run on yet</h2>
+      <div className="row">
+        <a className="btn accent" href="#/live?replay=sample-agent">Watch a scripted model run</a>
+        <a className="btn ghost" href="#/run/sample-sim">Watch a recorded sim run</a>
+      </div>
+      <span className="label">The model, with System 1</span>
+      <pre className="code">{"cd system-2\nuv run rav-agent"}</pre>
+      <span className="label">The sim alone, with rules</span>
       <pre className="code">{"cd system-2\nuv sync --extra live-depth\nuv run python console/server/live_sim.py"}</pre>
     </div>
   );
@@ -53,23 +85,27 @@ function Offline() {
 function StartPanel({ again, judge, project, onStart }: { again: boolean; judge: boolean; project?: Project; onStart: (body: object) => void }) {
   const [cameraRoute, setCameraRoute] = useState(true); // the light install has no PyTorch, so it can't run this route
   useEffect(() => { void fetch(`${LIVE_URL}/health`).then((r) => r.json()).then((h) => setCameraRoute(h.camera_route !== false)).catch(() => undefined); }, []);
-  const [device, setDevice] = useState(project?.sim ? (project.sim.seed !== null ? "seed" : project.sim.fault ? "fault" : "clean") : "fault");
-  const [seed, setSeed] = useState(project?.sim?.seed != null ? String(project.sim.seed) : "");
+  const sim = project?.sim;
+  const presetC = !!project && (sim?.seed ?? null) === null; // only preset C has the part the planted fault jams
+  const [fault, setFault] = useState(sim?.fault ?? "");
+  const [seed, setSeed] = useState("");
   const [depth, setDepth] = useState("depth");
-  const submit = (e: FormEvent) => { e.preventDefault(); onStart({ seed: device === "seed" ? seed.trim() || null : null, fault: device === "fault" ? "stuck_button" : null, depth: depth === "depth", project: project?.id ?? null }); };
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    onStart({ seed: project ? sim?.seed ?? null : seed.trim(), fault: project ? (presetC ? fault || null : sim?.fault ?? null) : null, depth: depth === "depth", project: project?.id ?? null });
+  };
   return (
     <form className="panel rise startpanel" onSubmit={submit}>
-      <h2>{project ? project.name : again ? "Run another device" : "Start a simulated run"}</h2>
-      <div className="field">
-        <label className="label" htmlFor="l-device">Device</label>
-        <select id="l-device" value={device} onChange={(e) => setDevice(e.target.value)}>
-          <option value="fault">Preset C, planted fault: button_2 jams</option>
-          <option value="clean">Preset C</option>
-          <option value="seed">Generated from a seed</option>
+      <h2>{again ? "Run again" : "Start a run"}</h2>
+      {presetC && <div className="field">
+        <label className="label" htmlFor="l-fault">Planted fault</label>
+        <select id="l-fault" value={fault} onChange={(e) => setFault(e.target.value)}>
+          <option value="stuck_button">button_2 jams</option>
+          <option value="">None</option>
         </select>
-      </div>
-      {device === "seed" && <div className="field">
-        <label className="label" htmlFor="l-seed">Seed</label>
+      </div>}
+      {!project && <div className="field">
+        <label className="label" htmlFor="l-seed">Device seed</label>
         <input id="l-seed" className="tech" inputMode="numeric" pattern="[0-9]*" required value={seed} placeholder="1401" onChange={(e) => setSeed(e.target.value)} />
       </div>}
       <div className="field">
@@ -173,34 +209,6 @@ function Running({ state, nodes, finished, send, lastTelemetry }: { state: LiveS
         </div>
       </div>
     </>
-  );
-}
-
-/** Each camera keeps its own element, so promoting one never drops its stream. */
-function Feeds({ runId, feeds, stage, computing, focus }: { runId: string; feeds: string[]; stage?: string; computing: boolean; focus: SimFocus }) {
-  const [big, setBig] = useState("main");
-  const [no3D, setNo3D] = useState(false);
-  const unavailable = useCallback(() => setNo3D(true), []);
-  const source = useMemo(() => new LiveSource(runId), [runId]);
-  const all = feeds.map((title, i) => ({ id: `panel${i}`, title }));
-  if (no3D) all.unshift({ id: "main", title: "Scene" });
-  const large = big === "main" || all.some((f) => f.id === big) ? big : "main";
-  return (
-    <section className="feeds" aria-label="Cameras" data-stage={stage}>
-      {!no3D && (
-        <div className={`feedcell simcell ${large === "main" ? "big" : ""}`}>
-          <Suspense fallback={<div className="simloading"><div className="sweep" /></div>}><Sim3D source={source} focus={focus} onUnavailable={unavailable} /></Suspense>
-          {large !== "main" && <button type="button" className="simcover" aria-label="Show the 3D view large" onClick={() => setBig("main")} />}
-        </div>
-      )}
-      {all.map((f) => (
-        <button key={f.id} type="button" className={`feedcell ${f.id === large ? "big" : ""}`} aria-pressed={f.id === large} aria-label={`Show ${f.title} large`} onClick={() => setBig(f.id)}>
-          <img src={`${LIVE_URL}/feed/${f.id}`} alt={f.title} />
-          <span className="feedtag">{f.title}</span>
-        </button>
-      ))}
-      {computing && <div className="computing" role="status"><div className="sweep" /><span>Perception computing</span></div>}
-    </section>
   );
 }
 

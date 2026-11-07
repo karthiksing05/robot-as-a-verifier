@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 export const stagger = (i: number) => ({ "--i": i }) as CSSProperties;
 
 const GLYPH: Record<string, string> = {
-  passed: "✓", failed: "✕", observed: "◐", skipped: "⊘", inconclusive: "?", pending: "·", planned: "◇", approved: "✓",
+  passed: "✓", failed: "✕", intermittent: "≈", observed: "◐", skipped: "⊘", inconclusive: "?", pending: "·", planned: "◇", approved: "✓",
   rejected: "✕", withdrawn: "–",
 };
 

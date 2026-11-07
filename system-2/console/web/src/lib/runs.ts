@@ -36,6 +36,26 @@ export interface Timeline {
   stages: { name: string; t: number }[];
   events: Record<string, number>; // event seq -> seconds into the video
   lcd?: { t: number; lines: string[] }[]; // what the device's display showed, from each time on
+  steps?: { id: string; t: number; end: number | null }[]; // when each step ran; System 1 records these, not event seqs
+}
+
+/** Seconds into the recording per event. System 1 doesn't see event seqs, so its recordings are lined up by step: each step's
+ *  events get that step's times, an event between steps the time before it, and anything before the first step its start. */
+export function eventTimes(events: RunEvent[], timeline: Timeline): Record<string, number> {
+  if (Object.keys(timeline.events).length || !timeline.steps?.length) return timeline.events;
+  const times: Record<string, number> = {}, steps = [...timeline.steps];
+  let at = steps[0].t, open: (typeof steps)[number] | undefined;
+  for (const e of events) {
+    if (e.type === "step_started") {
+      const i = steps.findIndex((s) => s.id === e.payload.id);
+      if (i >= 0) { [open] = steps.splice(0, i + 1).slice(-1); at = open!.t; }
+    } else if (e.type === "step_finished" && open) {
+      at = open.end ?? at;
+      open = undefined;
+    }
+    times[String(e.seq)] = at;
+  }
+  return times;
 }
 
 export interface Run {
@@ -101,35 +121,47 @@ export function fixtureRuns(): Run[] {
     if (!report) continue;
     const run = toRun(parseEvents(raw), report);
     const folder = file.replace("events.jsonl", ""), timeline = timelineFiles[`${folder}timeline.json`];
-    if (timeline) run.recording = { timeline, assets: (path) => replayFiles[folder + path] };
+    if (timeline) run.recording = { timeline: { ...timeline, events: eventTimes(run.events, timeline) }, assets: (path) => replayFiles[folder + path] };
     runs.push(run);
   }
   return runs.sort((a, b) => a.id.localeCompare(b.id));
 }
 
-// The same rules as system-2/harness/src/rav_harness/reward.py. tests check them against report.json.
-const RANK: Record<Status, number> = { failed: 4, inconclusive: 3, skipped: 2, passed: 1, observed: 0 };
+// The rule for a retest (docs/frontier-integration.md): every attempt stays on record. Failures with no pass between them
+// are a failure, a failure with a pass after or between is intermittent, and a robot's inconclusive never counts against
+// the device once a real result exists. reward.py must follow the same rule.
+const UNJUDGED: Status[] = ["observed", "inconclusive", "skipped"];
+
+export function outcomeOf(verdicts: StepVerdict[]): StepVerdict | undefined {
+  const judged = verdicts.filter((v) => v.status === "passed" || v.status === "failed");
+  if (!judged.length) return UNJUDGED.map((s) => verdicts.findLast((v) => v.status === s)).find(Boolean);
+  const failures = judged.filter((v) => v.status === "failed");
+  if (!failures.length) return judged.at(-1);
+  if (failures.length === judged.length || judged.some((v, i) => v.status === "failed" && judged[i + 1]?.status === "failed")) return failures.at(-1);
+  return { ...failures.at(-1)!, status: "intermittent" };
+}
 
 export function coverageOf(run: Run, uptoSeq = Infinity): Coverage {
-  const worst = new Map<string, StepVerdict>();
+  const byControl = new Map<string, StepVerdict[]>();
   for (const s of run.steps) {
     if (!s.verdict || (s.endSeq ?? Infinity) > uptoSeq) continue;
-    const current = worst.get(s.verdict.target);
-    if (!current || RANK[s.verdict.status] > RANK[current.status]) worst.set(s.verdict.target, s.verdict);
+    byControl.set(s.verdict.target, [...(byControl.get(s.verdict.target) ?? []), s.verdict]);
   }
   const cov: Coverage = { detected: run.scene.controls.length, passed: [], failed: [], observed: [], inconclusive: [], skipped: {} };
   for (const c of run.scene.controls) {
-    const v = worst.get(c.id);
+    const v = outcomeOf(byControl.get(c.id) ?? []);
     if (!v) cov.skipped[c.id] = "no test ran";
     else if (v.status === "skipped") cov.skipped[c.id] = v.reason;
+    else if (v.status === "intermittent") (cov.intermittent ??= []).push(c.id);
     else cov[v.status].push(c.id);
   }
   return cov;
 }
 
 export function rewardOf(cov: Coverage): Omit<Reward, "formula"> {
-  const covered = cov.passed.length + cov.failed.length + cov.observed.length;
-  const judged = cov.passed.length + cov.failed.length;
+  const intermittent = cov.intermittent?.length ?? 0;
+  const covered = cov.passed.length + cov.failed.length + cov.observed.length + intermittent;
+  const judged = cov.passed.length + cov.failed.length + intermittent;
   const control_coverage = cov.detected ? covered / cov.detected : 0;
   const pass_rate = judged ? cov.passed.length / judged : 0;
   const round = (n: number) => Math.round(n * 10000) / 10000;
@@ -139,6 +171,7 @@ export function rewardOf(cov: Coverage): Omit<Reward, "formula"> {
 export function statusOfControl(cov: Coverage, id: string): Status | "pending" {
   if (cov.passed.includes(id)) return "passed";
   if (cov.failed.includes(id)) return "failed";
+  if (cov.intermittent?.includes(id)) return "intermittent";
   if (cov.observed.includes(id)) return "observed";
   if (cov.inconclusive.includes(id)) return "inconclusive";
   return "pending";
@@ -171,5 +204,7 @@ export function describeEvent(e: RunEvent): string {
     case "crossing": return `System 1 stopped: ${p.code ?? p.stop}${p.target ? ` on ${p.target}` : ""}`;
     case "plan_amended": return `Plan amended, level ${p.level}${p.by ? `, approved by ${p.by}` : ""}`;
     case "tool_call": return `${p.tool} ${p.ok ? "ok" : `failed: ${p.error}`}`;
+    case "check_judged": return `Check on ${p.target}: ${p.counted ? "counted against it" : `not counted, ${p.why}`}`;
+    case "agent_state": return `Model state: ${p.state}${p.detail ? `, ${p.detail}` : ""}`;
   }
 }

@@ -31,22 +31,22 @@ export class LiveSource implements SimSource {
   private stream: EventSource | null = null;
   private data: SceneData | null = null;
   private delay = MIN_DELAY_MS;
-  constructor(private runId: string) {}
+  constructor(private runId: string | null, private base: string = LIVE_URL) {} // no runId: System 1's telemetry, which doesn't know System 2's run ids
 
   async scene(stopped: () => boolean) {
     while (!stopped()) { // the sim exports its scene a moment after a run starts
-      const res = await fetch(`${LIVE_URL}/scene.json`).catch(() => null);
+      const res = await fetch(`${this.base}/scene.json`).catch(() => null);
       if (res?.ok) {
         const body = await res.json();
-        if (body?.run_id === this.runId) { this.data = body; return body as SceneData; }
+        if (body?.run_id && (this.runId === null || body.run_id === this.runId)) { this.data = body; return body as SceneData; }
       }
       await new Promise((r) => setTimeout(r, 250));
     }
     return null;
   }
-  asset(path: string) { return `${LIVE_URL}/scene/${path}?v=${this.data?.files[path] ?? ""}`; }
+  asset(path: string) { return `${this.base}/scene/${path}?v=${this.data?.files[path] ?? ""}`; }
   start() {
-    this.stream = new EventSource(`${LIVE_URL}/poses`);
+    this.stream = new EventSource(`${this.base}/poses`);
     this.stream.onmessage = (e) => {
       const at = performance.now(), last = this.samples.at(-1);
       if (last) this.delay = nextDelay(this.delay, at - last.at);

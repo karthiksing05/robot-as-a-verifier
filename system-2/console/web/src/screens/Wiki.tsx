@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { Boundary, ForceShapes, Parallax, RunFlow, TrustLoop } from "../components/Diagrams";
+import { DeviceTheory, Devices, Journey, ModelResults } from "../components/WikiSections";
 import type { Route } from "../lib/route";
+import "../styles/wikisections.css";
 
 const SECTIONS = [
   ["overview", "The idea"], ["run", "A run"], ["see", "Seeing"], ["touch", "Touching"], ["judge", "Judging"], ["systems", "Two systems"],
-  ["stops", "Staying in touch"], ["trust", "Who signs off"], ["score", "The score"], ["sim", "The sim"], ["state", "What's real"],
+  ["stops", "Staying in touch"], ["trust", "Who signs off"], ["score", "The score"], ["sim", "The sim"], ["theory", "Device theory"], ["devices", "Devices"],
+  ["models", "Models"], ["journey", "Journey"], ["state", "What's real"],
 ] as const;
 
 const PIPELINE = [
@@ -120,10 +123,28 @@ export function Wiki({ route }: { route: Route }) {
           <div className="statrow">{MEASURED.map(([label, value, note]) => <div key={label} className="stat"><span className="label">{label}</span><span className="value">{value}</span><span className="note">{note}</span></div>)}</div>
         </Section>
 
+        <Section id="theory" title="Device theory: pieces every appliance is made of">
+          <DeviceTheory />
+        </Section>
+
+        <Section id="devices" title="The test devices">
+          <Devices />
+        </Section>
+
+        <Section id="models" title="Which frontier model runs it best">
+          <p>The same harness, prompts and tools for every model, and a rule-based baseline on the same tests. Sensors decide every verdict, so a model is scored on what it chose to test and how it read the results.</p>
+          <ModelResults />
+        </Section>
+
+        <Section id="journey" title="How the design changed">
+          <p>Each turn came from a measurement that disagreed with the plan.</p>
+          <Journey />
+        </Section>
+
         <Section id="state" title="What's real, and what isn't yet">
           <div className="statecols">
-            <div><span className="label">Working in simulation</span><ul className="plainlist"><li>The whole pipeline through the two systems, on both camera routes</li><li>A planted fault, caught as stuck</li><li>Approval levels and stop rules</li></ul></div>
-            <div><span className="label">Not done yet</span><ul className="plainlist"><li>The frontier model. Rules stand in for it today</li><li>Reading the manual and proposing real CAD patches</li><li>The full pipeline on the real arm</li><li>Any test on Windows, or between two machines</li></ul></div>
+            <div><span className="label">Working in simulation</span><ul className="plainlist"><li>The whole pipeline through the two systems, on both camera routes</li><li>Frontier models running a verification through the harness's tools</li><li>Random planted faults, injected arm errors and an answer key only the scorer reads</li><li>Approval levels and stop rules</li></ul></div>
+            <div><span className="label">Not done yet</span><ul className="plainlist"><li>A model comparison hard enough to rank them</li><li>Proposing real CAD patches from a run</li><li>The full pipeline on the real arm</li><li>Any test on Windows, or between two machines</li></ul></div>
           </div>
         </Section>
       </div>

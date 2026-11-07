@@ -1,11 +1,13 @@
 // A real sim run, as it happens, from system-2/console/server/live_sim.py. Events are the same contract as a saved run;
 // telemetry (stage, cameras, force) is only for this screen. Nothing here decides or invents a result.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { RunEvent, Report, Step } from "./contracts";
-import type { GraphNode } from "./graph";
+import { stepNodeId, type GraphNode } from "./graph";
 import { toRun, type Run } from "./runs";
 
 export const LIVE_URL = "http://127.0.0.1:8765";
+export const AGENT_URL: string = import.meta.env?.VITE_AGENT_URL ?? "http://127.0.0.1:8790"; // rav-agent: the model's run, System 2
+export const TELEMETRY_URL: string = import.meta.env?.VITE_TELEMETRY_URL ?? "http://127.0.0.1:8781"; // rav-server's streams, System 1
 
 export interface Telemetry {
   wall: number;
@@ -27,6 +29,9 @@ export interface LiveMeta {
   product: string;
   stages: string[];
   route: string;
+  model?: string;
+  project?: string | null;
+  telemetry?: string | null; // where System 1's streams are for this run
 }
 
 export interface LiveState {
@@ -164,10 +169,11 @@ export function recordedNodes(run: Run): GraphNode[] {
 export function videoMarks(run: Run): { id: string; t: number }[] {
   const t = run.recording!.timeline;
   const at = (seq?: number) => (seq === undefined ? undefined : t.events[String(seq)]);
-  const marks = t.stages.filter((s) => t.meta.stages.includes(s.name) && s.name !== "TEST").map((s) => ({ id: `stage-${s.name}`, t: s.t }));
+  // A model's run can go back through the stages for each routine: the bar shows the first pass, the steps show the rest.
+  const marks = t.stages.filter((s, i) => t.meta.stages.includes(s.name) && s.name !== "TEST" && t.stages.findIndex((x) => x.name === s.name) === i).map((s) => ({ id: `stage-${s.name}`, t: s.t }));
   const approved = run.approvals.find((a) => a.kind === "plan");
   if (approved) marks.push({ id: "approve", t: at(approved.seq) ?? 0 });
-  for (const s of run.steps) marks.push({ id: s.step.id, t: at(s.startSeq) ?? 0 });
+  run.steps.forEach((s, i) => marks.push({ id: stepNodeId(run, i), t: at(s.startSeq) ?? 0 }));
   return marks.sort((a, b) => a.t - b.t);
 }
 
@@ -175,15 +181,53 @@ export function markAt(marks: { id: string; t: number }[], now: number): string 
   return [...marks].reverse().find((m) => m.t <= now + 0.02)?.id ?? marks[0]?.id ?? null;
 }
 
-export async function liveCommand(path: string, body: object): Promise<string | null> {
+export async function liveCommand(path: string, body: object, base: string = LIVE_URL): Promise<string | null> {
   try {
-    const res = await fetch(`${LIVE_URL}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const res = await fetch(`${base}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (res.ok) return null;
     const reply = await res.json().catch(() => ({}));
-    return reply.error ?? `The bridge answered ${res.status}.`;
+    return reply.error ?? `The service answered ${res.status}.`;
   } catch {
-    return "The bridge isn't reachable.";
+    return "The service isn't reachable.";
   }
+}
+
+export interface LiveNow { running: boolean; project: string | null }
+const IDLE: LiveNow = { running: false, project: null };
+let liveNow = IDLE;
+let nowTimer = 0;
+const nowWatchers = new Set<() => void>();
+
+async function pollNow() {
+  let next = IDLE, wait = 15000; // no bridge is the usual case on a laptop, so ask rarely
+  for (const base of [AGENT_URL, LIVE_URL]) {
+    try {
+      const health = await (await fetch(`${base}/health`)).json();
+      next = { running: !!health.running, project: health.project ?? null };
+      wait = 3000;
+      if (next.running) break;
+    } catch {
+      // not running here, so neither is a run
+    }
+  }
+  if (next.running !== liveNow.running || next.project !== liveNow.project) {
+    liveNow = next;
+    nowWatchers.forEach((fn) => fn());
+  }
+  window.clearTimeout(nowTimer);
+  if (nowWatchers.size) nowTimer = window.setTimeout(() => void pollNow(), wait);
+}
+
+/** Whether a run is going, and for which project, for screens other than Live. */
+export function useLiveNow() {
+  return useSyncExternalStore((fn) => {
+    nowWatchers.add(fn);
+    if (nowWatchers.size === 1) void pollNow();
+    return () => {
+      nowWatchers.delete(fn);
+      if (!nowWatchers.size) window.clearTimeout(nowTimer);
+    };
+  }, () => liveNow);
 }
 
 /** Follows the bridge's stream while the screen is open, and reconnects by itself if the bridge restarts. */

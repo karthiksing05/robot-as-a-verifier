@@ -1,7 +1,7 @@
 """Streams a real run of Joseph's MuJoCo pipeline to the Console, while it runs.
 
-The one file in System 2 allowed to run System 1's code in-process (docs/system-boundary.md). Its streams belong behind
-System 1's server, and need to move there before Live can show a robot on another machine.
+The one file in System 2 allowed to run System 1's code in-process (docs/system-boundary.md). rav-server now serves these
+streams itself (rav_server/telemetry.py), and this bridge stays as the fallback until the Console watches rav-agent's runs.
 
     cd system-2
     uv sync --extra live
@@ -28,7 +28,6 @@ dependencies. FastAPI (docs/decisions.md Q3) can replace it when a real server i
 from __future__ import annotations
 
 import argparse
-import hashlib
 import importlib.util
 import json
 import pathlib
@@ -59,6 +58,7 @@ import touch  # noqa: E402
 import viz  # noqa: E402
 from rav_contracts import Finding, Plan, Report, SceneInventory, Step, StepOutcome, TestRequest  # noqa: E402
 from rav_server.sim_backend import map_verdict, part_to_control  # noqa: E402
+from rav_server.telemetry import build_scene, write_scene  # noqa: E402
 from rav_harness.reward import coverage, reward  # noqa: E402
 from rav_harness.runlog import RunLog  # noqa: E402
 from rav_harness.trace import Tracer  # noqa: E402
@@ -68,8 +68,6 @@ ORIGINS = {"http://127.0.0.1:5173", "http://localhost:5173"}
 MAIN_FPS, PANEL_FPS, TELEMETRY_FPS, HOLD_POSE_FPS = 30, 8, 10, 30
 MAIN_SIZE = (1056, 594)  # rendered smaller than the film's 1408x792: plenty on screen, and much faster to draw
 SPEEDS = (1, 2, 4, 8)
-SKIP_GEOM_GROUPS = {3}  # the arm's collision copies of its visual meshes
-SKIP_GEOMS = {"cyclorama"}  # the film's backdrop: the Console lights its own studio
 VIDEO_FPS = 30
 BLANK = np.zeros((viz.Dashboard.H, viz.Dashboard.W, 3), np.uint8)
 BLANK_PANEL = np.zeros((2, 2, 3), np.uint8)
@@ -91,6 +89,7 @@ class Hub:
         self.commands: queue.Queue = queue.Queue()
         self.start: dict | None = None
         self.running = False
+        self.project: str | None = None  # the project the current run belongs to
         self.approval: str | None = None  # the name of who approved
         self.awaiting = False  # a plan is on screen: nobody can approve a plan they haven't been shown
         self.rejected = False
@@ -124,86 +123,10 @@ class Hub:
 hub = Hub()
 
 
-MESH_CELL_M = 0.0015  # vertices closer than this merge, about a fifth of the triangles and no visible change at this scale
-TEXTURE_MAX, TEXTURE_QUALITY = 1024, 84
-_mesh_cache: dict[bytes, bytes] = {}
-
-
-def simplify_mesh(corners: np.ndarray, normals: np.ndarray) -> tuple[bytes, int, int]:
-    """Vertex clustering that keeps hard edges, since vertices only merge when their normals roughly agree.
-    Returns positions and normals as float32 pairs, then uint32 triangle indices, with both counts."""
-    pos, nrm = corners.reshape(-1, 3).astype(np.float64), normals.reshape(-1, 3).astype(np.float64)
-    keys = np.c_[np.floor(pos / MESH_CELL_M), np.round(nrm * 2)].astype(np.int64)
-    hashed = (keys * np.array([73856093, 19349663, 83492791, 131, 1031, 10007], dtype=np.int64)).sum(axis=1)
-    _, index, counts = np.unique(hashed, return_inverse=True, return_counts=True)
-    average = lambda values: np.c_[[np.bincount(index, values[:, axis]) / counts for axis in range(3)]].T  # noqa: E731
-    merged, smooth = average(pos), average(nrm)
-    smooth /= np.maximum(np.linalg.norm(smooth, axis=1, keepdims=True), 1e-9)
-    tris = index.reshape(-1, 3)
-    tris = tris[(tris[:, 0] != tris[:, 1]) & (tris[:, 1] != tris[:, 2]) & (tris[:, 0] != tris[:, 2])]
-    # merging can turn a small triangle over, which shows as a dark speck: face each one the way its normals point
-    p0, p1, p2 = merged[tris[:, 0]], merged[tris[:, 1]], merged[tris[:, 2]]
-    flipped = np.einsum("ij,ij->i", np.cross(p1 - p0, p2 - p0), smooth[tris].sum(axis=1)) < 0
-    tris[flipped] = tris[flipped][:, [0, 2, 1]]
-    blob = np.c_[merged, smooth].astype(np.float32).tobytes() + tris.astype(np.uint32).tobytes()
-    return blob, len(merged), len(tris)
-
-
 def export_scene(model, data, run_id: str, folder: pathlib.Path) -> None:
-    """Hand the browser the compiled model: geoms, materials, simplified meshes, compressed textures and where each
-    body starts. The same files go in the run's folder, so it can replay without the sim."""
-    used_meshes, used_tex, geoms = set(), set(), []
-    helper = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "target")
-    for g in range(model.ngeom):
-        name = model.geom(g).name
-        if int(model.geom_group[g]) in SKIP_GEOM_GROUPS or name in SKIP_GEOMS or int(model.geom_bodyid[g]) == helper:
-            continue
-        mesh, mat = int(model.geom_dataid[g]), int(model.geom_matid[g])
-        if int(model.geom_type[g]) == mujoco.mjtGeom.mjGEOM_MESH:
-            used_meshes.add(mesh)
-        geoms.append({"name": name, "body": int(model.geom_bodyid[g]), "type": mujoco.mjtGeom(int(model.geom_type[g])).name.removeprefix("mjGEOM_").lower(),
-                      "size": model.geom_size[g].round(6).tolist(), "pos": model.geom_pos[g].round(6).tolist(),
-                      "quat": model.geom_quat[g].round(6).tolist(), "mesh": mesh, "mat": mat, "rgba": model.geom_rgba[g].round(4).tolist()})
-    materials = []
-    for i in range(model.nmat):
-        tex = int(model.mat_texid[i][mujoco.mjtTextureRole.mjTEXROLE_RGB])
-        if tex >= 0:
-            used_tex.add(tex)
-        materials.append({"name": model.material(i).name, "rgba": model.mat_rgba[i].round(4).tolist(), "specular": float(model.mat_specular[i]),
-                          "shininess": float(model.mat_shininess[i]), "emission": float(model.mat_emission[i]), "tex": tex})
-    blobs: dict[str, tuple[str, bytes]] = {}
-    meshes = {}
-    for i in used_meshes:
-        va, fa, na = model.mesh_vertadr[i], model.mesh_faceadr[i], model.mesh_normaladr[i]
-        faces = model.mesh_face[fa:fa + model.mesh_facenum[i]]
-        corners = model.mesh_vert[va:va + model.mesh_vertnum[i]][faces]
-        normals = model.mesh_normal[na:na + model.mesh_normalnum[i]][model.mesh_facenormal[fa:fa + model.mesh_facenum[i]]]
-        key = hashlib.blake2b(corners.tobytes(), digest_size=16).digest()
-        if key not in _mesh_cache:  # the arm is the same in every run
-            _mesh_cache[key] = simplify_mesh(corners, normals)
-        blob, verts, tris = _mesh_cache[key]
-        blobs[f"mesh/{i}.bin"] = ("application/octet-stream", blob)
-        meshes[str(i)] = {"verts": verts, "tris": tris}
-    lcd = next((i for i in range(model.nmat) if model.material(i).name == "dev_lcd"), None)
-    for i in used_tex:
-        if lcd is not None and int(model.mat_texid[lcd][mujoco.mjtTextureRole.mjTEXROLE_RGB]) == i:
-            continue  # drawn in the browser from the device's text
-        h, w, n = int(model.tex_height[i]), int(model.tex_width[i]), int(model.tex_nchannel[i])
-        adr = int(model.tex_adr[i])
-        pixels = cv2.cvtColor(model.tex_data[adr:adr + h * w * n].reshape(h, w, n), cv2.COLOR_RGB2BGR)
-        shrink = TEXTURE_MAX / max(h, w)
-        if shrink < 1:
-            pixels = cv2.resize(pixels, (round(w * shrink), round(h * shrink)), interpolation=cv2.INTER_AREA)
-        blobs[f"tex/{i}.jpg"] = ("image/jpeg", cv2.imencode(".jpg", pixels, [cv2.IMWRITE_JPEG_QUALITY, TEXTURE_QUALITY])[1].tobytes())
-    moving = [b for b in range(model.nbody) if model.body_weldid[b] != 0 and b != helper]
-    scene = {"run_id": run_id, "geoms": geoms, "materials": materials, "moving": moving, "meshes": meshes,
-             "files": {path: hashlib.blake2b(blob, digest_size=6).hexdigest() for path, (_, blob) in blobs.items()},
-             "bodies": [{"name": model.body(b).name, "pos": data.xpos[b].round(6).tolist(), "quat": data.xquat[b].round(6).tolist()} for b in range(model.nbody)]}
-    for path, (_, blob) in blobs.items():
-        out = folder / "scene" / path
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_bytes(blob)
-    (folder / "scene" / "scene.json").write_text(json.dumps(scene, separators=(",", ":")))
+    """Hand the browser the compiled model, and put the same files in the run's folder, so it can replay without the sim."""
+    scene, blobs = build_scene(model, data, run_id)
+    write_scene(folder, scene, blobs)
     with hub.cond:
         hub.scene_blobs, hub.scene = blobs, scene
         hub.cond.notify_all()
@@ -724,7 +647,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?")[0]
         if path == "/health":
-            self.reply(200, {"ok": True, "running": hub.running, "camera_route": importlib.util.find_spec("torch") is not None})
+            self.reply(200, {"ok": True, "running": hub.running, "project": hub.project if hub.running else None, "camera_route": importlib.util.find_spec("torch") is not None})
         elif path == "/scene.json":
             self.reply(200, hub.scene or {"run_id": None})  # polled while a run starts
         elif path.startswith("/scene/"):
@@ -902,6 +825,7 @@ def main() -> None:
             while hub.start is None:
                 hub.cond.wait()
             options, hub.start = hub.start, None
+            hub.project = options.get("project")
             hub.running = True
         try:
             run_once(options)

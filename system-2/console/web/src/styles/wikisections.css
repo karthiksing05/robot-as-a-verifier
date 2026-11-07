@@ -1,0 +1,50 @@
+/* The wiki's Journey, Models, Device theory and Devices sections. Colors only from tokens.css, so both themes work. */
+
+.journey { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; position: relative; }
+.journey::before { content: ""; position: absolute; left: 118px; top: 6px; bottom: 6px; border-left: 1px solid var(--line); }
+.journey li { display: grid; grid-template-columns: 104px 28px minmax(0, 1fr); align-items: start; padding-bottom: 14px; }
+.jwhen { display: flex; flex-direction: column; gap: 3px; text-align: right; padding-top: 12px; }
+.jwhen .label:first-child { color: var(--ink); }
+.jdot { width: 9px; height: 9px; margin: 16px auto 0; background: var(--accent); border: 2px solid var(--bg); box-sizing: content-box; position: relative; z-index: 1; }
+.journey li[data-stage="in progress"] .jdot { background: var(--bg); border-color: var(--warn); }
+.journey li[data-stage="planned"] .jdot { background: var(--bg); border: 2px dashed var(--accent); }
+.jcard { background: var(--surface); border: 1px solid var(--line); padding: 11px 14px; display: flex; flex-direction: column; gap: 7px; }
+.journey li[data-stage="planned"] .jcard { border-style: dashed; background: transparent; }
+.jhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.jhead b { font-size: 16.5px; font-weight: 600; }
+.jcard p { font-size: 15px; line-height: 1.45; }
+.jcard p .label { display: inline-block; width: 66px; }
+.jevidence { font-family: var(--mono); font-size: 12px !important; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 8px; }
+
+.rounds { display: flex; flex-direction: column; gap: 26px; }
+.round { display: flex; flex-direction: column; gap: 11px; }
+.roundhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--ink); padding-top: 10px; }
+.roundhead b { font-size: 17px; font-weight: 600; }
+.roundtake { background: var(--accent-wash); border-left: 3px solid var(--accent); padding: 9px 12px; }
+.tablewrap { overflow-x: auto; }
+.modeltable th { white-space: normal; vertical-align: bottom; min-width: 52px; }
+.modeltable td.mname { white-space: nowrap; font-weight: 600; }
+.modeltable td.note { white-space: nowrap; }
+.modeltable tr.baseline td { color: var(--muted); }
+.modeltable tr.baseline td.mname { font-weight: 400; font-style: italic; }
+.tokbar { display: inline-block; min-width: 52px; padding: 1px 4px; background: linear-gradient(to right, var(--accent-wash) calc(var(--w) * 100%), transparent 0); }
+.misses summary { cursor: pointer; }
+.misses ul { margin-top: 6px; padding-left: 12px; }
+
+.theorygrid, .devicegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.theorycard, .devicecard { background: var(--surface); border: 1px solid var(--line); padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.theorycard > b, .devicecard header b { font-size: 16px; font-weight: 600; }
+.devicecard header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.devicecard > div { display: flex; flex-direction: column; gap: 5px; }
+.devicerun { margin-top: auto; font-family: var(--mono); font-size: 12px; }
+
+@media (max-width: 760px) {
+  .journey::before { left: 4px; }
+  .journey li { grid-template-columns: 10px minmax(0, 1fr); column-gap: 12px; }
+  .jwhen { grid-column: 2; flex-direction: row; gap: 10px; text-align: left; padding-top: 0; }
+  .jdot { grid-row: 1; grid-column: 1; margin: 3px 0 0 -1px; }
+  .jcard { grid-column: 2; margin-top: 5px; }
+  .jcard p .label { display: block; width: auto; }
+}
+.devicecard .planted summary { cursor: pointer; }
+.devicecard .planted p { margin: 6px 0 0; }
