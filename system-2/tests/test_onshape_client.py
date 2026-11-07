@@ -336,3 +336,24 @@ def test_decode_fs_value_reads_the_live_apis_qualified_type_names():
          "value": {"btType": q + "BTFSValueWithUnits", "typeTag": "", "value": 0.009999999999999997,
                    "unitToPower": {"METER": 1}}}]}
     assert decode_fs_value(live) == {"bodies": 2.0, "distance": pytest.approx(10.0)}
+
+
+def test_a_long_retry_after_fails_fast_instead_of_sleeping():
+    """Seen live on Nov 7: Onshape answered 429 with retry-after 73201 s once a quota ran out; the tool hung for hours."""
+    slept = []
+    transport = httpx.MockTransport(lambda request: httpx.Response(
+        429, headers={"retry-after": "73201", "x-rate-limit-remaining": "0"}, json={"message": "Too many requests."}))
+    c = OnshapeClient(settings(), transport=transport, sleep=slept.append)
+    with pytest.raises(oc.RateLimited, match="retry after 20.3 h") as e:
+        c.get_features(DocRef("d" * 24, "w", "a" * 24, "e" * 24))
+    assert e.value.retry_after_s == 73201 and slept == []
+
+
+def test_a_short_retry_after_is_still_waited_out():
+    calls, slept = [], []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(429, headers={"retry-after": "2"}) if len(calls) == 1 else httpx.Response(200, json={"ok": True})
+    c = OnshapeClient(settings(), transport=httpx.MockTransport(handler), sleep=slept.append)
+    assert c.get_json("users/sessioninfo") == {"ok": True} and slept == [2.0]

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -228,9 +229,26 @@ def _outcomes(log: RunLog) -> list[StepOutcome]:
     return [StepOutcome(**e.payload) for e in read_events(log.path) if e.type == "step_finished"]
 
 
+def diagnose(findings: list[Finding], analyst: Analyst, cad: CadBackend, log: RunLog, outcomes: list[StepOutcome],
+             parallel: bool = False) -> list[tuple[Finding, RootCause, CADPatch | None]]:
+    """Each finding through the analyst, in finding order. With `parallel`, all at once: each finding has its own
+    branch and its own tracer (ids prefixed with the finding), and the log is safe to write from several threads."""
+    params, rules = cad.read_params(), getattr(cad, "rules", lambda: "")()
+
+    def one(finding: Finding) -> tuple[Finding, RootCause, CADPatch | None]:
+        tracer = Tracer(log, caller="model", prefix=f"{finding.id}-" if parallel and len(findings) > 1 else "")
+        tracer.stage, tracer.step = "ANALYZE", finding.step_ids[0] if finding.step_ids else None
+        return (finding, *analyst(AnalystContext(finding, params, outcomes, cad.check, rules, tracer)))
+
+    if not parallel or len(findings) < 2:
+        return [one(f) for f in findings]
+    with ThreadPoolExecutor(max_workers=len(findings)) as pool:
+        return list(pool.map(one, findings))
+
+
 def fix_and_retest(make_system1: Callable[[str], System1], request: TestRequest, analyst: Analyst, cad: CadBackend,
                    log_root: str = "runs", planner: Planner = rule_planner, approve: Approver = auto_approve,
-                   policy: EscalationPolicy = TETHERED) -> tuple[Report, Report | None]:
+                   policy: EscalationPolicy = TETHERED, parallel: bool = False) -> tuple[Report, Report | None]:
     """Test, diagnose, patch, retest. A patch counts only if the reward rises; otherwise it is reported as rolled back."""
     rid = request.request_id
     before_log = RunLog(f"{rid}-rev{request.revision}", log_root)
@@ -243,13 +261,7 @@ def fix_and_retest(make_system1: Callable[[str], System1], request: TestRequest,
         return before, None
 
     patches = []
-    params, outcomes = cad.read_params(), _outcomes(before_log)
-    rules = getattr(cad, "rules", lambda: "")()
-    tracer = Tracer(before_log, caller="model")
-    tracer.stage = "ANALYZE"
-    for finding in before.findings:
-        tracer.step = finding.step_ids[0] if finding.step_ids else None
-        cause, patch = analyst(AnalystContext(finding, params, outcomes, cad.check, rules, tracer))
+    for finding, cause, patch in diagnose(before.findings, analyst, cad, before_log, _outcomes(before_log), parallel):
         before_log.emit("root_cause", cause)
         if patch is None:
             before_log.emit("message", {"role": "harness", "text": f"no CAD fix for {finding.id}: {cause.root_cause}"})

@@ -51,7 +51,7 @@ class ScriptedCadSession:
 def setup(tmp_path):
     tags = write_tags(tmp_path / "onshape.yaml")
     fake = FakeOnshape()
-    backend = OnshapeBackend(tags, client=fake, out_dir=tmp_path / "out", require_approval=False)
+    backend = OnshapeBackend(tags, client=fake, out_dir=tmp_path / "out", cache_dir=tmp_path / "cache", require_approval=False)
     return fake, backend, tags
 
 
@@ -95,7 +95,7 @@ def test_the_whole_loop_fixes_both_faults_in_onshape(setup, tmp_path):
 def test_the_command_only_offers_the_cad_tools(setup, tmp_path):
     _, backend, tags = setup
     cmd = onshape_command("claude", str(tmp_path / "mcp.json"), "claude-opus-5-5", "high", 5)
-    assert cmd[cmd.index("--allowedTools") + 1] == "mcp__rav-cad__*" and cmd[cmd.index("--tools") + 1] == ""
+    assert cmd[cmd.index("--allowedTools") + 1] == "mcp__rav-cad" and cmd[cmd.index("--tools") + 1] == ""
     assert "--strict-mcp-config" in cmd and cmd[cmd.index("--max-budget-usd") + 1] == "5"
 
 
@@ -116,7 +116,7 @@ def test_no_onshape_access_means_no_patch_and_a_clear_reason(setup, tmp_path):
                                    backend, log_root=str(tmp_path / "runs"))
     assert after is None
     events = read_events(tmp_path / "runs" / "t-revA" / "events.jsonl")
-    assert any("couldn't open an Onshape branch" in (e.payload.get("text") or "") for e in events if e.type == "model_turn")
+    assert any("couldn't open a branch to work on" in (e.payload.get("text") or "") for e in events if e.type == "model_turn")
 
 
 def test_a_failed_cad_session_is_logged_as_the_pipelines_fault(setup, tmp_path):
