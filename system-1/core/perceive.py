@@ -831,17 +831,21 @@ def _toggle(b, hm, img, g):
     base = b["mask"] & (h > b["plateau"] / 2) & (h < b["plateau"] + 0.001)  # its top, clear of nut and lever
     rc = np.argwhere(base).astype(float)
     c0 = rc.mean(0)
+    s = b["sub"]
+    lever_r = s["width"] / 2
+    tip_rc = np.argwhere(s["mask"] & (h > s["h_max"] - 0.001)).mean(0)
+    # the panel under the leaning lever can read at the base's height, stretching its outline that way (6 mm on
+    # 1656, which put the hinge under the tip): keep the base no further out than the lever's far side
+    d = ax * (1.0 if (tip_rc - c0) @ ax > 0 else -1.0)
+    rc = rc[(rc - c0) @ d <= (tip_rc - c0) @ d + lever_r / g.cell]
     a0, a1 = _extent(rc, c0, ax)
     w0, w1 = _extent(rc, c0, across)
     c = c0 + (a0 + a1) / 2 * ax + (w0 + w1) / 2 * across  # middle of the base's outline: the hinge
     base_top = float(np.median(hm[base]))
-    s = b["sub"]
-    lever_r = s["width"] / 2
-    tip_rc = np.argwhere(s["mask"] & (h > s["h_max"] - 0.001)).mean(0)
-    lean = 1.0 if (tip_rc - c) @ ax > 0 else -1.0
-    x = g.vec(lean * ax)
+    # the lever leans along its axis, so hinge to tip gives the axis better than the near-square base (19 deg off on 1664)
+    x = g.vec(tip_rc - c)
     hinge = g.point(c, base_top)
-    tip = g.point(c + ((tip_rc - c) @ ax) * ax, s["h_max"] - lever_r)
+    tip = g.point(tip_rc, s["h_max"] - lever_r)
     tilt = math.atan2((tip - hinge) @ x, (tip - hinge) @ g.n)
     on = bool(x @ (g.T[:3, 1] - g.T[:3, 0]) > 0)  # leaning up the slope or to the arm's right reads as ON
     meta = dict(lever_len=float(np.linalg.norm(tip - hinge)) + lever_r, lever_radius=lever_r, tip=tip,
