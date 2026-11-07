@@ -34,6 +34,7 @@ system-2/contracts/schema/
 # wrist camera bench outputs; git keeps only the calibration
 system-1/arm/camera/camera_out/*
 !system-1/arm/camera/camera_out/calib.json
+!system-1/arm/camera/camera_out/hand_eye.json
 # files the Onshape spike exports on each run; its recorded calls (tests/fixtures/onshape/spike) are kept
 system-2/tests/fixtures/onshape/spike_outputs/
 # CAD build output (STLs, renders, assembly.glb); rebuild with python -m rav_cad.parametric
