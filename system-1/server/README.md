@@ -12,6 +12,6 @@ What System 2 talks to. It runs routines on a robot and reports [stops](../../do
 | [`real_backend.py`](src/rav_server/real_backend.py) | `RealBackend`: `PipelineRobot` on the real SO-101 and wrist camera (`hw_rig.make_rig`), RGB route only |
 | [`mock_robot.py`](src/rav_server/mock_robot.py) | A scripted `Robot` for tests |
 
-**The real arm:** `rav-server --robot real --arm-port COM5 --calibration <lerobot-calibrate's file>` builds the rig once at startup with torque off, then asks at the terminal before turning torque on (`--enable-torque` skips the question). The operator answers what each test step did at the same terminal. Ctrl+C stops the routine once its current step ends, then turns torque off. It has only run against the fake bus (`tests/test_real_backend.py`).
+**The real arm:** `rav-server --robot real --arm-port COM5 --calibration <lerobot-calibrate's file>` builds the rig once at startup with torque off, then asks at the terminal before turning torque on (`--enable-torque` skips the question). The operator answers what each test step did at the same terminal. Ctrl+C stops the arm where it is, then turns torque off as the server stops. It has only run against the fake bus (`tests/test_real_backend.py`).
 
 **Escalation codes not wired up yet:** `pose_unstable` and `unknown_control` are named in the interface, but nothing raises them, because the pipeline doesn't report those situations yet.

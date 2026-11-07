@@ -39,14 +39,16 @@ class RequireToken:
 
 
 class Server(uvicorn.Server):
-    """Ctrl+C stops the routine at its next step first. uvicorn then waits for open requests, and a routine_wait can hold
-    one for a minute while the arm goes on moving."""
+    """Ctrl+C stops the real arm where it is and the routine at its next step, before uvicorn waits for open requests (a
+    routine_wait can hold one for a minute)."""
 
-    def __init__(self, config, engine):
+    def __init__(self, config, engine, real=None):
         super().__init__(config)
-        self.engine = engine
+        self.engine, self.real = engine, real
 
     def handle_exit(self, sig, frame):
+        if self.real:  # RealArm writes no more goals and its next send() raises. Torque stays on until close()
+            self.real.arm.torque = False
         if (r := self.engine.active) is not None:
             self.engine.stop(r.id)
         super().handle_exit(sig, frame)
@@ -68,8 +70,8 @@ def enable_torque(robot, confirmed: bool) -> None:
     """The real arm's gate: say what torque on means, then turn it on only on a yes, or with --enable-torque."""
     print(f"{robot.rig.name}: torque goes on next, and the five arm joints hold where they are. System 2 can then start "
           "routines that move the arm, and after each test motion this terminal asks what changed on the device. "
-          "Ctrl+C stops the server once the current step ends and turns torque off: the arm goes limp and falls, so "
-          "support it first. In an emergency, switch off the arm's power.")
+          "Ctrl+C stops the arm where it is, then turns torque off as the server stops: the arm goes limp and falls, "
+          "so support it first. In an emergency, switch off the arm's power.")
     if confirmed:
         print("--enable-torque: not asking")
     elif input("Type yes to turn torque on: ").strip().lower() != "yes":
@@ -111,11 +113,13 @@ def main(argv=None) -> None:
         if real:
             enable_torque(real, args.enable_torque)
         print(f"System 1 ({args.robot}) waiting on http://{args.host}:{args.port}/mcp")
-        Server(uvicorn.Config(app, host=args.host, port=args.port, log_level="warning"), engine).run()
+        Server(uvicorn.Config(app, host=args.host, port=args.port, log_level="warning"), engine, real).run()
     finally:
-        engine.shutdown()  # the worker closes the robot once the routine stops
-        if real:
-            real.close()  # torque off even if no routine ran, or the worker is stuck
+        try:
+            engine.shutdown()  # the worker closes the robot once the routine stops
+        finally:
+            if real:
+                real.close()  # torque off even if no routine ran, the worker is stuck, or Ctrl+C cut the wait short
 
 
 if __name__ == "__main__":
