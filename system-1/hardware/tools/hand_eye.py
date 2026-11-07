@@ -46,8 +46,8 @@ from rig import TICK_RAD, _cv_pose  # noqa: E402
 MIN_CORNERS = 12   # of the board's 24
 READS = 5          # joint readings before the frame and again after it, averaged
 STILL_RAD = 2 * TICK_RAD  # the readings after the frame moved this far from those before: the arm moved
-WORK_M = 0.2       # the scan's working distance: a mount error turned r rad and moved t puts parts r * WORK_M + t off
-TARGET_MM = 1.0    # parts placed off by more than this: small against 14 mm buttons, and the touches fix heights only
+WORK_M = 0.12      # the scan's standoff: a mount error turned r rad and moved t puts parts up to r * WORK_M + t off
+TARGET_MM = 1.0    # parts placed off by more than this: the last look re-places buttons and doors, not toggles, sliders, dials
 
 
 def fk(arm, q):

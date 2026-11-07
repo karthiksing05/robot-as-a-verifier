@@ -89,7 +89,7 @@ At each pose the script reads the joints five times before the frame and five ti
 
 **In the sim** (`tests/hand_eye_check.py`, one run), the USB camera's render was moved 1° and 2 mm off the model's `wrist_cam`, and the joints were read through the fake bus as encoder steps. From 20 views, the tool found the move to within 0.07° and 0.6 mm. Given the exact joint angles instead, it finds it to 0.02° and 0.07 mm, so the encoders' 0.088° step is what limits it. The steps also leave each view about 1.5 px off. More views is the way around them.
 
-A mount error is the same in every photo, so the scan's plane sweep barely feels it (what breaks the sweep is error that changes from photo to photo, below). What it does change is where parts land in the arm's frame: by about the rotation error times the 0.2 m working distance, plus the translation error. Presses then land off centre, and the probe's touches fix each part's height but not its sideways place. So the script turns its result's expected error into that placement error and warns when it is over 1 mm, small against the sim's 14 mm buttons. On synthetic corners with the joints read as steps and 0.2 px of noise, 30 runs for each count:
+A mount error is the same in every photo, so the scan's plane sweep barely feels it (what breaks the sweep is error that changes from photo to photo, below). What it does change is where parts land in the arm's frame: by up to the rotation error times the scan's 0.12 m standoff, plus the translation error (the two partly cancel, so this is an upper bound). The touches fix each part's height, and the last look before a step re-places buttons and doors from the probe's pad in the frame, but toggles, sliders and dials are tested where the scan put them. So the script turns its result's expected error into that placement error and warns when it is over 1 mm, small against the sim's 14 mm buttons. On synthetic corners with the joints read as steps and 0.2 px of noise, 30 runs for each count:
 
 | Views | Mount off by (rms) | Parts placed off by (rms) | Worst | Runs over 1 mm | Runs the script warns on |
 |---|---|---|---|---|---|
@@ -97,6 +97,8 @@ A mount error is the same in every photo, so the scan's plane sweep barely feels
 | 20 | 0.090°, 0.36 mm | 0.67 mm | 1.04 mm | 2 | 5 |
 | 30 | 0.067°, 0.27 mm | 0.50 mm | 0.84 mm | 0 | 0 |
 | 50 | 0.054°, 0.21 mm | 0.40 mm | 0.69 mm | 0 | 0 |
+
+The placement columns were worked out at 0.2 m rather than 0.12 m, so they overstate a little, and the script now warns on fewer runs than the last column shows.
 
 No run from 30 views was over 1 mm, and 50 buys little more, so the default is 30. The script gets the expected error by solving again with each view left out in turn. From 20 views up that came within about 15% of the true rms; with fewer it ran about 30% high, so it errs toward asking for another run. Views turned less (about 40° apart instead of 50°) nearly doubled the errors, so spread the poses.
 
