@@ -51,7 +51,7 @@ def test_torque_only_after_a_yes_and_off_after_ctrl_c(answer, monkeypatch, tmp_p
             arm.send(arm.read_q())
             arm.tick()
 
-    def ctrl_c(server):
+    def ctrl_c(server, sockets):
         serving.append(dict(bus.fake.torque))
         server.engine.start("explore")
         while len(bus.fake.qs) < 5:
@@ -64,7 +64,7 @@ def test_torque_only_after_a_yes_and_off_after_ctrl_c(answer, monkeypatch, tmp_p
     monkeypatch.setattr(pipeline, "scan_device", scan)
     monkeypatch.setattr(main.Server, "run", ctrl_c)
     with pytest.raises(KeyboardInterrupt if answer == "yes" else SystemExit):
-        main.main(["--robot", "real", "--arm-port", "COM9", "--calibration", "unused.json"])
+        main.main(["--robot", "real", "--arm-port", "COM9", "--calibration", "unused.json", "--port", "0"])
     if answer == "yes":
         assert turned_on == [[1, 2, 3, 4, 5]] and serving == [{1: True, 2: True, 3: True, 4: True, 5: True, 6: False}]
         (checkpoint, goals), = stopped

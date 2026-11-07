@@ -13,6 +13,7 @@ import argparse
 import hmac
 import ipaddress
 import os
+import socket
 
 import uvicorn
 
@@ -110,10 +111,14 @@ def main(argv=None) -> None:
     engine = RoutineEngine(make, robot_name=args.robot)
     try:
         app = build_app(engine, args.host, os.environ.get("RAV_TOKEN"))
+        try:  # before torque: a port in use would otherwise stop the server, and drop the arm, right after the yes
+            sock = socket.create_server((args.host, args.port), family=socket.AF_INET6 if ":" in args.host else socket.AF_INET)
+        except OSError as e:
+            raise SystemExit(f"can't listen on {args.host}:{args.port}: {e}")
         if real:
             enable_torque(real, args.enable_torque)
         print(f"System 1 ({args.robot}) waiting on http://{args.host}:{args.port}/mcp")
-        Server(uvicorn.Config(app, host=args.host, port=args.port, log_level="warning"), engine, real).run()
+        Server(uvicorn.Config(app, log_level="warning"), engine, real).run(sockets=[sock])
     finally:
         try:
             engine.shutdown()  # the worker closes the robot once the routine stops
