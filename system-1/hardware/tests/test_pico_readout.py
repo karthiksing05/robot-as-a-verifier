@@ -41,5 +41,12 @@ def test_pico_readout_follows_the_device_and_logs_presses():
         raise AssertionError("a quiet Pico's events should raise")
     except RuntimeError:
         pass
+    pico[0].close()  # unplugged: the thread stops, and readings, which never go stale, raise with the reason
+    r._thread.join(1)
+    try:
+        r.readings
+        raise AssertionError("an unplugged Pico's readings should raise")
+    except RuntimeError as e:
+        assert "disconnected" in str(e), e
     r.close()
     assert not r._thread.is_alive() and not r.serial.is_open

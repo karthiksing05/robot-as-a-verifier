@@ -10,8 +10,9 @@ display's text as "LCD" if it has one (system-1/subjects/appliance/firmware/READ
 lines and keeps what DeviceMCU keeps: readings, each channel's latest value, and events, (time, channel, value) each
 time an int channel changes after its first line. Floats are continuous, like the sim's FAN, and log no events. time is
 the laptop's time.monotonic(), which nothing reads. Reading readings every tick costs nothing: the thread swaps in a new
-dict, so a reader never sees one half updated. events is read when a step starts and ends, and raises once no line
-has come for STALE_S, so an unplugged or crashed Pico stops the next step instead of failing every part.
+dict, so a reader never sees one half updated. Once the port fails, as it does when the Pico is unplugged, the thread
+stops and the next read of either raises with the port's error. events is read when a step starts and ends, and also
+raises once no line has come for STALE_S, so a crashed Pico stops the next step instead of failing every part.
 """
 import json
 import threading
@@ -24,20 +25,26 @@ STALE_S = 2.0  # the Pico sends a line at least every 0.5 s; this long without o
 
 class PicoReadout:
     def __init__(self, port):
-        self.port, self.readings, self.lcd, self._events = port, {}, None, []
+        self.port, self._readings, self.lcd, self._events, self.error = port, {}, None, [], None
         self.serial = serial.serial_for_url(port, 115200, timeout=0.1)  # USB serial ignores the baud rate
         self.last, self._stop = time.monotonic(), False
         self._thread = threading.Thread(target=self._read, daemon=True)
         self._thread.start()
-        while not self.readings and time.monotonic() - self.last < STALE_S:
+        while not self._readings and time.monotonic() - self.last < STALE_S:
             time.sleep(0.01)
-        if not self.readings:
+        if not self._readings:
             self.close()
             raise RuntimeError(f"no readings from {port} in {STALE_S:g} s: is the Pico's main.py running, and Thonny "
                                "closed?")
 
     @property
+    def readings(self):
+        self._alive()
+        return self._readings
+
+    @property
     def events(self):
+        self._alive()
         quiet = time.monotonic() - self.last
         if quiet > STALE_S:
             raise RuntimeError(f"no line from the Pico on {self.port} for {quiet:.1f} s: unplugged, or main.py stopped")
@@ -49,22 +56,29 @@ class PicoReadout:
         self._thread.join()
         self.serial.close()
 
+    def _alive(self):
+        if self.error:
+            raise RuntimeError(f"the Pico on {self.port} stopped reading: {self.error}") from self.error
+
     def _read(self):
         rest = b""
-        while not self._stop:
-            rest += self.serial.read(self.serial.in_waiting or 1)  # waits up to the timeout for the first byte
-            *lines, rest = rest.split(b"\n")  # a line split across reads waits for its end
-            for line in lines:
-                try:
-                    new = json.loads(line)
-                except ValueError:
-                    continue  # boot messages, a traceback, a half line from before the port opened
-                if not isinstance(new, dict):
-                    continue
-                t = time.monotonic()
-                self.lcd = new.pop("LCD", self.lcd)
-                old = self.readings
-                self._events.extend((t, ch, v) for ch, v in new.items()
-                                    if isinstance(v, int) and ch in old and old[ch] != v)
-                self.readings = {**old, **new}
-                self.last = t
+        try:
+            while not self._stop:
+                rest += self.serial.read(self.serial.in_waiting or 1)  # waits up to the timeout for the first byte
+                *lines, rest = rest.split(b"\n")  # a line split across reads waits for its end
+                for line in lines:
+                    try:
+                        new = json.loads(line)
+                    except ValueError:
+                        continue  # boot messages, a traceback, a half line from before the port opened
+                    if not isinstance(new, dict):
+                        continue
+                    t = time.monotonic()
+                    self.lcd = new.pop("LCD", self.lcd)
+                    old = self._readings
+                    self._events.extend((t, ch, v) for ch, v in new.items()
+                                        if isinstance(v, int) and ch in old and old[ch] != v)
+                    self._readings = {**old, **new}
+                    self.last = t
+        except Exception as e:  # SerialException when unplugged: the next read raises with it
+            self.error = e

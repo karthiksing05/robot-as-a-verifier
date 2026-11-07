@@ -127,9 +127,11 @@ class RealArm(rig.ArmBase):
         """Torque off on every motor, then the port closed, then the readout's if it has one (pico_readout). The arm
         goes limp: support it first."""
         self.torque = False
-        self.bus.disconnect(disable_torque=True)
-        if hasattr(self.app, "close"):
-            self.app.close()
+        try:
+            self.bus.disconnect(disable_torque=True)
+        finally:
+            if hasattr(self.app, "close"):
+                self.app.close()
 
     def enable(self, confirm=False):
         """Torque on for the five arm joints, holding where they are. confirm must be True: the caller has checked the
