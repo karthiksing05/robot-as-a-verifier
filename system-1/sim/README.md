@@ -113,6 +113,6 @@ PYTHONUTF8=1 .venv/Scripts/python tools/bench.py runs/bench.jsonl slop18 1650 --
 | `--offsets DEG` | Joint calibration error up to ±DEG on every joint (default: random errors with a standard deviation of 0.5° on the four joints that position the probe) |
 | `--no-refine` | Skip the camera's last look before each test |
 | `--depth [--stereo]` | The earlier version of the pipeline, which used a depth camera on the wrist instead of the USB camera |
-| `--real-driver` | The real arm's driver, `RealArm`, drives the sim through a simulated motor bus (needs `--slop --sensing current` and LeRobot; see [the real arm](docs/real-arm.md#tests)) |
+| `--real-driver` | The real arm's driver, `RealArm`, drives the sim through a simulated motor bus (needs `--slop`, `--sensing current` or `tactile`, and LeRobot; see [the real arm](docs/real-arm.md#tests)) |
 
 Without `--sensing`, the arm reads the exact simulated contact force (`--sensing perfect`). That's handy for development, but no real sensor works like that (see [Force sensing](docs/sensing.md)).

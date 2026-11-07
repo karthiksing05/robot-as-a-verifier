@@ -47,14 +47,16 @@ def make_rig(seed=None, placement="nominal", ideal=False, offsets=None, slop=Fal
 def real_driver(sim, pace=False):
     """real_arm.RealArm over hardware/tests/fake_bus.py, which steps sim one control tick per goal written and reads
     its encoders back in raw steps: the real driver's conversions, force estimate and hard cap on the sim's servos.
-    sim needs slop and sensing="current", as RealArm estimates force from the servos. The bus opens no port, so
-    enable() here moves nothing real. The SimArm stays at arm.bus.fake.sim, for sim truth."""
-    assert sim.sensing == "current", "RealArm senses force with the servos: it needs slop=True, sensing='current'"
+    sim needs slop and sensing="current" or "tactile": RealArm estimates force from the servos, and with "tactile"
+    reads the sim's pad as its own (fake_bus.FakePad). The bus opens no port, so enable() here moves nothing real.
+    The SimArm stays at arm.bus.fake.sim, for sim truth."""
+    assert sim.sensing in ("current", "tactile"), f"RealArm senses with the servos and a pad, not sensing={sim.sensing}"
     for p in (HARDWARE, os.path.join(HARDWARE, "tests")):  # after core and sim, so they shadow neither
         if p not in sys.path:
             sys.path.append(p)
     import fake_bus  # here, so the sim alone needs no LeRobot
     import real_arm
-    arm = real_arm.RealArm(fake_bus.make(sim, tempfile.mkdtemp(prefix="fake_bus_")), app=sim.app, pace=pace)
+    pad = fake_bus.FakePad(sim) if sim.sensing == "tactile" else None
+    arm = real_arm.RealArm(fake_bus.make(sim, tempfile.mkdtemp(prefix="fake_bus_")), app=sim.app, pad=pad, pace=pace)
     arm.enable(confirm=True)
     return arm

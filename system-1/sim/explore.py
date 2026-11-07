@@ -11,7 +11,7 @@
     python explore.py --slop --sensing loadcell         a load cell behind the probe (HX711, 80 Hz), servos across it
     python explore.py --no-refine                       act on the scanned parts without a last look
     python explore.py --depth [--stereo]                the earlier pipeline, with a D405 depth camera on the wrist
-    python explore.py --slop --sensing current --real-driver   driven through real_arm.RealArm on a simulated motor bus
+    python explore.py --slop --sensing tactile --real-driver   driven through real_arm.RealArm on a simulated motor bus
 
 By default the robot has what the team's rig has: an iPhone on a tripod, a cheap USB RGB camera on the
 wrist (no depth) and the probe's sense of contact. STAGES runs the story: intro; survey (the phone) and
@@ -1275,8 +1275,8 @@ def main(argv=None):
                     "perceive.perceive and perceive.refine")
     ap.add_argument("--stereo", action="store_true", help="with --depth, wrist depth matched from two renders, like a real D405")
     ap.add_argument("--record", metavar="OUT.mp4", help="write a 1920x1080, 30 fps video")
-    ap.add_argument("--real-driver", action="store_true", help="with --slop --sensing current, drive the sim through "
-                    "the real arm's driver, real_arm.RealArm, on a simulated motor bus (sim_rig.real_driver)")
+    ap.add_argument("--real-driver", action="store_true", help="with --slop --sensing current or tactile, drive the "
+                    "sim through the real arm's driver, real_arm.RealArm, on a simulated bus (sim_rig.real_driver)")
     ap.add_argument("--headless", action="store_true", help="no viewer window")
     ap.add_argument("--live", action="store_true", help="passive viewer with panels (the default unless --headless)")
     args = ap.parse_args(argv)
@@ -1286,8 +1286,8 @@ def main(argv=None):
         ap.error("--stereo needs --depth: the USB camera has no depth")
     if args.sensing != "perfect" and not args.slop:
         ap.error(f"--sensing {args.sensing} needs --slop: the estimate comes from the soft servos' readings")
-    if args.real_driver and args.sensing != "current":
-        ap.error("--real-driver needs --slop --sensing current: RealArm estimates force from the servos")
+    if args.real_driver and args.sensing not in ("current", "tactile"):
+        ap.error("--real-driver needs --slop --sensing current or tactile: RealArm senses with the servos and the pad")
     live = not args.headless
     rig = sim_rig.make_rig(args.seed, args.placement, args.ideal, args.offsets, args.slop, args.stiffness, args.sensing,
                            args.depth, args.stereo, realtime=live and not args.record,
