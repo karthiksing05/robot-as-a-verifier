@@ -844,9 +844,10 @@ def run_step(arm, parts, step, known=None, refine=None):
                 result["landing_n"] = round(float(g["landing"]), 2)
             if skill == "turn" and plan.radius:
                 result["turned_deg"] = round(math.degrees(g["travel"] / plan.radius), 1)
-            # steps a counting reading moved, signed by the way its first change went (the way the push went)
+            # steps a counting reading moved, signed by the way its first change went (the way the push went). A
+            # channel with no value before (an operator's first answer for it) has no count
             counted = ((seq[ch][-1] - seq[ch][0]) * math.copysign(1, seq[ch][1] - seq[ch][0])
-                       if ch and isinstance(seq[ch][-1], int) else None)
+                       if ch and isinstance(seq[ch][0], int) and isinstance(seq[ch][-1], int) else None)
             if app.readings != before and verdict != "MISSED":
                 parts[i] = _moved(p, skill, params, g, plan, counted)
     except SafetyStop as e:

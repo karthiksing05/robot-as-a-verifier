@@ -196,7 +196,7 @@ def test_tick_paced_at_control_hz():
 def test_operator_readout_judges_presses():
     w, sim, bus, arm = _setup()
     answers, asked = ["BTN1", ""], []
-    arm.app = real_arm.OperatorReadout(arm, {"BTN1": 0}, ask=lambda prompt: asked.append(prompt) or answers[len(asked) - 1])
+    arm.app = real_arm.OperatorReadout(arm, ask=lambda prompt: asked.append(prompt) or answers[len(asked) - 1])
     parts = w.truth(sim.m, sim.d)
     step = {"skill": "press", "target": "button_1"}
     with arm:
