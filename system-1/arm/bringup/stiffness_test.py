@@ -1,10 +1,10 @@
-"""Servo stiffness at LeRobot's gains, from a known weight on a lever. One loose motor, body held still.
+"""Servo stiffness at RealArm's gains (P 160), from a known weight on a lever. One motor, body held still.
 
     python stiffness_test.py COM10 2 --mass 0.52
 
 Each trial asks where the weight hangs (cm from the shaft centre), then measures how far the lever gives.
 Run trials at two or more distances: the slope across them cancels the servo's small dead zone.
-The sim assumes 18 N.m/rad (LeRobot's P=16 on a 12 V STS3215) or 36 (factory gain).
+The result goes in hardware/real_arm.SERVO_NM_PER_RAD, which assumes 36 N.m/rad.
 """
 import argparse
 import math
@@ -40,12 +40,11 @@ def hold(seconds=2.0):
 
 trials = []
 try:
-    with bus.torque_disabled():  # LeRobot's SO-101 gains (config_so_follower.py)
-        bus.write("P_Coefficient", "m", 16)
-        bus.write("I_Coefficient", "m", 0)
-        bus.write("D_Coefficient", "m", 32)
-    bus.disable_torque("m")
-    input(f"Motor {args.id}: torque off, gain set to LeRobot's P=16. Hold the lever level by hand, then press Enter.")
+    bus.disable_torque("m")  # also opens the EEPROM lock; torque_disabled() would turn it on again toward a stale goal
+    bus.write("P_Coefficient", "m", 160)  # real_arm.SERVO_P, which RealArm.enable() writes
+    bus.write("I_Coefficient", "m", 0)
+    bus.write("D_Coefficient", "m", 32)
+    input(f"Motor {args.id}: torque off, gain set to RealArm's P=160. Hold the lever level by hand, then press Enter.")
     bus.write("Goal_Position", "m", bus.read("Present_Position", "m", normalize=False), normalize=False)
     bus.enable_torque("m")
     time.sleep(1.0)
