@@ -1,0 +1,27 @@
+{
+  "run_id": "sample-revB",
+  "product": "Test box (mock)",
+  "revision": "B",
+  "summary": "5 of 5 controls passed, 0 failed, 0 inconclusive, 0 skipped. Reward 1.00.",
+  "findings": [],
+  "coverage": {
+    "detected": 5,
+    "passed": [
+      "button_1",
+      "button_2",
+      "button_3",
+      "door",
+      "display"
+    ],
+    "failed": [],
+    "observed": [],
+    "inconclusive": [],
+    "skipped": {}
+  },
+  "reward": {
+    "value": 1.0,
+    "control_coverage": 1.0,
+    "pass_rate": 1.0,
+    "formula": "control_coverage x pass_rate_on_covered"
+  }
+}

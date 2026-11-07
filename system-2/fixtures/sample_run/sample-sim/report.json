@@ -1,0 +1,51 @@
+{
+  "run_id": "sample-sim",
+  "product": "Sim device preset C, planted fault",
+  "revision": "A",
+  "summary": "6 of 8 controls passed, 1 failed, 0 inconclusive, 1 skipped. Reward 0.75.",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "high",
+      "target": "button_2",
+      "label": "stuck",
+      "what_happened": "pushed 0.6 mm past contact (peak 6.0 N, stopped by force_limit) but no reading changed",
+      "manual_says": null,
+      "user_impact": null,
+      "concept": null,
+      "step_ids": [
+        "s2"
+      ],
+      "event_seqs": [
+        49
+      ],
+      "evidence": [],
+      "confirmed": true
+    }
+  ],
+  "coverage": {
+    "detected": 8,
+    "passed": [
+      "button_1",
+      "button_3",
+      "slider_1",
+      "dial_1",
+      "toggle_1",
+      "door_1"
+    ],
+    "failed": [
+      "button_2"
+    ],
+    "observed": [],
+    "inconclusive": [],
+    "skipped": {
+      "display_1": "no test ran"
+    }
+  },
+  "reward": {
+    "value": 0.75,
+    "control_coverage": 0.875,
+    "pass_rate": 0.8571,
+    "formula": "control_coverage x pass_rate_on_covered"
+  }
+}

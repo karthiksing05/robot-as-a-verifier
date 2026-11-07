@@ -1,0 +1,66 @@
+{
+ "label": "eval_featurescript",
+ "request": {
+  "method": "POST",
+  "path": "/api/v12/partstudios/d/db73d1ec8db8336dfaec0801/w/07ea5ecff0240f4e072ec7f3/e/df4e17857bec7f8c9e90c953/featurescript",
+  "query": "",
+  "headers": {
+   "content-type": "application/json",
+   "accept": "application/json"
+  },
+  "json": {
+   "script": "\nfunction(context is Context, queries is map)\n{\n    var bodies = evaluateQuery(context, qAllModifiableSolidBodies());\n    if (size(bodies) < 2)\n        return { \"bodies\" : size(bodies) };\n    return { \"bodies\" : size(bodies),\n             \"distance\" : evDistance(context, { \"side0\" : bodies[0], \"side1\" : bodies[1] }).distance };\n}\n"
+  }
+ },
+ "response": {
+  "status": 200,
+  "headers": {
+   "content-type": "application/json;charset=utf-8"
+  },
+  "json": {
+   "btType": "BTFeatureScriptEvalResponse-1859",
+   "console": "",
+   "rejectMicroversionSkew": false,
+   "microversionSkew": false,
+   "result": {
+    "btType": "com.belmonttech.serialize.fsvalue.BTFSValueMap",
+    "typeTag": "",
+    "value": [
+     {
+      "btType": "BTFSValueMapEntry-2077",
+      "value": {
+       "btType": "com.belmonttech.serialize.fsvalue.BTFSValueNumber",
+       "typeTag": "",
+       "value": 2.0
+      },
+      "key": {
+       "btType": "com.belmonttech.serialize.fsvalue.BTFSValueString",
+       "typeTag": "",
+       "value": "bodies"
+      }
+     },
+     {
+      "btType": "BTFSValueMapEntry-2077",
+      "value": {
+       "btType": "com.belmonttech.serialize.fsvalue.BTFSValueWithUnits",
+       "unitToPower": {
+        "METER": 1
+       },
+       "typeTag": "",
+       "value": 0.009999999999999997
+      },
+      "key": {
+       "btType": "com.belmonttech.serialize.fsvalue.BTFSValueString",
+       "typeTag": "",
+       "value": "distance"
+      }
+     }
+    ]
+   },
+   "notices": [],
+   "serializationVersion": "1.2.23",
+   "sourceMicroversion": "8e20bd5ee1c11590df247dd2",
+   "libraryVersion": 3112
+  }
+ }
+}

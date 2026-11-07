@@ -1,0 +1,19 @@
+[project]
+name = "rav-server"
+version = "0.1.0"
+description = "The tool server System 2 talks to: routines, stops and evidence over MCP."
+requires-python = ">=3.12"
+dependencies = ["rav-interface", "mcp>=2.3,<3"]
+
+[project.scripts]
+rav-server = "rav_server.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rav_server"]
+
+[tool.uv.sources]
+rav-interface = { workspace = true }

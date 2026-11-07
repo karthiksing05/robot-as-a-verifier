@@ -1,0 +1,160 @@
+{
+ "label": "create_document",
+ "request": {
+  "method": "POST",
+  "path": "/api/v12/documents",
+  "query": "",
+  "headers": {
+   "content-type": "application/json",
+   "accept": "application/json"
+  },
+  "json": {
+   "name": "rav spike scratch 20261107-115138",
+   "isPublic": true,
+   "description": "Throwaway document made by the R5 spike; safe to delete"
+  }
+ },
+ "response": {
+  "status": 200,
+  "headers": {
+   "content-type": "application/json;charset=utf-8"
+  },
+  "json": {
+   "jsonType": "document",
+   "documentThumbnailElementId": "",
+   "isUpgradedToLatestVersion": true,
+   "requireApprovedDrawingTemplatesPreference": false,
+   "notes": null,
+   "public": true,
+   "permission": "OWNER",
+   "isUsingManagedWorkflow": false,
+   "likedByCurrentUser": false,
+   "defaultVersionGraphMode": "ALL_BRANCHES",
+   "defaultVersionGraphShowMerges": true,
+   "defaultVersionGraphShowAutoVersions": true,
+   "defaultElementId": null,
+   "recentVersion": null,
+   "hasRelevantInsertables": false,
+   "publicLinkable": false,
+   "canUnshare": false,
+   "userAccountLimitsBreached": false,
+   "supportTeamUserAndShared": false,
+   "sequence": null,
+   "tags": [],
+   "thumbnail": {
+    "sizes": [],
+    "secondarySizes": [],
+    "id": null,
+    "href": null
+   },
+   "parentId": null,
+   "projectId": null,
+   "anonymousAllowsExport": false,
+   "defaultWorkspace": {
+    "state": "ACTIVE",
+    "canDelete": false,
+    "protectionRule": "OPEN",
+    "isReadOnly": false,
+    "parent": "2293d4a8fe65824b65f747e9",
+    "type": "workspace",
+    "creator": {
+     "jsonType": "user-summary",
+     "state": 1,
+     "isOnshapeSupport": false,
+     "image": "/images/placeholder-user.png",
+     "name": "Karthik",
+     "id": "62966cdd0989c84172acf032",
+     "href": "https://cad.onshape.com/api/v12/users/62966cdd0989c84172acf032"
+    },
+    "lastModifier": {
+     "jsonType": "user-summary",
+     "state": 1,
+     "isOnshapeSupport": false,
+     "image": "/images/placeholder-user.png",
+     "name": "Karthik",
+     "id": "62966cdd0989c84172acf032",
+     "href": "https://cad.onshape.com/api/v12/users/62966cdd0989c84172acf032"
+    },
+    "description": "",
+    "modifiedAt": "2026-11-07T16:51:39.224+00:00",
+    "thumbnail": null,
+    "documentId": "db73d1ec8db8336dfaec0801",
+    "createdAt": "2026-11-07T16:51:39.232+00:00",
+    "microversion": "9387dc96afe705c8aff066ba",
+    "parents": null,
+    "overrideDate": "2026-11-07T16:51:39.224+00:00",
+    "name": "Main",
+    "id": "c36f3d4849320db8274f69bd",
+    "href": "https://cad.onshape.com/api/v12/documents/d/db73d1ec8db8336dfaec0801/workspaces/c36f3d4849320db8274f69bd"
+   },
+   "permissionSet": [
+    "OWNER",
+    "DELETE",
+    "RESHARE",
+    "WRITE",
+    "READ",
+    "LINK",
+    "COPY",
+    "EXPORT",
+    "COMMENT"
+   ],
+   "trash": false,
+   "totalWorkspacesUpdating": 0,
+   "totalWorkspacesScheduledForUpdate": 0,
+   "documentLabels": [],
+   "numberOfTimesReferenced": 0,
+   "numberOfTimesCopied": 0,
+   "likes": 0,
+   "publishedVersionId": null,
+   "documentType": 0,
+   "notRevisionManaged": false,
+   "forceExportRules": false,
+   "createdWithEducationPlan": false,
+   "anonymousAccessAllowed": false,
+   "trashedAt": null,
+   "isOrphaned": false,
+   "hasReleaseRevisionableObjects": false,
+   "owner": {
+    "type": 0,
+    "isEnterpriseOwnedResource": false,
+    "image": "/images/placeholder-user.png",
+    "name": "Karthik",
+    "id": "62966cdd0989c84172acf032",
+    "href": "https://cad.onshape.com/api/v12/users/62966cdd0989c84172acf032"
+   },
+   "connectionName": "",
+   "isMutable": false,
+   "isContainer": false,
+   "canMove": true,
+   "unparentHref": "https://cad.onshape.com/api/globaltreenodes/document/db73d1ec8db8336dfaec0801/parentInfo",
+   "isExternalConnectionResource": false,
+   "description": "Throwaway document made by the R5 spike; safe to delete",
+   "modifiedAt": "2026-11-07T16:51:39.122+00:00",
+   "createdAt": "2026-11-07T16:51:39.122+00:00",
+   "createdBy": {
+    "jsonType": "user-summary",
+    "state": 1,
+    "isOnshapeSupport": false,
+    "image": "/images/placeholder-user.png",
+    "name": "Karthik",
+    "id": "62966cdd0989c84172acf032",
+    "href": "https://cad.onshape.com/api/v12/users/62966cdd0989c84172acf032"
+   },
+   "modifiedBy": {
+    "jsonType": "user-summary",
+    "state": 1,
+    "isOnshapeSupport": false,
+    "image": "/images/placeholder-user.png",
+    "name": "Karthik",
+    "id": "62966cdd0989c84172acf032",
+    "href": "https://cad.onshape.com/api/v12/users/62966cdd0989c84172acf032"
+   },
+   "connectionNames": null,
+   "isEnterpriseOwned": false,
+   "resourceType": "document",
+   "name": "rav spike scratch 20261107-115138",
+   "id": "db73d1ec8db8336dfaec0801",
+   "href": "https://cad.onshape.com/api/v12/documents/db73d1ec8db8336dfaec0801"
+  }
+ }
+}

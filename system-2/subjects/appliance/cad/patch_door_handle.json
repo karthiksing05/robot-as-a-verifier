@@ -1,0 +1,5 @@
+{
+  "edits": [{"param": "features.door.handle_style", "old": "tab", "new": "bar"}],
+  "reason": "The door opens only with a pinch on the tab; no allowed skill provides a pinch (no-thumbs rule).",
+  "predicted_effect": "The fingertip hooks behind the bar and pulls the door open; the reed switch reports open."
+}

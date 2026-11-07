@@ -1,0 +1,26 @@
+# Rev A of the demo appliance, per the team page: about 120 x 160 x 180 mm, three buttons, a small LCD and a
+# hinged door, with a microcontroller wired to the buttons, the door switch and the LCD.
+# Planted faults: button_2 clearance 0.15 mm (siblings 0.40) binds; the door opens only with a pinch tab.
+# Placeholder numbers until the team confirms the panel angle and the parts. Change numbers, keep the structure.
+name: makecu_appliance
+rev: A
+shell:
+  size: [160, 120, 180]        # x across, y front to back, z up (mm)
+  wall: 3.5
+  insert_t: 2.0
+  slope: {side: front, angle: 45, run: 40}   # sloped button panel; delete this line for a straight front
+  base: {board: pico, board_u: 0, board_v: 10}
+features:
+  # buttons: 16 mm caps over 6x6 mm tactile switches (the switch tells the Pico, and pushes the button back)
+  - {id: button_1, type: button, face: slope, u: -35, v: 0}
+  - {id: button_2, type: button, face: slope, u: 0, v: 0, params: {clearance: 0.15}}
+  - {id: button_3, type: button, face: slope, u: 35, v: 0}
+  # 16x2 character LCD (I2C backpack), screwed to posts behind the window
+  - {id: display, type: window, face: front, u: 0, v: 35, params: {module: lcd1602}}
+  # door: hinge on the left, magnet catch and reed switch on the right; handle is a swappable insert
+  - {id: door, type: door, face: front, u: 0, v: -35, params: {open_u: 70, open_v: 56, handle_style: tab}}
+limits:
+  max_size: [200, 200, 220]
+posture:
+  max_params: 1
+  max_step: {clearance: 0.25, default: 2.0}

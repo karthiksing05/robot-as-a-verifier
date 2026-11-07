@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Appliance Viewer</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a66; --line: #e2e0da;
+    --accent: #3b6ea8; --changed: #d23c3c; --ok: #2f7d4a; --bad: #b3261e; --chip: #efeee9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161615; --panel: #1f1f1d; --ink: #ecebe7; --muted: #a09e98; --line: #34332f;
+      --accent: #7aa6db; --changed: #ef6b6b; --ok: #6cc28a; --bad: #f28b82; --chip: #2a2a27;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, sans-serif;
+         display: grid; grid-template-columns: 340px 1fr; height: 100vh; }
+  aside { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 16px; }
+  main { position: relative; min-height: 300px; }
+  canvas { display: block; }
+  h1 { font-size: 17px; margin: 0 0 2px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 6px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  select, button { font: inherit; color: var(--ink); background: var(--chip); border: 1px solid var(--line);
+                   border-radius: 6px; padding: 5px 8px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+  label { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+  .patch { border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--chip); }
+  .patch .verdict { font-weight: 600; }
+  .accepted { color: var(--ok); } .refused { color: var(--bad); }
+  code { font: 12px ui-monospace, Menlo, monospace; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li.feat { padding: 6px 8px; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; }
+  li.feat:hover, li.feat.sel { background: var(--chip); }
+  li.feat .t { color: var(--muted); font-size: 12px; }
+  li.feat.changed .n { color: var(--changed); font-weight: 600; }
+  .checks li { font-size: 12px; padding: 2px 0; display: flex; gap: 6px; }
+  .checks .ok { color: var(--ok); } .checks .bad { color: var(--bad); }
+  #detail { white-space: pre-wrap; font: 12px ui-monospace, Menlo, monospace; color: var(--muted); }
+  #hint { position: absolute; left: 12px; bottom: 10px; color: var(--muted); font-size: 12px; }
+  #err { color: var(--bad); }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; font-size: 12px; color: var(--muted); }
+  .sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  @media (max-width: 760px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto 60vh; height: auto; }
+    aside { border-right: 0; border-bottom: 1px solid var(--line); max-height: none; }
+    main { height: 60vh; }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<aside>
+  <h1 id="title">Appliance viewer</h1>
+  <div class="sub" id="subtitle">loading…</div>
+  <div class="row">
+    <select id="run"></select>
+  </div>
+  <div class="row">
+    <label><input type="checkbox" id="shell" checked> shell</label>
+    <label><input type="checkbox" id="ghost"> see-through shell</label>
+    <label><input type="checkbox" id="moving" checked> moving parts</label>
+  </div>
+  <div class="legend"><span><i class="sw" style="background:#c9c6bf"></i>shell</span>
+    <span><i class="sw" style="background:#3b6ea8"></i>insert</span>
+    <span><i class="sw" style="background:#e08a2c"></i>moving</span>
+    <span><i class="sw" style="background:var(--changed)"></i>to reprint</span></div>
+  <div id="patchbox"></div>
+  <h2>Features</h2>
+  <ul id="features"></ul>
+  <div id="detail"></div>
+  <h2>Checks</h2>
+  <ul class="checks" id="checks"><li class="sub">no checks.json in this run</li></ul>
+  <div id="err"></div>
+</aside>
+<main id="view"><div id="hint">drag to orbit · scroll to zoom · click a part</div></main>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+const DEFAULT_RUNS = ["out/rev_a", "out/rev_b", "out/flat_box"];
+const $ = (id) => document.getElementById(id);
+const view = $("view");
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+view.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a80, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(-1, 2, 1.5); scene.add(sun);
+
+let model = null, featureData = null, changed = new Set(), selected = null;
+const mats = new Map();          // mesh -> original material
+
+function resize() {
+  const r = view.getBoundingClientRect();
+  renderer.setSize(r.width, r.height); camera.aspect = r.width / r.height; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(view);
+
+async function getJSON(url) {
+  try { const r = await fetch(url, { cache: "no-store" }); return r.ok ? await r.json() : null; } catch { return null; }
+}
+
+function partOf(obj) {            // walk up to the node named "<id>__insert|moving" or "shell"
+  for (let o = obj; o; o = o.parent) {
+    if (o.name === "shell" || /__(insert|moving)$/.test(o.name)) return o.name;
+  }
+  return null;
+}
+
+function restyle() {
+  const ghost = $("ghost").checked;
+  model?.traverse((o) => {
+    if (!o.isMesh) return;
+    const part = partOf(o) || "";
+    const fid = part.split("__")[0];
+    const base = mats.get(o);
+    let m = base.clone();
+    if (part === "shell") { o.visible = $("shell").checked; if (ghost) { m.transparent = true; m.opacity = 0.25; m.depthWrite = false; } }
+    if (part.endsWith("__moving")) o.visible = $("moving").checked;
+    if (changed.has(part) || (part === "shell" && changed.has("shell"))) m.color = new THREE.Color(getComputedStyle(document.body).getPropertyValue("--changed").trim() || "#d23c3c");
+    if (selected && fid === selected) { m.emissive = new THREE.Color(0x335577); m.emissiveIntensity = 0.6; }
+    o.material = m;
+  });
+}
+
+function select(fid) {
+  selected = fid;
+  document.querySelectorAll("li.feat").forEach((li) => li.classList.toggle("sel", li.dataset.id === fid));
+  const f = featureData?.features.find((x) => x.id === fid);
+  $("detail").textContent = f ? JSON.stringify({ type: f.type, face: f.face, clearance_mm: f.clearance_mm,
+    origin_mm: f.origin, waypoints_mm: f.waypoints, info: f.info }, null, 1) : "";
+  restyle();
+}
+
+async function load(run) {
+  $("err").textContent = "";
+  const [features, result, checks] = await Promise.all([
+    getJSON(`${run}/features.json`), getJSON(`${run}/patch_result.json`), getJSON(`${run}/checks.json`)]);
+  featureData = features;
+  changed = new Set((result?.changed_parts || []).map((p) => p.replace(/__(cap|stem|knob)$/, "__moving")));
+  $("title").textContent = features ? `${features.name}` : run;
+  $("subtitle").textContent = features ? `rev ${features.rev} · ${features.size.join(" × ")} mm · ${features.features.length} features` : "no features.json";
+
+  // patch summary
+  if (result) {
+    const edits = result.edits.map((e) => `<code>${e.param}</code>: ${e.old} → ${e.new}`).join("<br>");
+    const cls = result.accepted ? "accepted" : "refused";
+    $("patchbox").innerHTML = `<h2>Patch rev ${result.old_rev} → ${result.new_rev || "–"}</h2><div class="patch">
+      <div class="verdict ${cls}">${result.accepted ? "Accepted" : "Refused"}</div>${edits}
+      ${result.accepted ? `<div>reprint: <b>${result.changed_parts.join(", ") || "nothing"}</b><br>about ${Math.round(result.cost.minutes)} min, ${result.cost.grams} g (rough)</div>` : ""}
+      ${(result.reasons || []).map((r) => `<div class="refused">${r}</div>`).join("")}
+      ${result.patch?.reason ? `<div class="sub" style="margin-top:6px">${result.patch.reason}</div>` : ""}</div>`;
+  } else $("patchbox").innerHTML = "";
+
+  $("features").innerHTML = (features?.features || []).map((f) => {
+    const ch = [...changed].some((p) => p.startsWith(f.id + "__"));
+    return `<li class="feat${ch ? " changed" : ""}" data-id="${f.id}"><span class="n">${f.id}</span><span class="t">${f.type} · ${f.face}${f.clearance_mm != null ? ` · ${f.clearance_mm} mm` : ""}</span></li>`;
+  }).join("");
+  document.querySelectorAll("li.feat").forEach((li) => li.onclick = () => select(li.dataset.id === selected ? null : li.dataset.id));
+
+  const allChecks = checks || result?.checks;
+  $("checks").innerHTML = allChecks?.length ? allChecks.map((c) =>
+    `<li><span class="${c.ok ? "ok" : "bad"}">${c.ok ? "✓" : "✗"}</span><span>${c.name}${c.detail ? ` <span class="sub">${c.detail}</span>` : ""}</span></li>`).join("")
+    : `<li class="sub">no checks in this run</li>`;
+
+  // model
+  if (model) { scene.remove(model); model = null; }
+  if (result && !result.accepted) { $("subtitle").textContent = "patch refused: nothing was built"; return; }
+  new GLTFLoader().load(`${run}/assembly.glb`, (g) => {
+    model = g.scene; mats.clear();
+    model.traverse((o) => { if (o.isMesh) mats.set(o, o.material); });
+    scene.add(model);
+    const box = new THREE.Box3().setFromObject(model), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+    const d = size.length() * 2.1;
+    controls.target.copy(c);
+    camera.position.set(c.x - d * 0.55, c.y + d * 0.45, c.z + d * 0.75);
+    camera.near = d / 1000; camera.far = d * 20; camera.updateProjectionMatrix();
+    selected = null; restyle();
+  }, undefined, () => { $("err").textContent = `couldn't load ${run}/assembly.glb (serve this folder over http, see README)`; });
+}
+
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+let down = null;
+renderer.domElement.addEventListener("pointerdown", (e) => down = [e.clientX, e.clientY]);
+renderer.domElement.addEventListener("pointerup", (e) => {
+  if (!model || !down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+  const hit = ray.intersectObject(model, true).find((h) => h.object.visible && partOf(h.object) !== "shell");
+  select(hit ? partOf(hit.object).split("__")[0] : null);
+});
+
+["shell", "ghost", "moving"].forEach((id) => $(id).onchange = restyle);
+(async () => {
+  const listed = await getJSON("out/runs.json");
+  const runs = [...new Set([...(listed || []), ...DEFAULT_RUNS])];
+  const want = new URLSearchParams(location.search).get("run") || runs[0];
+  if (!runs.includes(want)) runs.unshift(want);
+  $("run").innerHTML = runs.map((r) => `<option ${r === want ? "selected" : ""}>${r}</option>`).join("");
+  $("run").onchange = () => { history.replaceState(null, "", `?run=${$("run").value}`); load($("run").value); };
+  resize(); load(want);
+})();
+(function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+</script>
+</body>
+</html>

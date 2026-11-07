@@ -1,0 +1,51 @@
+{
+ "label": "create_version",
+ "request": {
+  "method": "POST",
+  "path": "/api/v12/documents/d/db73d1ec8db8336dfaec0801/versions",
+  "query": "",
+  "headers": {
+   "content-type": "application/json",
+   "accept": "application/json"
+  },
+  "json": {
+   "documentId": "db73d1ec8db8336dfaec0801",
+   "workspaceId": "c36f3d4849320db8274f69bd",
+   "name": "rav spike base 20261107-115138",
+   "description": "seeded parts"
+  }
+ },
+ "response": {
+  "status": 200,
+  "headers": {
+   "content-type": "application/json;charset=utf-8"
+  },
+  "json": {
+   "purpose": 0,
+   "metadataWorkspaceId": null,
+   "type": "version",
+   "creator": {
+    "jsonType": "user-summary",
+    "state": 1,
+    "isOnshapeSupport": false,
+    "image": "/images/placeholder-user.png",
+    "id": "62966cdd0989c84172acf032",
+    "href": "https://cad.onshape.com/modapi/users/62966cdd0989c84172acf032",
+    "name": "Karthik"
+   },
+   "overrideDate": null,
+   "microversion": "fb785f0bc88c35d731c83f54",
+   "createdAt": "2026-11-07T16:51:42.280+00:00",
+   "modifiedAt": "2026-11-07T16:51:42.280+00:00",
+   "lastModifier": null,
+   "parent": "2293d4a8fe65824b65f747e9",
+   "parents": null,
+   "documentId": "db73d1ec8db8336dfaec0801",
+   "thumbnail": null,
+   "description": "seeded parts",
+   "id": "675048c1049f0bdd887360dc",
+   "href": null,
+   "name": "rav spike base 20261107-115138"
+  }
+ }
+}

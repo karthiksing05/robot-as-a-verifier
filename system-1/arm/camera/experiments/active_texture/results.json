@@ -1,0 +1,50 @@
+{
+ "plain": {
+  "button": {
+   "coverage_pct": 0.0,
+   "median_abs_err_mm": null,
+   "p90_abs_err_mm": null
+  },
+  "panel": {
+   "coverage_pct": 0.0,
+   "median_abs_err_mm": null,
+   "p90_abs_err_mm": null
+  }
+ },
+ "fixed": {
+  "button": {
+   "coverage_pct": 37.1,
+   "median_abs_err_mm": 0.014,
+   "p90_abs_err_mm": 0.041
+  },
+  "panel": {
+   "coverage_pct": 38.1,
+   "median_abs_err_mm": 0.011,
+   "p90_abs_err_mm": 0.028
+  }
+ },
+ "wrist": {
+  "button": {
+   "coverage_pct": 0.0,
+   "median_abs_err_mm": null,
+   "p90_abs_err_mm": null
+  },
+  "panel": {
+   "coverage_pct": 0.0,
+   "median_abs_err_mm": null,
+   "p90_abs_err_mm": null
+  }
+ },
+ "laser": {
+  "button": {
+   "coverage_pct": 100.0,
+   "median_abs_err_mm": 0.005,
+   "p90_abs_err_mm": 0.011
+  },
+  "panel": {
+   "coverage_pct": 100.0,
+   "median_abs_err_mm": 0.005,
+   "p90_abs_err_mm": 0.011
+  }
+ }
+}

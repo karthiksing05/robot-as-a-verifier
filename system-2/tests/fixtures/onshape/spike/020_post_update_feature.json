@@ -1,0 +1,124 @@
+{
+ "label": "update_feature",
+ "request": {
+  "method": "POST",
+  "path": "/api/v12/partstudios/d/db73d1ec8db8336dfaec0801/w/07ea5ecff0240f4e072ec7f3/e/df4e17857bec7f8c9e90c953/features/featureid/FnGlbmJZFLLAlE6_0",
+  "query": "",
+  "headers": {
+   "content-type": "application/json",
+   "accept": "application/json"
+  },
+  "json": {
+   "btType": "BTFeatureDefinitionCall-1406",
+   "feature": {
+    "btType": "BTMFeature-134",
+    "namespace": "",
+    "subFeatures": [],
+    "returnAfterSubfeatures": false,
+    "name": "rav_height",
+    "suppressed": false,
+    "parameters": [
+     {
+      "btType": "BTMParameterEnum-145",
+      "namespace": "",
+      "nodeId": "MDago9XhWa8rC48zI",
+      "enumName": "VariableType",
+      "libraryRelationType": "DEFAULT",
+      "parameterName": "",
+      "value": "LENGTH",
+      "parameterId": "variableType"
+     },
+     {
+      "btType": "BTMParameterString-149",
+      "libraryRelationType": "DEFAULT",
+      "parameterName": "",
+      "value": "rav_height",
+      "nodeId": "M8MEarmKaGZecOdjp",
+      "parameterId": "name"
+     },
+     {
+      "btType": "BTMParameterQuantity-147",
+      "isInteger": false,
+      "libraryRelationType": "DEFAULT",
+      "parameterName": "",
+      "value": 0.0,
+      "units": "",
+      "expression": "15 mm",
+      "nodeId": "MAb2xcXEiCmKjvJyi",
+      "parameterId": "lengthValue"
+     }
+    ],
+    "featureId": "FnGlbmJZFLLAlE6_0",
+    "nodeId": "M7JwJK8eXLZuEHMUT",
+    "featureType": "assignVariable",
+    "suppressionState": null,
+    "parameterLibraries": []
+   },
+   "serializationVersion": "1.2.23",
+   "sourceMicroversion": "fb785f0bc88c35d731c83f54"
+  }
+ },
+ "response": {
+  "status": 200,
+  "headers": {
+   "content-type": "application/json;charset=utf-8"
+  },
+  "json": {
+   "btType": "BTFeatureDefinitionResponse-1617",
+   "feature": {
+    "btType": "BTMFeature-134",
+    "namespace": "",
+    "subFeatures": [],
+    "returnAfterSubfeatures": false,
+    "name": "rav_height",
+    "suppressed": false,
+    "parameters": [
+     {
+      "btType": "BTMParameterEnum-145",
+      "namespace": "",
+      "nodeId": "MxlbgPV1z1hQmcRu1",
+      "enumName": "VariableType",
+      "libraryRelationType": "DEFAULT",
+      "parameterName": "",
+      "value": "LENGTH",
+      "parameterId": "variableType"
+     },
+     {
+      "btType": "BTMParameterString-149",
+      "libraryRelationType": "DEFAULT",
+      "parameterName": "",
+      "value": "rav_height",
+      "nodeId": "MRTjheV6GS4Mx2xxv",
+      "parameterId": "name"
+     },
+     {
+      "btType": "BTMParameterQuantity-147",
+      "isInteger": false,
+      "libraryRelationType": "DEFAULT",
+      "parameterName": "",
+      "value": 0.0,
+      "units": "",
+      "expression": "15 mm",
+      "nodeId": "MqwBYfuu+cZpCeHhG",
+      "parameterId": "lengthValue"
+     }
+    ],
+    "featureId": "FnGlbmJZFLLAlE6_0",
+    "nodeId": "M7JwJK8eXLZuEHMUT",
+    "featureType": "assignVariable",
+    "suppressionState": null,
+    "parameterLibraries": []
+   },
+   "featureState": {
+    "btType": "BTFeatureState-1688",
+    "featureStatus": "OK",
+    "inactive": false
+   },
+   "rejectMicroversionSkew": false,
+   "microversionSkew": false,
+   "serializationVersion": "1.2.23",
+   "sourceMicroversion": "1f45a20f37b41785329675ee",
+   "libraryVersion": 0
+  }
+ }
+}

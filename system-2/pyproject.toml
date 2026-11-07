@@ -1,0 +1,45 @@
+# System 2: the harness and the Console. `uv sync` gives the light install: contracts, harness, CAD params and tests.
+# Add what you work on: --extra cad, --extra model, --extra live, or --all-extras.
+[project]
+name = "rav-system-2"
+version = "0.1.0"
+requires-python = ">=3.12,<3.14"
+dependencies = ["rav-contracts", "rav-harness", "rav-cad"]
+
+[project.optional-dependencies]
+cad = ["cadquery==2.8.0", "pyyaml", "numpy", "matplotlib"]
+model = ["anthropic", "jinja2"]
+# Only for console/server/live_sim.py, the one file allowed to run the sim in-process (docs/system-boundary.md).
+live = [
+    "mujoco==3.17.0",
+    "numpy",
+    "matplotlib",
+    "opencv-contrib-python==5.0.0.93",
+    "scipy",
+    "imageio-ffmpeg",
+    "torch==2.10.0",
+    "torchvision==0.25.0",
+    "transformers==5.22.1",
+]
+# The bridge on the D405 route only: no PyTorch and no model downloads, about a third of the install.
+live-depth = ["mujoco==3.17.0", "numpy", "matplotlib", "opencv-contrib-python==5.0.0.93", "scipy", "imageio-ffmpeg"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["contracts", "harness", "cad"]
+
+[tool.uv.sources]
+rav-contracts = { workspace = true }
+rav-harness = { workspace = true }
+rav-cad = { workspace = true }
+# The only thing System 2 takes from System 1: the wire contract.
+rav-interface = { path = "../system-1/interface", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["cad: needs the cad extra (CadQuery)", "model: calls the real model API (needs --extra model and credentials)"]

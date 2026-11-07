@@ -1,0 +1,39 @@
+{
+ "label": "start_step",
+ "request": {
+  "method": "POST",
+  "path": "/api/v12/assemblies/d/db73d1ec8db8336dfaec0801/w/07ea5ecff0240f4e072ec7f3/e/bcdc92307ff243d4bf7739ab/translations",
+  "query": "",
+  "headers": {
+   "content-type": "application/json",
+   "accept": "application/json"
+  },
+  "json": {
+   "formatName": "STEP",
+   "storeInDocument": false
+  }
+ },
+ "response": {
+  "status": 200,
+  "headers": {
+   "content-type": "application/json;charset=utf-8"
+  },
+  "json": {
+   "requestState": "ACTIVE",
+   "requestElementId": "bcdc92307ff243d4bf7739ab",
+   "resultExternalDataIds": null,
+   "versionId": null,
+   "exportRuleFileName": null,
+   "workspaceId": "07ea5ecff0240f4e072ec7f3",
+   "documentId": "db73d1ec8db8336dfaec0801",
+   "resultElementIds": null,
+   "resultDocumentId": "db73d1ec8db8336dfaec0801",
+   "failureReason": null,
+   "correlationId": null,
+   "resultWorkspaceId": "07ea5ecff0240f4e072ec7f3",
+   "name": "Assembly 1",
+   "id": "6aef5728fa9ecab72cd4d780",
+   "href": "https://cad.onshape.com/api/v12/translations/6aef5728fa9ecab72cd4d780"
+  }
+ }
+}

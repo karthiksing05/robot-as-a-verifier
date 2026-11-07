@@ -1,0 +1,10 @@
+{
+  "name": "coverage test: every control once, button 2 held",
+  "steps": [
+    {"skill": "press", "target": "btn1", "params": {"force_limit": 6}},
+    {"skill": "press", "target": "btn2", "params": {"force_limit": 6}},
+    {"skill": "press", "target": "btn3", "params": {"force_limit": 6}},
+    {"skill": "press_hold", "target": "btn2", "params": {"force_limit": 6, "hold": 1.5}},
+    {"skill": "push_latch", "target": "door", "params": {"force_limit": 8}}
+  ]
+}

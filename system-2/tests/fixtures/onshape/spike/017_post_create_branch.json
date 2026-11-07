@@ -1,0 +1,98 @@
+{
+ "label": "create_branch",
+ "request": {
+  "method": "POST",
+  "path": "/api/v12/documents/d/db73d1ec8db8336dfaec0801/workspaces",
+  "query": "",
+  "headers": {
+   "content-type": "application/json",
+   "accept": "application/json"
+  },
+  "json": {
+   "name": "rav-spike-20261107-115138",
+   "description": "R5 spike branch (safe to delete)",
+   "versionId": "675048c1049f0bdd887360dc"
+  }
+ },
+ "response": {
+  "status": 200,
+  "headers": {
+   "content-type": "application/json;charset=utf-8"
+  },
+  "json": {
+   "state": "ACTIVE",
+   "protectionRule": "OPEN",
+   "canDelete": true,
+   "isReadOnly": false,
+   "parent": "675048c1049f0bdd887360dc",
+   "type": "workspace",
+   "creator": {
+    "jsonType": "user-summary",
+    "source": 0,
+    "isGuest": false,
+    "isLight": false,
+    "personalMessageAllowed": false,
+    "invitationState": 0,
+    "confirmationRequested": false,
+    "companyUserState": 0,
+    "canMakePersonalCopies": false,
+    "isExternal": false,
+    "company": null,
+    "globalPermissions": null,
+    "scheduledRemovalDate": null,
+    "lastLoginTime": null,
+    "documentationNameOverride": null,
+    "showOffBoardingNotification": false,
+    "firstName": null,
+    "lastName": null,
+    "email": null,
+    "documentationName": null,
+    "state": 1,
+    "isOnshapeSupport": false,
+    "image": "/images/placeholder-user.png",
+    "name": "Karthik",
+    "id": "62966cdd0989c84172acf032",
+    "href": "https://cad.onshape.com/modapi/users/62966cdd0989c84172acf032"
+   },
+   "lastModifier": {
+    "jsonType": "user-summary",
+    "source": 0,
+    "isGuest": false,
+    "isLight": false,
+    "personalMessageAllowed": false,
+    "invitationState": 0,
+    "confirmationRequested": false,
+    "companyUserState": 0,
+    "canMakePersonalCopies": false,
+    "isExternal": false,
+    "company": null,
+    "globalPermissions": null,
+    "scheduledRemovalDate": null,
+    "lastLoginTime": null,
+    "documentationNameOverride": null,
+    "showOffBoardingNotification": false,
+    "firstName": null,
+    "lastName": null,
+    "email": null,
+    "documentationName": null,
+    "state": 1,
+    "isOnshapeSupport": false,
+    "image": "/images/placeholder-user.png",
+    "name": "Karthik",
+    "id": "62966cdd0989c84172acf032",
+    "href": "https://cad.onshape.com/modapi/users/62966cdd0989c84172acf032"
+   },
+   "description": "R5 spike branch (safe to delete)",
+   "modifiedAt": "2026-11-07T16:51:42.998+00:00",
+   "thumbnail": null,
+   "documentId": "db73d1ec8db8336dfaec0801",
+   "createdAt": "2026-11-07T16:51:43.005+00:00",
+   "microversion": "fb785f0bc88c35d731c83f54",
+   "parents": null,
+   "overrideDate": "2026-11-07T16:51:42.998+00:00",
+   "name": "rav-spike-20261107-115138",
+   "id": "07ea5ecff0240f4e072ec7f3",
+   "href": "https://cad.onshape.com/api/v12/documents/d/db73d1ec8db8336dfaec0801/workspaces/07ea5ecff0240f4e072ec7f3"
+  }
+ }
+}

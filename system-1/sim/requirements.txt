@@ -1,0 +1,9 @@
+mujoco==3.17.0
+numpy
+matplotlib
+opencv-contrib-python==5.0.0.93
+scipy
+imageio-ffmpeg
+torch==2.10.0
+torchvision==0.25.0
+transformers==5.22.1

@@ -1,0 +1,119 @@
+{
+ "label": "add_feature",
+ "request": {
+  "method": "POST",
+  "path": "/api/v12/partstudios/d/db73d1ec8db8336dfaec0801/w/07ea5ecff0240f4e072ec7f3/e/df4e17857bec7f8c9e90c953/features",
+  "query": "",
+  "headers": {
+   "content-type": "application/json",
+   "accept": "application/json"
+  },
+  "json": {
+   "btType": "BTFeatureDefinitionCall-1406",
+   "feature": {
+    "btType": "BTMFeature-134",
+    "namespace": "",
+    "subFeatures": [],
+    "returnAfterSubfeatures": false,
+    "name": "rav_spike_probe",
+    "suppressed": false,
+    "parameters": [
+     {
+      "btType": "BTMParameterEnum-145",
+      "namespace": "",
+      "enumName": "VariableType",
+      "libraryRelationType": "DEFAULT",
+      "parameterName": "",
+      "value": "LENGTH",
+      "parameterId": "variableType"
+     },
+     {
+      "btType": "BTMParameterString-149",
+      "libraryRelationType": "DEFAULT",
+      "parameterName": "",
+      "value": "rav_spike_probe",
+      "parameterId": "name"
+     },
+     {
+      "btType": "BTMParameterQuantity-147",
+      "isInteger": false,
+      "libraryRelationType": "DEFAULT",
+      "parameterName": "",
+      "value": 0.0,
+      "units": "",
+      "expression": "1 mm",
+      "parameterId": "lengthValue"
+     }
+    ],
+    "featureType": "assignVariable",
+    "suppressionState": null,
+    "parameterLibraries": []
+   },
+   "serializationVersion": "1.2.23",
+   "sourceMicroversion": "8fc09f746728837ed1203bcb"
+  }
+ },
+ "response": {
+  "status": 200,
+  "headers": {
+   "content-type": "application/json;charset=utf-8"
+  },
+  "json": {
+   "btType": "BTFeatureDefinitionResponse-1617",
+   "feature": {
+    "btType": "BTMFeature-134",
+    "namespace": "",
+    "subFeatures": [],
+    "returnAfterSubfeatures": false,
+    "name": "rav_spike_probe",
+    "suppressed": false,
+    "parameters": [
+     {
+      "btType": "BTMParameterEnum-145",
+      "namespace": "",
+      "nodeId": "ML/GXiqslOo6/YPR9",
+      "enumName": "VariableType",
+      "libraryRelationType": "DEFAULT",
+      "parameterName": "",
+      "value": "LENGTH",
+      "parameterId": "variableType"
+     },
+     {
+      "btType": "BTMParameterString-149",
+      "libraryRelationType": "DEFAULT",
+      "parameterName": "",
+      "value": "rav_spike_probe",
+      "nodeId": "MYu2zp382lGrYrYxA",
+      "parameterId": "name"
+     },
+     {
+      "btType": "BTMParameterQuantity-147",
+      "isInteger": false,
+      "libraryRelationType": "DEFAULT",
+      "parameterName": "",
+      "value": 0.0,
+      "units": "",
+      "expression": "1 mm",
+      "nodeId": "MX5zuTvbbM9D5AyYB",
+      "parameterId": "lengthValue"
+     }
+    ],
+    "featureId": "FauUX0qrJYjvOUA_2",
+    "nodeId": "MDtbx1EhPpBUW2mSo",
+    "featureType": "assignVariable",
+    "suppressionState": null,
+    "parameterLibraries": []
+   },
+   "featureState": {
+    "btType": "BTFeatureState-1688",
+    "featureStatus": "OK",
+    "inactive": false
+   },
+   "rejectMicroversionSkew": false,
+   "microversionSkew": false,
+   "serializationVersion": "1.2.23",
+   "sourceMicroversion": "8934e8c1fc2dad9f4b0a43c1",
+   "libraryVersion": 0
+  }
+ }
+}

@@ -1,0 +1,39 @@
+{
+ "label": "start_step",
+ "request": {
+  "method": "POST",
+  "path": "/api/v12/partstudios/d/db73d1ec8db8336dfaec0801/w/07ea5ecff0240f4e072ec7f3/e/df4e17857bec7f8c9e90c953/translations",
+  "query": "",
+  "headers": {
+   "content-type": "application/json",
+   "accept": "application/json"
+  },
+  "json": {
+   "formatName": "STEP",
+   "storeInDocument": false
+  }
+ },
+ "response": {
+  "status": 200,
+  "headers": {
+   "content-type": "application/json;charset=utf-8"
+  },
+  "json": {
+   "requestState": "ACTIVE",
+   "requestElementId": "df4e17857bec7f8c9e90c953",
+   "resultExternalDataIds": null,
+   "versionId": null,
+   "workspaceId": "07ea5ecff0240f4e072ec7f3",
+   "documentId": "db73d1ec8db8336dfaec0801",
+   "exportRuleFileName": null,
+   "resultElementIds": null,
+   "resultDocumentId": "db73d1ec8db8336dfaec0801",
+   "failureReason": null,
+   "correlationId": null,
+   "resultWorkspaceId": "07ea5ecff0240f4e072ec7f3",
+   "name": "Part Studio 1",
+   "id": "6aef5720fa9ecab72cd4d732",
+   "href": "https://cad.onshape.com/api/v12/translations/6aef5720fa9ecab72cd4d732"
+  }
+ }
+}

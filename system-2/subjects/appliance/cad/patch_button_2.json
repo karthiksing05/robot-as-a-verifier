@@ -1,0 +1,5 @@
+{
+  "edits": [{"param": "features.button_2.clearance", "old": 0.15, "new": 0.40}],
+  "reason": "button_2 reached the 8 N limit after 1.35 mm on both attempts while its siblings pressed at 3.8 N; its bore clearance is 0.15 mm against 0.40 mm on the siblings.",
+  "predicted_effect": "button_2 presses like button_1 and button_3 (about 4 N, full travel)."
+}

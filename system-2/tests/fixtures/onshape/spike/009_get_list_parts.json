@@ -1,0 +1,88 @@
+{
+ "label": "list_parts",
+ "request": {
+  "method": "GET",
+  "path": "/api/v12/parts/d/db73d1ec8db8336dfaec0801/w/c36f3d4849320db8274f69bd/e/df4e17857bec7f8c9e90c953",
+  "query": "",
+  "headers": {
+   "content-type": "application/json",
+   "accept": "application/json"
+  }
+ },
+ "response": {
+  "status": 200,
+  "headers": {
+   "content-type": "application/json;charset=utf-8"
+  },
+  "json": [
+   {
+    "name": "Part 1",
+    "state": "IN_PROGRESS",
+    "description": null,
+    "revision": null,
+    "partNumber": null,
+    "elementId": "df4e17857bec7f8c9e90c953",
+    "partId": "JHD",
+    "bodyType": "solid",
+    "microversionId": "641022f2d52e871900b2e093",
+    "partQuery": "query=qCompressed(1.0,\"%B5$QueryM5S12$disambiguationDataA1M2S12$disambiguationTypeS13$ORIGINAL_DEPENDENCYS9$originalsA1C0M5Sa$entityTypeBa$EntityTypeS4$EDGESb$historyTypeS8$CREATIONSb$operationIdB2$IdA1S11.6$FkYagMVU1pP33LR_0wireOpS9$queryTypeSd$SKETCH_ENTITYSe$sketchEntityIdS2$c1R4C6S4$BODYR6R7R8CbA1S11.9$Fc9KB9pQGV4E3MB_0opExtrudeRbSa$SWEPT_BODY\",id);",
+    "isFlattenedBody": false,
+    "partIdentity": null,
+    "meshState": "NO_MESH",
+    "isHidden": false,
+    "configurationId": "",
+    "thumbnailConfigurationId": "",
+    "propertySourceTypes": {
+     "57f3fb8efa3416c06701d60d": 0
+    },
+    "metadataMicroversion": "bc0bf9cc224d1c7791fbee57",
+    "defaultColorHash": "Fc9KB9pQGV4E3MB_0_0",
+    "ordinal": 0,
+    "isMesh": false,
+    "appearance": {
+     "color": {
+      "red": 157,
+      "green": 207,
+      "blue": 237
+     },
+     "isGenerated": true,
+     "opacity": 255
+    }
+   },
+   {
+    "name": "Part 2",
+    "state": "IN_PROGRESS",
+    "description": null,
+    "revision": null,
+    "partNumber": null,
+    "elementId": "df4e17857bec7f8c9e90c953",
+    "partId": "JHH",
+    "bodyType": "solid",
+    "microversionId": "641022f2d52e871900b2e093",
+    "partQuery": "query=qCompressed(1.0,\"%B5$QueryM5S12$disambiguationDataA1M2S12$disambiguationTypeS13$ORIGINAL_DEPENDENCYS9$originalsA1C0M5Sa$entityTypeBa$EntityTypeS4$EDGESb$historyTypeS8$CREATIONSb$operationIdB2$IdA1S11.6$FkYagMVU1pP33LR_0wireOpS9$queryTypeSd$SKETCH_ENTITYSe$sketchEntityIdS2$c2R4C6S4$BODYR6R7R8CbA1S11.9$Fc9KB9pQGV4E3MB_0opExtrudeRbSa$SWEPT_BODY\",id);",
+    "isFlattenedBody": false,
+    "partIdentity": null,
+    "meshState": "NO_MESH",
+    "isHidden": false,
+    "configurationId": "",
+    "thumbnailConfigurationId": "",
+    "propertySourceTypes": {
+     "57f3fb8efa3416c06701d60d": 0
+    },
+    "metadataMicroversion": "bc0bf9cc224d1c7791fbee57",
+    "defaultColorHash": "Fc9KB9pQGV4E3MB_0_1",
+    "ordinal": 1,
+    "isMesh": false,
+    "appearance": {
+     "color": {
+      "red": 165,
+      "green": 165,
+      "blue": 165
+     },
+     "isGenerated": true,
+     "opacity": 255
+    }
+   }
+  ]
+ }
+}

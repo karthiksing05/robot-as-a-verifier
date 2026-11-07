@@ -1,0 +1,7 @@
+{
+  "button_clearance": [0.40, 0.15, 0.40],
+  "handle_style": "tab",
+  "latch_overlap": 0.8,
+  "lcd_tilt": 15,
+  "dome_preload": [0.3, 0.3, 0.3]
+}

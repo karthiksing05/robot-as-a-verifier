@@ -1,0 +1,13 @@
+6343cfe56e789fc09dd1bfbeee2df9d4 *robot.py
+b1c8bf1b25bdbd0d962e36c48d14f84f *affordances.py
+1ec5cbcc4da341e394e46abfb5d50a2c *skills.py
+f91e3a1e222bac73f14ce6cab350af9d *touch.py
+7c726006e434b47658ae5341fddc9190 *rgbperceive.py
+f95b8e4cf77b823d4f5bd9e99864fcfd *explore.py
+f1775fb462129931ab92610b42751c32 *viz.py
+e32108c052d6119d9f932f3196efdaea *perceive.py
+2d003c9b78df64a40616b1d885356ea6 *segmodels.py
+cf0469c7d1ff535b2d6de3bc421a0f0f *sensors.py
+fe5b06a3f76c9ea94907b98c4d9aa82b *device.py
+0a0b4719e7d420433b930eb261556a4f *world.py
+e84271f45ee5de3b10bbe928b923d5e8 *features.py

@@ -1,0 +1,18 @@
+{
+ "label": "delete_document",
+ "request": {
+  "method": "DELETE",
+  "path": "/api/v12/documents/db73d1ec8db8336dfaec0801",
+  "query": "",
+  "headers": {
+   "content-type": "application/json",
+   "accept": "application/json"
+  }
+ },
+ "response": {
+  "status": 200,
+  "headers": {
+   "content-length": "0"
+  }
+ }
+}

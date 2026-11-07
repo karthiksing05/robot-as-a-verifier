@@ -1,0 +1,45 @@
+# System 1: the robot. `uv sync` gives the light install: the interface, the server and its tests.
+# Add what you work on: --extra sim, --extra arm, --extra phone, or --all-extras.
+[project]
+name = "rav-system-1"
+version = "0.1.0"
+requires-python = ">=3.12,<3.14"
+dependencies = ["rav-interface", "rav-server", "rav-arm"]
+
+[project.optional-dependencies]
+# Keep in step with sim/requirements.txt (tests/test_boundary.py checks).
+sim = [
+    "mujoco==3.17.0",
+    "numpy",
+    "matplotlib",
+    "opencv-contrib-python==5.0.0.93",
+    "scipy",
+    "imageio-ffmpeg",
+    "torch==2.10.0",
+    "torchvision==0.25.0",
+    "transformers==5.22.1",
+]
+arm = ["lerobot[feetech,viz]==0.7.0", "pyserial"]
+# The iPhone's LiDAR over USB (Record3D app on the phone). No macOS wheel: it builds from source and needs CMake.
+phone = ["record3d==1.4.1"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+# lerobot pulls opencv-python-headless, which would overwrite the cv2 module of opencv-contrib-python and lose
+# the ChArUco code. Only the contrib build gets installed.
+override-dependencies = ["opencv-python-headless; sys_platform == 'never'"]
+
+[tool.uv.workspace]
+members = ["interface", "server", "arm"]
+
+[tool.uv.sources]
+rav-interface = { workspace = true }
+rav-server = { workspace = true }
+rav-arm = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "hardware/tests"]
+markers = ["sim: needs the sim extra (MuJoCo)"]

@@ -1,0 +1,48 @@
+/* The Console's style: Instrument Panel colors, Source Serif for people, JetBrains Mono for machines,
+   and Michroma for high-level moments only.
+   Chart colors passed the dataviz validator against both surfaces. */
+:root {
+  --bg: #e6e6e2;
+  --surface: #f4f4f1;
+  --sunk: #dadad5;
+  --ink: #191b1d;
+  --muted: #5a5e60;
+  --line: #b9bab4;
+  --accent: #7a5600;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(122, 86, 0, 0.1);
+  --pass: #00809a;
+  --fail: #b23a1e;
+  --fail-wash: rgba(178, 58, 30, 0.08);
+  --obs: #5f5296;
+  --warn: #8a5a00;
+
+  --serif: "Source Serif 4", "Times New Roman", Times, serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --display: "Michroma", var(--mono);
+  --display-weight: 400; /* Michroma has one weight */
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 120ms;
+  --mid: 220ms;
+  --slow: 420ms;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #1e2226;
+  --surface: #24282c;
+  --sunk: #171a1d;
+  --ink: #ecebe6;
+  --muted: #b4b5ae;
+  --line: #474d51;
+  --accent: #e3ae3c;
+  --accent-ink: #1a1405;
+  --accent-wash: rgba(227, 174, 60, 0.12);
+  --pass: #1fa3ba;
+  --fail: #e66a4a;
+  --fail-wash: rgba(230, 106, 74, 0.12);
+  --obs: #aa9fe0;
+  --warn: #d9a93f;
+  color-scheme: dark;
+}

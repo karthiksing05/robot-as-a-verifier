@@ -1,0 +1,168 @@
+{
+ "label": "get_features",
+ "request": {
+  "method": "GET",
+  "path": "/api/v12/partstudios/d/db73d1ec8db8336dfaec0801/w/c36f3d4849320db8274f69bd/e/df4e17857bec7f8c9e90c953/features",
+  "query": "",
+  "headers": {
+   "content-type": "application/json",
+   "accept": "application/json"
+  }
+ },
+ "response": {
+  "status": 200,
+  "headers": {
+   "content-type": "application/json;charset=utf-8"
+  },
+  "json": {
+   "btType": "BTFeatureListResponse-2457",
+   "imports": [
+    {
+     "btType": "BTMImport-136",
+     "namespace": "",
+     "nodeId": "MJfdTM8YspoJZTOHC",
+     "version": "3112.0",
+     "path": "onshape/std/geometry.fs"
+    }
+   ],
+   "defaultFeatures": [
+    {
+     "btType": "BTMFeature-134",
+     "namespace": "",
+     "subFeatures": [],
+     "returnAfterSubfeatures": false,
+     "name": "Origin",
+     "suppressed": false,
+     "parameters": [],
+     "featureId": "Origin",
+     "nodeId": "MwSBMITnfrvhqHXCZ",
+     "featureType": "origin",
+     "suppressionState": null,
+     "parameterLibraries": []
+    },
+    {
+     "btType": "BTMFeature-134",
+     "namespace": "",
+     "subFeatures": [],
+     "returnAfterSubfeatures": false,
+     "name": "Top",
+     "suppressed": false,
+     "parameters": [],
+     "featureId": "Top",
+     "nodeId": "MaCcP2o/o8E2+vzQE",
+     "featureType": "defaultPlane",
+     "suppressionState": null,
+     "parameterLibraries": []
+    },
+    {
+     "btType": "BTMFeature-134",
+     "namespace": "",
+     "subFeatures": [],
+     "returnAfterSubfeatures": false,
+     "name": "Front",
+     "suppressed": false,
+     "parameters": [],
+     "featureId": "Front",
+     "nodeId": "MWWeMcBlkBiFkUnbk",
+     "featureType": "defaultPlane",
+     "suppressionState": null,
+     "parameterLibraries": []
+    },
+    {
+     "btType": "BTMFeature-134",
+     "namespace": "",
+     "subFeatures": [],
+     "returnAfterSubfeatures": false,
+     "name": "Right",
+     "suppressed": false,
+     "parameters": [],
+     "featureId": "Right",
+     "nodeId": "MfTJUb3rqLMepjXjt",
+     "featureType": "defaultPlane",
+     "suppressionState": null,
+     "parameterLibraries": []
+    }
+   ],
+   "rollbackIndex": 1,
+   "serializationVersion": "1.2.23",
+   "isComplete": true,
+   "libraryVersion": 3112,
+   "featureStates": {
+    "FnGlbmJZFLLAlE6_0": {
+     "btType": "BTFeatureState-1688",
+     "featureStatus": "OK",
+     "inactive": false
+    },
+    "Origin": {
+     "btType": "BTFeatureState-1688",
+     "featureStatus": "OK",
+     "inactive": false
+    },
+    "Top": {
+     "btType": "BTFeatureState-1688",
+     "featureStatus": "OK",
+     "inactive": false
+    },
+    "Front": {
+     "btType": "BTFeatureState-1688",
+     "featureStatus": "OK",
+     "inactive": false
+    },
+    "Right": {
+     "btType": "BTFeatureState-1688",
+     "featureStatus": "OK",
+     "inactive": false
+    }
+   },
+   "features": [
+    {
+     "btType": "BTMFeature-134",
+     "namespace": "",
+     "subFeatures": [],
+     "returnAfterSubfeatures": false,
+     "name": "rav_height",
+     "suppressed": false,
+     "parameters": [
+      {
+       "btType": "BTMParameterEnum-145",
+       "namespace": "",
+       "nodeId": "MDago9XhWa8rC48zI",
+       "enumName": "VariableType",
+       "libraryRelationType": "DEFAULT",
+       "parameterName": "",
+       "value": "LENGTH",
+       "parameterId": "variableType"
+      },
+      {
+       "btType": "BTMParameterString-149",
+       "libraryRelationType": "DEFAULT",
+       "parameterName": "",
+       "value": "rav_height",
+       "nodeId": "M8MEarmKaGZecOdjp",
+       "parameterId": "name"
+      },
+      {
+       "btType": "BTMParameterQuantity-147",
+       "isInteger": false,
+       "libraryRelationType": "DEFAULT",
+       "parameterName": "",
+       "value": 0.0,
+       "units": "",
+       "expression": "10 mm",
+       "nodeId": "MAb2xcXEiCmKjvJyi",
+       "parameterId": "lengthValue"
+      }
+     ],
+     "featureId": "FnGlbmJZFLLAlE6_0",
+     "nodeId": "M7JwJK8eXLZuEHMUT",
+     "featureType": "assignVariable",
+     "suppressionState": null,
+     "parameterLibraries": []
+    }
+   ],
+   "sourceMicroversion": "127f55511aa60e132d9537c4",
+   "microversionSkew": false,
+   "rejectMicroversionSkew": false
+  }
+ }
+}

@@ -1,0 +1,211 @@
+{
+ "label": "add_feature",
+ "request": {
+  "method": "POST",
+  "path": "/api/v12/partstudios/d/db73d1ec8db8336dfaec0801/w/c36f3d4849320db8274f69bd/e/df4e17857bec7f8c9e90c953/features",
+  "query": "",
+  "headers": {
+   "content-type": "application/json",
+   "accept": "application/json"
+  },
+  "json": {
+   "btType": "BTFeatureDefinitionCall-1406",
+   "feature": {
+    "btType": "BTMSketch-151",
+    "featureType": "newSketch",
+    "name": "rav sketch",
+    "constraints": [],
+    "parameters": [
+     {
+      "btType": "BTMParameterQueryList-148",
+      "parameterId": "sketchPlane",
+      "queries": [
+       {
+        "btType": "BTMIndividualQuery-138",
+        "deterministicIds": [
+         "JDC"
+        ]
+       }
+      ]
+     }
+    ],
+    "entities": [
+     {
+      "btType": "BTMSketchCurve-4",
+      "entityId": "c1",
+      "centerId": "c1.center",
+      "geometry": {
+       "btType": "BTCurveGeometryCircle-115",
+       "radius": 0.01,
+       "xCenter": 0.0,
+       "yCenter": 0.0,
+       "xDir": 1.0,
+       "yDir": 0.0,
+       "clockwise": false
+      }
+     },
+     {
+      "btType": "BTMSketchCurve-4",
+      "entityId": "c2",
+      "centerId": "c2.center",
+      "geometry": {
+       "btType": "BTCurveGeometryCircle-115",
+       "radius": 0.01,
+       "xCenter": 0.03,
+       "yCenter": 0.0,
+       "xDir": 1.0,
+       "yDir": 0.0,
+       "clockwise": false
+      }
+     }
+    ]
+   },
+   "serializationVersion": "1.2.23",
+   "sourceMicroversion": "127f55511aa60e132d9537c4"
+  }
+ },
+ "response": {
+  "status": 200,
+  "headers": {
+   "content-type": "application/json;charset=utf-8"
+  },
+  "json": {
+   "btType": "BTFeatureDefinitionResponse-1617",
+   "feature": {
+    "btType": "BTMSketch-151",
+    "namespace": "",
+    "entities": [
+     {
+      "btType": "BTMSketchCurve-4",
+      "namespace": "",
+      "geometry": {
+       "btType": "BTCurveGeometryCircle-115",
+       "radius": 0.01,
+       "clockwise": false,
+       "xCenter": 0.0,
+       "yCenter": 0.0,
+       "xDir": 1.0,
+       "yDir": 0.0
+      },
+      "isFromEndpointSplineHandle": false,
+      "centerId": "c1.center",
+      "isFromSplineHandle": false,
+      "curvedTextIds": [],
+      "isConstruction": false,
+      "entityId": "c1",
+      "isFromSplineControlPolygon": false,
+      "internalIds": [],
+      "name": "",
+      "index": 1,
+      "parameters": [],
+      "nodeId": "M8ld6JhgaMhZnlWeq"
+     },
+     {
+      "btType": "BTMSketchCurve-4",
+      "namespace": "",
+      "geometry": {
+       "btType": "BTCurveGeometryCircle-115",
+       "radius": 0.01,
+       "clockwise": false,
+       "xCenter": 0.03,
+       "yCenter": 0.0,
+       "xDir": 1.0,
+       "yDir": 0.0
+      },
+      "isFromEndpointSplineHandle": false,
+      "centerId": "c2.center",
+      "isFromSplineHandle": false,
+      "curvedTextIds": [],
+      "isConstruction": false,
+      "entityId": "c2",
+      "isFromSplineControlPolygon": false,
+      "internalIds": [],
+      "name": "",
+      "index": 2,
+      "parameters": [],
+      "nodeId": "MR8PhZAHPv30Fi6hS"
+     }
+    ],
+    "suppressionState": null,
+    "parameterLibraries": [],
+    "returnAfterSubfeatures": false,
+    "subFeatures": [],
+    "constraints": [],
+    "name": "rav sketch",
+    "parameters": [
+     {
+      "btType": "BTMParameterQueryList-148",
+      "libraryRelationType": "DEFAULT",
+      "parameterName": "",
+      "filter": {
+       "btType": "BTOrFilter-167",
+       "operand1": {
+        "btType": "BTOrFilter-167",
+        "operand1": {
+         "btType": "BTAndFilter-110",
+         "operand1": {
+          "btType": "BTGeometryFilter-130",
+          "geometryType": "PLANE"
+         },
+         "operand2": {
+          "btType": "BTFlatSheetMetalFilter-3018",
+          "allows": "MODEL_ONLY"
+         }
+        },
+        "operand2": {
+         "btType": "BTAndFilter-110",
+         "operand1": {
+          "btType": "BTAndFilter-110",
+          "operand1": {
+           "btType": "BTSMDefinitionEntityTypeFilter-1651",
+           "smDefinitionEntityType": "FACE"
+          },
+          "operand2": {
+           "btType": "BTFlatSheetMetalFilter-3018",
+           "allows": "MODEL_AND_FLATTENED"
+          }
+         },
+         "operand2": {
+          "btType": "BTGeometryFilter-130",
+          "geometryType": "PLANE"
+         }
+        }
+       },
+       "operand2": {
+        "btType": "BTBodyTypeFilter-112",
+        "bodyType": "MATE_CONNECTOR"
+       }
+      },
+      "queries": [
+       {
+        "btType": "BTMIndividualQuery-138",
+        "queryStatement": null,
+        "deterministicIds": [
+         "JDC"
+        ],
+        "queryString": "query=qCompressed(1.0,\"%B5$QueryM4Sa$entityTypeBa$EntityTypeS4$FACESb$historyTypeS8$CREATIONSb$operationIdB2$IdA1S3.7$TopplaneOpS9$queryTypeS5$DUMMY\",id);",
+        "nodeId": "MymKlB3/OvfNNTXwN"
+       }
+      ],
+      "nodeId": "MwDdAC0igrToiMz+A",
+      "parameterId": "sketchPlane"
+     }
+    ],
+    "featureType": "newSketch",
+    "nodeId": "MTfoJPn8d3tVA8otQ",
+    "suppressed": false,
+    "featureId": "FkYagMVU1pP33LR_0"
+   },
+   "featureState": {
+    "btType": "BTFeatureState-1688",
+    "featureStatus": "OK",
+    "inactive": false
+   },
+   "rejectMicroversionSkew": false,
+   "microversionSkew": false,
+   "serializationVersion": "1.2.23",
+   "sourceMicroversion": "8c8bdd0f79a9eeec6da3af87",
+   "libraryVersion": 0
+  }
+ }
+}

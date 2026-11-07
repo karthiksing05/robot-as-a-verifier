@@ -1,0 +1,9 @@
+{
+  "id": "remote-receiver",
+  "name": "Remote and receiver",
+  "summary": "A second product, to show the system isn't hand-tuned to one object.",
+  "kind": "physical",
+  "products": ["Remote and receiver"],
+  "rules": [],
+  "created": "2026-11-07"
+}

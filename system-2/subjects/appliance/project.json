@@ -1,0 +1,9 @@
+{
+  "id": "appliance",
+  "name": "Printed test appliance",
+  "summary": "A printed box with three buttons, an LCD and a hinged door, built with two planted faults.",
+  "kind": "physical",
+  "products": ["Test box"],
+  "rules": ["Usable with no thumbs"],
+  "created": "2026-11-07"
+}

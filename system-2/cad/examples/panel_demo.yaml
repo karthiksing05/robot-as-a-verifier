@@ -1,0 +1,25 @@
+# Nine-control panel from the detector sim (scene.py). A layout stress test, not the demo device.
+
+
+name: panel_demo
+rev: A
+shell:
+  size: [280, 220, 240]        # x across, y front to back, z up (mm)
+  wall: 3.5
+  insert_t: 2.0
+  slope: {side: front, angle: 45, run: 99}   # 140 mm long sloped control panel
+features:
+  - {id: button_1, type: button, face: slope, u: -85, v: -35}
+  - {id: button_2, type: button, face: slope, u: -50, v: -35, params: {clearance: 0.15}}
+  - {id: button_3, type: button, face: slope, u: -15, v: -35}
+  - {id: latch, type: push_latch, face: slope, u: -108, v: 0}
+  - {id: dial, type: dial, face: slope, u: 75, v: -5}
+  - {id: slider, type: slider, face: slope, u: -40, v: 35}
+  - {id: toggle, type: toggle, face: slope, u: 30, v: 35}
+  - {id: display, type: window, face: front, u: 50, v: 24}
+  - {id: door_handle, type: handle, face: front, u: -60, v: -20, params: {style: tab}}
+limits:
+  max_size: [300, 300, 300]
+posture:
+  max_params: 1
+  max_step: {clearance: 0.25, default: 2.0}

@@ -1,0 +1,10 @@
+{
+  "id": "sim-preset-c",
+  "name": "Sim device: preset C",
+  "summary": "The demo device in MuJoCo, with buttons, a slider, a dial, a toggle, a door and a display.",
+  "kind": "sim",
+  "sim": { "seed": null, "fault": "stuck_button" },
+  "products": ["Sim device preset C"],
+  "rules": [],
+  "created": "2026-11-07"
+}

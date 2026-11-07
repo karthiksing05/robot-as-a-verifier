@@ -1,0 +1,29 @@
+{
+ "label": "assembly_features",
+ "request": {
+  "method": "GET",
+  "path": "/api/v12/assemblies/d/db73d1ec8db8336dfaec0801/w/c36f3d4849320db8274f69bd/e/bcdc92307ff243d4bf7739ab/features",
+  "query": "",
+  "headers": {
+   "content-type": "application/json",
+   "accept": "application/json"
+  }
+ },
+ "response": {
+  "status": 200,
+  "headers": {
+   "content-type": "application/json;charset=utf-8"
+  },
+  "json": {
+   "btType": "BTAssemblyFeatureListResponse-1174",
+   "rejectMicroversionSkew": false,
+   "microversionSkew": false,
+   "featureStates": {},
+   "isComplete": true,
+   "features": [],
+   "serializationVersion": "1.2.23",
+   "sourceMicroversion": "fb785f0bc88c35d731c83f54",
+   "libraryVersion": 0
+  }
+ }
+}

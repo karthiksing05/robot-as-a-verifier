@@ -1,0 +1,9 @@
+# A different layout, to show nothing is tied to the sloped panel: flat top, two buttons and a dial.
+name: flat_box
+shell:
+  size: [160, 120, 60]
+features:
+  - {id: power, type: button, face: top, u: -45, v: 15, params: {cap_d: 14}}
+  - {id: mode, type: button, face: top, u: -10, v: 15}
+  - {id: knob, type: dial, face: top, u: 40, v: 0}
+  - {id: switch, type: toggle, face: front, u: 0, v: 0, params: {axis: v}}

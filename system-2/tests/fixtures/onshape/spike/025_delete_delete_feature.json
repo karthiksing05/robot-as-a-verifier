@@ -1,0 +1,26 @@
+{
+ "label": "delete_feature",
+ "request": {
+  "method": "DELETE",
+  "path": "/api/v12/partstudios/d/db73d1ec8db8336dfaec0801/w/07ea5ecff0240f4e072ec7f3/e/df4e17857bec7f8c9e90c953/features/featureid/FauUX0qrJYjvOUA_2",
+  "query": "",
+  "headers": {
+   "content-type": "application/json",
+   "accept": "application/json"
+  }
+ },
+ "response": {
+  "status": 200,
+  "headers": {
+   "content-type": "application/json;charset=utf-8"
+  },
+  "json": {
+   "btType": "BTFeatureApiBase-1430",
+   "serializationVersion": "1.2.23",
+   "libraryVersion": 0,
+   "sourceMicroversion": "8e20bd5ee1c11590df247dd2",
+   "microversionSkew": false,
+   "rejectMicroversionSkew": false
+  }
+ }
+}

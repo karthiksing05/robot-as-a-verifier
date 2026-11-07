@@ -1,0 +1,56 @@
+# The appliance in Onshape: what the generic checks and the CAD tools need to know that the CAD doesn't say.
+# Format: system-2/cad/src/rav_cad/generic/tags.py. Units mm, in the Assembly's frame. Part names must match the
+# Onshape part / instance names (Onshape's " <1>" suffix is ignored). The loader lists any name it can't find.
+#
+# TO FILL IN once the document is ready (the R5 spike prints the ids):
+#   - source: the development COPY's link, its Assembly and Part Studio element ids, and the version the robot tested
+#   - controls: the real part names, contact points and approach directions (measure them in Onshape)
+# The numbers below are from the CadQuery placeholder (system-2/cad), a starting point only.
+
+source:
+  document: "<paste the document link: https://cad.onshape.com/documents/<did>/w/<wid>>"
+  assembly: "<assembly element id>"
+  part_studio: "<part studio element id>"
+  variables: null                 # a Variable Studio element id, if the model uses one
+  tested_version: "<version id of Rev A>"
+
+printer: {bed: [220, 220, 250]}
+fingertip_d: 12
+min_clearance: 0.3
+min_wall: 1.2
+fixed: [shell, base]
+
+controls:
+  button_1:
+    skill: press
+    parts: [button_1 insert, button_1 cap, button_1 holder]
+    moving: [button_1 cap]
+    motion: {type: slide, axis: [0, 0.7071, -0.7071], travel: 1.2}
+    contact: [45.0, 15.05, 164.95]
+    approach: [0, 0.7071, -0.7071]
+    fit: [button_1 cap, button_1 insert]
+  button_2:
+    skill: press
+    parts: [button_2 insert, button_2 cap, button_2 holder]
+    moving: [button_2 cap]
+    motion: {type: slide, axis: [0, 0.7071, -0.7071], travel: 1.2}
+    contact: [80.0, 15.05, 164.95]
+    approach: [0, 0.7071, -0.7071]
+    fit: [button_2 cap, button_2 insert]
+  button_3:
+    skill: press
+    parts: [button_3 insert, button_3 cap, button_3 holder]
+    moving: [button_3 cap]
+    motion: {type: slide, axis: [0, 0.7071, -0.7071], travel: 1.2}
+    contact: [115.0, 15.05, 164.95]
+    approach: [0, 0.7071, -0.7071]
+    fit: [button_3 cap, button_3 insert]
+  door:
+    skill: pull                   # the fingertip hooks behind the handle and pulls: the robot can't pinch or grip
+    parts: [door, door handle]
+    reprintable: [door handle]    # the handle is a swappable insert; reprinting the door itself is a big print
+    moving: [door, door handle]
+    motion: {type: revolve, point: [42, -3, 35], axis: [0, 0, -1], degrees: 95}
+    contact: [86.5, -9, 35]       # where the fingertip's centre goes, behind the handle
+    approach: [0, 0, 1]           # it slides in from below
+    pull: [0, -1, 0]              # and pulls outward

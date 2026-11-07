@@ -1,0 +1,69 @@
+{
+  "run_id": "sample-revA",
+  "product": "Test box (mock)",
+  "revision": "A",
+  "summary": "3 of 5 controls passed, 2 failed, 0 inconclusive, 0 skipped. Reward 0.60.",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "high",
+      "target": "button_2",
+      "label": "stuck",
+      "what_happened": "reached the 6.0 N limit with 0.3 mm of travel; no readout changed",
+      "manual_says": null,
+      "user_impact": null,
+      "concept": null,
+      "step_ids": [
+        "s2"
+      ],
+      "event_seqs": [
+        12
+      ],
+      "evidence": [
+        "s2 force trace"
+      ],
+      "confirmed": true
+    },
+    {
+      "id": "F2",
+      "severity": "medium",
+      "target": "door",
+      "label": "accessibility",
+      "what_happened": "door stayed shut after a 6.0 N flat-pad push; it opens only with a pinch, which the no-thumbs rule bans",
+      "manual_says": null,
+      "user_impact": null,
+      "concept": null,
+      "step_ids": [
+        "s4"
+      ],
+      "event_seqs": [
+        19
+      ],
+      "evidence": [
+        "s4 force trace"
+      ],
+      "confirmed": true
+    }
+  ],
+  "coverage": {
+    "detected": 5,
+    "passed": [
+      "button_1",
+      "button_3",
+      "display"
+    ],
+    "failed": [
+      "button_2",
+      "door"
+    ],
+    "observed": [],
+    "inconclusive": [],
+    "skipped": {}
+  },
+  "reward": {
+    "value": 0.6,
+    "control_coverage": 1.0,
+    "pass_rate": 0.6,
+    "formula": "control_coverage x pass_rate_on_covered"
+  }
+}

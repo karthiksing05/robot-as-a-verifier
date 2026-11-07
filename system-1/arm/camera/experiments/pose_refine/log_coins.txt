@@ -1,0 +1,12 @@
+features+matching, both variants: 18.4 s; tracks masked=719, kept=1839
+  BA: 2 752 `ftol` termination condition is satisfied. 8587.2
+  BA: 2 235 `ftol` termination condition is satisfied. 24240.1
+  BA: 2 697 `ftol` termination condition is satisfied. 12263.9
+  BA: 0 1000 The maximum number of function evaluations is exceeded. 25637.0
+board {"pose_err_mm": 0.0, "pose_err_deg": 0.0, "sweep_s": 3.7, "confident": 169716, "coins": [2.04, 5.45], "stack_minus_single": 3.4}
+noisy 1mm/0.5deg {"pose_err_mm": 1.0, "pose_err_deg": 0.5, "sweep_s": 1.7, "confident": 7185, "coins": [], "stack_minus_single": null, "vs_board_med_abs_mm": 2.143, "vs_board_within_0.5mm": 0.063}
+refined 1mm/0.5deg, markers masked {"pose_err_mm": 3.4, "pose_err_deg": 1.553, "points": 385, "obs": 1633, "rms_px": 3.17, "ba_s": 23.1, "sweep_s": 1.7, "confident": 26012, "coins": [2.09], "stack_minus_single": null, "vs_board_med_abs_mm": 0.072, "vs_board_within_0.5mm": 0.836}
+refined 1mm/0.5deg, markers kept {"pose_err_mm": 0.67, "pose_err_deg": 0.245, "points": 1686, "obs": 11530, "rms_px": 2.05, "ba_s": 36.1, "sweep_s": 1.8, "confident": 165599, "coins": [2.0, 5.62], "stack_minus_single": 3.63, "vs_board_med_abs_mm": 0.101, "vs_board_within_0.5mm": 0.982}
+noisy 2mm/1.0deg {"pose_err_mm": 2.0, "pose_err_deg": 1.0, "sweep_s": 1.8, "confident": 2507, "coins": [], "stack_minus_single": null, "vs_board_med_abs_mm": 0.269, "vs_board_within_0.5mm": 0.711}
+refined 2mm/1.0deg, markers masked {"pose_err_mm": 4.17, "pose_err_deg": 1.811, "points": 385, "obs": 1639, "rms_px": 3.84, "ba_s": 24.8, "sweep_s": 1.8, "confident": 23128, "coins": [0.4, 2.05], "stack_minus_single": 1.65, "vs_board_med_abs_mm": 0.097, "vs_board_within_0.5mm": 0.792}
+refined 2mm/1.0deg, markers kept {"pose_err_mm": 1.03, "pose_err_deg": 0.262, "points": 1686, "obs": 11533, "rms_px": 2.11, "ba_s": 104.7, "sweep_s": 1.8, "confident": 166607, "coins": [2.03, 5.6], "stack_minus_single": 3.57, "vs_board_med_abs_mm": 0.092, "vs_board_within_0.5mm": 0.977}
