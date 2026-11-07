@@ -4,8 +4,8 @@ It shows the result and, if you type yes, writes real_wrist.HAND_EYE, which real
 every frame's pose. Torque stays off the whole time: you pose the arm by hand, and at each pose the script reads the
 joints and takes a frame of the desk board.
 
-    python tools/hand_eye.py COM5 CAL.json              # 50 views, the solve, then asks before writing HAND_EYE
-    python tools/hand_eye.py COM5 CAL.json --views 70
+    python tools/hand_eye.py COM5 CAL.json              # 30 views, the solve, then asks before writing HAND_EYE
+    python tools/hand_eye.py COM5 CAL.json --views 40
 
 CAL.json is lerobot-calibrate's file. Run arm_check.py first: the joint mapping has to be right. The board is the desk
 board (vision.BOARD, which `tools/cam_check.py board` prints), left where it is fixed. At each pose, hold the arm still
@@ -16,9 +16,10 @@ Each view gives the model's wrist_cam pose, by forward kinematics of the joint r
 camera, by PnP. Park's method (OpenCV's calibrateHandEye, eye in hand) gives a first mount from those, and least
 squares then fits the mount and the board's pose to every corner seen. The encoders' 0.088 deg steps are what limit
 it, and they leave about 1.5 px of reprojection error in each view. More views, well spread, is what brings the error
-down: in the sim, 20 views left it 0.09 deg and 0.47 mm rms, 50 views 0.05 deg and 0.24 mm (sim/docs/real-arm.md).
-Solving again with each view left out in turn gives the result's expected error, and the script says when that is
-over TARGET.
+down (sim/docs/real-arm.md has the sim's numbers). Solving again with each view left out in turn gives the mount's
+expected error. Every photo shares it, so the scan's plane sweep barely feels it, but it moves where parts land in the
+arm's frame: by about the rotation error times WORK_M, plus the translation error. The script warns when that is over
+TARGET_MM.
 
 Hand-eye only fixes the mount. A joint offset that real_arm.OFFSET_RAD doesn't know moves the camera differently at
 each pose, so the mount can't absorb it, except wrist_roll's, which folds in. Such offsets show as views well over
@@ -45,7 +46,8 @@ from rig import TICK_RAD, _cv_pose  # noqa: E402
 MIN_CORNERS = 12   # of the board's 24
 READS = 5          # joint readings before the frame and again after it, averaged
 STILL_RAD = 2 * TICK_RAD  # the readings after the frame moved this far from those before: the arm moved
-TARGET = (0.1, 0.5)  # deg, mm: under the per-photo error that lost the scan (system-1/arm/camera/results.md)
+WORK_M = 0.2       # the scan's working distance: a mount error turned r rad and moved t puts parts r * WORK_M + t off
+TARGET_MM = 1.0    # parts placed off by more than this: small against 14 mm buttons, and the touches fix heights only
 
 
 def fk(arm, q):
@@ -158,17 +160,19 @@ def report(X, T_board, rms, err):
     print(f"All views {np.sqrt(np.mean(rms ** 2)):.2f} px rms, worst {rms.max():.2f}. Mount: {deg(X):.2f} deg and "
           f"{np.linalg.norm(X[:3, 3]) * 1000:.1f} mm from the model's wrist_cam. Board: {deg(off):.2f} deg and "
           f"{np.linalg.norm(off[:3, 3]) * 1000:.1f} mm from vision.T_BASE_BOARD.")
-    print(f"Expected error of the mount: {err[0]:.3f} deg and {err[1]:.2f} mm.")
-    if err[0] > TARGET[0] or err[1] > TARGET[1]:
-        print(f"That is over the target of {TARGET[0]} deg and {TARGET[1]} mm, so this mount isn't good enough for "
-              f"the scan. Run again with more views, turned further apart.")
+    placed = np.radians(err[0]) * WORK_M * 1000 + err[1]
+    print(f"Expected error of the mount: {err[0]:.3f} deg and {err[1]:.2f} mm, so parts about {placed:.2f} mm off in "
+          f"the arm's frame at {WORK_M * 100:.0f} cm.")
+    if placed > TARGET_MM:
+        print(f"That is over {TARGET_MM} mm, so presses would land off centre. Run again with more views, turned "
+              f"further apart.")
 
 
 def main(argv=None, bus=None, ask=input, camera=real_wrist.WristCamera):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("port", help="the follower's serial port, e.g. COM5")
     ap.add_argument("calibration", help="lerobot-calibrate's JSON file for this arm")
-    ap.add_argument("--views", type=int, default=50, help="how many poses (default 50)")
+    ap.add_argument("--views", type=int, default=30, help="how many poses (default 30)")
     ap.add_argument("--out", default=real_wrist.HAND_EYE, help="where to write the result (default real_wrist's)")
     args = ap.parse_args(argv)
     ask("Connecting turns torque off on every motor, and the arm goes limp. Support it, then press Enter: ")
