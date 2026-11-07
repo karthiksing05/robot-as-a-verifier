@@ -16,6 +16,7 @@ import uvicorn
 
 from .engine import RoutineEngine
 from .mcp_server import build_server
+from .telemetry import Telemetry
 
 LOOPBACK = {"localhost", "127.0.0.1", "::1"}
 
@@ -41,7 +42,17 @@ def make_robot(args):
         from .mock_robot import MockRobot
         return lambda: MockRobot()
     from .sim_backend import SimBackend  # imports MuJoCo and torch
-    return lambda: SimBackend(seed=args.seed, sensing=args.sensing, depth=args.depth, refine=not args.no_refine)
+
+    def build():
+        sim = SimBackend(seed=args.seed, sensing=args.sensing, depth=args.depth, refine=not args.no_refine, placement=args.placement,
+                         faults=tuple(args.fault), fault_seed=args.fault_seed, answer_key=args.answer_key,
+                         device=args.device, rev=args.rev, effector=args.effector,
+                         mounts=dict(m.split("=") for m in args.mount) or None)
+        if args.error_rate or args.error_schedule:
+            from .unreliable import UnreliableRobot
+            return UnreliableRobot(sim, args.error_rate, args.error_seed, args.error_schedule)
+        return sim
+    return build
 
 
 def build_app(engine: RoutineEngine, host: str, token: str | None):
@@ -64,11 +75,42 @@ def main(argv=None) -> None:
     ap.add_argument("--sensing", default="tactile", choices=["tactile", "loadcell", "current", "perfect"])
     ap.add_argument("--depth", action="store_true", help="the D405 pipeline: no OWLv2 or SAM download")
     ap.add_argument("--no-refine", action="store_true")
+    ap.add_argument("--placement", default="nominal", choices=["nominal", "random"], help="random moves the device on the desk, drawn from the seed")
+    ap.add_argument("--device", default=None, metavar="PATH", help="sim only: a device file (appliances/<name>/device.yaml) in place of a generated device")
+    ap.add_argument("--rev", default="B", help="with --device: its revision, or fault choices like F1=B,F2=B,F3=A")
+    ap.add_argument("--effector", default="probe", choices=["probe", "stock"], help="sim only: the fingertip probe, or the SO-101's own gripper (pick and place)")
+    ap.add_argument("--mount", action="append", default=[], metavar="ROOT=clamped|free", help="with --device: override how a root is held to the bench. Repeatable")
+    ap.add_argument("--fault", action="append", default=[], metavar="NAME[:PART]", help="sim only: plant a fault, or 'random'. Repeatable. See sim/faults.py")
+    ap.add_argument("--fault-seed", type=int, default=None, help="for --fault random (default: --seed)")
+    ap.add_argument("--answer-key", default=None, metavar="PATH", help="sim only: write the device's truth, faults and injected errors here, for scoring. No tool can read it")
+    ap.add_argument("--error-rate", type=float, default=0.0, help="sim only: the chance per action that the world misbehaves. See rav_server/unreliable.py")
+    ap.add_argument("--error-seed", type=int, default=0)
+    ap.add_argument("--error-schedule", default=None, metavar="WHEN:KIND,...", help="sim only: force errors. WHEN is an action number, or a control id for its first attempt")
+    ap.add_argument("--telemetry-port", type=int, default=8781, help="what the Console watches, on 127.0.0.1. 0: off")
+    ap.add_argument("--speed", type=float, default=0, help="sim seconds per second, to watch a run. 0: as fast as the sim goes")
+    ap.add_argument("--record-dir", default=None, help="write poses.bin, scene/, cameras.mp4 and timeline.json here, so the run replays")
+    ap.add_argument("--run-id", default=None, help="the scene's run id, which the Console matches. Default: --record-dir's name")
     args = ap.parse_args(argv)
-    engine = RoutineEngine(make_robot(args), robot_name=args.robot)
+    if args.robot != "sim" and (args.fault or args.answer_key or args.error_rate or args.error_schedule or args.placement != "nominal"
+                                or args.device or args.mount or args.effector != "probe"):
+        ap.error("--fault, --placement, --answer-key, --device, --mount, --effector and --error-* are for --robot sim only: they must never reach a real arm")
+    if args.device and args.fault:
+        ap.error("a device file's faults are its revision's parts: use --rev, not --fault")
+    if any(m.count("=") != 1 or m.split("=")[1] not in ("clamped", "free") for m in args.mount):
+        ap.error("--mount is ROOT=clamped or ROOT=free")
+    if not 0 <= args.error_rate <= 1:
+        ap.error("--error-rate is a chance, between 0 and 1")
+    telemetry = Telemetry(args.speed, args.record_dir, args.run_id)
+    build = make_robot(args)
+    engine = RoutineEngine(lambda: telemetry.instrument(build()), robot_name=args.robot)
+    telemetry.status_fn = engine.status
+    watching = telemetry.serve(args.telemetry_port) if args.telemetry_port else 0
     app = build_app(engine, args.host, os.environ.get("RAV_TOKEN"))
-    print(f"System 1 ({args.robot}) waiting on http://{args.host}:{args.port}/mcp")
-    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    print(f"System 1 ({args.robot}) waiting on http://{args.host}:{args.port}/mcp" + (f", telemetry on http://127.0.0.1:{watching}" if watching else ""))
+    try:
+        uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    finally:
+        telemetry.close()
 
 
 if __name__ == "__main__":

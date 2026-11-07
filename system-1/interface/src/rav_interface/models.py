@@ -17,20 +17,28 @@ class Contract(BaseModel):
 Skill = Literal[
     # implemented in system-1/core/affordances.py
     "press", "flip", "slide", "turn", "push_latch",
-    # planned (system-1/core does not implement these yet)
-    "press_hold", "hook_pull",
+    # planned (system-1/core does not implement this yet)
+    "press_hold",
+    # system-1/core/manipulate.py, offered only by a rig that can do them (SystemStatus.actions says which)
+    "hook_pull", "pick", "place",
+    # move the whole device on the desk: a normal step, on the control called DEVICE_CONTROL
+    "reposition",
     # no motion: read a display or light with the camera
     "observe",
     # a part no skill may touch: the step records why and is skipped
     "none",
 ]
-ControlKind = Literal["button", "slider", "dial", "toggle", "door", "knob", "display", "other"]
+ControlKind = Literal["button", "slider", "dial", "toggle", "door", "knob", "display", "handle", "well", "object", "other"]
 Status = Literal["passed", "failed", "observed", "skipped", "inconclusive"]
 FailureLabel = Literal[
     "stuck", "wrong_behavior", "accessibility", "wrong_feedback", "no_actuation",
     "missing_control", "anomalous", "inconclusive", "unsafe",
+    # never a step's label: System 2's name for a control that failed and also passed, so its Finding says so
+    "intermittent",
 ]
 
+
+DEVICE_CONTROL = "device"  # the control a reposition step targets. It's the device itself, so it isn't counted as a control to test
 
 # --- 2 what the robot found ---------------------------------------------------------------------
 
@@ -46,6 +54,13 @@ class Control(Contract):
     label: str | None = None
     conf: float = 1.0
     source: Literal["scan", "cad", "manual", "mock"] = "scan"
+    # what a plan needs to write a valid step, where the robot knows it. None: not known, or not this kind of control
+    position: float | None = None  # slider: 0 to 1 along its travel
+    travel_mm: float | None = None  # slider: full travel
+    turn_range_deg: tuple[float, float] | None = None  # dial, knob: room from here to each stop
+    detent_deg: float | None = None
+    on: bool | None = None  # toggle
+    latched: bool | None = None  # door
 
 
 class SceneInventory(Contract):
@@ -54,6 +69,8 @@ class SceneInventory(Contract):
     controls: list[Control]
     unmatched_manual_controls: list[str] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+    frames: list[str] = Field(default_factory=list)  # evidence_get refs: views of the device from the survey
+    stale: bool = False  # the device moved since this was mapped, so its poses are old: run explore before any plan
 
 
 # --- the plan -----------------------------------------------------------------------------------
@@ -84,6 +101,25 @@ class Plan(Contract):
 
 # --- what happened ------------------------------------------------------------------------------
 
+class CheckResult(Contract):
+    """One Step.check, as System 1 evaluated it from the measurements. Reported beside the verdict: it never changes it."""
+    metric: str
+    op: str
+    value: float | str | bool | None = None
+    actual: float | str | bool | None = None
+    passed: bool | None = None  # None: this attempt didn't measure the metric
+
+
+class Frame(Contract):
+    """One camera image, fetched by reference through evidence_get. Never part of a stop."""
+    ref: str
+    mime: str = "image/jpeg"
+    data_b64: str
+    width: int
+    height: int
+    caption: str = ""
+
+
 class StepTrace(Contract):
     """The measurements of one attempt. Verdicts and the reward are recomputable from these."""
     step: str
@@ -94,7 +130,9 @@ class StepTrace(Contract):
     travel_mm: float | None = None
     force_trace: list[tuple[float, float]] = Field(default_factory=list)  # (t_s, N)
     readout_change: dict[str, list[Any]] = Field(default_factory=dict)  # channel -> before ... after
-    frames: list[str] = Field(default_factory=list)  # paths inside the run folder
+    measures: dict[str, Any] = Field(default_factory=dict)  # what separates a broken part from a robot that missed
+    checks: list[CheckResult] = Field(default_factory=list)
+    frames: list[str] = Field(default_factory=list)  # evidence_get refs
 
 
 class StepVerdict(Contract):

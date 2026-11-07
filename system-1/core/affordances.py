@@ -37,13 +37,14 @@ cell on the probe (arm.axial_sensor) the force along the probe counts from the s
 force across the probe is still the servos'.
 """
 import math
+from collections import deque
 from dataclasses import dataclass, replace
 
 import numpy as np
 
 import skills
 from features import canonical_x, frame
-from rig import CONTACT_N, CONTROL_HZ, SafetyStop
+from rig import CONTACT_N, CONTROL_HZ, SafetyStop, tip_shape
 
 PAD_R, PAD_T = 0.006, 0.003       # probe pad; the tip site is the centre of its face, and the rod ends inside it
 HOVER = 0.03            # a sideways push starts this far above the pad's first position
@@ -53,12 +54,14 @@ PUSH_SPEED = 0.01       # m/s, sideways
 TOUCH_SPEED = 0.004     # m/s, descending near the parts: landing on a rigid part at 20 mm/s peaked at 17 N
 TOUCH_BAND = 0.004      # a touch this close to where the floor should be is the floor
 END_ZONE, END_SPEED = 0.004, 0.003  # creep through the last 4 mm of a push, so an end stop isn't hit hard
+ARC_END_ZONE, ARC_END_SPEED = math.radians(8), 0.001  # and through a turn's last 8 deg, slower: a knob coasts
 PRESS_TRAVEL = 0.004    # a press stops on force or this far past first contact: no CAD travel
 LANDED_N = 1.0          # force on the pad that ends a descent
 LOW_N = 2.0             # mid-push, a force off the panel above this and above the resistance: the pad is too low
 SIDE_BAND = 0.004       # first sideways contact further than this from the face probably wasn't the part
 RETRY = 0.004           # after landing on a part, start this much further back
-INSET = 0.003           # turn: push the fin this far in from its end
+INSET = 0.003           # turn: push the fin this far in from its end, unless the hub is in the way (_clear_of_hub)
+HUB_CLEAR = 0.001       # and keep the tip this far off the dial's hub
 FLIP_PAST = math.radians(10)  # push a lever this far past centre; its snap does the rest
 TURN_TOL = math.radians(2)    # a turn may end this far past where the part thinks its stop is
 SETTLE_S = 1.0          # after a latch push, time for the door to pop
@@ -74,9 +77,13 @@ BLOCKED = ("force_limit", "max_lead")  # stops where the pad couldn't go on
 UNWIND_SPEED = 0.2      # m/s: after a sideways push the command first comes back to the pad this fast,
 UNWIND_STEP = 0.03      # and no joint further than this per tick (rad)
 RELEASE = 0.002         # then the pad moves this far the way the contact pushes it,
+ARC_RELEASE = 0.004     # (off a dial's fin: back along the arc, this far)
 RELEASE_SPEED = 0.03    # this fast (m/s), like the lift: at 20 mm/s a lever held 5 deg off its rest sprang back onto
                         # it (6.4 N); at 50 mm/s, one tick's 2 mm step swung a stiff arm's pad into a fin's edge (24 N)
 GIVE = 2e-4             # m per N per tick: while letting go and lifting, the pad gives way to whatever pushes it
+STALL_S, STALL_FRAC = 0.3, 0.2  # with servo sensing alone, a descent has landed once the pad covered under a fifth of
+                                # its command's travel over the last STALL_S: creeping at 4 mm/s, stick-slip alone gave
+                                # 35-140% over 0.25 s, and a slowly growing lag is the arm sagging
 JUMP = 0.0002           # with servo sensing, a pad that closes this much of its command's lead in a tick was let go
 SLIP = 0.004            # a push that ran on this far with nothing against it slipped off the part
 FLIP_BAND = 0.002       # a lever leans, so first contact further than this off its face means the push was off height
@@ -91,15 +98,34 @@ NEEDS = {"slider": ("travel", "knob_len", "side_height", "slot_ends", "track_len
 
 # --- probe geometry ---
 
-def _lowest(a, n):
-    """How far the pad's rim reaches below its tip, toward a surface facing n, when the probe points along a."""
-    return PAD_R * math.sin(math.acos(float(np.clip(-a @ n, -1, 1))))
+def _frames(a, rolls=8):
+    """Tip rotations pointing along a, at `rolls` wrist rolls: for a tip shape that isn't round, with the roll unknown."""
+    z = -np.asarray(a, float) / np.linalg.norm(a)
+    x = np.cross([0, 1.0, 0], z) if abs(z[1]) < 0.9 else np.cross([1.0, 0, 0], z)
+    x /= np.linalg.norm(x)
+    return [np.column_stack([_rotate(x, z, t), np.cross(z, _rotate(x, z, t)), z]) for t in np.linspace(0, math.pi, rolls, endpoint=False)]
 
 
-def _rim(a, m):
-    """Offset from the tip to the pad's rim point furthest along m, halfway through its thickness."""
-    mp = m - (m @ a) * a
-    return -PAD_T / 2 * a + PAD_R * mp / np.linalg.norm(mp)
+def _lowest(a, n, R=None, shape=None):
+    """How far the tip reaches below its site, toward a surface facing n, pointing along a (with R, the tip's rotation,
+    for a tip that isn't round; without it, the worst roll)."""
+    if shape is None or shape.round:
+        return PAD_R * math.sin(math.acos(float(np.clip(-a @ n, -1, 1))))
+    return max(float(np.max(-(shape.world(r) @ n))) for r in ([R] if R is not None else _frames(a)))
+
+
+def _rim(a, m, R=None, shape=None, n=None, below=math.inf):
+    """Offset from the tip to its point furthest along m: the round pad's rim, halfway through its thickness; for another
+    shape, the middle of its leading points among those at most `below` above the site along n (a wedge-shaped finger
+    widens further back, so what meets a part depends on how tall the part is)."""
+    if shape is None or shape.round:
+        mp = m - (m @ a) * a
+        return -PAD_T / 2 * a + PAD_R * mp / np.linalg.norm(mp)
+    w = shape.world(R)
+    if n is not None:
+        w = w[w @ n <= below + 1e-6]
+    v = w @ m
+    return w[v >= v.max() - 0.0005].mean(axis=0)
 
 
 def _rotate(v, k, th):
@@ -179,6 +205,8 @@ class _Push:
     radius: float = None  # arcs: radius of the contact point, so travel / radius is the angle turned
     what: str = "part"    # what the pad pushes, for verdicts: "knob", "fin" or "lever"
     centre: float = 0.0   # a lever's centre, this far past contact: it can't go over before
+    axis: tuple = None    # arcs: (a point on the part's axis, its unit direction), to measure the angle swept
+    roll: float = None    # the wrist roll the plan was made with, for a tip that isn't round (rad)
 
 
 def _obstacles(p, parts, datum):
@@ -190,17 +218,24 @@ def _obstacles(p, parts, datum):
 
 
 def _sideways(arm, face, n, m, floor, contact_h, top, until, what, touch_floor=None, centre=None, k=None,
-              obstacles=()):
+              obstacles=(), seed=None):
     """Plan a sideways push of `what`. The pad's leading rim meets `face` moving along m, at height contact_h,
     with its lowest point CLEAR above floor; top is the part's top and touch_floor the surface under the pad at
     the start (heights along n, from face). The path is a line along m, or for an arc about the axis through
     centre along k, a line along m until the pad touches and then the arc through that point. It starts GAP
     before contact, or 1 mm if another part is in the way. Returns a _Push, or why it can't be done."""
     rc = None if centre is None else float(np.linalg.norm(np.cross(face - centre, k)))
+    shape = tip_shape(arm)
 
-    def place(a, drop):
-        r = _rim(a, m)
-        return face - (r @ m) * m + max(floor + CLEAR + drop, contact_h - r @ n) * n
+    def place(R, drop):
+        a = -R[:, 2]
+        if shape.round:
+            r = _rim(a, m)
+            return face - (r @ m) * m + max(floor + CLEAR + drop, contact_h - r @ n) * n
+        # a wedge: as low as it may go, and what meets the part is its widest section up to the part's top
+        h = floor + CLEAR + drop
+        r = _rim(a, m, R, shape, n, top - h)
+        return face - (r @ m) * m + max(h, contact_h - r @ n) * n
 
     def path_from(tip, gap):
         def path(s, c):
@@ -211,29 +246,40 @@ def _sideways(arm, face, n, m, floor, contact_h, top, until, what, touch_floor=N
             return centre + (c - gap) * m + _rotate(tip - centre, k, th), _rotate(m, k, th)
         return path
 
+    seed = arm.cmd if seed is None else seed  # IK keeps the seed's wrist roll: a tip that isn't round plans with it
+    R0 = arm.ik.fk_R(arm.ik.solve(face + HOVER * n, -n, seed)[0])
+    if not shape.round:  # the tip's own footprint at the part's heights, not a circle round its widest point
+        wf = shape.world(R0)
+        wf = wf[wf @ n <= top + 1e-6]
+        wf = wf - np.outer(wf @ n, n)
+
     def near(pt, c, r, margin):
         d = pt - c
-        return np.linalg.norm(d - (d @ n) * n) < PAD_R + r + margin
+        d = d - (d @ n) * n
+        if shape.round:
+            return np.linalg.norm(d) < PAD_R + r + margin
+        return float(np.min(np.linalg.norm(d + wf, axis=1))) < r + margin
 
     for gap in (GAP, 0.001):
         ends = (0.0, gap + until / 2, gap + until)
-        tip, q = place(-n, _lowest(-n, n)), arm.cmd
+        tip, q = place(R0, _lowest(-R0[:, 2], n, R0, shape)), seed
         for _ in range(2):  # the arm can't always point the probe along -n; the tilt lowers one side of the pad
-            axes = []
+            axes, Rs = [], []
             for s in ends:
                 q, *_ = arm.ik.solve(path_from(tip, gap)(s, gap)[0], -n, q)
-                axes.append(arm.ik.fk(q)[1])
-            tip = place(axes[0], max(_lowest(a, n) for a in axes))
+                Rs.append(arm.ik.fk_R(q))
+                axes.append(-Rs[-1][:, 2])
+            tip = place(Rs[0], max(_lowest(a, n, R, shape) for a, R in zip(axes, Rs)))
         path = path_from(tip, gap)
         h = (path(0, gap)[0] - face) @ n
-        low = h - max(_lowest(a, n) for a in axes)  # the pad's lowest point along the push
+        low = h - max(_lowest(a, n, R, shape) for a, R in zip(axes, Rs))  # the pad's lowest point along the push
         hit = [oid for c, r, ot, oid in obstacles if ot > low and any(near(path(s, gap)[0], c, r, 0.001) for s in ends)]
         if not hit:
             break
     else:
         return f"no room for the pad: {hit[0]} is in the way"
     top = max([top] + [ot for c, r, ot, _ in obstacles if near(path(0, gap)[0], c, r, 0.005)])
-    qs, q = [], arm.cmd
+    qs, q = [], seed
     for pt in (path(0, gap)[0] + HOVER * n, *(path(s, gap)[0] for s in ends)):
         q, ok, err, _ = arm.ik.solve(pt, -n, q)
         if not ok:
@@ -243,11 +289,13 @@ def _sideways(arm, face, n, m, floor, contact_h, top, until, what, touch_floor=N
         except SafetyStop as e:
             return str(e)
         qs.append(q)
-    touch = None if touch_floor is None else h - _lowest(axes[0], n) - touch_floor
+    touch = None if touch_floor is None else h - _lowest(axes[0], n, Rs[0], shape) - touch_floor
     # a pad that touches up to twice SIDE_BAND late (the arm's own error) still gets its full travel; the descent
     # creeps through a press's 10 mm slow zone above the tallest part, as the arm's height error can be most of it
     return _Push(path, gap + 2 * SIDE_BAND + until, until, n, [qs[0], qs[1], qs[3]],
-                 skills.SLOW_ZONE_M + max(top - h, 0.0), gap, touch, rc, what)
+                 skills.SLOW_ZONE_M + max(top - h, 0.0), gap, touch, rc, what,
+                 axis=None if centre is None else (np.asarray(centre, float), np.asarray(k, float) / np.linalg.norm(k)),
+                 roll=None if shape.round else float(seed[4]))
 
 
 def _slide_plan(arm, p, to, parts):
@@ -265,18 +313,78 @@ def _slide_plan(arm, p, to, parts):
 
 
 def _turn_plan(arm, p, angle, parts, ends=(1, -1)):
-    """Push the fin near one end along an arc about the dial's axis; whichever end the arm reaches better."""
+    """Push the fin near one end along an arc about the dial's axis; whichever end the arm reaches better. A one-sided
+    fin (meta one_sided: from the axis out along +x) has only the one end."""
     n, x, y = p.normal, p.x, p.T[:3, 1]
+    if p.meta.get("one_sided"):
+        ends = (1,)
     fl, fw, fh = (p.meta[k] for k in ("fin_length", "fin_width", "fin_height"))
     s, plans = math.copysign(1, angle), []
     for e in ends:
         m = s * e * y  # the way this end of the fin moves
-        face = p.pos + e * (fl / 2 - INSET) * x - m * fw / 2
-        plans.append(_sideways(arm, face, n, m, 0.0, fh / 2, fh, abs(angle) * math.hypot(fl / 2 - INSET, fw / 2),
-                               "fin", touch_floor=0.0, centre=p.pos, k=s * n,
-                               obstacles=_obstacles(p, parts, p.size[2] - fh)))
+        # a tip that isn't round fits beside the fin at some wrist rolls and not others: the stock gripper's block is
+        # off centre, toward the moving jaw, so pushing one way it always rode the hub until rolled half a turn
+        seeds = _roll_seeds(arm)
+        for seed in seeds:
+            r_push, clear = _clear_of_hub(arm, p, e, m, seed)
+            if clear:
+                break
+        else:
+            seed = seeds[0]
+            r_push, _ = _clear_of_hub(arm, p, e, m, seed)
+        face = p.pos + e * r_push * x - m * fw / 2
+        plans.append(_sideways(arm, face, n, m, 0.0, fh / 2, fh, abs(angle) * math.hypot(r_push, fw / 2),
+                               "fin", touch_floor=-p.meta.get("floor_gap", 0.0), centre=p.pos, k=s * n,
+                               obstacles=_obstacles(p, parts, p.size[2] - fh), seed=seed))
     ok = [pl for pl in plans if not isinstance(pl, str)]
     return min(ok, key=lambda pl: _tilt(arm, pl)) if ok else plans[0]
+
+
+def _roll_seeds(arm):
+    """IK seeds: the arm's own, and for a tip that isn't round the same with the wrist rolled a quarter, half and three
+    quarters of a turn (within the joint's range)."""
+    if tip_shape(arm).round:
+        return [arm.cmd]
+    out = []
+    for d in (0.0, math.pi, math.pi / 2, -math.pi / 2):
+        q = arm.cmd.copy()
+        r = q[4] + d
+        r = r - 2 * math.pi if r > arm.ik.hi[4] else r + 2 * math.pi if r < arm.ik.lo[4] else r
+        if arm.ik.lo[4] <= r <= arm.ik.hi[4]:
+            q[4] = r
+            out.append(q)
+    return out
+
+
+def _clear_of_hub(arm, p, e, m, seed=None):
+    """How far out along the fin (end e) to push it, so that the tip, its leading points on the fin's face, stays
+    HUB_CLEAR off the dial's hub: the nearest such point from INSET in from the end outward, while the tip's leading edge
+    still overlaps the fin. Pushed 3 mm in from the end, the round pad's rim rode the 5 mm hub (both 11 mm tall) and
+    dragged the dial by friction: turns ended anywhere from -64 to -103 deg for -60, or at the hard cap. Where nothing
+    clears it, INSET in from the end as before."""
+    n, x = p.normal, p.x
+    fl, fw, fh = (p.meta[k] for k in ("fin_length", "fin_width", "fin_height"))
+    hub = p.meta.get("knob_radius")
+    if not hub:
+        return fl / 2 - INSET, True
+    shape = tip_shape(arm)
+    R = arm.ik.fk_R(arm.ik.solve(p.pos + e * (fl / 2) * x + HOVER * n, -n, arm.cmd if seed is None else seed)[0])
+    w = shape.world(R)
+    w = w[w @ n <= fh + 1e-6]  # what is at the fin's heights, with the tip down at its base
+    w = w - np.outer(w @ n, n)
+    v = w @ m
+    rim = w[v >= v.max() - 0.0005].mean(axis=0)
+    lead = w[v >= v.max() - 0.001]
+    for r in np.arange(fl / 2 - INSET, fl / 2 + 0.004, 0.00025):
+        site = e * r * x - m * fw / 2 - (rim @ m) * m  # relative to the axis, in the dial's plane
+        if np.min(np.linalg.norm(site + w, axis=1)) < hub + HUB_CLEAR:
+            continue
+        if np.min((site + lead) @ (e * x)) > fl / 2:
+            break  # its leading edge is past the fin's end
+        return float(r), True
+    # nowhere clears the hub (a generated dial's fin is short for its hub): push where the plan always did, which may
+    # rub the hub, rather than lose a dial the skill could turn before
+    return fl / 2 - INSET, False
 
 
 def _tilt(arm, plan):
@@ -295,7 +403,8 @@ def _flip_plan(arm, p, parts):
     return plan if isinstance(plan, str) else replace(plan, centre=side(lean) - side(0.0))
 
 
-def _guarded(arm, path, length, n, limit, speed, bias, until=None, expect=None, track=False, centre=0.0):
+def _guarded(arm, path, length, n, limit, speed, bias, until=None, expect=None, track=False, centre=0.0, stall=False,
+             turn=None):
     """Push the pad along path(s, contact) -> (tip, direction) for s in [0, length], IK every tick, slowing as
     the force against the motion nears limit and through the last END_ZONE before `until`. Stops at limit
     (force_limit); at twice limit in all or, given `until` (a push, not a descent), at limit across the motion
@@ -312,8 +421,21 @@ def _guarded(arm, path, length, n, limit, speed, bias, until=None, expect=None, 
     along too. With servo sensing a light part can push back less than the estimate's floor, so once the pad is past
     `expect`, where contact should come, the push goes on as if the part was met there ("met"). With track (a slider's
     knob, whose reading follows it), a reading that first moves further on says where the part was really met. With
-    servo sensing, a part can't let go before the pad is `centre` past where it was met (a lever's centre)."""
+    servo sensing, a part can't let go before the pad is `centre` past where it was met (a lever's centre).
+
+    With turn, (a point on the axis, its unit direction, angle in rad), an arc's travel is the angle the pad has swept
+    about the axis since it met the part, not its distance: while the pad bears on a fin's face it keeps its angle to
+    the fin, so this is the angle turned whatever radius it touches at. Travel over the arc's contact radius turned
+    the centrifuge's dial 39 deg for 60 by geometry, and slips on top of that ended turns anywhere from -5 to -103.
+
+    With stall (a descent) and servos the only sensing, a force stop also needs the pad held back: over the last
+    STALL_S it covered under STALL_FRAC of its command's travel (an absolute lead growth also caught along-path sag, and
+    landed the incubator's flip 9.2 mm above its start on nothing). At low, stretched poses the estimate drifts with the pose (on
+    the centrifuge's toggle, 0.3 N per mm of creep in free air, 8 N by the end), and descents landed on nothing."""
     q, s, at, f, hold, freed, lead = arm.cmd - bias, 0.0, 0.0, 0.0, np.zeros(3), -1.0, 0.0
+    stall = stall and arm.sensing and not arm.axial_sensor
+    p_met = None  # turn: where the pad was when it met the part
+    hist, fw = deque(maxlen=round(STALL_S * CONTROL_HZ)), 0.0  # stall: recent (s, at), and the weighted force along the path
     g = {"stop": None, "contact": None, "held": None, "peak": 0.0, "trace": [], "ats": [], "reads": []}
     # with servo sensing the force is ignored until a second tare once moving (skills.TARE_AFTER_S), and checks allow
     # for its noise, which along the probe (too_low) is up to 3 times arm.noise_axial
@@ -321,14 +443,26 @@ def _guarded(arm, path, length, n, limit, speed, bias, until=None, expect=None, 
     arm.tare()
     ticks, armed, moved = 0, not arm.sensing, None
 
+    def swept(pt):
+        c, k = turn[0], turn[1]
+        u, v = p_met - c, pt - c
+        u, v = u - (u @ k) * k, v - (v @ k) * k
+        return math.atan2(float(np.cross(u, v) @ k), float(u @ v))
+
     def met():
         c = g["contact"]
         if arm.sensing and expect is not None and at >= expect and (c is None or c > expect):
             return expect if moved is None else max(expect, moved)
         return c
     while g["stop"] is None:
-        v = speed * float(np.clip(1 - f / limit, 0.15, 1))
-        if until is not None and met() is not None and at - met() > until - END_ZONE:
+        v = speed * float(np.clip(1 - (fw if stall else f) / limit, 0.15, 1))  # stall: the plain estimate's drift slowed
+        # a descent onto the centrifuge's panel to 15% while the pad pressed 4-6 N into it
+        if turn is not None and p_met is not None:
+            # a dial's knob has little friction: left turning at 3 mm/s at the fin it coasted 4-5 deg on, so the last
+            # ARC_END_ZONE of the angle creeps
+            if swept(arm.tip_pose()[0]) > turn[2] - ARC_END_ZONE:
+                v = min(v, ARC_END_SPEED)
+        elif until is not None and met() is not None and at - met() > until - END_ZONE:
             v = min(v, END_SPEED)
         s += v / CONTROL_HZ
         tip, m = path(at, met())
@@ -366,6 +500,20 @@ def _guarded(arm, path, length, n, limit, speed, bias, until=None, expect=None, 
         # so both let-go checks below fired before it went over: with the command put back on the pad, the lever pushed
         # the pad back 1-5 mm and never went over. So they wait until the pad is past where the lever's centre should be
         early = centre > 0 and arm.sensing and met() is not None and at - met() < centre
+        if stall:
+            hist.append((s, at))
+            # a part that gives way (a dial's fin landed on: it turned 17.7 deg under the pad) never stalls it, so the
+            # estimate counts too, weighted by how well the joints feel each direction (see weighted_force_vec)
+            fw = float(-arm.weighted_force_vec() @ m) if armed else 0.0
+            if fw >= limit:
+                g["stop"], g["peak"] = "force_limit", max(g["peak"], fw)
+                g["contact"] = at if g["contact"] is None else g["contact"]
+                continue
+            ds, dat = (hist[-1][0] - hist[0][0], hist[-1][1] - hist[0][1]) if armed and len(hist) == hist.maxlen else (0, 0)
+            if not (ds > 0 and dat < STALL_FRAC * ds):  # the pad keeps up with its command: nothing holds it
+                if not g["stop"] and at >= length:
+                    g["stop"] = "end"
+                continue
         if f > contact_n:
             g["held"] = at
             if g["contact"] is None:
@@ -381,19 +529,28 @@ def _guarded(arm, path, length, n, limit, speed, bias, until=None, expect=None, 
             # the servo estimate lags and reads the arm's own acceleration as force, the joints don't: the pad catching
             # up with its command means the part let go
             s, freed, hold, lead = at, at, -e, 0.0
+        if turn is not None and p_met is None and met() is not None:
+            p_met = now.copy()
+        # checks that give up on a force read it weighted by how well the joints feel each direction (see
+        # weighted_force_vec): unweighted, 7.8 N read across the dial's push with 0.2 N there stopped every turn
+        Fw = arm.weighted_force_vec() if armed and arm.sensing else F
+        Fwm = Fw if Fm is F else Fm
         if f >= limit:
             g["stop"] = "force_limit"
-        elif np.linalg.norm(F) >= limit + side_n or (until is not None and np.linalg.norm(F + f * m) >= side_n):
+        elif np.linalg.norm(Fw) >= limit + side_n or (until is not None and np.linalg.norm(Fw + f * m) >= side_n):
             g["stop"] = "side_force"
-        elif Fm @ n >= max(low_n, f):
+        elif Fwm @ n >= max(low_n, f):
             g["stop"] = "too_low"
-        elif until is not None and met() is not None and at - met() >= until:
+        elif turn is not None and p_met is not None and swept(now) >= turn[2]:
+            g["stop"] = "travel"
+        elif turn is None and until is not None and met() is not None and at - met() >= until:
             g["stop"] = "travel"
         elif at >= length:
             g["stop"] = "end"
         elif s - at >= LEAD_MAX:
             g["stop"] = "max_lead"
     g["s"], g["at"], g["F"], g["met"] = s, at, F, met()
+    g["swept"] = None if turn is None or p_met is None else swept(arm.tip_pose()[0])
     return g
 
 
@@ -403,14 +560,15 @@ def _descend(arm, start, n, slow, touch, bias):
     dz being how far above start the push should run, or (None, why, peak) if it landed on something."""
     top = start + HOVER * n
     landed = max(LANDED_N, 2 * arm.noise_axial)
-    g = _guarded(arm, lambda s, c: (top - s * n, -n), max(HOVER - slow, 0.0), n, landed, skills.APPROACH_SPEED, bias)
+    g = _guarded(arm, lambda s, c: (top - s * n, -n), max(HOVER - slow, 0.0), n, landed, skills.APPROACH_SPEED, bias,
+                 stall=True)
     if g["stop"] == "end":
         s0 = g["s"]
         deep = HOVER + (0.0 if touch is None else touch + TOUCH_BAND)
         # creeping, a servo estimate with nothing touching reads less than moving fast (2.8 N at most, against 4): at
         # landed (5 N), pads rested for seconds on a knob's edge reading 2-3 N, then slid off it at up to 25 N
         g = _guarded(arm, lambda s, c: (top - (s0 + s) * n, -n), deep - s0, n, max(LANDED_N, 1.5 * arm.noise_axial),
-                     TOUCH_SPEED, bias)
+                     TOUCH_SPEED, bias, stall=True)
         g["at"] += s0
     z = g["at"] - HOVER  # how far below start the pad stopped
     dz = 0.0
@@ -428,6 +586,11 @@ def _descend(arm, start, n, slow, touch, bias):
 def _push(arm, plan, limit, label):
     """Hover, descend (guarded, feeling for the floor), push along the plan, let go, lift."""
     n = plan.n
+    if plan.roll is not None and abs(arm.cmd[4] - plan.roll) > math.radians(2):
+        arm.status = f"{label}: roll the wrist"
+        q = arm.cmd.copy()
+        q[4] = plan.roll
+        skills.move_joints(arm, q)
     for s0 in (0.0, -RETRY):
         start = plan.path(s0, None)[0]
         _, bias = _approach(arm, start + HOVER * n, -n, label)
@@ -450,7 +613,8 @@ def _push(arm, plan, limit, label):
     # scanned 20 mm off, the push measured from where it should have been and ran out 4 mm into it (current mode is left
     # as it was measured)
     g = _guarded(arm, path, plan.length - s0, n, limit, PUSH_SPEED, bias, plan.until, plan.gap - s0,
-                 plan.what == "knob" and arm.axial_sensor, plan.centre)
+                 plan.what == "knob" and arm.axial_sensor, plan.centre,
+                 turn=None if plan.axis is None else (*plan.axis, plan.until / plan.radius))
     arm.status = f"{label}: lift"
     # First the command comes back to where the joints say the pad is: a soft arm's command runs ahead of the pad
     # and would carry it on (a slop18 arm carried a lever 8 mm on and over centre). It goes in steps (_unwind), as
@@ -464,8 +628,11 @@ def _push(arm, plan, limit, label):
     u = F - (F @ n) * n
     contact_n = max(CONTACT_N, arm.noise_n)  # as _guarded's
     u = u / np.linalg.norm(u) if np.linalg.norm(u) > contact_n else -path(g["at"], g["met"])[1]
+    release = RELEASE
+    if plan.axis is not None:  # an arc: straight back off the fin's face. Going by the servo estimate's direction left
+        u, release = -path(g["at"], g["met"])[1], ARC_RELEASE  # the pad on the fin, and the lift dragged it 7 deg on
     _unwind(arm, bias)
-    _line(arm, now + RELEASE * u, -n, RELEASE_SPEED, bias, give=True)
+    _line(arm, now + release * u, -n, RELEASE_SPEED, bias, give=True)
     arm.tare(False)
     if plan.radius is None:
         _line(arm, path(0, None)[0], -n, 0.03, bias, give=True)
@@ -504,7 +671,7 @@ def _push(arm, plan, limit, label):
         k = next((k for k, r in enumerate(g["reads"]) if r != g["reads"][0]), 0)
         travel = g["at"] - g["ats"][k - 1] if k else travel
     return {"stop": g["stop"], "peak": g["peak"], "landing": peak, "travel": travel,
-            "turned": None if plan.radius is None else travel / plan.radius,
+            "turned": None if plan.radius is None else (g["swept"] if g.get("swept") is not None else travel / plan.radius),
             "contact_offset_mm": None if off is None else round(off, 1), "trace": g["trace"], "missed": missed,
             "touch_mm": round(dz * 1000, 1)}
 
@@ -768,12 +935,13 @@ def _moved(p, skill, params, g, plan, counted=None):
         T[:3, 3] += (f - f0) * tr * p.x
         return replace(p, T=T, origin=T[:3, 3].copy(), state=f, range=(-f * tr, (1 - f) * tr))
     if skill == "turn":
-        th, step = math.copysign(g["travel"] / plan.radius, params["angle"]), p.meta.get("detent_step")
+        th, step = math.copysign(g.get("turned") or 0.0, params["angle"]), p.meta.get("detent_step")
         if step:  # the detent settles it; a reading that counts detents says how many better than the pad's travel
             th = math.copysign(step, params["angle"]) * counted if counted is not None else round(th / step) * step
         k = p.axis / np.linalg.norm(p.axis)
         rng = p.range if tuple(p.range) == (0, 0) else (p.range[0] - th, p.range[1] - th)
-        return replace(p, T=frame(p.pos, p.normal, canonical_x(_rotate(p.x, k, th), p.normal)), range=rng,
+        x_now = _rotate(p.x, k, th)
+        return replace(p, T=frame(p.pos, p.normal, x_now if p.meta.get("one_sided") else canonical_x(x_now, p.normal)), range=rng,
                        meta={**p.meta, "angle": p.meta.get("angle", 0.0) + th})
     if skill == "flip":
         v = p.meta["tip"] - p.pos
@@ -783,6 +951,20 @@ def _moved(p, skill, params, g, plan, counted=None):
     if skill == "push_latch":
         return replace(p, meta={**p.meta, "latched": False})
     return p
+
+
+def _observe(arm, p, target, result):
+    """No motion: what the device's readout says its display shows. OBSERVED counts a display as covered, and says
+    nothing about whether what it shows is right."""
+    if p is None:
+        result["reason"] = f"unknown target '{target}'"
+    elif p.kind != "display":
+        result["reason"] = f"{p.id} is a {p.kind}: only a display can be observed"
+    elif getattr(arm.app, "lcd", None) is None:
+        result.update(verdict="MISSED", reason=f"nothing reads {p.id} on this rig")
+    else:
+        result.update(verdict="OBSERVED", reason=f'{p.id} shows "{arm.app.lcd}"', channel="LCD", lcd=arm.app.lcd, duration_s=0.0)
+    return result
 
 
 # --- public API ---
@@ -806,6 +988,12 @@ def run_step(arm, parts, step, known=None, refine=None):
     result = {"skill": skill, "target": target, "verdict": "REFUSED", "channel": None, "readout_change": {}}
     i = next((i for i, p in enumerate(parts) if p.id == target), None)
     p = None if i is None else parts[i]
+    if skill == "observe":
+        return _observe(arm, p, target, result)
+    if p is not None and skill in ("hook_pull", "pick", "place"):  # reposition is the backend's: it moves the device, not a part
+        import manipulate
+
+        return getattr(manipulate, skill)(arm, parts, i, step)
     why, params, plan = _check(arm, p, step, parts)
     if why:
         result["reason"] = why
@@ -842,8 +1030,8 @@ def run_step(arm, parts, step, known=None, refine=None):
             result.update({k: g[k] for k in ("touch_mm", "regrip_mm") if k in g})
             if "landing" in g:
                 result["landing_n"] = round(float(g["landing"]), 2)
-            if skill == "turn" and plan.radius:
-                result["turned_deg"] = round(math.degrees(g["travel"] / plan.radius), 1)
+            if skill == "turn" and plan.radius and g.get("turned") is not None:
+                result["turned_deg"] = round(math.degrees(g["turned"]), 1)
             # steps a counting reading moved, signed by the way its first change went (the way the push went)
             counted = ((seq[ch][-1] - seq[ch][0]) * math.copysign(1, seq[ch][1] - seq[ch][0])
                        if ch and isinstance(seq[ch][-1], int) else None)

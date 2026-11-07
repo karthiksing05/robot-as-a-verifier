@@ -14,6 +14,8 @@ import vision
 from rig import (ARM_JOINTS, CAP_AVG, CONTACT_N, CONTROL_HZ, DEADBAND_EST_TICKS, HARD_FORCE_CAP_N, IK,  # noqa: F401
                  MAX_STEP_RAD, SENSE_AVG, SENSED_NOISE_N, SERVO_KV, TARE_S, TICK_RAD, WORKSPACE, ArmBase, SafetyStop,
                  arm_bodies)
+from rig import PROBE_TIP
+from rig import STOCK_TIP as STOCK_TIP_SHAPE
 
 ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "so101")
 # Real-servo slop, used with SimArm(slop=True). Each servo reads its output shaft, ignores errors
@@ -76,13 +78,61 @@ LC_CROSS = 0.02            # share of the force across the probe (along the tip 
 LC_NOISE_FLOOR_N = 0.05    # the cell's floor along the probe (arm.noise_axial): noise and a run's drift
 
 
-def load_model(path, slop=False):
+# effector="stock": the SO-101's own gripper and nothing on it, as the real arm is. The probe's rod and pad stay in the
+# model, by name, but touch nothing and can't be seen; the tip site moves to the fixed jaw's tip, the middle of its end
+# face, and a contact on the gripper within STOCK_TIP_ZONE_M of that tip counts as the tool's, as the pad's did.
+STOCK_TIP = (-0.003, 0.0, -0.0064)  # in the probe body's frame: the fixed jaw's tip
+STOCK_TIP_ZONE_M = 0.03   # the fingers, shut, from their tips back to the palm
+STOCK_SHUT = -0.17  # gripper joint, shut: the jaws' tips 2 mm apart
+JAW_BODIES = ("gripper", "moving_jaw_so101_v1")
+
+
+# The jaws are rigid prints, so they get the probe's contact stiffness (appliance.CONTACT_SOLREF) instead of the model
+# file's default. And the gripper servo squeezes at half its stall torque, as LeRobot's SO-101 follower sets the
+# gripper's Max_Torque_Limit (500 of 1000) so a held object doesn't burn it out. At the full 3.35 N.m the jaws sank 4 mm
+# into a held tube's collar (MuJoCo's contacts are soft against an 8 g object), the contacts flipped to the collar's top
+# face, and the tube shot out of the jaws; at 1.5 N.m they sink about 2 mm and hold.
+JAW_SOLREF = [float(v) for v in appliance.CONTACT_SOLREF.split()]
+GRIP_TORQUE_NM = 1.5
+JAW_PIECES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "so101", "jaw_pieces")
+
+
+def _jaw_pieces(spec):
+    """Each jaw's collision mesh as its convex pieces (tools/decompose_jaws.py), so something can sit between them."""
+    for g in list(spec.geoms):
+        if g.type != mujoco.mjtGeom.mjGEOM_MESH or g.contype == 0 or g.meshname not in ("wrist_roll_follower_so101_v1", "moving_jaw_so101_v1"):
+            continue
+        files = sorted(f for f in os.listdir(JAW_PIECES) if f.startswith(g.meshname + "__c"))
+        assert files, "no jaw pieces: run sim/tools/decompose_jaws.py"
+        body = g.parent
+        for f in files:
+            name = f[:-4]
+            if spec.mesh(name) is None:
+                spec.add_mesh(name=name, file=os.path.join(JAW_PIECES, f))
+            body.add_geom(type=mujoco.mjtGeom.mjGEOM_MESH, meshname=name, pos=g.pos, quat=g.quat, contype=g.contype,
+                          conaffinity=g.conaffinity, group=g.group, friction=g.friction, solref=JAW_SOLREF, solimp=g.solimp, mass=0)
+        spec.delete(g)
+
+
+def load_model(path, slop=False, effector="probe"):
     """Compile a scene. With slop, each arm joint gets a passive joint in series for the gear play
     (friction set to 0.1 N.m keeps it shut until a load forces it open; stiff stops keep it at
-    BACKLASH_DEG under load), and the servos get the real damping (SERVO_KV)."""
-    if not slop:
+    BACKLASH_DEG under load), and the servos get the real damping (SERVO_KV). effector: "probe" (the fingertip probe
+    and pad) or "stock" (see STOCK_TIP)."""
+    if not slop and effector == "probe":
         return mujoco.MjModel.from_xml_path(path)
     spec = mujoco.MjSpec.from_file(path)
+    if effector == "stock":
+        for name in ("probe_rod", "probe_pad"):
+            g = spec.geom(name)
+            g.contype = g.conaffinity = 0
+            g.rgba = [0, 0, 0, 0]
+        spec.site("tip").pos = list(STOCK_TIP)
+        _jaw_pieces(spec)
+    if effector == "stock":
+        spec.actuator("gripper").forcerange = [-GRIP_TORQUE_NM, GRIP_TORQUE_NM]
+    if not slop:
+        return spec.compile()
     half = np.radians(BACKLASH_DEG) / 2
     for name in ARM_JOINTS:
         j = spec.joint(name)
@@ -127,8 +177,11 @@ class SimArm(ArmBase):
     """
 
     def __init__(self, rev="B", realtime=False, viewer=None, placement=None, world=None, joint_offsets=None,
-                 slop=False, sensing=None):
+                 slop=False, sensing=None, effector="probe"):
+        assert effector in ("probe", "stock") and not (effector == "stock" and sensing == "tactile"), "the stock gripper has no pad"
         self.world = world
+        self.effector = effector
+        self.tip_shape = STOCK_TIP_SHAPE if effector == "stock" else PROBE_TIP
         self.sensing = sensing
         self.axial_sensor = sensing in ("tactile", "loadcell")
         self.noise_n = self.noise_axial = 0.0
@@ -144,7 +197,7 @@ class SimArm(ArmBase):
                     f.write(xml)
         else:
             self.rev, self.params, self.placement, path = world.name, None, None, world.xml_path
-        self.m = load_model(path, slop)
+        self.m = load_model(path, slop, effector)
         self.d = mujoco.MjData(self.m)
         self.ik = IK(self.m)
         # CAD at the nominal fixture spot until a look. A generated device has no CAD.
@@ -161,6 +214,8 @@ class SimArm(ArmBase):
         self.tip = self.m.site("tip").id
         self.probe_body = self.m.body("probe").id
         self.arm_bodies = arm_bodies(self.m)
+        self.jaw_bodies = {self.m.body(b).id for b in JAW_BODIES}
+        self.held = set()  # bodies the jaws may touch: what a pick is holding or about to hold
         self.force_log = []  # (t, newtons)
         self.status = "idle"
 
@@ -170,6 +225,8 @@ class SimArm(ArmBase):
         self.d.qpos[self.qadr] = self.home_q - self.q_off
         self.d.ctrl[:5] = self.home_q - self.q_off
         self.d.ctrl[5] = 0.0
+        if effector == "stock":  # used as a finger, the gripper is shut: the moving jaw stands beside the fixed one's tip
+            self.d.ctrl[5] = self.d.qpos[self.m.joint("gripper").qposadr[0]] = STOCK_SHUT
         self.cmd = self.home_q.copy()
         mujoco.mj_forward(self.m, self.d)
         self._wall = time.perf_counter()
@@ -401,19 +458,50 @@ class SimArm(ArmBase):
         whole vector; on the rig it would come from servo load or the soft wrist."""
         return super().tip_force_vec() if self.sensing else self.contact_force_vec()
 
+    def _tool(self, i):
+        """The tool's body in contact i, or None: the probe, or with the stock gripper, the fixed jaw near its tip."""
+        c = self.d.contact[i]
+        b1, b2 = self.m.geom_bodyid[c.geom1], self.m.geom_bodyid[c.geom2]
+        if self.probe_body in (b1, b2):
+            return self.probe_body
+        if self.effector == "stock":  # either jaw, near the tip: shut, they are one fingertip
+            for g in self.jaw_bodies:
+                if g in (b1, b2) and (b2 if b1 == g else b1) not in self.held and \
+                        np.linalg.norm(self.d.contact[i].pos - self.d.site_xpos[self.tip]) < STOCK_TIP_ZONE_M:
+                    return g
+        return None
+
     def contact_force_vec(self):
         """Sim truth: MuJoCo's contact force on the probe, arm frame (N)."""
         total = np.zeros(3)
         f6 = np.zeros(6)
         for i in range(self.d.ncon):
             c = self.d.contact[i]
-            b1, b2 = self.m.geom_bodyid[c.geom1], self.m.geom_bodyid[c.geom2]
-            if self.probe_body not in (b1, b2):
+            b2 = self.m.geom_bodyid[c.geom2]
+            tool = self._tool(i)
+            if tool is None:
                 continue
             mujoco.mj_contactForce(self.m, self.d, i, f6)
             world = c.frame.reshape(3, 3).T @ f6[:3]  # force from geom1 on geom2
-            total += world if b2 == self.probe_body else -world
+            total += world if b2 == tool else -world
         return total
+
+    def grip(self, angle, wait_s=0.0):
+        """Drive the moving jaw to `angle` (rad, the gripper joint's: lower is shut), for wait_s, and return where it
+        stopped. Like the real servo, it reports its position: an object between the jaws stops it short."""
+        self.d.ctrl[5] = angle
+        for _ in range(int(wait_s * CONTROL_HZ)):
+            self.send(self.cmd)
+            self.tick()
+        return self.jaw()
+
+    def jaw(self):
+        """The gripper joint's reading (rad)."""
+        return float(self.d.qpos[self.m.joint("gripper").qposadr[0]])
+
+    def jaw_load(self):
+        """The gripper servo's load (N.m), as an STS3215 reports it: how hard it is squeezing."""
+        return abs(float(self.d.actuator_force[5]))
 
     def tip_pose(self):
         """Where the controller believes the tip is: forward kinematics of the joint readings."""
@@ -431,6 +519,8 @@ class SimArm(ArmBase):
             b1, b2 = self.m.geom_bodyid[c.geom1], self.m.geom_bodyid[c.geom2]
             for arm_b, other in ((b1, b2), (b2, b1)):
                 if arm_b in self.arm_bodies and other not in self.arm_bodies and arm_b != self.probe_body:
+                    if (arm_b in self.jaw_bodies and other in self.held) or self._tool(i) is not None:
+                        continue
                     g = c.geom2 if other == b2 else c.geom1
                     hits.add(f"{self.m.body(arm_b).name}->{self.m.geom(g).name or self.m.body(other).name}")
         return sorted(hits)

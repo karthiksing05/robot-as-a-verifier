@@ -36,6 +36,15 @@ from rig import TABLE_Z, SafetyStop
 
 # survey (phone LiDAR)
 SURVEY_BOX = np.array([[0.08, 0.6], [-0.35, 0.35], [TABLE_Z + 0.01, 0.35]])  # where a device can sit
+
+
+def set_table_z(z):
+    """The surface the device stands on, in the arm's frame, where a rig's isn't the default."""
+    global TABLE_Z
+    TABLE_Z = z
+    SURVEY_BOX[2, 0] = z + 0.01
+
+
 LIDAR_EDGE_M = 0.02     # depth spread over ~2 LiDAR pixels above this: a blurred silhouette, not a surface
 SURVEY_VOXEL = 0.005
 COARSE_THR = 0.004
@@ -215,10 +224,14 @@ def plane_frame(n, p):
     return features.frame(p, n, -up)
 
 
+VERTICAL_NZ = -0.1  # an upright panel may lean back this far (its normal's z)
+
+
 def _coarse_panel(pts, cam_pos):
     """The control panel: the biggest plane that faces up and toward the arm, as a plane frame
-    (z toward the camera) and its extent (u0, u1, v0, v1) in that frame."""
-    rest, best = np.ones(len(pts), bool), None
+    (z toward the camera) and its extent (u0, u1, v0, v1) in that frame. With none, the biggest that faces the arm
+    upright (a wall thermostat's face: n_z down to VERTICAL_NZ)."""
+    rest, best, upright = np.ones(len(pts), bool), None, None
     for _ in range(4):
         if rest.sum() < 100:
             break
@@ -226,9 +239,16 @@ def _coarse_panel(pts, cam_pos):
         if n @ (cam_pos - p) < 0:
             n = -n
         toward_arm = -p[:2] @ n[:2] > 0.5 * np.linalg.norm(n[:2]) * np.linalg.norm(p[:2])
+        cand = (n, p, inl, np.flatnonzero(rest)[inl])
         if 0.3 < n[2] < 0.95 and toward_arm and (best is None or inl.sum() > best[2].sum()):
-            best = (n, p, inl, np.flatnonzero(rest)[inl])
+            best = cand
+        elif VERTICAL_NZ < n[2] <= 0.3 and toward_arm and (upright is None or inl.sum() > upright[2].sum()):
+            upright = cand
         rest[np.flatnonzero(rest)[inl]] = False
+    best = best or upright
+    if best is None:
+        raise ValueError("no control panel in the scan: no plane of 100+ points faces the arm, either tilted "
+                         "up toward the camera or upright")
     n, p, _, idx = best
     T = plane_frame(n, p)
     uv = (pts[idx] - p) @ T[:3, :2]

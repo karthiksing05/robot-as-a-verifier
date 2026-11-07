@@ -6,6 +6,7 @@ drivers, so swapping the rig is the only change between them. Also here: the SO-
 stop, the desk's height, the force estimate both arms run on their servo readings, and the camera frame with its
 geometry.
 """
+import math
 import os
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
@@ -38,6 +39,7 @@ SENSE_AVG = 5              # samples averaged for tip_force(); the newest is lef
 CAP_AVG = 1                # and for the hard cap, which must see short impacts
 DEADBAND_EST_TICKS = 1     # the dead zone the rig believes (register default); the sim's servo ignores 5
 TARE_S = 0.2               # tare() zeroes the estimate on this much of the latest readings
+WEAK_ARM_M = 0.1           # force estimate: directions the joints feel through less moment arm than this are attenuated
 SENSED_NOISE_N = 2.5       # with sensing, skills keep contact thresholds above this (arm.noise_n), in the estimate's units
 
 
@@ -127,6 +129,48 @@ class Rig:
             self.arm.close()
 
 
+
+class TipShape:
+    """The tool tip's contact surface, as hull points in the tip site's frame: -z is the pointing axis, +z runs back along
+    the tool, so z is how far behind the tip's face a point is. Skills read reach and contact points from it (affordances
+    _lowest, _rim) instead of assuming the probe's round pad."""
+
+    def __init__(self, name, pts):
+        self.name, self.pts = name, np.asarray(pts, float)
+        self.round = name == "probe"  # symmetric about the axis: the wrist roll doesn't matter
+
+    def world(self, R):
+        return self.pts @ np.asarray(R).T
+
+    def footprint(self, R, n, below=np.inf):
+        """The widest the tip reaches from the site across n, over points at most `below` above the site along n."""
+        w = self.world(R)
+        w = w[w @ n <= below + 1e-6]
+        return float(np.max(np.linalg.norm(w - np.outer(w @ n, n), axis=1))) if len(w) else 0.0
+
+
+def _ring(r, z, k=24):
+    return [(r * math.cos(t), r * math.sin(t), z) for t in np.linspace(0, 2 * math.pi, k, endpoint=False)]
+
+
+def _rect(x0, x1, y0, y1, z):
+    return [(x0, y0, z), (x1, y0, z), (x1, y1, z), (x0, y1, z)]
+
+
+# The probe's 12 mm pad, 3 mm thick; the tip site is the centre of its face.
+PROBE_TIP = TipShape("probe", _ring(0.006, 0.0) + _ring(0.006, 0.003))
+# The SO-101's own gripper, shut: the two fingertips together, measured off the jaws' collision pieces (sim/robot.py
+# STOCK_TIP puts the site at the fixed jaw's tip, so the block is off centre along +x, toward the moving jaw). A wedge,
+# not a block: 13.6 x 7 mm at the face, 24 x 12.6 mm 10 mm back, 39 x 16 mm at 30 mm.
+STOCK_TIP = TipShape("stock", sum((_rect(*[v * 1e-3 for v in r]) for r in (
+    (-2.9, 10.7, -3.7, 3.3, 0.0), (-4.5, 14.1, -5.4, 5.1, 5.0), (-6.3, 17.5, -6.5, 6.1, 10.0),
+    (-9.3, 24.9, -7.4, 7.1, 20.0), (-12.6, 26.7, -8.1, 7.7, 30.0))), []))
+
+
+def tip_shape(arm):
+    return getattr(arm, "tip_shape", PROBE_TIP)
+
+
 class IK:
     """Damped least squares on a private MjData, so solving never disturbs the sim."""
 
@@ -138,6 +182,13 @@ class IK:
         self.dadr = np.array([model.joint(j).dofadr[0] for j in ARM_JOINTS])
         self.lo = model.jnt_range[[model.joint(j).id for j in ARM_JOINTS], 0]
         self.hi = model.jnt_range[[model.joint(j).id for j in ARM_JOINTS], 1]
+
+    def fk_R(self, q, site=None):
+        """The tip site's rotation (columns: its x, y, z in the arm frame; -z is the pointing axis)."""
+        site = self.tip if site is None else site
+        self.d.qpos[self.qadr] = q
+        mujoco.mj_kinematics(self.m, self.d)
+        return self.d.site_xmat[site].reshape(3, 3).copy()
 
     def fk(self, q, site=None):
         """Position and pointing axis (the site's -z) of the tip, or of another site."""
@@ -216,6 +267,21 @@ class ArmBase:
         # 5 joint torques, 3 force components: least squares (wrist_roll turns about the probe, so carries none). A fit
         # along the probe alone let the force across it leak in, as the arm can't always point the probe along a normal.
         return np.linalg.lstsq(self.W, tau - (self.zero if zero is None else zero), rcond=None)[0]
+
+    def weighted_force_vec(self):
+        """tip_force_vec() with the estimate's part along directions the joints barely feel taken as less sure. Along W's
+        singular direction with value s (m of moment arm) under WEAK_ARM_M, the fit divides small torque errors by s: at
+        the centrifuge's low, stretched poses s fell to 0.05 m, and the gravity and friction model's errors read 6-8 N
+        there with nothing touching (true 0.2 N). So that part counts (s / WEAK_ARM_M)^2. For checks that would give up
+        on a phantom force (a side force, a pad pushed off the panel); force limits read the plain estimate."""
+        if not self.sensing:
+            return self.tip_force_vec()
+        _, sv, Vt = np.linalg.svd(self.W, full_matrices=False)
+        est = Vt.T @ (np.minimum(1.0, (sv / WEAK_ARM_M) ** 2) * (Vt @ self.est_vec))
+        if self.axial_sensor:
+            a = self.axis_est
+            return est - (est @ a) * a - self.tip_force() * a
+        return est
 
     def _axial(self, F):
         return max(-float(F @ self.axis_est), 0.0)  # along the probe; a push reads positive

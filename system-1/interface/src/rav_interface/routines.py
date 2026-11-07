@@ -8,12 +8,12 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from .models import Contract, Plan, SceneInventory, Step, StepVerdict
+from .models import CheckResult, Contract, Control, Plan, SceneInventory, Skill, ControlKind, Step, StepVerdict
 
 TOOLS = ("system_status", "scene_get", "evidence_get", "routine_start", "routine_wait", "routine_resume", "routine_stop")
 
 RoutineName = Literal["explore", "run_plan", "home"]
-StopKind = Literal["done", "checkpoint", "escalation", "safety_abort"]
+StopKind = Literal["done", "checkpoint", "escalation", "safety_abort", "pipeline_error"]
 EscalationCode = Literal["step_failed", "unexpected_response", "retries_exhausted", "perception_low_confidence",
                          "pose_unstable", "unknown_control"]
 RoutineState = Literal["idle", "running", "paused"]
@@ -47,7 +47,10 @@ class StepSummary(Contract):
     travel_mm: float | None = None
     stop_reason: str | None = None
     readout_change: dict[str, list[Any]] = Field(default_factory=dict)
-    trace_ref: str
+    measures: dict[str, Any] = Field(default_factory=dict)
+    checks: list[CheckResult] = Field(default_factory=list)
+    trace_ref: str  # the last attempt's
+    attempt_refs: list[str] = Field(default_factory=list)  # earlier attempts' traces, when there were any
 
 
 class Escalation(Contract):
@@ -81,6 +84,83 @@ class Decision(Contract):
     note: str | None = None
 
 
+class ParamSpec(Contract):
+    name: str
+    required: bool = False
+    min: float | None = None
+    max: float | None = None
+    nonzero: bool = False
+    default: float | None = None
+    unit: str = ""
+    about: str = ""
+
+
+class ActionSpec(Contract):
+    """One skill the robot offers now: what it acts on and what it takes. Nothing outside this list can run."""
+    skill: Skill
+    kinds: list[ControlKind]
+    params: list[ParamSpec] = Field(default_factory=list)
+    about: str = ""
+
+
+CHECK_METRICS = ("peak_force_n", "travel_mm", "duration_s", "contact_offset_mm", "lcd")  # and reading:<CHANNEL>
+
+
+def _bounds(p: ParamSpec) -> str:
+    low = "no minimum" if p.min is None else f"{p.min:g}"
+    high = "no maximum" if p.max is None else f"{p.max:g}"
+    return f"{low} to {high} {p.unit}".rstrip() + (", and can't be 0" if p.nonzero else "")
+
+
+def check_steps(steps: list[Step], controls: list[Control], actions: list[ActionSpec]) -> list[str]:
+    """Every way these steps are a bad request, from the contract alone: nothing moves and no robot is needed. What
+    depends on where a part will be when the step runs (a stop, reach) stays a refusal at run time, because an earlier
+    step in the plan may move it. A step on a pinch-only part isn't bad: it's a real refusal, and goes in the report."""
+    problems: list[str] = []
+    by_id = {c.id: c for c in controls}
+    specs = {a.skill: a for a in actions}
+    seen: set[str] = set()
+    for s in steps:
+        name = f"{s.id} ({s.skill} {s.target})"
+        if s.id in seen:
+            problems.append(f"{name}: step id {s.id} is used twice in this plan")
+        seen.add(s.id)
+        control = by_id.get(s.target)
+        if control is None:
+            problems.append(f"{name}: no control called {s.target}. Known: {', '.join(sorted(by_id)) or 'none, run explore first'}")
+            continue
+        if s.skill == "none":
+            if not s.why:
+                problems.append(f"{name}: skill none needs a why")
+            continue
+        spec = specs.get(s.skill)
+        if spec is None:
+            problems.append(f"{name}: {s.skill} isn't offered. Offered: {', '.join(sorted(specs))}")
+            continue
+        if control.grip == "pinch":
+            continue
+        if control.kind not in spec.kinds:
+            takes = [a.skill for a in actions if control.kind in a.kinds]
+            problems.append(f"{name}: {s.skill} can't act on a {control.kind}. It takes: {', '.join(takes) or 'nothing'}")
+            continue
+        known = {p.name: p for p in spec.params}
+        for key, value in s.params.items():
+            p = known.get(key)
+            if p is None:
+                problems.append(f"{name}: unknown param {key}. {s.skill} takes: {', '.join(known) or 'none'}")
+            elif isinstance(value, bool) or not isinstance(value, (int, float)):
+                problems.append(f"{name}: {key} must be a number, got {value!r}")
+            elif (p.min is not None and value < p.min) or (p.max is not None and value > p.max) or (p.nonzero and value == 0):
+                problems.append(f"{name}: {key}={value:g} is outside {_bounds(p)}")
+        for p in spec.params:
+            if p.required and p.name not in s.params:
+                problems.append(f"{name}: needs {p.name}")
+        for c in s.check:
+            if c.metric not in CHECK_METRICS and not c.metric.startswith("reading:"):
+                problems.append(f"{name}: can't check {c.metric}. Metrics: {', '.join(CHECK_METRICS)}, reading:<CHANNEL>")
+    return problems
+
+
 class SceneReport(Contract):
     scene: SceneInventory | None = None
     fallback_plan: Plan | None = None  # rule-based, needs no model
@@ -90,6 +170,9 @@ class SystemStatus(Contract):
     state: RoutineState
     robot: str
     skills: list[str]
+    actions: list[ActionSpec] = Field(default_factory=list)
+    max_force_n: float | None = None  # the most a step may ask for
+    check_metrics: list[str] = Field(default_factory=lambda: [*CHECK_METRICS, "reading:<CHANNEL>"])
     routine_id: str | None = None
     routine: RoutineName | None = None
     tools: list[str] = Field(default_factory=lambda: list(TOOLS))
