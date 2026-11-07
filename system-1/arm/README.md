@@ -4,7 +4,7 @@ The real SO-101.
 
 | Folder | What's in it | State |
 |---|---|---|
-| [`bringup/`](bringup) | Joseph's servo scripts, run one motor at a time: `motor_check`, `setup_one_motor`, `watch_position`, `bus_jitter`, `stiffness_test`, `strain_test`, `p_gain_sweep`. Results in [`bringup/results.md`](bringup/results.md) | Run on the six loose servos, except `stiffness_test` (needs the built arm) |
+| [`bringup/`](bringup) | Joseph's servo scripts, run one motor at a time: `motor_check`, `which_motor` (finds a lone motor's id at any baud rate and nudges it), `setup_one_motor`, `watch_position`, `bus_jitter`, `stiffness_test`, `strain_test`, `p_gain_sweep`. Results in [`bringup/results.md`](bringup/results.md) | Run on the six loose servos, except `stiffness_test` (needs the built arm) |
 | [`camera/`](camera) | The wrist camera's bench test, `camera_test.py`: frame rate, JPEG quality, ChArUco calibration from the tablet, focus, noise, and the image models on real photos. [Runbook](camera/README.md), [results](camera/results.md) | Run on the Innomaker U20CAM. Windows only. Calibration at 1080p in `camera/camera_out/calib.json` |
 | [`../hardware/real_arm.py`](../hardware/real_arm.py) | `RealArm`: lets the skills drive the real arm over LeRobot's bus. It shares the IK and force estimate with the sim through `system-1/core/rig.py` | Tested against a simulated bus, and its read-only check and one-joint move on loose servos. Not yet run on the built arm |
 | [`src/rav_arm/lerobot_arm.py`](src/rav_arm/lerobot_arm.py) | The original `LeRobotArm` skeleton | Superseded by `RealArm`, and its `ArmBackend` by `rig.Arm` |

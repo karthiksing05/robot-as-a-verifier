@@ -3,9 +3,10 @@
     python motor_check.py COM5            # all six, daisy-chained
     python motor_check.py COM5 --only 3   # just the motor with id 3
 
-For each motor: ask for its model number, read its position, then turn on torque, nudge it 100 encoder steps
-(about 9 degrees) and back, and turn torque off. Only for loose motors with nothing attached: it knows nothing
-about the arm's joint limits. Written against LeRobot's main branch (lerobot.motors.SerialMotorsBus).
+For each motor: ask for its model number, read its position, set its P gain to RealArm's 160, then turn on torque,
+nudge it 100 encoder steps (about 9 degrees) and back, and turn torque off. Only for loose motors with nothing
+attached: it knows nothing about the arm's joint limits. Written against LeRobot's main branch
+(lerobot.motors.SerialMotorsBus).
 """
 import argparse
 import time
@@ -14,6 +15,7 @@ from lerobot.motors import Motor, MotorNormMode, SerialMotorsBus
 
 NAMES = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper"]  # ids 1-6
 STEP = 100  # encoder steps; 4096 is one full turn
+SERVO_P = 160  # RealArm's gain; LeRobot's follower writes 16, at which a loose motor barely moves (results.md)
 
 ap = argparse.ArgumentParser()
 ap.add_argument("port", help="the COM port lerobot-find-port reported, e.g. COM5")
@@ -33,6 +35,8 @@ try:
         pos = bus.read("Present_Position", name, normalize=False)
         print(f"id {m.id} ({name}): answers, model number {model}, position {pos}")
         out = pos + STEP if pos + STEP < 4096 else pos - STEP
+        if bus.read("P_Coefficient", name, normalize=False) != SERVO_P:
+            bus.write("P_Coefficient", name, SERVO_P, normalize=False)  # torque is still off, as an EEPROM write needs
         bus.enable_torque(name)
         for target in (out, pos):
             bus.write("Goal_Position", name, target, normalize=False)
