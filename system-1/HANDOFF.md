@@ -10,7 +10,7 @@ The server now shares two of explore.py's rules. Each touch falls back on its ow
 
 `rav-server --robot real --arm-port COM5 --calibration <file>` runs `PipelineRobot` over `hw_rig.make_rig`. It asks at the terminal before torque goes on, and has only run against the fake bus. Before it's useful it needs:
 
-- A streaming device readout instead of `OperatorReadout`. That one asks the operator once a step ends, but `affordances` reads `arm.app.readings` during a slide or turn.
+- The appliance's Pico firmware. `hardware/pico_readout.py` streams its readings (`make_rig(..., readout_port=...)`), which `affordances` reads during a slide or turn, but it has only run against a stand-in.
 - A hand-eye calibration, the camera's mount offset on the gripper. Every part the scan finds is shifted by it, so presses land off centre. The plane sweep doesn't need it: an offset shared by every photo cancels out, and the bundle adjustment corrects each photo's own error from the joints.
 - The bench numbers on [the real-arm page](sim/docs/real-arm.md): servo stiffness and bus timing.
 

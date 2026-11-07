@@ -44,7 +44,8 @@ In the order a run uses them:
 | `sim/explore.py` | 1345 | The showcase: stage order, camera direction and narration. It only directs and draws; every decision is made in the modules above | `STAGES` |
 | `hardware/real_wrist.py` | 143 | The real wrist camera with `sensors.WristCamera`'s calls (`capture`, `K`, `close`): frames through ffmpeg on Windows, undistorted with the bench calibration, posed by forward kinematics. `system-1/arm/camera/camera_test.py` uses its capture code | `WristCamera` |
 | `hardware/real_arm.py` | 296 | The real SO-101 through LeRobot's motor bus, with the calls the skills use on `SimArm`, plus a terminal readout of the device. `hardware/tools/arm_check.py` checks it on the built arm, `hardware/tests/test_real_arm.py` on a simulated bus ([the real arm](real-arm.md)) | `RealArm` |
-| `hardware/hw_rig.py` | 24 | Builds the real rig: `RealArm` with torque off and the USB wrist camera. Untested without the arm | `make_rig` |
+| `hardware/pico_readout.py` | 70 | The device's readout from the printed appliance's Pico over USB serial, one JSON line per change ([format](../../subjects/appliance/firmware/README.md)). `hardware/tests/test_pico_readout.py` checks it against a stand-in on a socket | `PicoReadout` |
+| `hardware/hw_rig.py` | 28 | Builds the real rig: `RealArm` with torque off, the USB wrist camera, and the Pico's readout if given its port. Untested without the arm | `make_rig` |
 
 The original demo's files, in `sim/`, are `appliance.py` (the parametric appliance), `vision.py` (tag-based localisation) and `demo.py` (viewer, prompt and plan runner), with `plans/` and `runs/`.
 
