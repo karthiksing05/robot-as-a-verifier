@@ -10,7 +10,7 @@ The server now shares two of explore.py's rules. Each touch falls back on its ow
 
 A `--robot real` backend would be `PipelineRobot` over `hw_rig.make_rig`, with its own flag for the serial port, such as `--arm-port` (`--port` is the HTTP port). Before it's useful it needs:
 
-- A streaming device readout instead of `OperatorReadout`. That one asks the operator once a step ends, but `affordances` reads `arm.app.readings` during a slide or turn.
+- The appliance's Pico firmware. `hardware/pico_readout.py` streams its readings (`make_rig(..., readout_port=...)`), which `affordances` reads during a slide or turn, but it has only run against a stand-in.
 - A hand-eye calibration. Wrist poses from forward kinematics are good to about a degree, and the plane sweep needs about 0.1°.
 - The bench numbers on [the real-arm page](sim/docs/real-arm.md): servo stiffness and bus timing.
 

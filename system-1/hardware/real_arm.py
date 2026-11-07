@@ -18,7 +18,8 @@ file, with no physics. As on SimArm, send() clips to the joint limits and to MAX
 CONTROL_HZ, and a tip force over HARD_FORCE_CAP_N backs the tip off and raises SafetyStop. Force is
 SimArm(sensing="current")'s estimate from the servos (_sense), and `pad`, a fingertip sensor object, can supply the
 force along the probe. The real arm has no collision check: seen_collisions stays empty. `app` is the device's
-readout, which every verdict reads: OperatorReadout, a person at the terminal, unless another is passed in.
+readout, which every verdict reads: OperatorReadout, a person at the terminal, unless another is passed in, such as
+pico_readout.PicoReadout.
 """
 import atexit
 import json
@@ -102,6 +103,7 @@ class RealArm(rig.ArmBase):
         self.W, self.axis_est, self.est_vec = np.zeros((len(ARM_JOINTS), 3)), np.zeros(3), np.zeros(3)
         self.est_axial = self.cap_f = self.pad_n = 0.0
         self.torque = False
+        self.app = OperatorReadout(self) if app is None else app
         bus.connect(handshake=False)  # as the team's scripts: LeRobot's firmware check is skipped
         atexit.register(self.close)
         try:
@@ -114,7 +116,6 @@ class RealArm(rig.ArmBase):
             self.close()
             raise
         self._wall = time.perf_counter()
-        self.app = OperatorReadout(self) if app is None else app
 
     def __enter__(self):
         return self
@@ -123,9 +124,12 @@ class RealArm(rig.ArmBase):
         self.close()
 
     def close(self):
-        """Torque off on every motor, then the port closed. The arm goes limp: support it first."""
+        """Torque off on every motor, then the port closed, then the readout's if it has one (pico_readout). The arm
+        goes limp: support it first."""
         self.torque = False
         self.bus.disconnect(disable_torque=True)
+        if hasattr(self.app, "close"):
+            self.app.close()
 
     def enable(self, confirm=False):
         """Torque on for the five arm joints, holding where they are. confirm must be True: the caller has checked the
