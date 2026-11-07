@@ -1,0 +1,124 @@
+# KB-1 temperature kettle: a RAAV test device (docs/device-authoring.md). Sim truth: the loader, the answer key and
+# evaluation read this file, and no model ever does. Lengths mm, angles deg, in the product frame: origin on the base
+# plate's bottom face, +X toward the arm, +Z up. Numbers come from cad/model.py and wiring.md.
+name: kb1
+meta: {title: "KB-1 temperature kettle", split: dev, project: kettle-base}
+
+# The centrifuge's placement: the arm's pan axis at product (274.5, 0, 58), on a board that makes up the 82 mm.
+placement: {x: 313.3, y: 0.0, yaw: 180.0}
+stand_mm: 82
+mounts: {kettle: clamped}
+
+meshes: build/meshes_rev{rev}
+# Each fault is one broken property on one piece (docs/device-theory.md).
+faults:
+  F1: {what: "powers on with the set temperature at 60 C, where it should start at 100 C", class: firmware, piece: dial_1, property: default_on_power,
+       A: {params: {fw_power_temp: 60}}, B: {params: {fw_power_temp: 100}}}
+  F2: {what: "BOIL and WARM are wired to each other's inputs: the BOIL button toggles keep-warm and the WARM button starts heating",
+       class: electrical, piece: button_2, property: independent,
+       A: {params: {boil_cap: cap_warm, warm_cap: cap_boil}}, B: {params: {boil_cap: cap_boil, warm_cap: cap_warm}}}
+  F3: {what: "the lid won't seat: its hinge leaf's stop web is too long and bottoms before the lid is down, so the lid rests about 4.5 deg open, the lid switch never closes, and BOIL is always refused with LID",
+       class: mechanical, piece: handle_1, property: interlock_releases,
+       A: {parts: {lid_leaf: lid_hinge_leaf_revA}, params: {lid_seat_deg: 4.5}}, B: {parts: {lid_leaf: lid_hinge_leaf_revB}, params: {lid_seat_deg: 0.0}}}
+  F4: {what: "keep-warm never engages after a heat: with WARM on, heating ends at DONE instead of holding (it checks the WARM button, not the keep-warm setting)",
+       class: firmware, piece: button_1, property: procedure_completes, masked_by: [F3],
+       A: {params: {fw_hold: "btn_warm == 1"}}, B: {params: {fw_hold: "warm == 1"}}}
+revs:
+  A: {F1: A, F2: A, F3: A, F4: A}
+  B: {F1: B, F2: B, F3: B, F4: B}
+  M1: {F1: A, F2: A, F3: B, F4: A}   # the hinge leaf fixed alone: the lid seats, the kettle now heats, which unmasks the keep-warm fault
+
+roots:
+  kettle:
+    mass_kg: 0.85
+    parts: [base_plate, front_panel, control_face, pod_side_L, pod_side_R, pod_back, pod_top, display_glass, plinth, jug, hinge_base]
+    visual_only: [jug_handle, toggle_base, ref_oled, ref_heater]
+
+bodies:
+  # WARM and BOIL caps. The firmware reads joints cap_warm and cap_boil; which physical cap carries which name is F2
+  - {name: $warm_cap, root: kettle, parts: [cap_warm], joint: {type: slide, axis: [-0.7071, 0, -0.7071], anchor: [44.27, -42.0, 78.27], range: [0, 0.3], stiffness: 2000, preload_n: 2.0, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - {name: $boil_cap, root: kettle, parts: [cap_boil], joint: {type: slide, axis: [-0.7071, 0, -0.7071], anchor: [44.27, -20.0, 78.27], range: [0, 0.3], stiffness: 2000, preload_n: 2.0, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - name: dial_knob
+    root: kettle
+    parts: [dial_knob]
+    collide_geoms_only: true
+    geoms:   # a 10 mm knob and its 3 mm fin, as primitives: 5 to 16 mm above the plate
+      - {type: cylinder, fromto: [46.04, 46.0, 80.04, 53.81, 46.0, 87.81], radius: 5.0, mass: 0.003}
+      - {type: box, pos: [52.18, 42.82, 81.68], half: [4.5, 1.5, 5.5], x: [0.5, -0.7071, -0.5], z: [0.7071, 0, 0.7071], mass: 0.001}
+    # an incremental encoder: no end stops of its own, so the knob's range is the panel's, 150 deg either way from rest
+    joint: {type: hinge, axis: [0.7071, 0, 0.7071], anchor: [49.93, 46.0, 83.93], range: [-150, 150], damping: 0.002, frictionloss: 0.004, armature: 0.0005}
+  - name: power_lever
+    root: kettle
+    # 10 mm from a pivot 6 mm above the plate, leaning 15 deg to the bottom edge (off); q 30 deg is on
+    geoms:
+      - {type: capsule, fromto: [46.74, 14.0, 80.74, 55.4, 14.0, 85.74], radius: 1.5, rgba: [0.75, 0.75, 0.78, 1], mass: 0.002}
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [46.74, 14.0, 80.74], range: [0, 30], damping: 0.002, armature: 0.0002}
+    snap: {nm: 0.012, centre_deg: 15}
+  - name: lid
+    root: kettle
+    parts: [lid, $lid_leaf, lid_handle]
+    # shut is where the hinge leaf's stop web lets it rest: 0, or 4.5 deg open on a web that bottoms early (F3)
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [-60.0, 0, 102.0], range: [$lid_seat_deg, 105], damping: 0.02, frictionloss: 0.002, armature: 0.001, mass: 0.06}
+
+display: {root: kettle, centre: [61.3, 0, 32.0], normal: [1, 0, 0], up: [0, 0, 1], size: [22.0, 11.0]}
+# the heater ring: a disc on the plinth under the jug, so its rim shows around the jug's foot
+light: {root: kettle, centre: [-20.0, 0, 22.3], radius: 40, colours: {"off": [0.1, 0.1, 0.1, 1], white: [0.95, 0.95, 0.95, 1], red: [0.9, 0.1, 0.1, 1], orange: [0.98, 0.55, 0.1, 1], green: [0.1, 0.85, 0.2, 1]}}
+
+controls:
+  - {id: button_1, kind: button, body: $warm_cap, top: [44.27, -42.0, 78.27], normal: [0.7071, 0, 0.7071], x: [0, 1, 0], size: [10, 10, 2.5], radius: 5.0, travel: 0.3, switch_at: 0.67}
+  - {id: button_2, kind: button, body: $boil_cap, top: [44.27, -20.0, 78.27], normal: [0.7071, 0, 0.7071], x: [0, 1, 0], size: [10, 10, 2.5], radius: 5.0, travel: 0.3, switch_at: 0.67}
+  - {id: dial_1, kind: dial, body: dial_knob, top: [46.04, 46.0, 80.04], normal: [0.7071, 0, 0.7071], x: [0.5, -0.7071, -0.5], size: [18, 18, 11], knob_radius: 5.0, knob_height: 11, fin_length: 18, fin_width: 3, fin_height: 11, floor_gap: 5, one_sided: true, range_deg: [-150, 150]}
+  - {id: toggle_1, kind: toggle, body: power_lever, hinge: [46.74, 14.0, 80.74], normal: [0.7071, 0, 0.7071], lean: [0.7071, 0, -0.7071], tip: [55.4, 14.0, 85.74], size: [10, 10, 11.5], lever_len: 11.5, lever_radius: 1.5, base_size: [10, 10, 3]}
+  - {id: handle_1, kind: handle, body: lid, reads: true, pos: [22.0, 0, 107.0], normal: [1, 0, 0], grip: tip, pull: [-0.06, 0, 1], under: [-1, 0, 0], clear: 10, hinge: [-60.0, 0, 102.0], axis: [0, -1, 0], open_deg: 105, size: [16, 9, 10]}
+  - {id: display_1, root: kettle, kind: display, pos: [61.3, 0, 32.0], normal: [1, 0, 0], x: [0, 1, 0], size: [22, 11, 0.5]}
+
+# Faces toward the arm the probe touches to find where the kettle is: the pod's front panel, either side of the display.
+registration:
+  kettle:
+    touches:
+      - {at: [60.0, -40.0, 48.0], normal: [1, 0, 0]}
+      - {at: [60.0, 40.0, 48.0], normal: [1, 0, 0]}
+
+# The Pico's firmware, as data. Channel names are its serial events (wiring.md).
+firmware:
+  channels: {power: 0, btn_boil: 0, btn_warm: 0, knob: 0, temp: 100, warm: 0, lid: 1, run: idle}
+  sensors:
+    - {channel: btn_boil, joint: cap_boil, when: "q >= 0.0002"}
+    - {channel: btn_warm, joint: cap_warm, when: "q >= 0.0002"}
+    - {channel: power, joint: power_lever, when: "q > radians(15)", hysteresis: 0.05}
+    # the encoder's count: one click per 15 deg, clockwise from outside (negative about +normal) counts up
+    - {channel: knob, joint: dial_knob, value: "round(-q / radians(15))"}
+    - {channel: lid, joint: lid, when: "q < radians(2)"}
+  states:
+    dark:
+      show: {lcd: "", ring: "off"}
+    ready:
+      show: {lcd: "{temp}C{' WARM' * warm}", ring: white}
+    running:
+      show: {lcd: "BOILING", ring: red}
+    warming:
+      show: {lcd: "WARM {temp}C", ring: orange}
+    done:
+      show: {lcd: "DONE", ring: green}
+    refused:
+      show: {lcd: "{reason}", ring: red}
+  start: dark
+  transitions:
+    - {any: true, when: "power == 0", to: dark, do: {run: idle, warm: 0}}
+    - {from: dark, when: "power == 1", to: ready, do: {temp: $fw_power_temp, warm: 0, knob0: "knob + 0"}}
+    # TEMP: each click from where the knob last was moves the setting 5 C, held to 60..100
+    - {from: [ready, done, refused], event: knob, to: ready, do: {temp: "min(100, max(60, temp + 5 * (knob - knob0)))", knob0: "knob + 0"}}
+    - {from: running, event: knob, to: running, do: {temp: "min(100, max(60, temp + 5 * (knob - knob0)))", knob0: "knob + 0"}}
+    - {from: warming, event: knob, to: warming, do: {temp: "min(100, max(60, temp + 5 * (knob - knob0)))", knob0: "knob + 0"}}
+    # WARM: toggles keep-warm; while holding, it ends the hold
+    - {from: [ready, done, refused], event: btn_warm, when: "btn_warm == 1", to: ready, do: {warm: "1 - warm"}}
+    - {from: running, event: btn_warm, when: "btn_warm == 1", to: running, do: {warm: "1 - warm"}}
+    - {from: warming, event: btn_warm, when: "btn_warm == 1", to: ready, do: {warm: 0, run: idle}}
+    # BOIL: refused with the lid open; stops a heat; otherwise heats for 8 s
+    - {from: [ready, done, refused, warming], event: btn_boil, when: "btn_boil == 1 and lid == 0", to: refused, do: {reason: "LID", run: "refused:LID"}}
+    - {from: running, event: btn_boil, when: "btn_boil == 1", to: ready, do: {run: stop}}
+    - {from: [ready, done, refused, warming], event: btn_boil, when: "btn_boil == 1", to: running, do: {left: 8, run: start}}
+    # left counts down by itself while running
+    - {from: running, when: "left <= 0 and ($fw_hold)", to: warming, do: {run: warm}}
+    - {from: running, when: "left <= 0", to: done, do: {run: done}}
+    - {from: done, when: "lid == 0", to: ready}

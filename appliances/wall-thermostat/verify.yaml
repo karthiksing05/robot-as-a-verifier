@@ -1,0 +1,66 @@
+# How verify.py checks this device (docs/device-authoring.md). Sim truth, like device.yaml: no model reads it.
+# Only presses here, so the probe does it all: no pick or place needs the stock gripper.
+effector: probe
+
+reach:
+  reachable: [button_1, button_2, button_3]   # level, on a vertical face (device.yaml has the placement's reasoning)
+
+# The manual's procedures on Rev B: the power-up default, mode through HEAT and COOL back to OFF, and the setpoint by
+# UP and DOWN. The buttons work in every mode.
+workflow:
+  rev: B
+  steps:
+    - {wait_s: 0.5, expect: {state: standby, readings: {mode: "OFF", setpoint: 200}, lcd: "OFF 20\\.0C", ring: "off"}}
+    - {skill: observe, target: display_1, expect: {verdict: OBSERVED, lcd: "OFF 20\\.0C"}}
+    - {skill: press, target: button_1, expect: {verdict: PASS, readings: {mode: HEAT}, state: heat, ring: orange, lcd: "HEAT 20\\.0C"}}
+    - {skill: press, target: button_3, expect: {verdict: PASS, readings: {setpoint: 205}, lcd: "HEAT 20\\.5C"}}
+    - {skill: press, target: button_3, expect: {readings: {setpoint: 210}, lcd: "HEAT 21\\.0C"}}
+    - {skill: press, target: button_2, expect: {verdict: PASS, readings: {setpoint: 205}, lcd: "HEAT 20\\.5C"}}
+    - {skill: press, target: button_1, expect: {readings: {mode: COOL}, state: cool, ring: blue, lcd: "COOL 20\\.5C"}}
+    - {skill: press, target: button_1, expect: {readings: {mode: "OFF"}, state: standby, ring: "off", lcd: "OFF 20\\.5C"}}
+
+faults:
+  F1:   # DOWN's travel ends before its switch closes. Switch sensors read in any mode
+    steps:
+      - {skill: press, target: button_2, expect: {verdict: PASS, changed: [btn_down], readings: {setpoint: 195}}}
+    fails_at: 0
+  F2:   # 20 presses of UP take 20.0 to 30.0 C; the 21st must leave it at 30.0
+    steps:
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 205}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 210}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 215}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 220}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 225}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 230}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 235}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 240}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 245}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 250}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 255}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 260}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 265}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 270}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 275}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 280}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 285}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 290}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 295}}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 300}, lcd: "OFF 30\\.0C"}}
+      - {skill: press, target: button_3, expect: {readings: {setpoint: 300}, lcd: "OFF 30\\.0C"}}
+    fails_at: 20
+  F3:   # MODE: OFF, HEAT, then COOL
+    steps:
+      - {skill: press, target: button_1, expect: {readings: {mode: HEAT}, state: heat, ring: orange}}
+      - {skill: press, target: button_1, expect: {readings: {mode: COOL}, state: cool, ring: blue}}
+    fails_at: 1
+  F4:   # in COOL the display shows the setpoint in C. Its own revision fixes F3, so COOL is reachable
+    steps:
+      - {skill: press, target: button_1, expect: {readings: {mode: HEAT}, lcd: "HEAT 20\\.0C"}}
+      - {skill: press, target: button_1, expect: {readings: {mode: COOL}, lcd: "COOL 20\\.0C"}}
+    fails_at: 1
+  F4m:  # masking, on M1 (only MODE fixed): the same steps fail on F4 at the COOL display
+    rev: M1
+    steps:
+      - {skill: press, target: button_1, expect: {readings: {mode: HEAT}, lcd: "HEAT 20\\.0C"}}
+      - {skill: press, target: button_1, expect: {readings: {mode: COOL}, lcd: "COOL 20\\.0C"}}
+    fails_at: 1

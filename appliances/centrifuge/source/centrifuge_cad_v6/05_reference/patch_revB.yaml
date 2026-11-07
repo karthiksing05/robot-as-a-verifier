@@ -1,0 +1,26 @@
+rev: B
+from: A
+params:
+  bezel_clearance_mm:
+    stop:
+      from: 0.05
+      to: 0.4
+  handle_type:
+    from: pinch_tab
+    to: hook_lip
+  handle_overhang_mm: 10.0
+  handle_clear_mm: 10.0
+  well_id_mm:
+    A:
+      from: 15.6
+      to: 16.8
+reprint:
+- stl/print_revB/bezel_stop_revB.stl
+- stl/print_revB/well_insert_A_revB.stl
+laser_recut:
+- lid_handle_revB_ply_1..3 (3-ply laminate, on the plywood sheet)
+laser_parts_changed: []
+fixes:
+  F1: Stop bezel bore to 0.40 mm per side
+  F2: pinch-tab laminate -> hook-lip laminate (laser)
+  F3: well A ID to tube OD + 0.8

@@ -1,0 +1,49 @@
+# How verify.py checks this device (docs/device-authoring.md). Sim truth, like device.yaml: no model reads it.
+effector: stock   # the real arm's own gripper; pick and place need it
+
+reach:
+  reachable: [button_1, button_2, button_3, dial_1, toggle_1, handle_1, handle_2]
+
+# The manual's procedure on Rev B: power, set time and speed, load a tube in well A, close the lid, run to the end.
+workflow:
+  rev: B
+  steps:
+    - {skill: flip, target: toggle_1, expect: {readings: {power: 1}, state: ready, lcd: "1000 RPM 0:30"}}
+    - {skill: press, target: button_3, expect: {readings: {time: 40}, lcd: "1000 RPM 0:40"}}
+    - {skill: turn, target: dial_1, params: {angle: -60}, expect: {changed: [speed]}}
+    - {skill: hook_pull, target: handle_2}
+    - {skill: hook_pull, target: handle_1, expect: {readings: {lid: 0}}}
+    - {skill: pick, target: tube_1}
+    - {skill: place, target: tube_1, params: {into: well_1}, expect: {readings: {tube: 1}}}
+    - {skill: hook_pull, target: handle_1, params: {angle: 0}, expect: {readings: {lid: 1}}}
+    - {skill: press, target: button_1, expect: {state: running, ring: blue}}
+    - {wait_s: 42, expect: {state: done, lcd: DONE, ring: green}}
+
+# Each fault's steps test that fault alone, with the effector its skills need. Switch sensors read with the power off.
+faults:
+  F1:   # STOP's travel ends before its switch closes
+    effector: probe
+    steps:
+      - {skill: press, target: button_2, expect: {verdict: PASS, changed: [btn_stop]}}
+    fails_at: 0
+  F2:   # the lid's handle has no lip to hook (hook_pull needs the probe: the stock gripper hits the lid)
+    effector: probe
+    steps:
+      - {skill: hook_pull, target: handle_1, expect: {readings: {lid: 0}}}
+    fails_at: 0
+  F3:   # the tube stops high in well A, so the beam never sees its nub. The operator opens the lid and drops the tube in:
+        # F2 and the pick skill are not under test. Variant F3p does it with pick and place
+    effector: stock
+    steps:
+      - {set_joint: {name: lid, deg: 105}, expect: {readings: {lid: 0}}}
+      - {drop_object: {name: tube_1, into: well_1}, expect: {readings: {tube: 1}}}
+    fails_at: 1
+  F3p:
+    rev: "F1=B,F2=B,F3=A"
+    effector: stock
+    steps:
+      - {set_joint: {name: rack_cover, deg: 105}}
+      - {set_joint: {name: lid, deg: 105}, expect: {readings: {lid: 0}}}
+      - {skill: pick, target: tube_1}
+      - {skill: place, target: tube_1, params: {into: well_1}, expect: {readings: {tube: 1}}}
+    fails_at: 3

@@ -1,0 +1,40 @@
+part,method,material,folder,orientation
+front_panel,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+control_face,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+top_panel,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+rotor_plate,laser,acrylic_clear,03_parts/laser_flat,"flat on XY, outer face up"
+side_panel_L,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+side_panel_R,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+base_plate,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+lid,laser,acrylic_clear,03_parts/laser_flat,"flat on XY, outer face up"
+lid_sensor_fin,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+tube_sensor_riser_1,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+tube_sensor_riser_2,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+gusset_L,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+gusset_R,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+pico_frame,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+rack_base,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+rack_middle,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+rack_top,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+rack_back_strip,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+rack_end_L,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+rack_end_R,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+rack_cover,laser,acrylic_clear,03_parts/laser_flat,"flat on XY, outer face up"
+rack_cover_lip,laser,plywood,03_parts/laser_flat,"flat on XY, outer face up"
+bezel_stop_revA_F1_0.05,print,PLA,03_parts/printed_revA_revB,own local frame
+bezel_stop_revA_F1_0.15,print,PLA,03_parts/printed_revA_revB,own local frame
+bezel_stop_revB,print,PLA,03_parts/printed_revA_revB,own local frame
+cap_stop,print,PLA,03_parts/printed_revA_revB,own local frame
+well_insert_A_revA_F3,print,PLA,03_parts/printed_revA_revB,own local frame
+well_insert_A_revB,print,PLA,03_parts/printed_revA_revB,own local frame
+hinge_base,print,PLA,03_parts/printed_revA_revB,own local frame
+hinge_leaf,print,PLA,03_parts/printed_revA_revB,own local frame
+test_tube,print,PLA,03_parts/printed_revA_revB,own local frame
+cap_start_plunger,laser,plywood,03_parts/laser_flat,"flat, cut 2"
+cap_start_flange,laser,plywood,03_parts/laser_flat,"flat, cut 1"
+cap_time_plunger,laser,plywood,03_parts/laser_flat,"flat, cut 2"
+cap_time_flange,laser,plywood,03_parts/laser_flat,"flat, cut 1"
+dial_knob_ply,laser,plywood,03_parts/laser_flat,"flat, cut 4"
+lid_handle_revA_outer,laser,plywood,03_parts/laser_flat,"flat, cut 2"
+lid_handle_revA_middle,laser,plywood,03_parts/laser_flat,"flat, cut 1"
+lid_handle_revB_ply,laser,plywood,03_parts/laser_flat,"flat, cut 3"

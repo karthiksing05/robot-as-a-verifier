@@ -1,0 +1,121 @@
+# VM-3 touch vortex mixer (docs/device-authoring.md). Sim truth: the loader, the answer key and evaluation read this
+# file, and no model ever does. Lengths mm, angles deg, in the product frame: origin on the base's bottom face, +X toward
+# the arm, +Z up. Numbers come from cad/model.py (`python cad/model.py` prints them) and wiring.md.
+name: vm3
+meta: {title: "VM-3 touch vortex mixer", split: validation, project: vortex-mixer}
+
+# The centrifuge's placement: the arm's pan axis at product (274.5, 0, 58).
+placement: {x: 313.3, y: 0.0, yaw: 180.0}
+stand_mm: 82
+mounts: {mixer: clamped}
+
+meshes: build/meshes_rev{rev}
+# Each fault is one broken property on one piece (docs/device-theory.md). F2 and F3 are firmware data: $fw_* below.
+faults:
+  F1: {what: "the cup head's bore is too tight, so a cup stops high and the head never senses it", class: mechanical,
+       piece: well_1, property: accepts_object,
+       A: {parts: {cup_head: cup_head_revA}, params: {cup_head_id: 15.6}}, B: {parts: {cup_head: cup_head_revB}, params: {cup_head_id: 16.8}}}
+  F2: {what: "the head never spins faster than 2500 rpm, though SPEED sets and shows up to 3000", class: firmware,
+       piece: dial_1, property: respects_range, masked_by: [F1],
+       A: {params: {fw_rpm: "min(speed, 2500)"}}, B: {params: {fw_rpm: "1 * speed"}}}
+  F3: {what: "MODE up selects ON and down selects TOUCH, the reverse of the manual", class: manual,
+       piece: toggle_1, property: matches_manual,
+       A: {params: {fw_touch: "q < radians(15)"}}, B: {params: {fw_touch: "q > radians(15)"}}}
+revs:
+  A: {F1: A, F2: A, F3: A}
+  B: {F1: B, F2: B, F3: B}
+  M1: {F1: B, F2: A, F3: A}   # the cup head fixed alone: a cup now seats and the head runs, which unmasks the speed cap
+
+roots:
+  mixer:
+    mass_kg: 0.8
+    parts: [base_plate, side_panel_L, side_panel_R, back_panel, front_panel, control_face, top_panel, $cup_head, cup_holder,
+            bezel_start]
+    visual_only: [oled_frame, dial_skirt, toggle_base, ref_motor, ref_pico, ref_oled, ref_beam]
+    # plates with holes the cup passes through: only the arm meets them, the cup meets the bore rings
+    arm_only: [top_panel, cup_head_revA, cup_head_revB, cup_holder]
+    rings:
+      - {centre: [-18, 0], id: $cup_head_id, z: [90.0, 98.0]}   # cup head
+      - {centre: [20, 80], id: 16.8, z: [62.0, 70.0]}           # side holder
+
+bodies:
+  - {name: cap_start, root: mixer, parts: [cap_start], joint: {type: slide, axis: [-0.7071, 0, -0.7071], anchor: [45.68, 0, 79.68], range: [0, 0.3], stiffness: 2000, preload_n: 2.0, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - name: dial_knob
+    root: mixer
+    parts: [dial_knob]
+    collide_geoms_only: true
+    geoms:   # a 10 mm knob and its 3 mm pointer fin, as primitives: 5 to 16 mm above the face
+      - {type: cylinder, fromto: [46.04, 30.0, 80.04, 53.81, 30.0, 87.81], radius: 5.0, mass: 0.003}
+      - {type: box, pos: [52.17, 26.82, 81.67], half: [4.5, 1.5, 5.5], x: [0.5, -0.7071, -0.5], z: [0.7071, 0, 0.7071], mass: 0.001}
+    # a plain potentiometer. Clockwise from outside raises the speed: negative about +normal
+    joint: {type: hinge, axis: [0.7071, 0, 0.7071], anchor: [49.92, 30.0, 83.92], range: [-270, 0], damping: 0.002, frictionloss: 0.004, armature: 0.0005}
+  - name: mode_lever
+    root: mixer
+    # 10 mm from a pivot 6 mm above the face. q = 0 leans 15 deg to the face's bottom edge (down), 30 deg to its top edge (up)
+    geoms:
+      - {type: capsule, fromto: [46.74, -30.0, 80.74, 55.4, -30.0, 85.74], radius: 1.5, rgba: [0.75, 0.75, 0.78, 1], mass: 0.002}
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [46.74, -30.0, 80.74], range: [0, 30], damping: 0.002, armature: 0.0002}
+    snap: {nm: 0.012, centre_deg: 15}
+
+# The sample cup starts in the side holder, its shoulder on the holder's bore. Its collision is the stack and boxes below.
+objects:
+  - name: cup_1
+    part: sample_cup
+    root: mixer
+    mass_kg: 0.008
+    rgba: [0.95, 0.95, 0.92, 1]
+    collar: [20.0, 80.0, 75.6]
+    collar_top: [20.0, 80.0, 78.6]
+    # from the cap's top down: [radius, from, to]. The shoulder seats on a right bore; a tight one stops the body
+    stack: [[9.5, -6, -8.6], [8.0, -8.6, -17.0], [7.2, -17.0, -22.0], [6.0, -22.0, -28.0], [5.0, -28.0, -34.0], [4.0, -34.0, -40.0], [3.0, -40.0, -46.5], [2.0, -46.5, -55.0]]
+    boxes:
+      - {x: [0.954, -0.2999, 0], at: [0, 0, -3.0], half: [9.0, 11.0, 3.0]}    # cap, 18 mm across its flats
+      - {x: [0.954, -0.2999, 0], at: [0, 0, 8.6], half: [1.5, 7.0, 7.0]}      # lifting loop
+
+display: {root: mixer, centre: [58.9, 0, 32.0], normal: [1, 0, 0], up: [0, 0, 1], size: [22.0, 11.0]}
+
+controls:
+  - {id: button_1, kind: button, body: cap_start, top: [45.68, 0, 79.68], normal: [0.7071, 0, 0.7071], x: [0, 1, 0], size: [10, 10, 4.5], radius: 5.0, travel: 0.3, switch_at: 0.67}
+  - {id: dial_1, kind: dial, body: dial_knob, top: [46.04, 30.0, 80.04], normal: [0.7071, 0, 0.7071], x: [0.5, -0.7071, -0.5], size: [18, 18, 11], knob_radius: 5.0, knob_height: 11, fin_length: 18, fin_width: 3, fin_height: 11, floor_gap: 5, one_sided: true, range_deg: [-270, 0]}
+  - {id: toggle_1, kind: toggle, body: mode_lever, hinge: [46.74, -30.0, 80.74], normal: [0.7071, 0, 0.7071], lean: [0.7071, 0, -0.7071], tip: [55.4, -30.0, 85.74], size: [10, 10, 11.5], lever_len: 11.5, lever_radius: 1.5, base_size: [10, 10, 3]}
+  - {id: display_1, root: mixer, kind: display, pos: [58.9, 0, 32.0], normal: [1, 0, 0], x: [0, 1, 0], size: [22, 11, 0.5]}
+  - {id: well_1, root: mixer, kind: well, reads: true, pos: [-18, 0, 98.0], normal: [0, 0, 1], x: [1, 0, 0], size: [16.8, 16.8, 1], collar: [-18, 0, 103.6]}
+  - {id: well_2, root: mixer, kind: well, pos: [20, 80, 70.0], normal: [0, 0, 1], x: [0.954, -0.2999, 0], size: [16.8, 16.8, 1], collar: [20, 80, 75.6]}
+  - {id: cup_1, kind: object, object: cup_1, collar_top: 0.0, jaw_axis: [0.954, -0.2999, 0], flats: 18, grips: [{at: [20, 80, 87.2], axis: [0.2999, 0.954, 0], width: 14, depth: 6.0}, {at: [20, 80, 87.2], axis: [0.954, -0.2999, 0], width: 3, depth: 6.0}, {axis: [0.2999, 0.954, 0], width: 22, depth: 1.0}, {axis: [0.954, -0.2999, 0], width: 18}]}
+
+# Faces the probe touches to find where the mixer is: the front panel, either side of the display.
+registration:
+  mixer:
+    touches:
+      - {at: [58.0, -30.0, 48.0], normal: [1, 0, 0]}
+      - {at: [58.0, 30.0, 48.0], normal: [1, 0, 0]}
+
+# The Pico's firmware, as data. Channel names are its serial events (wiring.md). Powered whenever USB is: no dark state.
+firmware:
+  channels: {btn_start: 0, touch: 0, speed: 500, cup: 0, rpm: 0, run: idle}
+  sensors:
+    - {channel: btn_start, joint: cap_start, when: "q >= 0.0002"}
+    - {channel: touch, joint: mode_lever, when: $fw_touch, hysteresis: 0.05}
+    - {channel: speed, joint: dial_knob, value: "500 + 100 * round(-q / radians(270) * 25)"}
+    # the cup's tip breaks a beam under the head: seated means its cap is within this box of the seat
+    - {channel: cup, object: cup_1, root: mixer, near: [-18, 0, 103.6], radius_mm: 3, height_mm: 2.5}
+  states:
+    ready:     # ON mode, stopped
+      show: {lcd: "ON {speed} RPM", ring: "off"}
+    waiting:   # TOUCH mode, no cup
+      show: {lcd: "TOUCH {speed} RPM", ring: "off"}
+    mixing:
+      show: {lcd: "{rpm} RPM", ring: "off"}
+    refused:
+      show: {lcd: "{reason}", ring: "off"}
+  start: ready
+  transitions:
+    - {from: [ready, refused], when: "touch == 1", to: waiting, do: {run: idle}}
+    - {from: waiting, when: "touch == 0", to: ready}
+    - {from: waiting, when: "cup == 1", to: mixing, do: {rpm: $fw_rpm, run: start}}
+    - {from: mixing, when: "touch == 1 and cup == 0", to: waiting, do: {rpm: 0, run: stop}}
+    - {from: mixing, event: btn_start, when: "btn_start == 1 and touch == 0", to: ready, do: {rpm: 0, run: stop}}
+    - {from: mixing, event: speed, to: mixing, do: {rpm: $fw_rpm}}
+    - {from: [ready, refused], event: btn_start, when: "btn_start == 1 and cup == 0", to: refused, do: {reason: CUP, run: "refused:CUP"}}
+    - {from: [ready, refused], event: btn_start, when: "btn_start == 1", to: mixing, do: {rpm: $fw_rpm, run: start}}
+    - {from: refused, when: "cup == 1", to: ready}

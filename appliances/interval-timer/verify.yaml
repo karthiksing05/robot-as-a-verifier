@@ -1,0 +1,63 @@
+# How verify.py checks this device (docs/device-authoring.md). Sim truth, like device.yaml: no model reads it.
+# Every check uses the probe: the timer has no objects, so the stock gripper is never needed.
+effector: probe
+
+reach:
+  reachable: [button_1, button_2, button_3, toggle_1]
+
+# The manual's procedure on Rev B: power on, set 01:01, start, pause, resume, run to DONE, clear it.
+workflow:
+  rev: B
+  steps:
+    - {skill: flip, target: toggle_1, expect: {readings: {power: 1}, state: ready, lcd: "00:00", ring: "off"}}
+    - {skill: press, target: button_1, expect: {readings: {time: 60}, lcd: "01:00"}}
+    - {skill: press, target: button_2, expect: {readings: {time: 61}, lcd: "01:01"}}
+    - {skill: press, target: button_3, expect: {state: running, ring: blue, readings: {run: start}}}
+    - {skill: press, target: button_3, expect: {state: paused, ring: "off", lcd: "(01:0[01]|00:[3-5][0-9])"}}
+    - {wait_s: 3, expect: {state: paused, unchanged: [run]}}
+    - {skill: press, target: button_3, expect: {state: running, ring: blue, readings: {run: resume}}}
+    - {wait_s: 65, expect: {state: done, lcd: DONE, ring: green}}
+    - {skill: press, target: button_3, expect: {state: ready, lcd: "01:01", ring: "off"}}
+
+# Each fault's steps test that fault alone. The power switch is set by hand (a fixture) where power isn't under test;
+# switch sensors read with the power off, so the +MIN check needs no power at all.
+faults:
+  F1:   # manual: +SEC's step. One press from 00:00 must show 00:01
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, lcd: "00:00"}}
+      - {skill: press, target: button_2, expect: {readings: {time: 1}, lcd: "00:01"}}
+    fails_at: 1
+  F2:   # firmware: STOP while counting must hold the time left, and START/STOP resumes from it
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}}}
+      - {skill: press, target: button_1, expect: {readings: {time: 60}, lcd: "01:00"}}
+      - {skill: press, target: button_3, expect: {state: running, ring: blue}}
+      - {skill: press, target: button_3, expect: {state: paused, lcd: "(01:00|00:[3-5][0-9])"}}
+      - {skill: press, target: button_3, expect: {state: running, ring: blue, lcd: "(01:00|00:[3-5][0-9])"}}
+    fails_at: 3
+  F3:   # mechanical: +MIN's switch must close when it is pressed
+    steps:
+      - {skill: press, target: button_1, expect: {verdict: PASS, changed: [btn_min]}}
+    fails_at: 0
+  F4:   # firmware: 10 presses of +MIN must show 10:00. With +MIN fixed (the default: this fault A, every other B)
+    steps: &ten_minutes
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, lcd: "00:00"}}
+      - {skill: press, target: button_1, expect: {readings: {time: 60}, lcd: "01:00"}}
+      - {skill: press, target: button_1, expect: {readings: {time: 120}, lcd: "02:00"}}
+      - {skill: press, target: button_1, expect: {readings: {time: 180}, lcd: "03:00"}}
+      - {skill: press, target: button_1, expect: {readings: {time: 240}, lcd: "04:00"}}
+      - {skill: press, target: button_1, expect: {readings: {time: 300}, lcd: "05:00"}}
+      - {skill: press, target: button_1, expect: {readings: {time: 360}, lcd: "06:00"}}
+      - {skill: press, target: button_1, expect: {readings: {time: 420}, lcd: "07:00"}}
+      - {skill: press, target: button_1, expect: {readings: {time: 480}, lcd: "08:00"}}
+      - {skill: press, target: button_1, expect: {readings: {time: 540}, lcd: "09:00"}}
+      - {skill: press, target: button_1, expect: {readings: {time: 600}, lcd: "10:00"}}
+    fails_at: 10
+  F4m1:   # the same on M1 (only +MIN fixed): the display fault shows
+    rev: M1
+    steps: *ten_minutes
+    fails_at: 10
+  F4mask:   # and on Rev A it is masked: the first +MIN press already misses, so 10:00 is never reached
+    rev: A
+    steps: *ten_minutes
+    fails_at: 1

@@ -1,0 +1,128 @@
+# CR-600 cuvette photometer: a RAAV test device (docs/device-authoring.md). Sim truth: the loader, the answer key and
+# evaluation read this file, and no model ever does. Lengths mm, angles deg, in the product frame: origin on the base's
+# bottom face, +X toward the arm, +Z up. Numbers come from cad/model.py and wiring.md.
+name: cr600
+meta: {title: "CR-600 cuvette photometer", split: validation, project: cuvette-reader}
+
+# The centrifuge's placement: the arm's pan axis sits at product (274.5, 0, 58).
+placement: {x: 313.3, y: 0.0, yaw: 180.0}
+stand_mm: 82
+mounts: {reader: clamped}
+
+meshes: build/meshes_rev{rev}
+# Each fault is one broken property on one piece (docs/device-theory.md).
+faults:
+  F1: {what: "READ gives a reading without a BLANK earlier in the session, where it should show BLANK FIRST", class: firmware,
+       piece: button_2, property: requirement_holds, masked_by: [F2],
+       A: {params: {fw_blank_check: "blanked < 0"}}, B: {params: {fw_blank_check: "blanked == 0"}}}
+  F2: {what: "the lid stands proud on an oversized hinge leaf, so the lid switch never closes and BLANK and READ always show LID",
+       class: mechanical, piece: handle_1, property: interlock_releases,
+       A: {parts: {lid_leaf: lid_leaf_revA}, params: {lid_rest_deg: 7}}, B: {parts: {lid_leaf: lid_leaf_revB}, params: {lid_rest_deg: 0}}}
+  F3: {what: "the sample slot is too tight for the cuvette, so it stands high and isn't sensed", class: mechanical,
+       piece: well_1, property: accepts_object,
+       A: {parts: {slot_sleeve: slot_sleeve_revA}, params: {slot_id: 16.4}}, B: {parts: {slot_sleeve: slot_sleeve_revB}, params: {slot_id: 20.5}}}
+  F4: {what: "BLANK and READ are wired to each other's inputs: the BLANK key blanks nothing and READ blanks", class: electrical,
+       piece: button_1, property: independent,
+       A: {params: {cap_1_body: cap_read, cap_2_body: cap_blank}}, B: {params: {cap_1_body: cap_blank, cap_2_body: cap_read}}}
+revs:
+  A: {F1: A, F2: A, F3: A, F4: A}
+  B: {F1: B, F2: B, F3: B, F4: B}
+  M1: {F1: A, F2: B, F3: A, F4: A}   # the lid fixed alone: it now closes, which unmasks the missing blank check
+
+roots:
+  reader:
+    mass_kg: 0.7
+    parts: [base_plate, front_panel, side_panel_L, side_panel_R, back_panel, control_face, deck_rear, deck_front, deck_left,
+            deck_right, pit_wall_back, pit_wall_front, pit_wall_left, pit_wall_right, pit_floor, slot_floor, slot_post,
+            bezel_blank, bezel_read, toggle_bushing, lcd_frame, led_bezel, hinge_base, holder_base, holder_sleeve, $slot_sleeve]
+    visual_only: [ref_pico, ref_lcd, ref_led, ref_cuvette_beam, ref_lid_switch, ref_switch_blank, ref_switch_read]
+    # the pit's floor, the slot's sleeve and the holder's sleeve have square bores: the arm meets them, a cuvette meets the rings
+    arm_only: [pit_floor, holder_sleeve, slot_sleeve_revA, slot_sleeve_revB]
+    # each ring is its square bore's circumscribed circle, so the fit doesn't depend on the cuvette's yaw: 20.5 for a
+    # 14.5 mm bore. A 12.5 mm cuvette's corners are 8.84 mm out
+    rings:
+      - {centre: [-9.0, 8.0], id: $slot_id, z: [46.0, 76.0]}
+      - {centre: [20.0, -66.0], id: 20.5, z: [32.0, 48.0]}
+
+bodies:
+  # BLANK and READ caps: 3.5 mm proud of the face, 0.3 mm of travel. The firmware reads joints cap_blank and cap_read;
+  # which physical cap carries which name is the wiring
+  - {name: $cap_1_body, root: reader, parts: [cap_1], joint: {type: slide, axis: [-0.7071, 0, -0.7071], anchor: [44.97, -12.0, 79.21], range: [0, 0.3], stiffness: 2000, preload_n: 2.0, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - {name: $cap_2_body, root: reader, parts: [cap_2], joint: {type: slide, axis: [-0.7071, 0, -0.7071], anchor: [44.97, 14.0, 79.21], range: [0, 0.3], stiffness: 2000, preload_n: 2.0, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - name: power_lever
+    root: reader
+    # a 10 mm lever from a pivot 6 mm above the face, leaning 15 deg to the bottom edge (off) at q = 0, 30 deg on
+    geoms:
+      - {type: capsule, fromto: [46.74, -40.0, 80.98, 55.40, -40.0, 85.98], radius: 1.5, rgba: [0.75, 0.75, 0.78, 1], mass: 0.002}
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [46.74, -40.0, 80.98], range: [0, 30], damping: 0.002, armature: 0.0002}
+    snap: {nm: 0.012, centre_deg: 15}
+  - name: lid
+    root: reader
+    parts: [lid_plate, lid_lip_riser, lid_lip, $lid_leaf]
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [-56.0, 8.0, 104.0], range: [$lid_rest_deg, 105], damping: 0.02, frictionloss: 0.002, armature: 0.001, mass: 0.06}
+
+objects:
+  - name: cuvette_1
+    part: cuvette
+    root: reader
+    mass_kg: 0.010
+    rgba: [0.85, 0.92, 0.97, 0.6]
+    collar: [20.0, -66.0, 75.0]        # the top's centre: what the sensor and the wells' collar points refer to
+    collar_top: [20.0, -66.0, 75.0]
+    boxes:
+      - {x: [1, 0, 0], at: [0, 0, -22.5], half: [6.25, 6.25, 22.5]}   # the square body, 12.5 x 12.5 x 45
+
+display: {root: reader, centre: [60.6, 0, 32.0], normal: [1, 0, 0], up: [0, 0, 1], size: [36.0, 12.0]}
+light: {root: reader, centre: [18.0, 42.0, 90.8], radius: 3, colours: {"off": [0.1, 0.1, 0.1, 1], green: [0.1, 0.85, 0.2, 1], blue: [0.1, 0.3, 0.95, 1], red: [0.9, 0.1, 0.1, 1]}}
+
+controls:
+  - {id: button_1, kind: button, body: $cap_1_body, top: [44.97, -12.0, 79.21], normal: [0.7071, 0, 0.7071], x: [0, 1, 0], size: [10, 10, 3.5], radius: 5.0, travel: 0.3, switch_at: 0.67}
+  - {id: button_2, kind: button, body: $cap_2_body, top: [44.97, 14.0, 79.21], normal: [0.7071, 0, 0.7071], x: [0, 1, 0], size: [10, 10, 3.5], radius: 5.0, travel: 0.3, switch_at: 0.67}
+  - {id: toggle_1, kind: toggle, body: power_lever, hinge: [46.74, -40.0, 80.98], normal: [0.7071, 0, 0.7071], lean: [0.7071, 0, -0.7071], tip: [55.40, -40.0, 85.98], size: [10, 10, 11.5], lever_len: 11.5, lever_radius: 1.5, base_size: [10, 10, 3]}
+  - {id: handle_1, kind: handle, body: lid, reads: true, pos: [22.0, 8.0, 103.0], normal: [1, 0, 0], grip: tip, pull: [-0.06, 0, 1], under: [-1, 0, 0], clear: 10, hinge: [-56.0, 8.0, 104.0], axis: [0, -1, 0], open_deg: 105, size: [16, 9, 10]}
+  - {id: display_1, root: reader, kind: display, pos: [60.6, 0, 32.0], normal: [1, 0, 0], x: [0, 1, 0], size: [36, 12, 0.5]}
+  - {id: well_1, root: reader, kind: well, reads: true, pos: [-9.0, 8.0, 76.0], normal: [0, 0, 1], x: [1, 0, 0], size: [14.5, 14.5, 1], collar: [-9.0, 8.0, 89.0]}
+  - {id: well_2, root: reader, kind: well, pos: [20.0, -66.0, 48.0], normal: [0, 0, 1], x: [1, 0, 0], size: [14.5, 14.5, 1], collar: [20.0, -66.0, 75.0]}
+  - {id: cuvette_1, kind: object, object: cuvette_1, collar_top: 0.0, jaw_axis: [0, 1, 0], flats: 12.5, grips: [{at: [20.0, -66.0, 72.0], axis: [0, 1, 0], width: 12.5, depth: 2.5}, {at: [20.0, -66.0, 72.0], axis: [1, 0, 0], width: 12.5, depth: 2.5}]}
+
+registration:
+  reader:
+    touches:
+      - {at: [60.0, -40.0, 48.0], normal: [1, 0, 0]}     # front panel, either side of the display
+      - {at: [60.0, 40.0, 48.0], normal: [1, 0, 0]}
+
+# The Pico's firmware, as data. Channel names are its serial events (wiring.md).
+firmware:
+  channels: {power: 0, btn_blank: 0, btn_read: 0, lid: 1, cuvette: 0, meas: idle}
+  sensors:
+    - {channel: btn_blank, joint: cap_blank, when: "q >= 0.0002"}
+    - {channel: btn_read, joint: cap_read, when: "q >= 0.0002"}
+    - {channel: power, joint: power_lever, when: "q > radians(15)", hysteresis: 0.05}
+    - {channel: lid, joint: lid, when: "q < radians(2)"}
+    # the cuvette's bottom breaks a beam across the chamber floor: seated means its top is within this of where it stands
+    - {channel: cuvette, object: cuvette_1, root: reader, near: [-9.0, 8.0, 89.0], radius_mm: 3, height_mm: 2.5}
+  states:
+    dark: {show: {lcd: "", ring: "off"}}
+    ready: {show: {lcd: "READY", ring: green}}
+    blanking: {show: {lcd: "BLANKING", ring: blue}}
+    blanked: {show: {lcd: "BLANK OK", ring: green}}
+    reading: {show: {lcd: "READING", ring: blue}}
+    result: {show: {lcd: "A=0.42", ring: green}}
+    no_blank: {show: {lcd: "BLANK FIRST", ring: red}}
+    no_lid: {show: {lcd: "LID", ring: red}}
+    no_sample: {show: {lcd: "NO SAMPLE", ring: red}}
+  start: dark
+  transitions:
+    - {any: true, when: "power == 0", to: dark, do: {blanked: 0, meas: idle}}
+    - {from: dark, when: "power == 1", to: ready, do: {blanked: 0}}
+    # BLANK: the lid shut, then a cuvette seated
+    - {from: [ready, blanked, result, no_blank, no_lid, no_sample], event: btn_blank, when: "btn_blank == 1 and lid == 0", to: no_lid, do: {meas: "refused:LID"}}
+    - {from: [ready, blanked, result, no_blank, no_lid, no_sample], event: btn_blank, when: "btn_blank == 1 and cuvette == 0", to: no_sample, do: {meas: "refused:SAMPLE"}}
+    - {from: [ready, blanked, result, no_blank, no_lid, no_sample], event: btn_blank, when: "btn_blank == 1", to: blanking, do: {meas: blanking}}
+    - {from: blanking, after: "2", to: blanked, do: {blanked: 1, meas: blanked}}
+    # READ: the lid shut, then a blank this session, then a cuvette seated
+    - {from: [ready, blanked, result, no_blank, no_lid, no_sample], event: btn_read, when: "btn_read == 1 and lid == 0", to: no_lid, do: {meas: "refused:LID"}}
+    - {from: [ready, blanked, result, no_blank, no_lid, no_sample], event: btn_read, when: "btn_read == 1 and ($fw_blank_check)", to: no_blank, do: {meas: "refused:BLANK"}}
+    - {from: [ready, blanked, result, no_blank, no_lid, no_sample], event: btn_read, when: "btn_read == 1 and cuvette == 0", to: no_sample, do: {meas: "refused:SAMPLE"}}
+    - {from: [ready, blanked, result, no_blank, no_lid, no_sample], event: btn_read, when: "btn_read == 1", to: reading, do: {meas: reading}}
+    - {from: reading, after: "2", to: result, do: {meas: read}}

@@ -1,0 +1,60 @@
+# How verify.py checks this device (docs/device-authoring.md). Sim truth, like device.yaml: no model reads it.
+# Nothing here picks or places, so the probe is the effector throughout (hook_pull needs it, as on the centrifuge).
+effector: probe
+
+reach:
+  reachable: [button_1, button_2, toggle_1, handle_1]
+
+# The manual's procedure on Rev B: power on, set the temperature up and back, open the door, let the alarm sound, close it.
+# The door opens to 90 deg (the manual's figure). The hook_pull that opens it takes about as long as the alarm's 5 s,
+# so its step checks only the door.
+workflow:
+  rev: B
+  steps:
+    - {skill: flip, target: toggle_1, expect: {readings: {power: 1}, state: ready, lcd: "SET 37.0C", ring: green}}
+    - {skill: press, target: button_2, expect: {readings: {setpoint: 375}, lcd: "SET 37.5C"}}
+    - {skill: press, target: button_1, expect: {readings: {setpoint: 370}, lcd: "SET 37.0C"}}
+    - {skill: hook_pull, target: handle_1, params: {angle: 90}, expect: {readings: {door: 0}}}
+    - {wait_s: 6, expect: {readings: {door: 0}, state: alarm, lcd: DOOR, ring: red}}
+    - {skill: hook_pull, target: handle_1, params: {angle: 0}, expect: {readings: {door: 1}, state: ready, lcd: "SET 37.0C", ring: green}}
+
+# Each fault's steps test that fault alone. The operator's set_joint powers the unit (the toggle isn't under test) or
+# opens the door (the lip isn't under test).
+faults:
+  F1:   # the hinge check stops the door at 40 deg: the swing meets it, and let go below upright the door falls shut
+    steps:
+      - {skill: hook_pull, target: handle_1, params: {angle: 90}, expect: {verdict: PASS, readings: {door: 0}}}
+    fails_at: 0
+  F1m:  # the same on M1, where only the lip is fixed: the short check, unmasked
+    rev: M1
+    steps:
+      - {skill: hook_pull, target: handle_1, params: {angle: 90}, expect: {verdict: PASS, readings: {door: 0}}}
+    fails_at: 0
+  F2:   # door held open 5 s: DOOR and red, as the manual's alarm section says
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, state: ready}}
+      - {set_joint: {name: door, deg: 90}, expect: {readings: {door: 0}, state: open, ring: green}}
+      - {wait_s: 6, expect: {state: alarm, lcd: DOOR, ring: red}}
+    fails_at: 2
+  F2m:  # on M2, lip and check fixed: the door rests open, and the silent alarm is unmasked
+    rev: M2
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, state: ready}}
+      - {set_joint: {name: door, deg: 90}, expect: {readings: {door: 0}, state: open}}
+      - {wait_s: 6, expect: {state: alarm, lcd: DOOR, ring: red}}
+    fails_at: 2
+  F3:   # one press of TEMP+ adds 0.5 C
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1, setpoint: 370}, lcd: "SET 37.0C"}}
+      - {skill: press, target: button_2, expect: {verdict: PASS, readings: {setpoint: 375}, lcd: "SET 37.5C"}}
+    fails_at: 1
+  F3d:  # and TEMP- takes 0.5 C off
+    rev: "F1=B,F2=B,F3=A,F4=B"
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1, setpoint: 370}}}
+      - {skill: press, target: button_1, expect: {verdict: PASS, readings: {setpoint: 365}, lcd: "SET 36.5C"}}
+    fails_at: 1
+  F4:   # the lip is on the hinge edge: nothing to hook at the front, and lifting it at the back can't open the door
+    steps:
+      - {skill: hook_pull, target: handle_1, params: {angle: 90}, expect: {readings: {door: 0}}}
+    fails_at: 0

@@ -1,0 +1,1277 @@
+{
+ "frame": {
+  "product": "origin at the centre of the centrifuge base bottom face; +X toward the arm; +Z up; mm",
+  "arm": "origin on the pan axis at riser height: product (274.5, 0, 58.0). distance = horizontal from the pan axis; height = above the arm base; pan_deg 0 = straight at the centrifuge, positive toward product +Y (the arm's right, clockwise seen from above)"
+ },
+ "pan_axis_product": [
+  274.5,
+  0,
+  58.0
+ ],
+ "riser_height": 58.0,
+ "reach_zones": {
+  "down": "straight-down press / pick-and-place: 140-300 mm, height -50..+50",
+  "d45": "45 deg press: 220-340 mm, height -50..+150",
+  "note": "hook_pull checked against the 45 deg zone; it was not in the Oct 31 reach test"
+ },
+ "rev_A": [
+  {
+   "id": "power_toggle",
+   "kind": "control",
+   "skill": "flip",
+   "serial": "power",
+   "contact_point": [
+    52.75,
+    -50.5,
+    84.63
+   ],
+   "approach": [
+    -0.71,
+    -0.0,
+    -0.71
+   ],
+   "push_on": [
+    -0.71,
+    0.0,
+    0.71
+   ],
+   "push_off": [
+    0.71,
+    -0.0,
+    -0.71
+   ],
+   "angle_range_deg": [
+    -15,
+    15
+   ],
+   "expected_force_N": 3.0,
+   "note": "push the lever toward the top edge (+s) for ON, toward the bottom edge for OFF; contact 7 mm up the lever",
+   "arm": {
+    "distance_mm": 227.4,
+    "height_mm": 26.6,
+    "pan_deg": -12.8,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 7.4
+   }
+  },
+  {
+   "id": "button_start",
+   "kind": "control",
+   "skill": "press",
+   "serial": "btn_start",
+   "contact_point": [
+    44.27,
+    -22.86,
+    78.27
+   ],
+   "approach": [
+    -0.71,
+    -0.0,
+    -0.71
+   ],
+   "travel_mm": [
+    0.2,
+    0.5
+   ],
+   "travel_note": "0.25 mm switch travel (12 mm tactile); brief asks 1-3 mm, see notes",
+   "expected_force_N": 2.5,
+   "force_cap_N": 5.0,
+   "cap_d_mm": 10.0,
+   "bezel_clearance_mm": null,
+   "arm": {
+    "distance_mm": 231.4,
+    "height_mm": 20.3,
+    "pan_deg": -5.7,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 11.4
+   }
+  },
+  {
+   "id": "button_stop",
+   "kind": "control",
+   "skill": "press",
+   "serial": "btn_stop",
+   "contact_point": [
+    45.68,
+    0.0,
+    79.68
+   ],
+   "approach": [
+    -0.71,
+    -0.0,
+    -0.71
+   ],
+   "travel_mm": [
+    0.2,
+    0.5
+   ],
+   "travel_note": "0.25 mm switch travel (12 mm tactile); brief asks 1-3 mm, see notes",
+   "expected_force_N": 2.5,
+   "force_cap_N": 5.0,
+   "cap_d_mm": 10.0,
+   "bezel_clearance_mm": 0.05,
+   "arm": {
+    "distance_mm": 228.8,
+    "height_mm": 21.7,
+    "pan_deg": 0.0,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 8.8
+   }
+  },
+  {
+   "id": "button_time",
+   "kind": "control",
+   "skill": "press",
+   "serial": "btn_time",
+   "contact_point": [
+    44.27,
+    22.86,
+    78.27
+   ],
+   "approach": [
+    -0.71,
+    -0.0,
+    -0.71
+   ],
+   "travel_mm": [
+    0.2,
+    0.5
+   ],
+   "travel_note": "0.25 mm switch travel (12 mm tactile); brief asks 1-3 mm, see notes",
+   "expected_force_N": 2.5,
+   "force_cap_N": 5.0,
+   "cap_d_mm": 10.0,
+   "bezel_clearance_mm": null,
+   "arm": {
+    "distance_mm": 231.4,
+    "height_mm": 20.3,
+    "pan_deg": 5.7,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 11.4
+   }
+  },
+  {
+   "id": "speed_dial",
+   "kind": "control",
+   "skill": "turn",
+   "serial": "speed",
+   "contact_point": [
+    53.93,
+    46.96,
+    79.93
+   ],
+   "approach": [
+    -0.71,
+    -0.0,
+    -0.71
+   ],
+   "push_dir_at_start": [
+    -0.5,
+    -0.71,
+    0.5
+   ],
+   "arc_center": [
+    49.93,
+    50.5,
+    83.93
+   ],
+   "arc_axis": [
+    0.71,
+    0.0,
+    0.71
+   ],
+   "arc_radius_mm": 6.5,
+   "angle_range_deg": [
+    -135.0,
+    135.0
+   ],
+   "angle_ref": "0 = fin toward the top edge; positive = clockwise seen from outside",
+   "rpm_range": [
+    1000,
+    6000
+   ],
+   "expected_force_N": 2.0,
+   "note": "fin starts at the 1000 rpm stop; push on the fin face at 6.5 mm radius",
+   "arm": {
+    "distance_mm": 225.5,
+    "height_mm": 21.9,
+    "pan_deg": 12.0,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 5.5
+   }
+  },
+  {
+   "id": "lid_lip",
+   "kind": "door",
+   "skill": null,
+   "serial": "lid",
+   "contact_point": [
+    13.0,
+    0.0,
+    106.0
+   ],
+   "approach": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "angle_range_deg": [
+    0,
+    105.0
+   ],
+   "note": "F2: thin upright pinch tab only; no allowed skill (press, push_latch, hook_pull, flip, turn) can open it",
+   "arm": {
+    "distance_mm": 261.5,
+    "height_mm": 48.0,
+    "pan_deg": 0.0,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 41.5
+   }
+  },
+  {
+   "id": "well_A",
+   "kind": "well",
+   "skill": "place",
+   "serial": "tube",
+   "contact_point": [
+    -21.0,
+    -13.0,
+    65.3
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "pre_place_point": [
+    -21.0,
+    -13.0,
+    80.3
+   ],
+   "well_id_mm": 15.6,
+   "expected_force_N": 2.0,
+   "note": "contact_point = collar centre when seated; grip the collar flats",
+   "arm": {
+    "distance_mm": 295.8,
+    "height_mm": 7.3,
+    "pan_deg": -2.5,
+    "zone": "down",
+    "in_zone": true,
+    "margin_mm": 4.2
+   }
+  },
+  {
+   "id": "well_B",
+   "kind": "well",
+   "skill": "place",
+   "serial": null,
+   "contact_point": [
+    -21.0,
+    13.0,
+    64.68
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "pre_place_point": [
+    -21.0,
+    13.0,
+    79.68
+   ],
+   "well_id_mm": 16.8,
+   "expected_force_N": 2.0,
+   "note": "contact_point = collar centre when seated; grip the collar flats",
+   "arm": {
+    "distance_mm": 295.8,
+    "height_mm": 6.7,
+    "pan_deg": 2.5,
+    "zone": "down",
+    "in_zone": true,
+    "margin_mm": 4.2
+   }
+  },
+  {
+   "id": "rack_well_1",
+   "kind": "well",
+   "skill": "pick",
+   "serial": null,
+   "contact_point": [
+    100.0,
+    193.42,
+    58.0
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "jaw_axis": [
+    0.77,
+    -0.64,
+    0.0
+   ],
+   "note": "jaws close along the rack depth (toward/away from the arm)",
+   "arm": {
+    "distance_mm": 260.5,
+    "height_mm": -0.0,
+    "pan_deg": 47.9,
+    "zone": "down",
+    "in_zone": true,
+    "margin_mm": 39.5
+   }
+  },
+  {
+   "id": "rack_well_2",
+   "kind": "well",
+   "skill": "pick",
+   "serial": null,
+   "contact_point": [
+    84.57,
+    175.03,
+    58.0
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "jaw_axis": [
+    0.77,
+    -0.64,
+    0.0
+   ],
+   "note": "jaws close along the rack depth (toward/away from the arm)",
+   "arm": {
+    "distance_mm": 258.3,
+    "height_mm": -0.0,
+    "pan_deg": 42.7,
+    "zone": "down",
+    "in_zone": true,
+    "margin_mm": 41.7
+   }
+  },
+  {
+   "id": "rack_well_3",
+   "kind": "well",
+   "skill": "pick",
+   "serial": null,
+   "contact_point": [
+    69.15,
+    156.65,
+    58.0
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "jaw_axis": [
+    0.77,
+    -0.64,
+    0.0
+   ],
+   "note": "jaws close along the rack depth (toward/away from the arm)",
+   "arm": {
+    "distance_mm": 258.3,
+    "height_mm": -0.0,
+    "pan_deg": 37.3,
+    "zone": "down",
+    "in_zone": true,
+    "margin_mm": 41.7
+   }
+  },
+  {
+   "id": "rack_well_4",
+   "kind": "well",
+   "skill": "pick",
+   "serial": null,
+   "contact_point": [
+    53.72,
+    138.26,
+    58.0
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "jaw_axis": [
+    0.77,
+    -0.64,
+    0.0
+   ],
+   "note": "jaws close along the rack depth (toward/away from the arm)",
+   "arm": {
+    "distance_mm": 260.5,
+    "height_mm": -0.0,
+    "pan_deg": 32.1,
+    "zone": "down",
+    "in_zone": true,
+    "margin_mm": 39.5
+   }
+  },
+  {
+   "id": "rack_cover_lip",
+   "kind": "door",
+   "skill": "hook_pull",
+   "serial": null,
+   "contact_point": [
+    102.91,
+    143.98,
+    81.2
+   ],
+   "approach": [
+    -0.77,
+    0.64,
+    -0.0
+   ],
+   "pull_dir": [
+    0.07,
+    -0.06,
+    1.0
+   ],
+   "hinge_axis_point": [
+    60.39,
+    179.66,
+    86.2
+   ],
+   "hinge_axis_dir": [
+    -0.64,
+    -0.77,
+    0.0
+   ],
+   "angle_range_deg": [
+    0,
+    105.0
+   ],
+   "expected_force_N": 1.0,
+   "arm": {
+    "distance_mm": 224.0,
+    "height_mm": 23.2,
+    "pan_deg": 40.0,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 4.0
+   }
+  },
+  {
+   "id": "locate_face_corner_L",
+   "kind": "locate",
+   "skill": "touch",
+   "serial": null,
+   "contact_point": [
+    22.88,
+    -65.5,
+    96.12
+   ],
+   "approach": [
+    -0.71,
+    -0.0,
+    -0.71
+   ],
+   "touch_normals": [
+    [
+     0.707,
+     0.0,
+     0.707
+    ],
+    [
+     -0.707,
+     0.0,
+     0.707
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0
+    ]
+   ],
+   "note": "outside top corner of the control face plate (outer face / top edge / side edge)",
+   "arm": {
+    "distance_mm": 260.0,
+    "height_mm": 38.1,
+    "pan_deg": -14.6,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 40.0
+   }
+  },
+  {
+   "id": "locate_face_corner_R",
+   "kind": "locate",
+   "skill": "touch",
+   "serial": null,
+   "contact_point": [
+    22.88,
+    65.5,
+    96.12
+   ],
+   "approach": [
+    -0.71,
+    -0.0,
+    -0.71
+   ],
+   "touch_normals": [
+    [
+     0.707,
+     0.0,
+     0.707
+    ],
+    [
+     -0.707,
+     0.0,
+     0.707
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ]
+   ],
+   "note": "outside top corner of the control face plate (outer face / top edge / side edge)",
+   "arm": {
+    "distance_mm": 260.0,
+    "height_mm": 38.1,
+    "pan_deg": 14.6,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 40.0
+   }
+  },
+  {
+   "id": "locate_rack_corner",
+   "kind": "locate",
+   "skill": "touch",
+   "serial": null,
+   "contact_point": [
+    132.62,
+    185.62,
+    52.4
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "touch_normals": [
+    [
+     0.0,
+     0.0,
+     1.0
+    ],
+    [
+     0.766,
+     -0.643,
+     0.0
+    ],
+    [
+     0.643,
+     0.766,
+     -0.0
+    ]
+   ],
+   "note": "front outside corner of the rack top plate (top face / front edge / end edge)",
+   "arm": {
+    "distance_mm": 233.6,
+    "height_mm": -5.6,
+    "pan_deg": 52.6,
+    "zone": "down",
+    "in_zone": true,
+    "margin_mm": 44.4
+   }
+  },
+  {
+   "id": "display",
+   "kind": "observe",
+   "skill": null,
+   "serial": null,
+   "contact_point": [
+    60.0,
+    0.0,
+    30.0
+   ],
+   "approach": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "note": "OLED window; camera only",
+   "arm": {
+    "distance_mm": 214.5,
+    "height_mm": -28.0,
+    "pan_deg": 0.0,
+    "zone": null
+   }
+  },
+  {
+   "id": "light_ring",
+   "kind": "observe",
+   "skill": null,
+   "serial": null,
+   "contact_point": [
+    -21.0,
+    0.0,
+    56.08
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "note": "seen through the clear lid and rotor plate",
+   "arm": {
+    "distance_mm": 295.5,
+    "height_mm": -1.9,
+    "pan_deg": 0.0,
+    "zone": null
+   }
+  }
+ ],
+ "rev_B": [
+  {
+   "id": "power_toggle",
+   "kind": "control",
+   "skill": "flip",
+   "serial": "power",
+   "contact_point": [
+    52.75,
+    -50.5,
+    84.63
+   ],
+   "approach": [
+    -0.71,
+    -0.0,
+    -0.71
+   ],
+   "push_on": [
+    -0.71,
+    0.0,
+    0.71
+   ],
+   "push_off": [
+    0.71,
+    -0.0,
+    -0.71
+   ],
+   "angle_range_deg": [
+    -15,
+    15
+   ],
+   "expected_force_N": 3.0,
+   "note": "push the lever toward the top edge (+s) for ON, toward the bottom edge for OFF; contact 7 mm up the lever",
+   "arm": {
+    "distance_mm": 227.4,
+    "height_mm": 26.6,
+    "pan_deg": -12.8,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 7.4
+   }
+  },
+  {
+   "id": "button_start",
+   "kind": "control",
+   "skill": "press",
+   "serial": "btn_start",
+   "contact_point": [
+    44.27,
+    -22.86,
+    78.27
+   ],
+   "approach": [
+    -0.71,
+    -0.0,
+    -0.71
+   ],
+   "travel_mm": [
+    0.2,
+    0.5
+   ],
+   "travel_note": "0.25 mm switch travel (12 mm tactile); brief asks 1-3 mm, see notes",
+   "expected_force_N": 2.5,
+   "force_cap_N": 5.0,
+   "cap_d_mm": 10.0,
+   "bezel_clearance_mm": null,
+   "arm": {
+    "distance_mm": 231.4,
+    "height_mm": 20.3,
+    "pan_deg": -5.7,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 11.4
+   }
+  },
+  {
+   "id": "button_stop",
+   "kind": "control",
+   "skill": "press",
+   "serial": "btn_stop",
+   "contact_point": [
+    45.68,
+    0.0,
+    79.68
+   ],
+   "approach": [
+    -0.71,
+    -0.0,
+    -0.71
+   ],
+   "travel_mm": [
+    0.2,
+    0.5
+   ],
+   "travel_note": "0.25 mm switch travel (12 mm tactile); brief asks 1-3 mm, see notes",
+   "expected_force_N": 2.5,
+   "force_cap_N": 5.0,
+   "cap_d_mm": 10.0,
+   "bezel_clearance_mm": 0.4,
+   "arm": {
+    "distance_mm": 228.8,
+    "height_mm": 21.7,
+    "pan_deg": 0.0,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 8.8
+   }
+  },
+  {
+   "id": "button_time",
+   "kind": "control",
+   "skill": "press",
+   "serial": "btn_time",
+   "contact_point": [
+    44.27,
+    22.86,
+    78.27
+   ],
+   "approach": [
+    -0.71,
+    -0.0,
+    -0.71
+   ],
+   "travel_mm": [
+    0.2,
+    0.5
+   ],
+   "travel_note": "0.25 mm switch travel (12 mm tactile); brief asks 1-3 mm, see notes",
+   "expected_force_N": 2.5,
+   "force_cap_N": 5.0,
+   "cap_d_mm": 10.0,
+   "bezel_clearance_mm": null,
+   "arm": {
+    "distance_mm": 231.4,
+    "height_mm": 20.3,
+    "pan_deg": 5.7,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 11.4
+   }
+  },
+  {
+   "id": "speed_dial",
+   "kind": "control",
+   "skill": "turn",
+   "serial": "speed",
+   "contact_point": [
+    53.93,
+    46.96,
+    79.93
+   ],
+   "approach": [
+    -0.71,
+    -0.0,
+    -0.71
+   ],
+   "push_dir_at_start": [
+    -0.5,
+    -0.71,
+    0.5
+   ],
+   "arc_center": [
+    49.93,
+    50.5,
+    83.93
+   ],
+   "arc_axis": [
+    0.71,
+    0.0,
+    0.71
+   ],
+   "arc_radius_mm": 6.5,
+   "angle_range_deg": [
+    -135.0,
+    135.0
+   ],
+   "angle_ref": "0 = fin toward the top edge; positive = clockwise seen from outside",
+   "rpm_range": [
+    1000,
+    6000
+   ],
+   "expected_force_N": 2.0,
+   "note": "fin starts at the 1000 rpm stop; push on the fin face at 6.5 mm radius",
+   "arm": {
+    "distance_mm": 225.5,
+    "height_mm": 21.9,
+    "pan_deg": 12.0,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 5.5
+   }
+  },
+  {
+   "id": "lid_lip",
+   "kind": "door",
+   "skill": "hook_pull",
+   "serial": "lid",
+   "contact_point": [
+    26.0,
+    0.0,
+    107.0
+   ],
+   "approach": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "pull_dir": [
+    -0.06,
+    0.0,
+    1.0
+   ],
+   "hinge_axis_point": [
+    -56.5,
+    0.0,
+    102.0
+   ],
+   "hinge_axis_dir": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "angle_range_deg": [
+    0,
+    105.0
+   ],
+   "expected_force_N": 1.5,
+   "lip_overhang_mm": 10.0,
+   "clear_under_lip_mm": 10.0,
+   "note": "slide the hook under the lip from the front, then lift along the arc; lid rests on its stop at 105 deg",
+   "arm": {
+    "distance_mm": 248.5,
+    "height_mm": 49.0,
+    "pan_deg": 0.0,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 28.5
+   }
+  },
+  {
+   "id": "well_A",
+   "kind": "well",
+   "skill": "place",
+   "serial": "tube",
+   "contact_point": [
+    -21.0,
+    -13.0,
+    65.3
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "pre_place_point": [
+    -21.0,
+    -13.0,
+    80.3
+   ],
+   "well_id_mm": 16.8,
+   "expected_force_N": 2.0,
+   "note": "contact_point = collar centre when seated; grip the collar flats",
+   "arm": {
+    "distance_mm": 295.8,
+    "height_mm": 7.3,
+    "pan_deg": -2.5,
+    "zone": "down",
+    "in_zone": true,
+    "margin_mm": 4.2
+   }
+  },
+  {
+   "id": "well_B",
+   "kind": "well",
+   "skill": "place",
+   "serial": null,
+   "contact_point": [
+    -21.0,
+    13.0,
+    64.68
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "pre_place_point": [
+    -21.0,
+    13.0,
+    79.68
+   ],
+   "well_id_mm": 16.8,
+   "expected_force_N": 2.0,
+   "note": "contact_point = collar centre when seated; grip the collar flats",
+   "arm": {
+    "distance_mm": 295.8,
+    "height_mm": 6.7,
+    "pan_deg": 2.5,
+    "zone": "down",
+    "in_zone": true,
+    "margin_mm": 4.2
+   }
+  },
+  {
+   "id": "rack_well_1",
+   "kind": "well",
+   "skill": "pick",
+   "serial": null,
+   "contact_point": [
+    100.0,
+    193.42,
+    58.0
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "jaw_axis": [
+    0.77,
+    -0.64,
+    0.0
+   ],
+   "note": "jaws close along the rack depth (toward/away from the arm)",
+   "arm": {
+    "distance_mm": 260.5,
+    "height_mm": -0.0,
+    "pan_deg": 47.9,
+    "zone": "down",
+    "in_zone": true,
+    "margin_mm": 39.5
+   }
+  },
+  {
+   "id": "rack_well_2",
+   "kind": "well",
+   "skill": "pick",
+   "serial": null,
+   "contact_point": [
+    84.57,
+    175.03,
+    58.0
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "jaw_axis": [
+    0.77,
+    -0.64,
+    0.0
+   ],
+   "note": "jaws close along the rack depth (toward/away from the arm)",
+   "arm": {
+    "distance_mm": 258.3,
+    "height_mm": -0.0,
+    "pan_deg": 42.7,
+    "zone": "down",
+    "in_zone": true,
+    "margin_mm": 41.7
+   }
+  },
+  {
+   "id": "rack_well_3",
+   "kind": "well",
+   "skill": "pick",
+   "serial": null,
+   "contact_point": [
+    69.15,
+    156.65,
+    58.0
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "jaw_axis": [
+    0.77,
+    -0.64,
+    0.0
+   ],
+   "note": "jaws close along the rack depth (toward/away from the arm)",
+   "arm": {
+    "distance_mm": 258.3,
+    "height_mm": -0.0,
+    "pan_deg": 37.3,
+    "zone": "down",
+    "in_zone": true,
+    "margin_mm": 41.7
+   }
+  },
+  {
+   "id": "rack_well_4",
+   "kind": "well",
+   "skill": "pick",
+   "serial": null,
+   "contact_point": [
+    53.72,
+    138.26,
+    58.0
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "jaw_axis": [
+    0.77,
+    -0.64,
+    0.0
+   ],
+   "note": "jaws close along the rack depth (toward/away from the arm)",
+   "arm": {
+    "distance_mm": 260.5,
+    "height_mm": -0.0,
+    "pan_deg": 32.1,
+    "zone": "down",
+    "in_zone": true,
+    "margin_mm": 39.5
+   }
+  },
+  {
+   "id": "rack_cover_lip",
+   "kind": "door",
+   "skill": "hook_pull",
+   "serial": null,
+   "contact_point": [
+    102.91,
+    143.98,
+    81.2
+   ],
+   "approach": [
+    -0.77,
+    0.64,
+    -0.0
+   ],
+   "pull_dir": [
+    0.07,
+    -0.06,
+    1.0
+   ],
+   "hinge_axis_point": [
+    60.39,
+    179.66,
+    86.2
+   ],
+   "hinge_axis_dir": [
+    -0.64,
+    -0.77,
+    0.0
+   ],
+   "angle_range_deg": [
+    0,
+    105.0
+   ],
+   "expected_force_N": 1.0,
+   "arm": {
+    "distance_mm": 224.0,
+    "height_mm": 23.2,
+    "pan_deg": 40.0,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 4.0
+   }
+  },
+  {
+   "id": "locate_face_corner_L",
+   "kind": "locate",
+   "skill": "touch",
+   "serial": null,
+   "contact_point": [
+    22.88,
+    -65.5,
+    96.12
+   ],
+   "approach": [
+    -0.71,
+    -0.0,
+    -0.71
+   ],
+   "touch_normals": [
+    [
+     0.707,
+     0.0,
+     0.707
+    ],
+    [
+     -0.707,
+     0.0,
+     0.707
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0
+    ]
+   ],
+   "note": "outside top corner of the control face plate (outer face / top edge / side edge)",
+   "arm": {
+    "distance_mm": 260.0,
+    "height_mm": 38.1,
+    "pan_deg": -14.6,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 40.0
+   }
+  },
+  {
+   "id": "locate_face_corner_R",
+   "kind": "locate",
+   "skill": "touch",
+   "serial": null,
+   "contact_point": [
+    22.88,
+    65.5,
+    96.12
+   ],
+   "approach": [
+    -0.71,
+    -0.0,
+    -0.71
+   ],
+   "touch_normals": [
+    [
+     0.707,
+     0.0,
+     0.707
+    ],
+    [
+     -0.707,
+     0.0,
+     0.707
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ]
+   ],
+   "note": "outside top corner of the control face plate (outer face / top edge / side edge)",
+   "arm": {
+    "distance_mm": 260.0,
+    "height_mm": 38.1,
+    "pan_deg": 14.6,
+    "zone": "45",
+    "in_zone": true,
+    "margin_mm": 40.0
+   }
+  },
+  {
+   "id": "locate_rack_corner",
+   "kind": "locate",
+   "skill": "touch",
+   "serial": null,
+   "contact_point": [
+    132.62,
+    185.62,
+    52.4
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "touch_normals": [
+    [
+     0.0,
+     0.0,
+     1.0
+    ],
+    [
+     0.766,
+     -0.643,
+     0.0
+    ],
+    [
+     0.643,
+     0.766,
+     -0.0
+    ]
+   ],
+   "note": "front outside corner of the rack top plate (top face / front edge / end edge)",
+   "arm": {
+    "distance_mm": 233.6,
+    "height_mm": -5.6,
+    "pan_deg": 52.6,
+    "zone": "down",
+    "in_zone": true,
+    "margin_mm": 44.4
+   }
+  },
+  {
+   "id": "display",
+   "kind": "observe",
+   "skill": null,
+   "serial": null,
+   "contact_point": [
+    60.0,
+    0.0,
+    30.0
+   ],
+   "approach": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "note": "OLED window; camera only",
+   "arm": {
+    "distance_mm": 214.5,
+    "height_mm": -28.0,
+    "pan_deg": 0.0,
+    "zone": null
+   }
+  },
+  {
+   "id": "light_ring",
+   "kind": "observe",
+   "skill": null,
+   "serial": null,
+   "contact_point": [
+    -21.0,
+    0.0,
+    56.08
+   ],
+   "approach": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "note": "seen through the clear lid and rotor plate",
+   "arm": {
+    "distance_mm": 295.5,
+    "height_mm": -1.9,
+    "pan_deg": 0.0,
+    "zone": null
+   }
+  }
+ ]
+}

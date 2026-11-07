@@ -1,0 +1,68 @@
+# How verify.py checks this device (docs/device-authoring.md). Sim truth, like device.yaml: no model reads it.
+# press, turn and flip run with the probe. pick and place need the stock gripper.
+effector: probe
+
+reach:
+  reachable: [button_1, dial_1, toggle_1]
+
+# The manual's procedure on Rev B, ON mode then TOUCH mode: set the speed, load the cup from the holder into the head,
+# START, START again to stop, then MODE up, where the seated cup runs the head at once.
+workflow:
+  rev: B
+  effector: stock
+  steps:
+    - {wait_s: 0.5, expect: {state: ready, lcd: "ON 500 RPM", readings: {touch: 0, cup: 0}}}
+    # the manual: clockwise raises from 500 in steps of 100. turn lands between about -54 and -92 deg for -60, so
+    # 5 to 8.5 steps of 10.8 deg: 1000 to 1400 rpm
+    - {skill: turn, target: dial_1, params: {angle: -60}, expect: {verdict: PASS, changed: [speed], readings: {speed: [1000, 1100, 1200, 1300, 1400]}, lcd: "ON 1[0-4]00 RPM"}}
+    - {skill: pick, target: cup_1}
+    - {skill: place, target: cup_1, params: {into: well_1}, expect: {readings: {cup: 1}, state: ready}}
+    - {skill: press, target: button_1, expect: {state: mixing, lcd: "1[0-4]00 RPM", readings: {rpm: [1000, 1100, 1200, 1300, 1400]}}}
+    - {skill: press, target: button_1, expect: {state: ready, readings: {rpm: 0}}}
+    - {skill: flip, target: toggle_1, expect: {readings: {touch: 1}, state: mixing}}
+
+# Each fault's steps test that fault alone. The operator's drop_object loads the cup where pick and place aren't under
+# test; the *p variants do it with the robot's own pick and place.
+faults:
+  F1:   # the cup stops high in a tight head, so the beam never sees it
+    steps:
+      - {drop_object: {name: cup_1, into: well_1}, expect: {readings: {cup: 1}}}
+    fails_at: 0
+  F1p:
+    rev: "F1=A,F2=B,F3=B"
+    effector: stock
+    steps:
+      - {skill: pick, target: cup_1}
+      - {skill: place, target: cup_1, params: {into: well_1}, expect: {readings: {cup: 1}}}
+    fails_at: 1
+  F2:   # SPEED to the clockwise end shows 3000, and in ON mode the head should then spin at 3000
+    steps:
+      - {skill: turn, target: dial_1, params: {angle: -90}, expect: {verdict: PASS, changed: [speed]}}
+      - {skill: turn, target: dial_1, params: {angle: -90}, expect: {verdict: PASS, changed: [speed]}}
+      - {skill: turn, target: dial_1, params: {angle: -90}, expect: {verdict: PASS, readings: {speed: 3000}, lcd: "ON 3000 RPM"}}
+      - {drop_object: {name: cup_1, into: well_1}, expect: {readings: {cup: 1}}}
+      - {skill: press, target: button_1, expect: {state: mixing, readings: {rpm: 3000}, lcd: "3000 RPM"}}
+    fails_at: 4
+  F2s:  # the same with the operator setting SPEED to its clockwise end by hand (a fixture), so turn is not under test
+    rev: "F1=B,F2=A,F3=B"
+    steps:
+      - {set_joint: {name: dial_knob, deg: -270}, expect: {readings: {speed: 3000}, lcd: "ON 3000 RPM"}}
+      - {drop_object: {name: cup_1, into: well_1}, expect: {readings: {cup: 1}}}
+      - {skill: press, target: button_1, expect: {state: mixing, readings: {rpm: 3000}, lcd: "3000 RPM"}}
+    fails_at: 2
+  F2m:  # the same on Rev A: the tight head (F1) stops it before the speed can be seen
+    rev: A
+    steps:
+      - {drop_object: {name: cup_1, into: well_1}, expect: {readings: {cup: 1}}}
+    fails_at: 0
+  F3:   # at power-on the lever is down, which the manual calls ON; thrown up it should be TOUCH
+    steps:
+      - {wait_s: 0.5, expect: {readings: {touch: 0}, state: ready, lcd: "ON 500 RPM"}}
+      - {skill: flip, target: toggle_1, expect: {readings: {touch: 1}, state: waiting, lcd: "TOUCH 500 RPM"}}
+    fails_at: 0
+  F3s:  # the same mapping with the operator setting the lever up by hand (a fixture), so flip is not under test
+    rev: "F1=B,F2=B,F3=A"
+    steps:
+      - {set_joint: {name: mode_lever, deg: 30}, expect: {readings: {touch: 1}, state: waiting, lcd: "TOUCH 500 RPM"}}
+      - {set_joint: {name: mode_lever, deg: 0}, expect: {readings: {touch: 0}, state: ready, lcd: "ON 500 RPM"}}
+    fails_at: 0

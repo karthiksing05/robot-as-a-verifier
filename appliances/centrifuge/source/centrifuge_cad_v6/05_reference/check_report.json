@@ -1,0 +1,616 @@
+{
+ "print_parts": [
+  {
+   "file": "bezel_stop_revA_F1_0.05",
+   "valid": true,
+   "bbox": [
+    20.0,
+    20.0,
+    7.0
+   ],
+   "fits_bed": true
+  },
+  {
+   "file": "bezel_stop_revA_F1_0.15",
+   "valid": true,
+   "bbox": [
+    20.0,
+    20.0,
+    7.0
+   ],
+   "fits_bed": true
+  },
+  {
+   "file": "bezel_stop_revB",
+   "valid": true,
+   "bbox": [
+    20.0,
+    20.0,
+    7.0
+   ],
+   "fits_bed": true
+  },
+  {
+   "file": "cap_stop",
+   "valid": true,
+   "bbox": [
+    13.0,
+    13.0,
+    11.0
+   ],
+   "fits_bed": true
+  },
+  {
+   "file": "well_insert_A_revA_F3",
+   "valid": true,
+   "bbox": [
+    22.5,
+    23.0,
+    8.6
+   ],
+   "fits_bed": true
+  },
+  {
+   "file": "well_insert_A_revB",
+   "valid": true,
+   "bbox": [
+    22.5,
+    23.0,
+    8.6
+   ],
+   "fits_bed": true
+  },
+  {
+   "file": "hinge_base",
+   "valid": true,
+   "bbox": [
+    13.0,
+    24.0,
+    24.0
+   ],
+   "fits_bed": true
+  },
+  {
+   "file": "hinge_leaf",
+   "valid": true,
+   "bbox": [
+    22.0,
+    9.0,
+    24.0
+   ],
+   "fits_bed": true
+  },
+  {
+   "file": "test_tube",
+   "valid": true,
+   "bbox": [
+    22.1,
+    22.1,
+    69.2
+   ],
+   "fits_bed": true
+  }
+ ],
+ "laser_parts": [
+  {
+   "part": "front_panel",
+   "material": "plywood",
+   "size": [
+    125.0,
+    54.8
+   ],
+   "loops": 2,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "control_face",
+   "material": "plywood",
+   "size": [
+    131.0,
+    55.5
+   ],
+   "loops": 10,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "top_panel",
+   "material": "plywood",
+   "size": [
+    125.0,
+    80.5
+   ],
+   "loops": 2,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "rotor_plate",
+   "material": "acrylic_clear",
+   "size": [
+    125.0,
+    72.0
+   ],
+   "loops": 3,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "side_panel_L",
+   "material": "plywood",
+   "size": [
+    120.0,
+    94.0
+   ],
+   "loops": 3,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "side_panel_R",
+   "material": "plywood",
+   "size": [
+    120.0,
+    94.0
+   ],
+   "loops": 3,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "base_plate",
+   "material": "plywood",
+   "size": [
+    133.0,
+    144.0
+   ],
+   "loops": 11,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "cap_start_plunger_1",
+   "material": "plywood",
+   "size": [
+    10.0,
+    10.0
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "cap_start_plunger_2",
+   "material": "plywood",
+   "size": [
+    10.0,
+    10.0
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "cap_start_plunger_3",
+   "material": "plywood",
+   "size": [
+    10.0,
+    10.0
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "cap_start_plunger_4",
+   "material": "plywood",
+   "size": [
+    10.0,
+    10.0
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "cap_start_flange_1",
+   "material": "plywood",
+   "size": [
+    13.0,
+    13.0
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "cap_start_flange_2",
+   "material": "plywood",
+   "size": [
+    13.0,
+    13.0
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "dial_knob_ply_1",
+   "material": "plywood",
+   "size": [
+    10.0,
+    14.0
+   ],
+   "loops": 2,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "dial_knob_ply_2",
+   "material": "plywood",
+   "size": [
+    10.0,
+    14.0
+   ],
+   "loops": 2,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "dial_knob_ply_3",
+   "material": "plywood",
+   "size": [
+    10.0,
+    14.0
+   ],
+   "loops": 2,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "dial_knob_ply_4",
+   "material": "plywood",
+   "size": [
+    10.0,
+    14.0
+   ],
+   "loops": 2,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "lid",
+   "material": "acrylic_clear",
+   "size": [
+    112.0,
+    73.5
+   ],
+   "loops": 4,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "lid_handle_revA_outer_1",
+   "material": "plywood",
+   "size": [
+    21.5,
+    7.5
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "lid_handle_revA_outer_2",
+   "material": "plywood",
+   "size": [
+    21.5,
+    7.5
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "lid_handle_revA_middle_1",
+   "material": "plywood",
+   "size": [
+    21.5,
+    18.6
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "lid_sensor_fin",
+   "material": "plywood",
+   "size": [
+    4.2,
+    12.0
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "tube_sensor_riser_1",
+   "material": "plywood",
+   "size": [
+    26.5,
+    10.3
+   ],
+   "loops": 2,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "tube_sensor_riser_2",
+   "material": "plywood",
+   "size": [
+    26.5,
+    10.3
+   ],
+   "loops": 2,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "gusset_L",
+   "material": "plywood",
+   "size": [
+    51.3,
+    87.6
+   ],
+   "loops": 2,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "gusset_R",
+   "material": "plywood",
+   "size": [
+    51.3,
+    87.6
+   ],
+   "loops": 2,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "pico_frame",
+   "material": "plywood",
+   "size": [
+    57.6,
+    27.6
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "rack_base",
+   "material": "plywood",
+   "size": [
+    108.0,
+    52.0
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "rack_middle",
+   "material": "plywood",
+   "size": [
+    108.0,
+    52.0
+   ],
+   "loops": 5,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "rack_top",
+   "material": "plywood",
+   "size": [
+    108.0,
+    56.0
+   ],
+   "loops": 5,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "rack_back_strip",
+   "material": "plywood",
+   "size": [
+    108.0,
+    10.0
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "rack_end_L",
+   "material": "plywood",
+   "size": [
+    52.0,
+    78.2
+   ],
+   "loops": 5,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "rack_end_R",
+   "material": "plywood",
+   "size": [
+    52.0,
+    78.2
+   ],
+   "loops": 5,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "rack_cover",
+   "material": "acrylic_clear",
+   "size": [
+    108.0,
+    46.5
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "rack_cover_lip",
+   "material": "plywood",
+   "size": [
+    18.0,
+    24.0
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "lid_handle_revB_ply_1",
+   "material": "plywood",
+   "size": [
+    31.5,
+    17.1
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "lid_handle_revB_ply_2",
+   "material": "plywood",
+   "size": [
+    31.5,
+    17.1
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  },
+  {
+   "part": "lid_handle_revB_ply_3",
+   "material": "plywood",
+   "size": [
+    31.5,
+    17.1
+   ],
+   "loops": 1,
+   "closed": true,
+   "valid": true
+  }
+ ],
+ "overlaps_revA": [],
+ "overlaps_revB": [],
+ "parts_changed_A_to_B": [
+  "bezel_stop",
+  "well_insert_A",
+  "lid_handle",
+  "tube_1"
+ ],
+ "lid_sweep": {
+  "collisions": [],
+  "stop_gap_mm": 0.0,
+  "overlap_if_pushed_2deg_mm3": 46.7,
+  "open_deg": 105.0
+ },
+ "lid_sweep_revB": {
+  "collisions": [],
+  "stop_gap_mm": 0.0
+ },
+ "cover_sweep": {
+  "collisions": [],
+  "stop_gap_mm": 0.0
+ },
+ "clearances_mm": {
+  "cap_in_bezel_stop_revA": 0.05,
+  "laser_cap_to_hole_start": 0.4,
+  "laser_cap_to_hole_time": 0.4,
+  "cap_in_bezel_stop_revB": 0.3,
+  "tube_in_well_A_revB_radial": 0.4,
+  "tube_to_closed_lid_revB": 11.502,
+  "tube_to_closed_lid_revA_stuck": 3.0,
+  "tube_to_closed_lid_rack": 3.0,
+  "lid_tab_to_sensor_body": 0.526,
+  "nub_to_sensor_body_revB": 0.5,
+  "nub_tip_z_revA_stuck": 21.8,
+  "nub_tip_z_revB": 13.298,
+  "tube_beam_z": 15.8,
+  "tube_sensor_slot_top_z": 19.8,
+  "tube_rise_revA_vs_revB": 8.502,
+  "lid_tab_bottom_z": 85.0,
+  "lid_beam_z": 87.0,
+  "moc_lead_gap_under_tube_sensor": 6.0,
+  "hook_lip_clear_10mm_hits": [],
+  "hook_lip_clear_under_mm": 10.879
+ },
+ "wall_1st_percentile_mm": {
+  "bezel_stop_revA_F1_0.05": 1.5,
+  "bezel_stop_revA_F1_0.15": 1.4,
+  "bezel_stop_revB": 1.4,
+  "cap_stop": 1.2,
+  "well_insert_A_revA_F3": 1.5,
+  "well_insert_A_revB": 1.5,
+  "hinge_base": 2.0,
+  "hinge_leaf": 2.0,
+  "test_tube": 1.58
+ },
+ "electronics_overlaps": [],
+ "rebuild_sheet_kerf": [
+  {
+   "sheet_t": 2.7,
+   "kerf": 0.1,
+   "valid": true,
+   "laser_overlaps": [],
+   "body_h": 94.0,
+   "flange_top": 60.68
+  },
+  {
+   "sheet_t": 2.7,
+   "kerf": 0.2,
+   "valid": true,
+   "laser_overlaps": [],
+   "body_h": 94.0,
+   "flange_top": 60.68
+  },
+  {
+   "sheet_t": 3.2,
+   "kerf": 0.1,
+   "valid": true,
+   "laser_overlaps": [],
+   "body_h": 94.0,
+   "flange_top": 60.68
+  },
+  {
+   "sheet_t": 3.2,
+   "kerf": 0.2,
+   "valid": true,
+   "laser_overlaps": [],
+   "body_h": 94.0,
+   "flange_top": 60.68
+  }
+ ],
+ "reach": {
+  "best_min_margin_mm": 4.0,
+  "best_height_margin_mm": 43.4,
+  "pan_axis_x_mm": 274.5,
+  "riser_height": 59.0,
+  "used": {
+   "pan_axis_x_mm": 274.5,
+   "riser_height": 58.0,
+   "min_margin_mm": 4.0
+  }
+ },
+ "reach_out_of_zone": []
+}

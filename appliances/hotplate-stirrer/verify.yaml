@@ -1,0 +1,75 @@
+# How verify.py checks this device (docs/device-authoring.md). Sim truth, like device.yaml: no model reads it.
+# Effector: the fingertip probe, for flip and turn. pick and place need the stock gripper (F3p).
+effector: probe
+
+reach:
+  reachable: [toggle_1, dial_1, dial_2]
+
+# The manual's procedure on Rev B: seat the beaker, power on, stir, heat, stop both, switch off, wait for the plate to
+# cool. The operator seats the beaker (drop_object): pick and place need the stock gripper, which F3p exercises.
+workflow:
+  rev: B
+  steps:
+    - {drop_object: {name: beaker_1, into: well_1}, expect: {readings: {vessel: 1}}}
+    - {skill: flip, target: toggle_1, expect: {readings: {power: 1}, state: idle, lcd: "0C 0RPM"}}
+    - {skill: turn, target: dial_2, params: {angle: -60}, expect: {changed: [stir, motor], state: stirring, lcd: "0C [1-9]00RPM"}}
+    - {skill: turn, target: dial_1, params: {angle: -60}, expect: {changed: [heat], state: heating, ring: red, readings: {heater: 1, hot: 1}}}
+    - {skill: turn, target: dial_2, params: {angle: 70}, expect: {readings: {stir: 0, motor: 0}, state: heating}}
+    - {skill: turn, target: dial_1, params: {angle: 62}, expect: {readings: {heat: 0, heater: 0, hot: 1}, state: warm, ring: red, lcd: "0C 0RPM"}}
+    - {skill: flip, target: toggle_1, expect: {readings: {power: 0, hot: 1}, state: cooling, ring: red, lcd: ""}}
+    - {wait_s: 31, expect: {readings: {hot: 0}, state: dark, ring: "off"}}
+
+# Each fault's steps test that fault alone. Dial sensors read with the power off.
+# Return turns follow the manual (turn back to 0) and stop short of the end stop: a -60 turn lands near -74 (STIR) and
+# -68 (HEAT), so +70 and +62 end inside the 0 step without pushing into the stop.
+faults:
+  F1:   # HEAT drives the heat setting, and only it
+    steps:
+      - {skill: turn, target: dial_1, params: {angle: -60}, expect: {changed: [heat], unchanged: [stir]}}
+    fails_at: 0
+  F1s:  # and STIR the stir setting, and only it
+    rev: "F1=A,F2=B,F3=B,F4=B"
+    steps:
+      - {skill: turn, target: dial_2, params: {angle: -60}, expect: {changed: [stir], unchanged: [heat]}}
+    fails_at: 0
+  F2:   # after heating, switching off leaves the HOT lamp lit (the operator seats the beaker)
+    steps:
+      - {drop_object: {name: beaker_1, into: well_1}, expect: {readings: {vessel: 1}}}
+      - {skill: flip, target: toggle_1, expect: {readings: {power: 1}, state: idle}}
+      - {skill: turn, target: dial_1, params: {angle: -60}, expect: {state: heating, ring: red, readings: {hot: 1}}}
+      - {skill: flip, target: toggle_1, expect: {readings: {power: 0, hot: 1}, state: cooling, ring: red}}
+    fails_at: 3
+  F2f:  # the firmware alone: the operator seats the beaker and sets the switch and dial by hand
+    rev: "F1=B,F2=A,F3=B,F4=B"
+    steps:
+      - {drop_object: {name: beaker_1, into: well_1}, expect: {readings: {vessel: 1}}}
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, state: idle}}
+      - {set_joint: {name: heat_knob, deg: -60}, expect: {state: heating, ring: red, readings: {heater: 1, hot: 1}}}
+      - {set_joint: {name: power_lever, deg: 0}, expect: {readings: {power: 0, hot: 1}, state: cooling, ring: red}}
+    fails_at: 3
+  F3:   # the beaker seats in the cradle and is sensed. The operator lowers it in: pick and place are not under test
+    steps:
+      - {drop_object: {name: beaker_1, into: well_1}, expect: {readings: {vessel: 1}}}
+    fails_at: 0
+  F3p:  # the same, with the arm's own pick and place
+    rev: "F1=B,F2=B,F3=A,F4=B"
+    effector: stock
+    steps:
+      - {skill: pick, target: beaker_1}
+      - {skill: place, target: beaker_1, params: {into: well_1}, expect: {readings: {vessel: 1}}}
+    fails_at: 1
+  F4:   # turning STIR back to 0 stops the stirrer (the operator seats the beaker)
+    steps:
+      - {drop_object: {name: beaker_1, into: well_1}, expect: {readings: {vessel: 1}}}
+      - {skill: flip, target: toggle_1, expect: {readings: {power: 1}, state: idle}}
+      - {skill: turn, target: dial_2, params: {angle: -60}, expect: {state: stirring, changed: [motor]}}
+      - {skill: turn, target: dial_2, params: {angle: 70}, expect: {readings: {stir: 0, motor: 0}, state: idle}}
+    fails_at: 3
+  F4f:  # the firmware alone: the operator seats the beaker and sets the switch and dial by hand
+    rev: "F1=B,F2=B,F3=B,F4=A"
+    steps:
+      - {drop_object: {name: beaker_1, into: well_1}, expect: {readings: {vessel: 1}}}
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, state: idle}}
+      - {set_joint: {name: stir_knob, deg: -60}, expect: {state: stirring, readings: {stir: 300, motor: 300}}}
+      - {set_joint: {name: stir_knob, deg: 0}, expect: {readings: {stir: 0, motor: 0}, state: idle}}
+    fails_at: 3

@@ -1,0 +1,1429 @@
+{
+ "front_panel": {
+  "file": "front_panel.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   56.99999989999999,
+   -62.50000010000001,
+   -1.0000000710542735e-07
+  ],
+  "max": [
+   60.00000010000001,
+   62.50000010000001,
+   54.760000100000006
+  ],
+  "volume": 18172.319999999996
+ },
+ "control_face": {
+  "file": "control_face.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   20.759999899999837,
+   -65.5000001000007,
+   54.75999989999983
+  ],
+  "max": [
+   62.121320443560705,
+   65.5000001000007,
+   96.1213204435607
+  ],
+  "volume": 19978.671526884533
+ },
+ "top_panel": {
+  "file": "top_panel.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   -60.000000100004065,
+   -62.500000100004065,
+   90.94308347128316
+  ],
+  "max": [
+   20.500000100004065,
+   62.500000100004065,
+   94.05691652871684
+  ],
+  "volume": 20106.32570050597,
+  "collision": [
+   "top_panel__c0.stl",
+   "top_panel__c1.stl",
+   "top_panel__c2.stl",
+   "top_panel__c3.stl",
+   "top_panel__c4.stl",
+   "top_panel__c5.stl",
+   "top_panel__c6.stl",
+   "top_panel__c7.stl",
+   "top_panel__c8.stl",
+   "top_panel__c9.stl",
+   "top_panel__c10.stl",
+   "top_panel__c11.stl",
+   "top_panel__c12.stl",
+   "top_panel__c13.stl",
+   "top_panel__c14.stl",
+   "top_panel__c15.stl",
+   "top_panel__c16.stl",
+   "top_panel__c17.stl",
+   "top_panel__c18.stl",
+   "top_panel__c19.stl",
+   "top_panel__c20.stl"
+  ]
+ },
+ "rotor_plate": {
+  "file": "rotor_plate.stl",
+  "rgba": [
+   0.700000005816421,
+   0.8500000127184192,
+   0.950000001281664,
+   0.4000000059604645
+  ],
+  "min": [
+   -59.00000010000264,
+   -62.50000010000264,
+   56.05947643268216
+  ],
+  "max": [
+   13.000000100002636,
+   62.50000010000264,
+   59.097244878793845
+  ],
+  "volume": 24127.845766232378,
+  "collision": [
+   "rotor_plate__c0.stl",
+   "rotor_plate__c1.stl",
+   "rotor_plate__c2.stl",
+   "rotor_plate__c3.stl",
+   "rotor_plate__c4.stl",
+   "rotor_plate__c5.stl",
+   "rotor_plate__c6.stl",
+   "rotor_plate__c7.stl",
+   "rotor_plate__c8.stl",
+   "rotor_plate__c9.stl",
+   "rotor_plate__c10.stl",
+   "rotor_plate__c11.stl",
+   "rotor_plate__c12.stl",
+   "rotor_plate__c13.stl",
+   "rotor_plate__c14.stl",
+   "rotor_plate__c15.stl",
+   "rotor_plate__c16.stl",
+   "rotor_plate__c17.stl",
+   "rotor_plate__c18.stl",
+   "rotor_plate__c19.stl",
+   "rotor_plate__c20.stl",
+   "rotor_plate__c21.stl",
+   "rotor_plate__c22.stl"
+  ]
+ },
+ "side_panel_L": {
+  "file": "side_panel_L.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   -60.00000010000024,
+   -62.500000100000484,
+   -1.0000024200213553e-07
+  ],
+  "max": [
+   60.00000010000024,
+   -59.499999899999516,
+   94.00000010000024
+  ],
+  "volume": 30441.603599999682
+ },
+ "side_panel_R": {
+  "file": "side_panel_R.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   -60.00000010000024,
+   59.499999899999516,
+   -1.0000024200213553e-07
+  ],
+  "max": [
+   60.00000010000024,
+   62.500000100000484,
+   94.00000010000024
+  ],
+  "volume": 30441.603599999682
+ },
+ "base_plate": {
+  "file": "base_plate.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   -80.00000010000002,
+   -66.50000010000002,
+   -1.0000002131628207e-07
+  ],
+  "max": [
+   64.00000010000002,
+   66.50000010000002,
+   3.000000100000021
+  ],
+  "volume": 56152.125000000015
+ },
+ "bezel_stop_revB": {
+  "file": "bezel_stop_revB.stl",
+  "rgba": [
+   0.19999999868206275,
+   0.700000005816421,
+   0.350000000377247,
+   1.0
+  ],
+  "min": [
+   33.29315716573253,
+   -10.033369777594459,
+   67.28779193309181
+  ],
+  "max": [
+   51.01548906028414,
+   10.026539494633091,
+   85.01548906028414
+  ],
+  "volume": 1005.636377980049
+ },
+ "cap_stop": {
+  "file": "cap_stop.stl",
+  "rgba": [
+   0.9200000123974647,
+   0.9200000123974647,
+   0.8999999981853644,
+   1.0
+  ],
+  "min": [
+   33.30150797981939,
+   -6.511557712046693,
+   67.29714872829881
+  ],
+  "max": [
+   48.9793827162673,
+   6.505392799424744,
+   82.9761650027651
+  ],
+  "volume": 926.6069141545415
+ },
+ "cap_start": {
+  "file": "cap_start.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   33.298783609169824,
+   -29.360000100000008,
+   67.29878360916982
+  ],
+  "max": [
+   47.812427824739224,
+   -16.347671536790777,
+   81.81242782473922
+  ],
+  "volume": 869.4357668810158
+ },
+ "cap_time": {
+  "file": "cap_time.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   33.298783609169824,
+   16.35999989999999,
+   67.29878360916982
+  ],
+  "max": [
+   47.812427824739224,
+   29.37232846320922,
+   81.81242782473922
+  ],
+  "volume": 869.4357668810158
+ },
+ "dial_knob": {
+  "file": "dial_knob.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   42.50132024355898,
+   43.07537869753988,
+   74.78685414949086
+  ],
+  "max": [
+   59.77213572373213,
+   55.500000100001024,
+   92.05766962966477
+  ],
+  "volume": 804.7814413615031,
+  "collision": [
+   "dial_knob__c0.stl",
+   "dial_knob__c1.stl",
+   "dial_knob__c2.stl",
+   "dial_knob__c3.stl",
+   "dial_knob__c4.stl",
+   "dial_knob__c5.stl",
+   "dial_knob__c6.stl",
+   "dial_knob__c7.stl",
+   "dial_knob__c8.stl",
+   "dial_knob__c9.stl",
+   "dial_knob__c10.stl",
+   "dial_knob__c11.stl",
+   "dial_knob__c12.stl",
+   "dial_knob__c13.stl",
+   "dial_knob__c14.stl",
+   "dial_knob__c15.stl",
+   "dial_knob__c16.stl",
+   "dial_knob__c17.stl",
+   "dial_knob__c18.stl",
+   "dial_knob__c19.stl",
+   "dial_knob__c20.stl",
+   "dial_knob__c21.stl",
+   "dial_knob__c22.stl",
+   "dial_knob__c23.stl",
+   "dial_knob__c24.stl",
+   "dial_knob__c25.stl",
+   "dial_knob__c26.stl",
+   "dial_knob__c27.stl",
+   "dial_knob__c28.stl",
+   "dial_knob__c29.stl",
+   "dial_knob__c30.stl",
+   "dial_knob__c31.stl",
+   "dial_knob__c32.stl",
+   "dial_knob__c33.stl",
+   "dial_knob__c34.stl",
+   "dial_knob__c35.stl",
+   "dial_knob__c36.stl",
+   "dial_knob__c37.stl",
+   "dial_knob__c38.stl",
+   "dial_knob__c39.stl",
+   "dial_knob__c40.stl",
+   "dial_knob__c41.stl",
+   "dial_knob__c42.stl",
+   "dial_knob__c43.stl",
+   "dial_knob__c44.stl",
+   "dial_knob__c45.stl",
+   "dial_knob__c46.stl",
+   "dial_knob__c47.stl",
+   "dial_knob__c48.stl",
+   "dial_knob__c49.stl",
+   "dial_knob__c50.stl",
+   "dial_knob__c51.stl",
+   "dial_knob__c52.stl",
+   "dial_knob__c53.stl",
+   "dial_knob__c54.stl",
+   "dial_knob__c55.stl",
+   "dial_knob__c56.stl",
+   "dial_knob__c57.stl",
+   "dial_knob__c58.stl",
+   "dial_knob__c59.stl",
+   "dial_knob__c60.stl",
+   "dial_knob__c61.stl",
+   "dial_knob__c62.stl",
+   "dial_knob__c63.stl"
+  ]
+ },
+ "well_insert_A_revB": {
+  "file": "well_insert_A_revB.stl",
+  "rgba": [
+   0.19999999868206275,
+   0.700000005816421,
+   0.350000000377247,
+   1.0
+  ],
+  "min": [
+   -32.259333618238074,
+   -24.270003659314753,
+   52.02887969487902
+  ],
+  "max": [
+   -9.729996340685249,
+   -1.7406663817619226,
+   60.71346607336249
+  ],
+  "volume": 920.2869762783251,
+  "collision": [
+   "well_insert_A_revB__c0.stl",
+   "well_insert_A_revB__c1.stl",
+   "well_insert_A_revB__c2.stl",
+   "well_insert_A_revB__c3.stl",
+   "well_insert_A_revB__c4.stl",
+   "well_insert_A_revB__c5.stl",
+   "well_insert_A_revB__c6.stl",
+   "well_insert_A_revB__c7.stl",
+   "well_insert_A_revB__c8.stl",
+   "well_insert_A_revB__c9.stl",
+   "well_insert_A_revB__c10.stl",
+   "well_insert_A_revB__c11.stl",
+   "well_insert_A_revB__c12.stl",
+   "well_insert_A_revB__c13.stl",
+   "well_insert_A_revB__c14.stl",
+   "well_insert_A_revB__c15.stl",
+   "well_insert_A_revB__c16.stl",
+   "well_insert_A_revB__c17.stl",
+   "well_insert_A_revB__c18.stl",
+   "well_insert_A_revB__c19.stl",
+   "well_insert_A_revB__c20.stl",
+   "well_insert_A_revB__c21.stl",
+   "well_insert_A_revB__c22.stl",
+   "well_insert_A_revB__c23.stl",
+   "well_insert_A_revB__c24.stl",
+   "well_insert_A_revB__c25.stl",
+   "well_insert_A_revB__c26.stl",
+   "well_insert_A_revB__c27.stl",
+   "well_insert_A_revB__c28.stl",
+   "well_insert_A_revB__c29.stl",
+   "well_insert_A_revB__c30.stl",
+   "well_insert_A_revB__c31.stl",
+   "well_insert_A_revB__c32.stl",
+   "well_insert_A_revB__c33.stl",
+   "well_insert_A_revB__c34.stl",
+   "well_insert_A_revB__c35.stl",
+   "well_insert_A_revB__c36.stl",
+   "well_insert_A_revB__c37.stl",
+   "well_insert_A_revB__c38.stl",
+   "well_insert_A_revB__c39.stl",
+   "well_insert_A_revB__c40.stl",
+   "well_insert_A_revB__c41.stl",
+   "well_insert_A_revB__c42.stl",
+   "well_insert_A_revB__c43.stl",
+   "well_insert_A_revB__c44.stl",
+   "well_insert_A_revB__c45.stl",
+   "well_insert_A_revB__c46.stl",
+   "well_insert_A_revB__c47.stl",
+   "well_insert_A_revB__c48.stl",
+   "well_insert_A_revB__c49.stl",
+   "well_insert_A_revB__c50.stl",
+   "well_insert_A_revB__c51.stl",
+   "well_insert_A_revB__c52.stl",
+   "well_insert_A_revB__c53.stl",
+   "well_insert_A_revB__c54.stl",
+   "well_insert_A_revB__c55.stl",
+   "well_insert_A_revB__c56.stl",
+   "well_insert_A_revB__c57.stl",
+   "well_insert_A_revB__c58.stl",
+   "well_insert_A_revB__c59.stl",
+   "well_insert_A_revB__c60.stl"
+  ]
+ },
+ "lid_hinge_base": {
+  "file": "lid_hinge_base.stl",
+  "rgba": [
+   0.9200000123974647,
+   0.9200000123974647,
+   0.8999999981853644,
+   1.0
+  ],
+  "min": [
+   -65.50000010000477,
+   -12.007601979000128,
+   93.99999989999523
+  ],
+  "max": [
+   -52.49239802099987,
+   12.007601979000128,
+   118.0000001000041
+  ],
+  "volume": 3233.560835681862
+ },
+ "lid_hinge_pin": {
+  "file": "lid_hinge_pin.stl",
+  "rgba": [
+   0.2999999961013092,
+   0.2999999961013092,
+   0.2999999961013092,
+   1.0
+  ],
+  "min": [
+   -57.375000100000015,
+   -11.751659687355097,
+   101.1237553078957
+  ],
+  "max": [
+   -55.6233403126449,
+   11.751659687355097,
+   102.8762446921043
+  ],
+  "volume": 56.52412407201004
+ },
+ "lid": {
+  "file": "lid.stl",
+  "rgba": [
+   0.700000005816421,
+   0.8500000127184192,
+   0.950000001281664,
+   0.4000000059604645
+  ],
+  "min": [
+   -53.5109467746601,
+   -56.0109467746601,
+   93.9890532253399
+  ],
+  "max": [
+   20.010946774660102,
+   56.0109467746601,
+   97.0109467746601
+  ],
+  "volume": 24213.772006587824
+ },
+ "lid_hinge_leaf": {
+  "file": "lid_hinge_leaf.stl",
+  "rgba": [
+   0.9200000123974647,
+   0.9200000123974647,
+   0.8999999981853644,
+   1.0
+  ],
+  "min": [
+   -60.50426993968575,
+   -12.0000001,
+   96.99999989999998
+  ],
+  "max": [
+   -38.499999899999985,
+   12.0000001,
+   106.00426993968574
+  ],
+  "volume": 1350.6902302738686,
+  "collision": [
+   "lid_hinge_leaf__c0.stl",
+   "lid_hinge_leaf__c1.stl",
+   "lid_hinge_leaf__c2.stl",
+   "lid_hinge_leaf__c3.stl",
+   "lid_hinge_leaf__c4.stl",
+   "lid_hinge_leaf__c5.stl",
+   "lid_hinge_leaf__c6.stl",
+   "lid_hinge_leaf__c7.stl",
+   "lid_hinge_leaf__c8.stl",
+   "lid_hinge_leaf__c9.stl",
+   "lid_hinge_leaf__c10.stl"
+  ]
+ },
+ "lid_handle_revB": {
+  "file": "lid_handle_revB.stl",
+  "rgba": [
+   0.19999999868206275,
+   0.700000005816421,
+   0.350000000377247,
+   1.0
+  ],
+  "min": [
+   -1.5000001000000143,
+   -4.5000001000000145,
+   92.4499999
+  ],
+  "max": [
+   30.000000100000015,
+   4.5000001000000145,
+   109.50000010000001
+  ],
+  "volume": 1321.1999999999998,
+  "collision": [
+   "lid_handle_revB__c0.stl",
+   "lid_handle_revB__c1.stl",
+   "lid_handle_revB__c2.stl",
+   "lid_handle_revB__c3.stl",
+   "lid_handle_revB__c4.stl",
+   "lid_handle_revB__c5.stl",
+   "lid_handle_revB__c6.stl",
+   "lid_handle_revB__c7.stl",
+   "lid_handle_revB__c8.stl",
+   "lid_handle_revB__c9.stl"
+  ]
+ },
+ "lid_sensor_fin": {
+  "file": "lid_sensor_fin.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   5.5255631180239195,
+   -51.50000010000049,
+   84.99999989999955
+  ],
+  "max": [
+   9.732852931419368,
+   -48.49999989999951,
+   97.00000010000008
+  ],
+  "volume": 87.67371999203506
+ },
+ "tube_sensor_riser_1": {
+  "file": "tube_sensor_riser_1.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   -34.2500001,
+   -18.150000100000003,
+   2.999999899999996
+  ],
+  "max": [
+   -7.749999899999996,
+   -7.849999899999996,
+   6.000000100000004
+  ],
+  "volume": 631.6499999999999
+ },
+ "tube_sensor_riser_2": {
+  "file": "tube_sensor_riser_2.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   -34.2500001,
+   -18.150000100000003,
+   5.999999899999996
+  ],
+  "max": [
+   -7.749999899999996,
+   -7.849999899999996,
+   9.000000100000003
+  ],
+  "volume": 631.6499999999999
+ },
+ "gusset_L": {
+  "file": "gusset_L.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   2.337655072163637,
+   -40.50000010000048,
+   -1.0000036300754958e-07
+  ],
+  "max": [
+   53.60289690818847,
+   -37.49999989999952,
+   87.60289690818848
+  ],
+  "volume": 4175.491948210828
+ },
+ "gusset_R": {
+  "file": "gusset_R.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   2.337655072163637,
+   37.49999989999952,
+   -1.0000036300754958e-07
+  ],
+  "max": [
+   53.60289690818847,
+   40.50000010000048,
+   87.60289690818848
+  ],
+  "volume": 4175.491948210828
+ },
+ "pico_frame": {
+  "file": "pico_frame.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   -62.50000010000001,
+   -28.80000010000001,
+   2.999999899999993
+  ],
+  "max": [
+   -34.89999989999999,
+   28.80000010000001,
+   6.000000100000007
+  ],
+  "volume": 1335.6000000000001
+ },
+ "tube_1": {
+  "file": "tube_1.stl",
+  "rgba": [
+   0.9200000123974647,
+   0.9200000123974647,
+   0.8999999981853644,
+   1.0
+  ],
+  "min": [
+   -32.07617663451985,
+   -24.076176634519843,
+   13.294567213212083
+  ],
+  "max": [
+   -9.923823365480157,
+   -1.9238233654801566,
+   82.5108470573031
+  ],
+  "volume": 4233.172526375866,
+  "collision": [
+   "tube_1__c0.stl",
+   "tube_1__c1.stl",
+   "tube_1__c2.stl",
+   "tube_1__c3.stl",
+   "tube_1__c4.stl",
+   "tube_1__c5.stl",
+   "tube_1__c6.stl",
+   "tube_1__c7.stl",
+   "tube_1__c8.stl",
+   "tube_1__c9.stl",
+   "tube_1__c10.stl",
+   "tube_1__c11.stl",
+   "tube_1__c12.stl",
+   "tube_1__c13.stl",
+   "tube_1__c14.stl",
+   "tube_1__c15.stl",
+   "tube_1__c16.stl",
+   "tube_1__c17.stl",
+   "tube_1__c18.stl",
+   "tube_1__c19.stl",
+   "tube_1__c20.stl",
+   "tube_1__c21.stl",
+   "tube_1__c22.stl",
+   "tube_1__c23.stl",
+   "tube_1__c24.stl",
+   "tube_1__c25.stl",
+   "tube_1__c26.stl",
+   "tube_1__c27.stl",
+   "tube_1__c28.stl",
+   "tube_1__c29.stl",
+   "tube_1__c30.stl",
+   "tube_1__c31.stl",
+   "tube_1__c32.stl",
+   "tube_1__c33.stl",
+   "tube_1__c34.stl",
+   "tube_1__c35.stl",
+   "tube_1__c36.stl",
+   "tube_1__c37.stl",
+   "tube_1__c38.stl",
+   "tube_1__c39.stl",
+   "tube_1__c40.stl",
+   "tube_1__c41.stl",
+   "tube_1__c42.stl",
+   "tube_1__c43.stl",
+   "tube_1__c44.stl",
+   "tube_1__c45.stl",
+   "tube_1__c46.stl",
+   "tube_1__c47.stl",
+   "tube_1__c48.stl",
+   "tube_1__c49.stl",
+   "tube_1__c50.stl",
+   "tube_1__c51.stl",
+   "tube_1__c52.stl",
+   "tube_1__c53.stl",
+   "tube_1__c54.stl",
+   "tube_1__c55.stl",
+   "tube_1__c56.stl",
+   "tube_1__c57.stl",
+   "tube_1__c58.stl",
+   "tube_1__c59.stl",
+   "tube_1__c60.stl",
+   "tube_1__c61.stl",
+   "tube_1__c62.stl",
+   "tube_1__c63.stl"
+  ]
+ },
+ "tube_2": {
+  "file": "tube_2.stl",
+  "rgba": [
+   0.9200000123974647,
+   0.9200000123974647,
+   0.8999999981853644,
+   1.0
+  ],
+  "min": [
+   73.50013082388139,
+   163.9619935922687,
+   5.996206557474055
+  ],
+  "max": [
+   95.64783915920262,
+   186.10147964083131,
+   75.21248640156414
+  ],
+  "volume": 4233.1725263763965,
+  "collision": [
+   "tube_2__c0.stl",
+   "tube_2__c1.stl",
+   "tube_2__c2.stl",
+   "tube_2__c3.stl",
+   "tube_2__c4.stl",
+   "tube_2__c5.stl",
+   "tube_2__c6.stl",
+   "tube_2__c7.stl",
+   "tube_2__c8.stl",
+   "tube_2__c9.stl",
+   "tube_2__c10.stl",
+   "tube_2__c11.stl",
+   "tube_2__c12.stl",
+   "tube_2__c13.stl",
+   "tube_2__c14.stl",
+   "tube_2__c15.stl",
+   "tube_2__c16.stl",
+   "tube_2__c17.stl",
+   "tube_2__c18.stl",
+   "tube_2__c19.stl",
+   "tube_2__c20.stl",
+   "tube_2__c21.stl",
+   "tube_2__c22.stl",
+   "tube_2__c23.stl",
+   "tube_2__c24.stl",
+   "tube_2__c25.stl",
+   "tube_2__c26.stl",
+   "tube_2__c27.stl",
+   "tube_2__c28.stl",
+   "tube_2__c29.stl",
+   "tube_2__c30.stl",
+   "tube_2__c31.stl",
+   "tube_2__c32.stl",
+   "tube_2__c33.stl",
+   "tube_2__c34.stl",
+   "tube_2__c35.stl",
+   "tube_2__c36.stl",
+   "tube_2__c37.stl",
+   "tube_2__c38.stl",
+   "tube_2__c39.stl",
+   "tube_2__c40.stl",
+   "tube_2__c41.stl",
+   "tube_2__c42.stl",
+   "tube_2__c43.stl",
+   "tube_2__c44.stl",
+   "tube_2__c45.stl",
+   "tube_2__c46.stl",
+   "tube_2__c47.stl",
+   "tube_2__c48.stl",
+   "tube_2__c49.stl",
+   "tube_2__c50.stl",
+   "tube_2__c51.stl",
+   "tube_2__c52.stl",
+   "tube_2__c53.stl",
+   "tube_2__c54.stl",
+   "tube_2__c55.stl",
+   "tube_2__c56.stl",
+   "tube_2__c57.stl",
+   "tube_2__c58.stl",
+   "tube_2__c59.stl",
+   "tube_2__c60.stl",
+   "tube_2__c61.stl",
+   "tube_2__c62.stl",
+   "tube_2__c63.stl"
+  ]
+ },
+ "rack_base": {
+  "file": "rack_base.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   24.161209960172133,
+   110.05845874817466,
+   -1.0002534957183559e-07
+  ],
+  "max": [
+   129.55985739043535,
+   221.61994785006488,
+   3.00000010002535
+  ],
+  "volume": 16272.000000002397
+ },
+ "rack_middle": {
+  "file": "rack_middle.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   24.161209960172133,
+   110.05845874817466,
+   23.98198152299856
+  ],
+  "max": [
+   129.55985739043535,
+   221.61994785006488,
+   27.01801847700144
+  ],
+  "volume": 12869.655156164512,
+  "collision": [
+   "rack_middle__c0.stl",
+   "rack_middle__c1.stl",
+   "rack_middle__c2.stl",
+   "rack_middle__c3.stl",
+   "rack_middle__c4.stl",
+   "rack_middle__c5.stl",
+   "rack_middle__c6.stl",
+   "rack_middle__c7.stl",
+   "rack_middle__c8.stl",
+   "rack_middle__c9.stl",
+   "rack_middle__c10.stl",
+   "rack_middle__c11.stl",
+   "rack_middle__c12.stl",
+   "rack_middle__c13.stl",
+   "rack_middle__c14.stl",
+   "rack_middle__c15.stl",
+   "rack_middle__c16.stl",
+   "rack_middle__c17.stl",
+   "rack_middle__c18.stl",
+   "rack_middle__c19.stl",
+   "rack_middle__c20.stl",
+   "rack_middle__c21.stl",
+   "rack_middle__c22.stl",
+   "rack_middle__c23.stl",
+   "rack_middle__c24.stl",
+   "rack_middle__c25.stl",
+   "rack_middle__c26.stl",
+   "rack_middle__c27.stl",
+   "rack_middle__c28.stl",
+   "rack_middle__c29.stl",
+   "rack_middle__c30.stl",
+   "rack_middle__c31.stl",
+   "rack_middle__c32.stl",
+   "rack_middle__c33.stl",
+   "rack_middle__c34.stl",
+   "rack_middle__c35.stl",
+   "rack_middle__c36.stl",
+   "rack_middle__c37.stl"
+  ]
+ },
+ "rack_top": {
+  "file": "rack_top.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   24.161209960172133,
+   107.48730830943582,
+   49.38406786138748
+  ],
+  "max": [
+   132.6240351629042,
+   221.61994785006488,
+   52.41593213861252
+  ],
+  "volume": 14835.950668353506,
+  "collision": [
+   "rack_top__c0.stl",
+   "rack_top__c1.stl",
+   "rack_top__c2.stl",
+   "rack_top__c3.stl",
+   "rack_top__c4.stl",
+   "rack_top__c5.stl",
+   "rack_top__c6.stl",
+   "rack_top__c7.stl",
+   "rack_top__c8.stl",
+   "rack_top__c9.stl",
+   "rack_top__c10.stl",
+   "rack_top__c11.stl",
+   "rack_top__c12.stl",
+   "rack_top__c13.stl",
+   "rack_top__c14.stl",
+   "rack_top__c15.stl",
+   "rack_top__c16.stl",
+   "rack_top__c17.stl",
+   "rack_top__c18.stl",
+   "rack_top__c19.stl",
+   "rack_top__c20.stl",
+   "rack_top__c21.stl",
+   "rack_top__c22.stl",
+   "rack_top__c23.stl",
+   "rack_top__c24.stl",
+   "rack_top__c25.stl",
+   "rack_top__c26.stl",
+   "rack_top__c27.stl",
+   "rack_top__c28.stl",
+   "rack_top__c29.stl",
+   "rack_top__c30.stl",
+   "rack_top__c31.stl",
+   "rack_top__c32.stl",
+   "rack_top__c33.stl",
+   "rack_top__c34.stl",
+   "rack_top__c35.stl",
+   "rack_top__c36.stl"
+  ]
+ },
+ "rack_back_strip": {
+  "file": "rack_back_strip.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   21.083780466424926,
+   135.72158644017594,
+   75.19999989996593
+  ],
+  "max": [
+   98.16528694382907,
+   224.88226259396407,
+   78.20000010003407
+  ],
+  "volume": 2322.0000000007726
+ },
+ "rack_end_L": {
+  "file": "rack_end_L.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   89.72554614821323,
+   188.1949919463292,
+   -1.0001078427861112e-07
+  ],
+  "max": [
+   131.48822021948075,
+   223.91808117941076,
+   78.20000010001078
+  ],
+  "volume": 11571.598125009032
+ },
+ "rack_end_R": {
+  "file": "rack_end_R.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   22.23284713112879,
+   107.76032541884179,
+   -1.0000822238874904e-07
+  ],
+  "max": [
+   63.99552120239222,
+   143.48341465190825,
+   78.20000010000822
+  ],
+  "volume": 11571.598124986764
+ },
+ "rack_cover": {
+  "file": "rack_cover.stl",
+  "rgba": [
+   0.700000005816421,
+   0.8500000127184192,
+   0.950000001281664,
+   0.4000000059604645
+  ],
+  "min": [
+   27.978180454504816,
+   106.47475019944123,
+   78.19999989997123
+  ],
+  "max": [
+   133.02030910572876,
+   219.0971741067742,
+   81.20000010002877
+  ],
+  "volume": 15066.00000000022
+ },
+ "rack_hinge_base": {
+  "file": "rack_hinge_base.stl",
+  "rgba": [
+   0.9200000123974647,
+   0.9200000123974647,
+   0.8999999981853644,
+   1.0
+  ],
+  "min": [
+   45.78272674392678,
+   167.88785117221542,
+   78.19999989999079
+  ],
+  "max": [
+   71.17580921595638,
+   194.63675881199924,
+   102.20000010000922
+  ],
+  "volume": 3233.560835681665
+ },
+ "rack_hinge_leaf": {
+  "file": "rack_hinge_leaf.stl",
+  "rgba": [
+   0.9200000123974647,
+   0.9200000123974647,
+   0.8999999981853644,
+   1.0
+  ],
+  "min": [
+   53.464605359673826,
+   158.8964265155941,
+   81.19999989999027
+  ],
+  "max": [
+   81.8928295406319,
+   186.832044527289,
+   90.20426993968829
+  ],
+  "volume": 1350.6902302739272,
+  "collision": [
+   "rack_hinge_leaf__c0.stl",
+   "rack_hinge_leaf__c1.stl",
+   "rack_hinge_leaf__c2.stl",
+   "rack_hinge_leaf__c3.stl",
+   "rack_hinge_leaf__c4.stl",
+   "rack_hinge_leaf__c5.stl",
+   "rack_hinge_leaf__c6.stl",
+   "rack_hinge_leaf__c7.stl",
+   "rack_hinge_leaf__c8.stl",
+   "rack_hinge_leaf__c9.stl",
+   "rack_hinge_leaf__c10.stl",
+   "rack_hinge_leaf__c11.stl",
+   "rack_hinge_leaf__c12.stl",
+   "rack_hinge_leaf__c13.stl",
+   "rack_hinge_leaf__c14.stl",
+   "rack_hinge_leaf__c15.stl",
+   "rack_hinge_leaf__c16.stl",
+   "rack_hinge_leaf__c17.stl",
+   "rack_hinge_leaf__c18.stl",
+   "rack_hinge_leaf__c19.stl",
+   "rack_hinge_leaf__c20.stl",
+   "rack_hinge_leaf__c21.stl",
+   "rack_hinge_leaf__c22.stl",
+   "rack_hinge_leaf__c23.stl",
+   "rack_hinge_leaf__c24.stl",
+   "rack_hinge_leaf__c25.stl",
+   "rack_hinge_leaf__c26.stl",
+   "rack_hinge_leaf__c27.stl",
+   "rack_hinge_leaf__c28.stl",
+   "rack_hinge_leaf__c29.stl",
+   "rack_hinge_leaf__c30.stl",
+   "rack_hinge_leaf__c31.stl",
+   "rack_hinge_leaf__c32.stl",
+   "rack_hinge_leaf__c33.stl",
+   "rack_hinge_leaf__c34.stl",
+   "rack_hinge_leaf__c35.stl",
+   "rack_hinge_leaf__c36.stl",
+   "rack_hinge_leaf__c37.stl",
+   "rack_hinge_leaf__c38.stl",
+   "rack_hinge_leaf__c39.stl",
+   "rack_hinge_leaf__c40.stl",
+   "rack_hinge_leaf__c41.stl",
+   "rack_hinge_leaf__c42.stl",
+   "rack_hinge_leaf__c43.stl",
+   "rack_hinge_leaf__c44.stl",
+   "rack_hinge_leaf__c45.stl",
+   "rack_hinge_leaf__c46.stl",
+   "rack_hinge_leaf__c47.stl",
+   "rack_hinge_leaf__c48.stl"
+  ]
+ },
+ "rack_hinge_pin": {
+  "file": "rack_hinge_pin.stl",
+  "rgba": [
+   0.2999999961013092,
+   0.2999999961013092,
+   0.2999999961013092,
+   1.0
+  ],
+  "min": [
+   52.16714647701392,
+   170.0940158549026,
+   85.3237553078934
+  ],
+  "max": [
+   68.61528113714941,
+   189.2231911976743,
+   87.0762446921066
+  ],
+  "volume": 56.52412407201095
+ },
+ "rack_cover_lip": {
+  "file": "rack_cover_lip.stl",
+  "rgba": [
+   0.8300000085287765,
+   0.6799999908109459,
+   0.4700000029500858,
+   1.0
+  ],
+  "min": [
+   84.46797112143727,
+   132.22074071360228,
+   81.19999989999228
+  ],
+  "max": [
+   113.68367393006459,
+   162.17598452282735,
+   84.20000010000773
+  ],
+  "volume": 1295.99999999959,
+  "collision": [
+   "rack_cover_lip__c0.stl"
+  ]
+ },
+ "ref_switch_start": {
+  "file": "ref_switch_start.stl",
+  "rgba": [
+   0.19999999868206275,
+   0.4500000038597685,
+   0.25000000067158873,
+   1.0
+  ],
+  "min": [
+   28.500605976065522,
+   -28.860000100000477,
+   62.50060597606552
+  ],
+  "max": [
+   39.531471962576475,
+   -16.859999899999522,
+   73.53147196257648
+  ],
+  "volume": 553.9981717559704
+ },
+ "ref_switch_stop": {
+  "file": "ref_switch_stop.stl",
+  "rgba": [
+   0.19999999868206275,
+   0.4500000038597685,
+   0.25000000067158873,
+   1.0
+  ],
+  "min": [
+   28.500605976065522,
+   -6.000000100000477,
+   62.50060597606552
+  ],
+  "max": [
+   39.531471962576475,
+   6.000000100000477,
+   73.53147196257648
+  ],
+  "volume": 553.9981717559702
+ },
+ "ref_switch_time": {
+  "file": "ref_switch_time.stl",
+  "rgba": [
+   0.19999999868206275,
+   0.4500000038597685,
+   0.25000000067158873,
+   1.0
+  ],
+  "min": [
+   28.500605976065522,
+   16.859999899999522,
+   62.50060597606552
+  ],
+  "max": [
+   39.531471962576475,
+   28.860000100000477,
+   73.53147196257648
+  ],
+  "volume": 553.9981717559702
+ },
+ "ref_breadboard": {
+  "file": "ref_breadboard.stl",
+  "rgba": [
+   0.19999999868206275,
+   0.4500000038597685,
+   0.25000000067158873,
+   1.0
+  ],
+  "min": [
+   6.580295759282985,
+   -41.500000100000015,
+   40.58029575928298
+  ],
+  "max": [
+   52.188683345815015,
+   41.500000100000015,
+   86.18868334581501
+  ],
+  "volume": 43367.49999999859
+ },
+ "ref_toggle": {
+  "file": "ref_toggle.stl",
+  "rgba": [
+   0.19999999868206275,
+   0.4500000038597685,
+   0.25000000067158873,
+   1.0
+  ],
+  "min": [
+   25.177204104488535,
+   -55.50000010000001,
+   59.17720410448854
+  ],
+  "max": [
+   51.802587447965735,
+   -45.49051654368521,
+   91.11021620079065
+  ],
+  "volume": 1984.137051931919
+ },
+ "ref_pot": {
+  "file": "ref_pot.stl",
+  "rgba": [
+   0.19999999868206275,
+   0.4500000038597685,
+   0.25000000067158873,
+   1.0
+  ],
+  "min": [
+   26.225373840619863,
+   42.49999989999999,
+   60.22537384061986
+  ],
+  "max": [
+   54.52556223526083,
+   58.515173470103655,
+   88.455543499637
+  ],
+  "volume": 3000.864696974905
+ },
+ "ref_oled": {
+  "file": "ref_oled.stl",
+  "rgba": [
+   0.19999999868206275,
+   0.4500000038597685,
+   0.25000000067158873,
+   1.0
+  ],
+  "min": [
+   40.29999989999999,
+   -13.500000100000006,
+   16.49999989999999
+  ],
+  "max": [
+   57.0000001,
+   13.500000100000006,
+   43.50000010000001
+  ],
+  "volume": 2035.8000000000022
+ },
+ "ref_ring": {
+  "file": "ref_ring.stl",
+  "rgba": [
+   0.19999999868206275,
+   0.4500000038597685,
+   0.25000000067158873,
+   1.0
+  ],
+  "min": [
+   -54.000000100000015,
+   -33.04693900221863,
+   52.51577040406045
+  ],
+  "max": [
+   12.062590251677554,
+   33.04693900221863,
+   56.14095090741556
+  ],
+  "volume": 4541.172180764147
+ },
+ "ref_moc_lid": {
+  "file": "ref_moc_lid.stl",
+  "rgba": [
+   0.19999999868206275,
+   0.4500000038597685,
+   0.25000000067158873,
+   1.0
+  ],
+  "min": [
+   -4.750000100000016,
+   -53.150000100000014,
+   80.19999989999998
+  ],
+  "max": [
+   19.750000100000015,
+   -46.849999899999986,
+   91.00000010000002
+  ],
+  "volume": 1414.979999999999
+ },
+ "ref_moc_tube": {
+  "file": "ref_moc_tube.stl",
+  "rgba": [
+   0.19999999868206275,
+   0.4500000038597685,
+   0.25000000067158873,
+   1.0
+  ],
+  "min": [
+   -33.2500001,
+   -16.150000100000003,
+   8.999999899999995
+  ],
+  "max": [
+   -8.749999899999995,
+   -9.849999899999995,
+   19.800000100000005
+  ],
+  "volume": 1414.9799999999998
+ },
+ "ref_pico": {
+  "file": "ref_pico.stl",
+  "rgba": [
+   0.19999999868206275,
+   0.4500000038597685,
+   0.25000000067158873,
+   1.0
+  ],
+  "min": [
+   -59.20000010000001,
+   -25.50000010000001,
+   2.999999899999993
+  ],
+  "max": [
+   -38.199999899999995,
+   25.50000010000001,
+   7.000000100000007
+  ],
+  "volume": 4284.0
+ }
+}

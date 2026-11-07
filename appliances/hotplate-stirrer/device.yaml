@@ -1,0 +1,156 @@
+# HPS-300 hotplate stirrer and its beaker rest (docs/device-authoring.md). Sim truth: the loader, the answer key and
+# evaluation read this file, and no model ever does. Lengths mm, angles deg, in the product frame: origin on the base's
+# bottom face, +X toward the arm, +Z up. Numbers come from cad/model.py and wiring.md.
+name: hps300
+meta: {title: "HPS-300 hotplate stirrer", split: held_out, project: hotplate-stirrer}
+
+placement: {x: 313.3, y: 0.0, yaw: 180.0}   # the centrifuge's: the arm's pan axis at product (274.5, 0, 58)
+stand_mm: 82
+mounts: {hotplate: clamped, rest: clamped}
+
+meshes: build/meshes_rev{rev}
+# Each fault is one broken property on one piece (docs/device-theory.md). A choice picks its parts' meshes and parameters.
+faults:
+  F1: {what: "HEAT and STIR dials are wired to each other's inputs: turning HEAT changes the stir setting and STIR the heat",
+       class: electrical, piece: dial_1, property: independent,
+       A: {params: {heat_body: stir_knob, stir_body: heat_knob}},
+       B: {params: {heat_body: heat_knob, stir_body: stir_knob}}}
+  F2: {what: "the HOT warning goes out the moment the unit is switched off, while the plate is still hot",
+       class: firmware, piece: light_1, property: matches_manual, masked_by: [F3],
+       A: {params: {keep_hot: "hot == 0"}},
+       B: {params: {keep_hot: "hot == 1"}}}
+  F3: {what: "the cradle's bore is too small, so the beaker sits high and is never sensed (NO VESSEL)",
+       class: mechanical, piece: well_1, property: accepts_object,
+       A: {parts: {cradle: cradle_revA}, params: {cradle_id: 15.6}},
+       B: {parts: {cradle: cradle_revB}, params: {cradle_id: 16.8}}}
+  F4: {what: "stirring keeps going after the STIR dial is turned back to 0",
+       class: firmware, piece: dial_2, property: mapping_matches, masked_by: [F3],
+       A: {params: {stir_stop: "motor == 0"}},
+       B: {params: {stir_stop: "stir == 0"}}}
+revs:
+  A: {F1: A, F2: A, F3: A, F4: A}
+  B: {F1: B, F2: B, F3: B, F4: B}
+  M1: {F1: A, F2: A, F3: B, F4: A}   # the cradle fixed alone: a beaker now seats, which unmasks F2 and F4
+
+roots:
+  hotplate:
+    mass_kg: 0.85
+    parts: [base_plate, side_panel_L, side_panel_R, back_panel, front_panel, control_face, console_top, console_back, top_deck, hot_plate, $cradle]
+    visual_only: [lamp_bezel, display_frame, ref_toggle, ref_toggle_bushing, ref_pot_heat, ref_pot_heat_bushing, ref_pot_stir,
+                  ref_pot_stir_bushing, ref_oled, ref_heater, ref_stir_motor, ref_vessel_sensor, ref_pico, ref_lamp_led]
+    arm_only: [top_deck, hot_plate, cradle_revA, cradle_revB]
+    rings:
+      - {centre: [-26, 0], id: $cradle_id, z: [56.0, 66.0]}
+  rest:
+    mass_kg: 0.08
+    parts: [rest_foot, rest_block]
+    arm_only: [rest_block]
+    rings:
+      - {centre: [100, 130], id: 16.8, z: [44.0, 52.0]}
+
+bodies:
+  # The two pots, as primitives: a 10 mm knob and its 3 mm fin, 5 to 16 mm above the face. Clockwise from outside raises
+  # the setting: negative about +normal. The body names are the wiring: the firmware reads joints heat_knob and stir_knob.
+  - name: $heat_body
+    root: hotplate
+    parts: [knob_heat]
+    collide_geoms_only: true
+    geoms:
+      - {type: cylinder, fromto: [46.04, -50.5, 80.04, 53.81, -50.5, 87.81], radius: 5.0, mass: 0.003}
+      - {type: box, pos: [52.17, -53.68, 81.67], half: [4.5, 1.5, 5.5], x: [0.5, -0.7071, -0.5], z: [0.7071, 0, 0.7071], mass: 0.001}
+    joint: {type: hinge, axis: [0.7071, 0, 0.7071], anchor: [49.93, -50.5, 83.93], range: [-270, 0], damping: 0.002, frictionloss: 0.004, armature: 0.0005}
+  - name: $stir_body
+    root: hotplate
+    parts: [knob_stir]
+    collide_geoms_only: true
+    geoms:
+      - {type: cylinder, fromto: [46.04, 50.5, 80.04, 53.81, 50.5, 87.81], radius: 5.0, mass: 0.003}
+      - {type: box, pos: [52.17, 47.32, 81.67], half: [4.5, 1.5, 5.5], x: [0.5, -0.7071, -0.5], z: [0.7071, 0, 0.7071], mass: 0.001}
+    joint: {type: hinge, axis: [0.7071, 0, 0.7071], anchor: [49.93, 50.5, 83.93], range: [-270, 0], damping: 0.002, frictionloss: 0.004, armature: 0.0005}
+  - name: power_lever
+    root: hotplate
+    # drawn here (ref_toggle is its body): 10 mm from a pivot 6 mm above the face, leaning 15 deg down the slope (off).
+    # q is 0 there and 30 deg against the top edge (on)
+    geoms:
+      - {type: capsule, fromto: [46.74, 0, 80.74, 55.4, 0, 85.74], radius: 1.5, rgba: [0.75, 0.75, 0.78, 1], mass: 0.002}
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [46.74, 0, 80.74], range: [0, 30], damping: 0.002, armature: 0.0002}
+    snap: {nm: 0.012, centre_deg: 15}
+
+objects:
+  - name: beaker_1
+    part: beaker
+    root: rest
+    mass_kg: 0.008
+    rgba: [0.90, 0.93, 0.95, 1]
+    collar: [100, 130, 57.6]
+    collar_top: [100, 130, 60.6]
+    # the beaker's profile, from its collar top down: [radius, from, to]. The taper is what lets a tight bore stop it high
+    stack: [[9.5, -6, -8.6], [8.0, -8.6, -17.0], [7.2, -17.0, -22.0], [6.0, -22.0, -28.0], [5.0, -28.0, -34.0], [4.0, -34.0, -40.0], [3.0, -40.0, -46.5], [2.0, -46.5, -55.0]]
+    boxes:
+      - {x: [0.8, -0.6, 0], at: [0, 0, -3.0], half: [9.0, 11.0, 3.0]}    # collar, 18 mm across its flats
+      - {x: [0.8, -0.6, 0], at: [0, 0, 8.6], half: [1.5, 7.0, 7.0]}      # lifting loop
+
+display: {root: hotplate, centre: [60.3, -12, 30.0], normal: [1, 0, 0], up: [0, 0, 1], size: [22.0, 11.0]}
+light: {root: hotplate, centre: [5, 45, 61.3], radius: 4, colours: {"off": [0.25, 0.06, 0.05, 1], red: [0.95, 0.1, 0.05, 1]}}
+
+controls:
+  - {id: dial_1, kind: dial, body: $heat_body, top: [46.04, -50.5, 80.04], normal: [0.7071, 0, 0.7071], x: [0.5, -0.7071, -0.5], size: [18, 18, 11], knob_radius: 5.0, knob_height: 11, fin_length: 18, fin_width: 3, fin_height: 11, floor_gap: 5, one_sided: true, range_deg: [-270, 0]}
+  - {id: dial_2, kind: dial, body: $stir_body, top: [46.04, 50.5, 80.04], normal: [0.7071, 0, 0.7071], x: [0.5, -0.7071, -0.5], size: [18, 18, 11], knob_radius: 5.0, knob_height: 11, fin_length: 18, fin_width: 3, fin_height: 11, floor_gap: 5, one_sided: true, range_deg: [-270, 0]}
+  - {id: toggle_1, kind: toggle, body: power_lever, hinge: [46.74, 0, 80.74], normal: [0.7071, 0, 0.7071], lean: [0.7071, 0, -0.7071], tip: [55.4, 0, 85.74], size: [10, 10, 11.5], lever_len: 11.5, lever_radius: 1.5, base_size: [10, 10, 3]}
+  - {id: display_1, root: hotplate, kind: display, pos: [60.3, -12, 30.0], normal: [1, 0, 0], x: [0, 1, 0], size: [22, 11, 0.5]}
+  - {id: well_1, root: hotplate, kind: well, reads: true, pos: [-26, 0, 66.0], normal: [0, 0, 1], x: [1, 0, 0], size: [16.8, 16.8, 1], collar: [-26, 0, 71.6]}
+  - {id: well_2, root: rest, kind: well, pos: [100, 130, 52.0], normal: [0, 0, 1], x: [0.8, -0.6, 0], size: [16.8, 16.8, 1], collar: [100, 130, 57.6]}
+  - {id: beaker_1, kind: object, object: beaker_1, collar_top: 0.0, jaw_axis: [0.8, -0.6, 0], flats: 18, grips: [{at: [100, 130, 69.2], axis: [0.6, 0.8, 0], width: 14, depth: 6.0}, {at: [100, 130, 69.2], axis: [0.8, -0.6, 0], width: 3, depth: 6.0}, {axis: [0.6, 0.8, 0], width: 22, depth: 1.0}, {axis: [0.8, -0.6, 0], width: 18}]}
+
+# Faces the probe touches to find where each root really is (inventory.py): faces toward the arm only.
+registration:
+  hotplate:
+    touches:
+      - {at: [60.0, -45.0, 45.0], normal: [1, 0, 0]}    # front panel, either side of the display
+      - {at: [60.0, 45.0, 45.0], normal: [1, 0, 0]}
+  rest:
+    follows: hotplate
+    touches:
+      - {at: [115.0, 130.0, 25.0], normal: [1, 0, 0]}   # the rest block's front face
+
+# The Pico's firmware, as data. Channel names are its serial events (wiring.md).
+# heat: set temperature, C. stir: set speed, rpm. motor: the stirrer's drive, rpm. heater: the plate's relay.
+# hot: the HOT lamp. vessel: the cradle's beam.
+firmware:
+  channels: {power: 0, heat: 0, stir: 0, vessel: 0, motor: 0, heater: 0, hot: 0}
+  sensors:
+    - {channel: power, joint: power_lever, when: "q > radians(15)", hysteresis: 0.05}
+    - {channel: heat, joint: heat_knob, value: "25 * round(-q / radians(270) * 12)"}
+    - {channel: stir, joint: stir_knob, value: "100 * round(-q / radians(270) * 15)"}
+    # the beaker's collar breaks a beam: seated means its reference point is within this box of the cradle
+    - {channel: vessel, object: beaker_1, root: hotplate, near: [-26, 0, 71.6], radius_mm: 3, height_mm: 2.5}
+  states:
+    dark:     {show: {lcd: "", ring: "off"}}
+    idle:     {show: {lcd: "{heat}C {stir}RPM", ring: "off"}}
+    stirring: {show: {lcd: "{heat}C {stir}RPM", ring: "off"}}
+    heating:  {show: {lcd: "{heat}C {stir}RPM", ring: red}}
+    warm:     {show: {lcd: "{heat}C {stir}RPM", ring: red}}    # on, heater off, plate still hot
+    cooling:  {show: {lcd: "", ring: red}}                     # off, plate still hot
+    refused:  {show: {lcd: "NO VESSEL", ring: "off"}}
+  start: dark
+  transitions:
+    # power off: a hot plate keeps its HOT lamp until it cools
+    - {from: [heating, warm], when: "power == 0 and ($keep_hot)", to: cooling, do: {heater: 0, motor: 0}}
+    - {from: [idle, stirring, heating, warm, refused], when: "power == 0", to: dark, do: {heater: 0, motor: 0, hot: 0}}
+    - {from: cooling, when: "power == 1", to: warm}
+    - {from: cooling, after: "30", to: dark, do: {hot: 0}}
+    - {from: dark, when: "power == 1", to: idle}
+    # nothing runs without a beaker in the cradle
+    - {from: [idle, stirring, heating, warm], when: "vessel == 0 and (heat > 0 or stir > 0)", to: refused, do: {heater: 0, motor: 0}}
+    - {from: refused, when: "heat == 0 and stir == 0 and hot == 1", to: warm}
+    - {from: refused, when: "heat == 0 and stir == 0", to: idle}
+    # heating, with or without stirring
+    - {from: [idle, stirring, warm, refused], when: "vessel == 1 and heat > 0", to: heating, do: {heater: 1, hot: 1, motor: "(stir)"}}
+    - {from: heating, when: "heat == 0", to: warm, do: {heater: 0}}
+    - {from: heating, when: "motor != stir", to: heating, do: {motor: "(stir)"}}
+    - {from: warm, when: "vessel == 1 and motor != stir", to: warm, do: {motor: "(stir)"}}
+    - {from: warm, after: "30", to: idle, do: {hot: 0}}
+    # stirring alone
+    - {from: [idle, refused], when: "vessel == 1 and heat == 0 and stir > 0", to: stirring, do: {motor: "(stir)"}}
+    - {from: stirring, when: "$stir_stop", to: idle, do: {motor: 0}}
+    - {from: stirring, when: "stir > 0 and motor != stir", to: stirring, do: {motor: "(stir)"}}

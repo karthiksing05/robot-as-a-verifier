@@ -1,0 +1,47 @@
+# How verify.py checks the LP-40 (docs/device-authoring.md). Sim truth, like device.yaml: no model reads it.
+# No step needs the stock gripper (nothing is picked), so every check uses the probe.
+effector: probe
+
+reach:
+  reachable: [button_1, button_2, dial_1, toggle_1, handle_1]
+
+# The manual's procedure on Rev B: power on, set darkness, feed a label, print one, then open the cover, see PRINT
+# refused with COVER, and close it again.
+workflow:
+  rev: B
+  steps:
+    - {skill: flip, target: toggle_1, expect: {readings: {power: 1}, state: ready, ring: white, lcd: "DARK 1  000"}}
+    - {skill: turn, target: dial_1, params: {angle: -60}, expect: {changed: [darkness], lcd: "DARK [2-9]  000"}}
+    - {skill: press, target: button_1, expect: {changed: [btn_feed, run]}}
+    - {wait_s: 1.5, expect: {state: ready, readings: {count: 0}}}
+    - {skill: press, target: button_2, expect: {changed: [btn_print, run]}}
+    - {wait_s: 4, expect: {state: ready, ring: white, readings: {count: 1, run: done}, lcd: "DARK [2-9]  001"}}
+    - {skill: hook_pull, target: handle_1, expect: {readings: {cover: 0}}}
+    - {skill: press, target: button_2, expect: {state: refused, lcd: COVER, ring: red, readings: {count: 1}}}
+    - {skill: hook_pull, target: handle_1, params: {angle: 0}, expect: {readings: {cover: 1}, state: ready}}
+
+# Each fault's steps test that fault alone. Switch sensors read with the power off.
+faults:
+  F1:   # FEED's travel ends before its switch closes
+    steps:
+      - {skill: press, target: button_1, expect: {verdict: PASS, changed: [btn_feed]}}
+    fails_at: 0
+  F2:   # PRINT with the cover open must be refused. The operator powers it and opens the cover by hand: the switch and
+        # the lip (F3) are not under test here. F2m does the same through the arm on M1
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, state: ready}}
+      - {set_joint: {name: cover, deg: 100}, expect: {readings: {cover: 0}}}
+      - {skill: press, target: button_2, expect: {changed: [btn_print], state: refused, lcd: COVER, ring: red}}
+    fails_at: 2
+  F2m:  # the mixed revision: with the lip fixed alone, the arm opens the cover and PRINT's missing check shows
+    rev: M1
+    good_rev: B
+    steps:
+      - {skill: flip, target: toggle_1, expect: {readings: {power: 1}, state: ready}}
+      - {skill: hook_pull, target: handle_1, expect: {readings: {cover: 0}}}
+      - {skill: press, target: button_2, expect: {changed: [btn_print], state: refused, lcd: COVER, ring: red}}
+    fails_at: 2
+  F3:   # the lip sits 2 mm above the deck: the fingertip pad can't get under it
+    steps:
+      - {skill: hook_pull, target: handle_1, expect: {readings: {cover: 0}}}
+    fails_at: 0

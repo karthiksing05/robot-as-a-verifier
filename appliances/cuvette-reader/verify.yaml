@@ -1,0 +1,87 @@
+# How verify.py checks the CR-600 (docs/device-authoring.md). Sim truth, like device.yaml: no model reads it.
+# The probe runs the switch, button and lid checks. pick and place need the stock gripper.
+effector: probe
+
+reach:
+  reachable: [button_1, button_2, toggle_1, handle_1]
+
+# The manual's procedure on Rev B: power on, open the lid, load the cuvette from the side holder, close the lid,
+# BLANK, then READ, and the absorbance shows. pick and place need the stock gripper, so the workflow runs with it.
+workflow:
+  rev: B
+  effector: stock
+  steps:
+    - {skill: flip, target: toggle_1, expect: {readings: {power: 1}, state: ready, lcd: "READY", ring: green}}
+    - {skill: hook_pull, target: handle_1, expect: {readings: {lid: 0}}}
+    - {skill: pick, target: cuvette_1}
+    - {skill: place, target: cuvette_1, params: {into: well_1}, expect: {readings: {cuvette: 1}}}
+    - {skill: hook_pull, target: handle_1, params: {angle: 0}, expect: {readings: {lid: 1}}}
+    - {skill: press, target: button_1, expect: {state: [blanking, blanked], lcd: "BLANKING|BLANK OK"}}
+    - {wait_s: 3, expect: {state: blanked, lcd: "BLANK OK", ring: green}}
+    - {skill: press, target: button_2, expect: {state: [reading, result], lcd: "READING|A=0.42"}}
+    - {wait_s: 3, expect: {state: result, lcd: "A=0.42", ring: green, readings: {meas: read}}}
+
+# A press takes longer than the 2 s measurement, so a press step accepts the measurement or its result.
+# Each fault's steps test that fault alone. Switch sensors read with the power off. Where power is needed but not under
+# test, the operator sets the switch (set_joint), as flip is not under test there. drop_object is the operator
+# lowering the cuvette over the slot from above the slot's bore (lift 34 mm: its bottom starts above the bore).
+faults:
+  F1:   # READ before any BLANK, lid shut, no cuvette: the blank check comes before the sample check, so this alone shows it
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, state: ready, lcd: "READY"}}
+      - {skill: press, target: button_2, expect: {lcd: "BLANK FIRST", readings: {meas: "refused:BLANK"}}}
+    fails_at: 1
+  F1s:  # the same with a cuvette seated: the fault gives a reading with no blank
+    rev: "F1=A,F2=B,F3=B,F4=B"
+    steps:
+      - {set_joint: {name: lid, deg: 100}, expect: {readings: {lid: 0}}}
+      - {drop_object: {name: cuvette_1, into: well_1, lift_mm: 34}, expect: {readings: {cuvette: 1}}}
+      - {set_joint: {name: lid, deg: 0}, expect: {readings: {lid: 1}}}
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, state: ready}}
+      - {skill: press, target: button_2, expect: {lcd: "BLANK FIRST", state: no_blank}}
+    fails_at: 4
+  F1m:  # unmasked with the lid fixed and the tight slot still in (M1's F1, F2 and F3; F4 fixed so READ is READ)
+    rev: "F1=A,F2=B,F3=A,F4=B"
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, state: ready}}
+      - {skill: press, target: button_2, expect: {lcd: "BLANK FIRST"}}
+    fails_at: 1
+  F2:   # the lid stands proud, so with the cuvette seated and the lid let down, BLANK still shows LID
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, state: ready}}
+      - {set_joint: {name: lid, deg: 100}, expect: {readings: {lid: 0}}}
+      - {drop_object: {name: cuvette_1, into: well_1, lift_mm: 34}, expect: {readings: {cuvette: 1}}}
+      - {set_joint: {name: lid, deg: 0}}
+      - {skill: press, target: button_1, expect: {state: [blanking, blanked], lcd: "BLANKING|BLANK OK"}}
+      - {wait_s: 3, expect: {lcd: "BLANK OK"}}
+    fails_at: 4
+  F2h:  # the same lid closed by the arm's own hook: the operator opens it, the arm closes it, and the lid switch must close.
+        # (Opening is not under test here: on Rev A the proud lid's lip isn't where a shut lid's is, and the hook can
+        # stop on it going in, which would fail this check for the wrong reason.)
+    rev: "F1=B,F2=A,F3=B,F4=B"
+    steps:
+      - {set_joint: {name: lid, deg: 100}, expect: {readings: {lid: 0}}}
+      - {skill: hook_pull, target: handle_1, params: {angle: 0}, expect: {verdict: [PASS, OBSERVED, FAIL], readings: {lid: 1}}}
+    fails_at: 1
+  F3:   # the cuvette stops on the tight bore, high, and the beam never sees it
+    steps:
+      - {set_joint: {name: lid, deg: 100}, expect: {readings: {lid: 0}}}
+      - {drop_object: {name: cuvette_1, into: well_1, lift_mm: 34}, expect: {readings: {cuvette: 1}}}
+    fails_at: 1
+  F3p:  # the same with pick and place (stock gripper)
+    rev: "F1=B,F2=B,F3=A,F4=B"
+    effector: stock
+    steps:
+      - {set_joint: {name: lid, deg: 100}, expect: {readings: {lid: 0}}}
+      - {skill: pick, target: cuvette_1}
+      - {skill: place, target: cuvette_1, params: {into: well_1}, expect: {readings: {cuvette: 1}}}
+    fails_at: 2
+  F4:   # the BLANK key (button_1 by the manual's layout) closes READ's input
+    steps:
+      - {skill: press, target: button_1, expect: {changed: [btn_blank], unchanged: [btn_read]}}
+    fails_at: 0
+  F4b:  # and the READ key closes BLANK's
+    rev: "F1=B,F2=B,F3=B,F4=A"
+    steps:
+      - {skill: press, target: button_2, expect: {changed: [btn_read], unchanged: [btn_blank]}}
+    fails_at: 0
