@@ -15,9 +15,9 @@ class Contract(BaseModel):
 # --- vocabularies -------------------------------------------------------------------------------
 
 Skill = Literal[
-    # implemented in system-1/sim/affordances.py
+    # implemented in system-1/core/affordances.py
     "press", "flip", "slide", "turn", "push_latch",
-    # planned (system-1/sim does not implement these yet)
+    # planned (system-1/core does not implement these yet)
     "press_hold", "hook_pull",
     # no motion: read a display or light with the camera
     "observe",

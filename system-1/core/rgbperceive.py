@@ -89,7 +89,7 @@ PLANE_INSET = 0.015     # and this far inside the survey's panel edge
 
 @dataclass
 class Capture:
-    frame: object       # sensors.Frame (no depth)
+    frame: object       # rig.Frame (no depth)
     view: int           # index into scene.views
     partner: bool       # the capture PARTNER_SHIFT to the side of its view
     extra: bool = False  # from a view added for a candidate few views saw (its pose is fitted to the others')

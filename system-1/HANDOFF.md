@@ -11,7 +11,7 @@ The server now shares two of explore.py's rules. Each touch falls back on its ow
 A `--robot real` backend would be `PipelineRobot` over `hw_rig.make_rig`, with its own flag for the serial port, such as `--arm-port` (`--port` is the HTTP port). Before it's useful it needs:
 
 - A streaming device readout instead of `OperatorReadout`. That one asks the operator once a step ends, but `affordances` reads `arm.app.readings` during a slide or turn.
-- A hand-eye calibration. Wrist poses from forward kinematics are good to about a degree, and the plane sweep needs about 0.1°.
+- A hand-eye calibration, the camera's mount offset on the gripper. Every part the scan finds is shifted by it, so presses land off centre. The plane sweep doesn't need it: an offset shared by every photo cancels out, and the bundle adjustment corrects each photo's own error from the joints.
 - The bench numbers on [the real-arm page](sim/docs/real-arm.md): servo stiffness and bus timing.
 
 A later `explore` can take an area of the panel from System 2 and scan only that. It would be built from `perceive.plan_views` and `rgbperceive.scan`, as `perceive_rgb` already does for the extra views of parts too few photos saw, and would go in `core/pipeline.py` with a `PipelineRobot` method.

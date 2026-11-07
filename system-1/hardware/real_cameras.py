@@ -13,7 +13,7 @@ real_wrist.py. The pipeline runs on them unchanged.
     wrist.close(); phone.close(); video.close()
 
 `arm` is anything with the SimArm calls the sim's cameras use: arm.m (the MuJoCo model, for forward kinematics),
-arm.qadr and arm.read_q(). real_arm.RealArm has them, so does robot.SimArm. A capture returns a sensors.Frame:
+arm.qadr and arm.read_q(). real_arm.RealArm has them, so does robot.SimArm. A capture returns a rig.Frame:
 rgb (BGR uint8), depth (m, 0 = invalid, or None), K, T_base_cam (arm frame, OpenCV axes), t (time.monotonic(), as
 the frame arrived), name, raw_depth.
 

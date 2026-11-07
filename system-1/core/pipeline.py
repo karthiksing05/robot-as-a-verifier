@@ -1,6 +1,7 @@
 """System 1's routine on a device, one call per stage, on any rig (rig.Rig: an arm and its cameras). explore.py films
 these stages and the tool server runs them. A touch stage that fails hands back what the scan found and the exception,
-so the caller can say so and go on. Finer exploration steps, such as scanning one area of the panel, belong here too.
+so the caller can say so and go on; a SafetyStop is raised instead, since the arm stopped. Finer exploration steps, such
+as scanning one area of the panel, belong here too.
 
     scene = scan_device(arm, None, wrist)              # None: the wrist camera surveys too
     plane, touched, err = touch_plane(arm, scene)      # err: the touch-offs failed, and plane is the scan's
@@ -12,6 +13,7 @@ from dataclasses import replace
 
 import perceive
 import rgbperceive
+import rig
 import touch
 
 
@@ -25,6 +27,8 @@ def touch_plane(arm, scene):
     """(the panel plane in the probe's frame, the touch-off points, None), or (the scan's plane, [], the exception)."""
     try:
         return (*touch.touch_plane(arm, scene), None)
+    except rig.SafetyStop:  # the arm stopped on a force or workspace limit: not a scan to fall back on
+        raise
     except Exception as e:
         return scene.plane[0], [], e
 
@@ -33,6 +37,8 @@ def touch_parts(arm, scene, plane):
     """(the parts with touched heights, None), or (the scanned parts, the exception)."""
     try:
         return touch.touch_parts(arm, scene, scene.parts, plane), None
+    except rig.SafetyStop:
+        raise
     except Exception as e:
         return scene.parts, e
 
@@ -45,6 +51,8 @@ def last_look(wrist, plane, depth=False, sam=None):
     def refine(arm, p):
         try:
             return look(arm, p)
+        except rig.SafetyStop:
+            raise
         except Exception as e:
             traceback.print_exc()
             why = f"{type(e).__name__}: {e}"

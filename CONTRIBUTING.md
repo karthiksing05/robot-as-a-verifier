@@ -13,7 +13,7 @@ For a change inside a folder you own, merging directly is fine. If it touches so
 ## The rules that keep this easy
 
 - **Know which system you're in.** The robot is System 1, and the harness, LLM and Console are System 2. [System 1 and System 2](docs/system-boundary.md) says where code goes and what may cross between them.
-- **System 2 imports only `rav_interface` from System 1, and System 1 imports nothing from System 2.** If you need a number from the other side, add it to the contract. Don't reach across, even when both run on your laptop. `system-1/sim` stays flat modules, with no dependency on the rest of the repo.
+- **System 2 imports only `rav_interface` from System 1, and System 1 imports nothing from System 2.** If you need a number from the other side, add it to the contract. Don't reach across, even when both run on your laptop. `system-1/core`, `sim` and `hardware` stay flat modules, with no dependency on the rest of the repo, and `core` imports nothing from the other two.
 - **The model thinks, code moves, sensors decide.** The model picks routines and proposes plans and patches. It never commands a joint, and it never decides a verdict or the reward.
 - **Steering takes effect between steps**, never inside a motion. The E-stop is separate and always available.
 - **A person approves a plan before it runs, and a patch before it prints.** Amended plans go by [priority level](docs/system-boundary.md#approving-an-amended-plan). Only mocks may auto-approve.

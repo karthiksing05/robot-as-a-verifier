@@ -30,7 +30,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "camera_out")
-SIM = os.path.join(HERE, "..", "..", "core")  # segmodels.py, the robot's image models
+CORE = os.path.join(HERE, "..", "..", "core")  # segmodels.py, the robot's image models
 # where the board is shown: screen pixels, mm per pixel, squares
 TARGETS = {
     "tab": dict(px=(2304, 1440), mm_per_px=10.9 * 25.4 / math.hypot(2304, 1440), squares=(9, 6)),  # 10.9" 2304x1440
@@ -47,7 +47,7 @@ SIZE = (1280, 720) if "--720" in sys.argv else (1920, 1080)  # 720p is the same 
 METRIC_FLOOR_PX = 0.75  # blur_sigma reads a perfect edge as ~0.75 px (Sobel and pixel sampling); found on blurred boards
 
 os.makedirs(OUT, exist_ok=True)
-sys.path[:0] = [SIM, os.path.join(HERE, "..", "..", "hardware")]
+sys.path[:0] = [CORE, os.path.join(HERE, "..", "..", "hardware")]
 from real_wrist import FFMPEG, Capture, find_camera, load_calib  # noqa: E402  the driver the pipeline uses
 
 
