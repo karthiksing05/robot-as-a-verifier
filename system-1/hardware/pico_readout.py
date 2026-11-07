@@ -11,8 +11,8 @@ lines and keeps what DeviceMCU keeps: readings, each channel's latest value, and
 time an int channel changes after its first line. Floats are continuous, like the sim's FAN, and log no events. time is
 the laptop's time.monotonic(), which nothing reads. Reading readings every tick costs nothing: the thread swaps in a new
 dict, so a reader never sees one half updated. Once the port fails, as it does when the Pico is unplugged, the thread
-stops and the next read of either raises SafetyStop with the port's error, so a step mid-push backs the pad off as it
-would at the force cap. events is read when a step starts and ends, and also raises once no line has come for STALE_S,
+stops and the next read of either raises SafetyStop with the port's error, so a step mid-push stops and the arm goes
+home. events is read when a step starts and ends, and also raises once no line has come for STALE_S,
 so a crashed Pico stops the next step instead of failing every part.
 """
 import json
