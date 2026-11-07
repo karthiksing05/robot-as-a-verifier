@@ -414,9 +414,9 @@ class Show:
     """Draws the story from arm.on_tick: camera, 3D overlay, panels and dashboard, at FPS."""
 
     def __init__(self, arm, w, phone, wrist, video=None, viewer=None, condition="", refine=True, rgb=True, pace=1,
-                 robot=None):
+                 driver=None):
         self.arm, self.w, self.phone, self.wrist = arm, w, phone, wrist
-        self.robot = robot or arm  # the arm the pipeline drives: the SimArm, or RealArm on a simulated bus over it
+        self.driver = driver or arm  # the arm the pipeline drives: the SimArm, or RealArm on a simulated bus over it
         self.video, self.viewer, self.condition, self.refine, self.rgb = video, viewer, condition, refine, rgb
         self.pace = pace  # the scan, touch and test play this much faster (SLOP_PACE with soft servos)
         self.dash = Dashboard("Unknown device", f"no CAD, no tags   device {w.name}")
@@ -494,8 +494,8 @@ class Show:
     def hold(self, seconds):
         """Keep the arm where it is and let the video run."""
         for _ in range(round(seconds * robot.CONTROL_HZ)):
-            self.robot.send(self.robot.cmd)
-            self.robot.tick()
+            self.driver.send(self.driver.cmd)
+            self.driver.tick()
 
     def still(self, seconds, each=None):
         """Draw `seconds` of video with the sim paused, calling each(fraction done) before every frame."""
@@ -587,7 +587,7 @@ class Show:
 
     def tick(self, arm):
         f = float(np.linalg.norm(arm.contact_force_vec()))
-        r = self.robot
+        r = self.driver
         sensed = r.tip_force() if r.axial_sensor else float(np.linalg.norm(r.tip_force_vec()))
         self.forces.append((arm.d.time, sensed, f))
         if self.stage == "TOUCH":
@@ -601,7 +601,7 @@ class Show:
         """While touching: the status chip names what the probe is touching, and at each contact a marker goes
         where it really meets it (sim truth, the true force f) and the touch table gets that row, which
         touching() fills in once the touches are read."""
-        status = self.robot.status
+        status = self.driver.status
         what = status.split(":")[0].removeprefix("touch ") if status.startswith("touch ") else None
         if what:
             self.dash.status = "TOUCH  " + what
@@ -943,7 +943,7 @@ def on_usb_frame(show, frame, _):
 def perception(show):
     frame = on_usb_frame if show.rgb else on_frame
     try:
-        show.scene = pipeline.scan_device(show.robot, show.phone, show.wrist, not show.rgb,
+        show.scene = pipeline.scan_device(show.driver, show.phone, show.wrist, not show.rgb,
                                           on_stage=lambda n, s: on_stage(show, n, s),
                                           on_frame=lambda f, c: frame(show, f, c))
     except Exception as e:  # a device perception can't handle: the film says so instead of stopping short
@@ -952,9 +952,9 @@ def perception(show):
 
 def park(show):
     """The arm off to its right, clear of the panel."""
-    q, *_ = show.robot.ik.solve(np.array(PARK_TIP), np.array(PARK_AXIS), show.robot.home_q)
-    skills.go_home(show.robot)  # via home, which is clear of the device from anywhere the scan ends
-    skills.move_joints(show.robot, q)
+    q, *_ = show.driver.ik.solve(np.array(PARK_TIP), np.array(PARK_AXIS), show.driver.home_q)
+    skills.go_home(show.driver)  # via home, which is clear of the device from anywhere the scan ends
+    skills.move_joints(show.driver, q)
 
 
 def reveal(show):
@@ -1100,7 +1100,7 @@ def touching(show):
     """touch.touch_plane taps bare panel three times for the panel plane in the probe's own frame, then
     touch.touch_parts taps part tops for their heights. If either fails, the film logs it and goes on with
     what vision found."""
-    s, arm = show.scene, show.robot
+    s, arm = show.scene, show.driver
     V = s.plane[0]
     show.set_stage("TOUCH")
     show.speed, show.dash.perceiving = TOUCH_SPEED * show.pace, "touch plane"
@@ -1163,7 +1163,7 @@ def plan(show):
     firsts = [st for i, st in enumerate(show.steps) if st["target"] not in [o["target"] for o in show.steps[:i]]]
     for i, st in enumerate(firsts):
         p = show.part(st["target"])
-        qs = affordances.preview(show.robot, p, st, s.parts) if p is not None else []
+        qs = affordances.preview(show.driver, p, st, s.parts) if p is not None else []
         qs = [q - show.arm.q_off for q in qs]  # where those commands really put the joints
         show.active, show.ghosts = st["target"], [(qs[1], GHOST)] if qs else []
         path = [show.arm.ik.fk(q)[0] for q in qs]
@@ -1184,7 +1184,7 @@ def test(show):
     live, maps = ("Wrist camera  live", show.live_wrist), ("Height map  |  colour map   parts", show.map_panel)
     show.panels = [maps, live] if show.rgb else [live, maps]
     show.panels.append(("Probe contact force", show.force_plot))
-    skills.go_home(show.robot)
+    skills.go_home(show.driver)
     k = [-1]
 
     def on_step(step, result):
@@ -1197,7 +1197,7 @@ def test(show):
             show.log(step_text(step))
             if p is not None:  # the whole panel, close, from 60 deg to the side: the arm stays clear of the LCD
                 show.shot(np.vstack([show.panel, p.pos + 0.08 * p.normal]), -60, -35, fill=0.9, orbit=-1.0)
-                qs = [] if show.refine else affordances.preview(show.robot, p, step, s.parts)
+                qs = [] if show.refine else affordances.preview(show.driver, p, step, s.parts)
                 if qs:
                     show.aimed(p, qs[1])
             return
@@ -1219,7 +1219,7 @@ def test(show):
     else:
         found = pipeline.last_look(show.wrist, None, depth=True)
         refine = lambda arm, p: show.refined(p, found(arm, p))
-    show.results = affordances.run_plan(show.robot, s.parts, show.steps, on_step=on_step, refine=refine)
+    show.results = affordances.run_plan(show.driver, s.parts, show.steps, on_step=on_step, refine=refine)
     show.active, show.only_active = None, False
 
 
@@ -1247,7 +1247,7 @@ def report(show):
     show.panels = [("Height map  |  colour map   parts", show.map_panel()), ("iPhone  parts", show.phone_parts),
                    ("Wrist camera  live", show.live_wrist)]
     show.shot(show.device, -35, -20, fill=0.85, orbit=-1, shift=0.38)
-    skills.move_joints(show.robot, show.robot.home_q)
+    skills.move_joints(show.driver, show.driver.home_q)
     show.hold(0.5)
     show.report = rows  # once the camera has pulled back, so the card doesn't cover the device
     show.hold(7.5)
@@ -1318,7 +1318,7 @@ def main(argv=None):
         os.makedirs(os.path.dirname(os.path.abspath(args.record)), exist_ok=True)
         video = viz.Video(args.record, FPS)
     show = Show(sim, sim.world, phone, wrist, video, viewer, condition, refine=not args.no_refine, rgb=not args.depth,
-                pace=SLOP_PACE if args.slop else 1, robot=arm)
+                pace=SLOP_PACE if args.slop else 1, driver=arm)
     show.wrist_survey = not args.depth  # the team dropped the iPhone; only the D405 route still uses it
     t0 = time.perf_counter()
     try:

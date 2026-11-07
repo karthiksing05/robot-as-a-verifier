@@ -50,8 +50,10 @@ def real_driver(sim, pace=False):
     sim needs slop and sensing="current", as RealArm estimates force from the servos. The bus opens no port, so
     enable() here moves nothing real. The SimArm stays at arm.bus.fake.sim, for sim truth."""
     assert sim.sensing == "current", "RealArm senses force with the servos: it needs slop=True, sensing='current'"
-    sys.path[:0] = [HARDWARE, os.path.join(HARDWARE, "tests")]  # here, so the sim alone needs no LeRobot
-    import fake_bus
+    for p in (HARDWARE, os.path.join(HARDWARE, "tests")):  # after core and sim, so they shadow neither
+        if p not in sys.path:
+            sys.path.append(p)
+    import fake_bus  # here, so the sim alone needs no LeRobot
     import real_arm
     arm = real_arm.RealArm(fake_bus.make(sim, tempfile.mkdtemp(prefix="fake_bus_")), app=sim.app, pace=pace)
     arm.enable(confirm=True)
