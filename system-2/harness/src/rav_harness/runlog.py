@@ -20,6 +20,7 @@ class RunLog:
         self.path = self.dir / "events.jsonl"
         self.path.write_text("")
         self.seq, self.t0, self.on_event = 0, time.monotonic(), on_event
+        self.wall0 = time.time()
 
     def emit(self, type_: str, payload: BaseModel | dict) -> RunEvent:
         expected = PAYLOADS[type_]

@@ -1,0 +1,9 @@
+{
+  "_about": "How eval scores a run against the answer key. Faults listed here get an honest inconclusive from System 1's sensor rules, because a jam reads the same as a pad on a part's edge: a run is marked down only for calling them passed. An answer key fault can also say \"expect\": \"inconclusive\" itself. needs_an_object lists fault properties that only show with an object placed in the device: the robot can't pick, so a run handles them by not calling the part passed.",
+  "inconclusive_by_design": [
+    "stuck_dial"
+  ],
+  "needs_an_object": [
+    "accepts_object"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "cuvette-reader",
+  "name": "CR-600 cuvette photometer",
+  "summary": "A single-wavelength cuvette photometer: power switch, BLANK and READ buttons, a sample slot under a hinged lid, a side holder with one square cuvette, a display and a status light.",
+  "kind": "sim",
+  "sim": { "path": "appliances/cuvette-reader/device.yaml", "rev": "A", "revs": ["A", "B", "M1"] },
+  "manual": "appliances/cuvette-reader/manual.md",
+  "products": ["CR-600 cuvette photometer (sim)"],
+  "rules": ["Usable with no thumbs"],
+  "split": "validation",
+  "created": "2026-11-07"
+}

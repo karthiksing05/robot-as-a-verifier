@@ -1,0 +1,12 @@
+{
+  "id": "interval-timer",
+  "name": "IT-90 lab interval timer",
+  "summary": "A benchtop lab countdown timer: power switch, +MIN, +SEC and START/STOP buttons, an MM:SS display and a status light.",
+  "kind": "sim",
+  "sim": { "path": "appliances/interval-timer/device.yaml", "rev": "A", "revs": ["A", "B", "M1"] },
+  "manual": "appliances/interval-timer/manual.md",
+  "products": ["IT-90 lab interval timer (sim)"],
+  "rules": ["Usable with no thumbs"],
+  "split": "dev",
+  "created": "2026-11-07"
+}

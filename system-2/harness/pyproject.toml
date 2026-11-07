@@ -14,6 +14,7 @@ packages = ["src/rav_harness"]
 
 [project.scripts]
 rav = "rav_harness.cli:main"
+rav-agent = "rav_harness.service:main"
 
 [tool.uv.sources]
 rav-contracts = { workspace = true }

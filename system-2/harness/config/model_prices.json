@@ -1,0 +1,9 @@
+{
+  "_about": "US dollars per million tokens, from your Snowflake account's price list. Leave a model's numbers null until someone has confirmed them. cached_input and cache_write are optional. Keyed by the name the provider uses.",
+  "models": {
+    "claude-haiku-5-5": {"input": null, "output": null, "cached_input": null, "cache_write": null},
+    "claude-sonnet-5-5": {"input": null, "output": null, "cached_input": null, "cache_write": null},
+    "openai-gpt-5.4": {"input": null, "output": null, "cached_input": null},
+    "grok-4.7": {"input": null, "output": null, "cached_input": null}
+  }
+}

@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from collections.abc import Generator
 
-from rav_contracts import (Checkpoint, Control, Decision, Escalation, EscalationPolicy, Plan,
-                           RoutineHandle, RoutineName, SceneInventory, SceneReport, Step, StepSummary, StepTrace,
+from rav_contracts import (ActionSpec, Checkpoint, Control, Decision, Escalation, EscalationPolicy, Plan,
+                           Frame, RoutineHandle, RoutineName, SceneInventory, SceneReport, Step, StepSummary, StepTrace,
                            StepVerdict, SystemStatus, TestRequest)
 
 from .analyst import rule_analyst
@@ -70,13 +70,17 @@ class FakeSystem1:
         self.routines, self.resumes, self.executed = 0, [], []
 
     def system_status(self) -> SystemStatus:
-        return SystemStatus(state="idle", robot="fake", skills=["press", "push_latch", "observe"])
+        return SystemStatus(state="idle", robot="fake", skills=["press", "push_latch", "observe"], max_force_n=14.0, actions=[
+            ActionSpec(skill="press", kinds=["button"]), ActionSpec(skill="push_latch", kinds=["door"]), ActionSpec(skill="observe", kinds=["display"])])
 
     def scene_get(self) -> SceneReport:
         return self.report
 
     def evidence_get(self, ref: str) -> StepTrace:
         return self.traces[ref]
+
+    def evidence_frame(self, ref: str) -> Frame:
+        raise ToolRejected("unknown_target", f"no frame called {ref}")
 
     def routine_start(self, routine: RoutineName, plan: Plan | None = None, policy: EscalationPolicy | None = None) -> RoutineHandle:
         self.routines += 1

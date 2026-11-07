@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import tempfile
 import time
@@ -11,6 +12,7 @@ from rav_contracts import POLICIES, TestRequest
 from .commands import explore as explore_command
 from .loop import fix_and_retest, run_test
 from .mock import mock_analyst, mock_system_1
+from .model import DEFAULT_MODEL, MODELS
 from .runlog import RunLog
 
 
@@ -81,6 +83,76 @@ def explore(args) -> None:
     print(f"fallback plan {plan.plan_id}: {len(plan.steps)} steps")
 
 
+def up(args) -> None:
+    from .service import Service
+
+    service = Service(args.runs, args.port)
+    print(f"rav-agent on http://127.0.0.1:{service.port}. Open Live in the Console.")
+    service.serve()
+
+
+def agent(args) -> None:
+    """One model run on a running server, with plans auto-approved: sim only."""
+    from .agent import run_agent, sim_auto_approve
+    from .manual import Manual
+    from .model import make_client
+
+    run_id = args.id or f"agent-{int(time.time())}"
+    system1 = _connect(args)
+    try:
+        report = run_agent(system1, TestRequest(request_id=run_id, product=args.product), RunLog(run_id, args.runs), make_client(args.model, args.fallback, effort=args.effort, run=run_id),
+                           approve=sim_auto_approve, manual=Manual(args.manual) if args.manual else None)
+    finally:
+        system1.close()
+    _print(report)
+
+
+def _budget(args):
+    from .ledger import Budget
+
+    return Budget(args.budget_usd, no_price_ok=args.no_price_ok, token_cap=args.token_cap)
+
+
+def spend(args) -> None:
+    from .ledger import spend_table
+
+    print(spend_table())
+
+
+def soft(args) -> None:
+    from .soft import format_table, run_round_one
+
+    models = args.models.split(",") + (["rules"] if args.baseline else [])
+    from .soft import SCENARIOS
+    chosen = [c for c in SCENARIOS if not args.scenarios or c.name in args.scenarios.split(",")]
+    done = run_round_one(models, args.runs, _budget(args), chosen)
+    print(format_table(done["summary"]))
+    if done["stopped"]:
+        print(f"stopped early: {done['stopped']}")
+    print(f"every run: {done['folder']}/results.json")
+
+
+def evaluate(args) -> None:
+    from .eval import run_matrix
+
+    models = args.models.split(",") + (["rules"] if args.baseline else [])
+    if args.appliances:
+        from .eval import run_authored
+
+        rate = float(args.error_rates.split(",")[0])
+        done = run_authored(args.appliances.split(","), models, rate, args.base_seed, args.error_schedule, args.effector, args.runs, budget=_budget(args))
+        if done.get("stopped"):
+            print(f"stopped early: {done['stopped']}")
+        print(json.dumps(done["summary"], indent=2))
+        print(f"every run: {done['folder']}/results.json")
+        return
+    done = run_matrix(args.devices.split(","), args.faults.split(","), [float(r) for r in args.error_rates.split(",")], models, args.repeats, args.route, args.runs, args.base_seed, budget=_budget(args), error_schedule=args.error_schedule)
+    if done.get("stopped"):
+        print(f"stopped early: {done['stopped']}")
+    print(json.dumps(done["summary"], indent=2))
+    print(f"every run: {done['folder']}/results.json")
+
+
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(prog="rav", description=__doc__)
     ap.add_argument("--runs", default="runs", help="where run folders go")
@@ -102,6 +174,41 @@ def main(argv=None) -> None:
         c.set_defaults(fn=fn)
     r = sub.choices["run"]
     r.add_argument("--product", default="Device under test")
+    a = sub.add_parser("agent", help="one run with the frontier model at the controls, on a running server (sim: plans auto-approve)")
+    a.add_argument("--url", default="http://127.0.0.1:8780/mcp")
+    a.add_argument("--id", default=None)
+    a.add_argument("--product", default="Device under test")
+    a.add_argument("--model", default=DEFAULT_MODEL, help="a model on Snowflake Cortex")
+    a.add_argument("--effort", default=None, choices=["low", "medium", "high"], help="ask Claude models for reasoning text, at this effort")
+    a.add_argument("--fallback", default=None)
+    a.add_argument("--manual", default=None, help="a PDF or text file")
+    a.set_defaults(fn=agent)
+    u = sub.add_parser("up", help="rav-agent: start, watch and steer runs from the Console")
+    u.add_argument("--port", type=int, default=8790)
+    u.set_defaults(fn=up)
+    e = sub.add_parser("eval", help="a matrix of runs, each on a fresh server, scored from the answer key")
+    e.add_argument("--devices", default="C", help="comma-separated: C or a seed")
+    e.add_argument("--faults", default="none", help="comma-separated: none, random, or a fault name")
+    e.add_argument("--error-rates", default="0")
+    e.add_argument("--error-schedule", default=None, metavar="WHEN:KIND,...", help="force these robot errors on every run, such as 5:device_moved_silent")
+    e.add_argument("--repeats", type=int, default=1)
+    e.add_argument("--appliances", default=None, help="authored devices as id:rev, comma-separated, such as interval-timer:A. In place of --devices")
+    e.add_argument("--effector", default="probe", choices=["probe", "stock"])
+    e.add_argument("--models", default=",".join(MODELS))
+    e.add_argument("--baseline", action="store_true", help="also run the rule-based plan on each")
+    e.add_argument("--route", default="depth", choices=["depth", "rgb"])
+    e.add_argument("--base-seed", type=int, default=0)
+    e.set_defaults(fn=evaluate)
+    f = sub.add_parser("soft", help="round 1: short made-up scenarios on a fake robot, per model. No sim")
+    f.add_argument("--models", default=",".join(MODELS))
+    f.add_argument("--baseline", action="store_true", help="also run the rule-based plan on each")
+    f.add_argument("--scenarios", default=None, help="comma-separated names, to run only these")
+    f.set_defaults(fn=soft)
+    for parser in (e, f):
+        parser.add_argument("--budget-usd", type=float, default=None, help="stop before starting a run that could cross this, across the whole ledger")
+        parser.add_argument("--no-price-ok", action="store_true", help="run models with no price, capped by --token-cap")
+        parser.add_argument("--token-cap", type=int, default=None)
+    sub.add_parser("spend", help="what every model call so far has cost, from the ledger").set_defaults(fn=spend)
     args = ap.parse_args(argv)
     try:
         args.fn(args)

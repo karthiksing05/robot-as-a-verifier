@@ -1,0 +1,83 @@
+{
+  "about": "Which run folders make up each round of the model comparison, and what each round tests. rav_harness.results_page reads this and system-2/runs/, and writes the Console's Models page data. Add a round's folders here when it finishes, then regenerate.",
+  "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5",
+    "openai-gpt-5.4",
+    "grok-4.7"
+  ],
+  "baseline": "rules",
+  "route": "Snowflake Cortex",
+  "reasoning": {
+    "claude-haiku-5-5": "Off in these rounds; available with adaptive thinking",
+    "claude-sonnet-5-5": "Off in these rounds; available with adaptive thinking",
+    "openai-gpt-5.4": "None returned",
+    "grok-4.7": "None returned"
+  },
+  "rounds": [
+    {
+      "id": "1",
+      "title": "Short scenarios, no sim",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "soft",
+      "folders": [
+        "soft-1107-154005",
+        "soft-1107-154819"
+      ],
+      "test_set": "Seven made-up scenarios on a fake robot, one run per model, with the same prompts for every model: plan from a manual where one step depends on another, a real fault in that procedure, a real fault next to a robot's miss, a failure that doesn't repeat, a refused request, a safety stop on a healthy product, and reading a number off an image.",
+      "fault_scenarios": [
+        "procedure_fault",
+        "fault_vs_robot_error"
+      ],
+      "spend": "0.5 Snowflake credits had been used on the account by the end of this round, including the connection tests before it.",
+      "takeaway": "All four models scored 1.00, so this round doesn't separate them. It shows that each one's tool calls and image reading work through the harness, and that each beats the rule-based baseline. The differences it does show are tokens, tool errors and turn time."
+    },
+    {
+      "id": "2",
+      "title": "Generated devices in the sim, 5% arm errors",
+      "status": "done",
+      "kind": "eval",
+      "folders": [
+        "eval-1107-164757",
+        "eval-1107-165122",
+        "eval-1107-165307",
+        "eval-1107-165455"
+      ],
+      "test_set": "The four models on two generated sim devices (seeds 7 and 13, depth route), one run each, with a random planted fault (fault seeds 7001 and 13001) and a 5% chance per action that the arm or the world misbehaves (error seed 1). The rule-based baseline ran on the same set. Every model got the same devices and faults. Errors were then drawn from a running count of actions, so models that planned differently met different errors: every model run drew one error, and both baseline runs drew a device move. Coverage tops out at 94% because device 7's knob needs a pinch grip, which the robot's turn skill doesn't take: every model reported it as untestable.",
+      "fault_scenarios": [],
+      "spend": "570,906 tokens across the four models (no Cortex prices set, so no dollar figure).",
+      "takeaway": "All four models found both planted faults, against none for the rule baseline, which stopped at a device move it can't plan around. Grok re-explored after a real device move and finished the plan. The differences were in judgment: Haiku made up a 20 mm travel limit and reported a working slider as wrong feedback; GPT-5.4 made up a contact-offset bound and got the slider called intermittent; Haiku pushed a jammed door again at 12 N and hit the 15 N safety cap, then homed correctly. Grok took about 10 s a turn, against 2 to 5 s for the others.",
+      "date": "2026-11-07"
+    },
+    {
+      "id": "2b",
+      "title": "The same set, after fixes by class",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "eval",
+      "folders": [
+        "eval-1107-171718",
+        "eval-1107-171902",
+        "eval-1107-172044",
+        "eval-1107-172307",
+        "eval-1107-172735"
+      ],
+      "test_set": "Round 2's devices, faults and seeds, with three fixes made by class and the same prompts for every model: a check against a value needs a quoted manual line or a named spec, or the plan is refused before anything moves; a part that doesn't move at its normal force limit is the finding, so a retest keeps the same limit; and a skill called as a tool is pointed at plans. Errors are now drawn from the seed and what each action is (an explore stage, or a skill on a target, and which time it has run), so two models that run the same step meet the same error. This round ran from a frozen copy of the repo made at 2026-11-07 17:13:01 EST, because other work was changing System 1 at the time. With the new draw, 5% per action gave one error in eight model runs (a slow arm on a retest), so this round says little about recovery.",
+      "fault_scenarios": [],
+      "spend": "436,287 tokens across the four models, plus 61,000 for one confirming run after a fourth fix.",
+      "takeaway": "No false findings from any model, and every model found both faults. Each model had one plan turned down for a made-up limit, and fixed it before anything moved. One new class showed up in all four: calling finish_run while the routine still held at its last failed step. Now finish_run closes it when nothing is left to run, confirmed on a rerun with no refused call. One noise flag remains: Grok's dial missed once (stopped on travel at 2.9 N), then passed, so it settled as intermittent. Grok read it as a miss, but System 1's rule calls that miss failed, not inconclusive, so it's for System 1's rules rather than the harness."
+    },
+    {
+      "id": "3",
+      "title": "The centrifuge, Rev A and Rev B",
+      "status": "planned",
+      "kind": "eval",
+      "folders": [],
+      "test_set": "The top two models on the MC-6 centrifuge in the sim, three runs each: Rev B, which should pass its whole manual workflow, and Rev A, which has three built-in faults.",
+      "fault_scenarios": [],
+      "spend": "",
+      "takeaway": ""
+    }
+  ]
+}
