@@ -24,8 +24,8 @@
             MockRobot      SimBackend, then a real-arm Robot
                                  │
                                  ▼
-                           system-1/sim: perception, skills, verdicts
-                                 │ ArmBackend
+                           system-1/core: perception, skills, verdicts
+                                 │ rig.Arm
                          ┌───────┴───────┐
                          ▼               ▼
                       SimArm      real_arm.RealArm
@@ -36,8 +36,8 @@ What crosses the boundary is a type from [`system-1/interface`](../system-1/inte
 | Interface | Between | Implementations |
 |---|---|---|
 | `System1` | Harness and whatever answers the tools | `McpSystem1`, `FakeSystem1` |
-| `Robot` | System 1's engine and what executes tests | `SimBackend`, `MockRobot`; a real-arm robot next |
-| `ArmBackend` | Sim's skills and an arm | `robot.SimArm`, `real_arm.RealArm` |
+| `Robot` | System 1's engine and what executes tests | `SimBackend` (a `PipelineRobot` on the sim's rig), `MockRobot`; a `PipelineRobot` on the real arm's rig next |
+| `rig.Arm` | The pipeline and an arm | `robot.SimArm`, `real_arm.RealArm` |
 | `CadBackend` | Harness and CAD | `ParamsBackend`, `CadQueryBackend`; Onshape to be added |
 
 ## One run
@@ -81,7 +81,7 @@ From [Self-Evolving Robots](https://claude.ai/artifact/VxmRPoiAXK3pCHxKmjgRv6). 
 | Word | Means here |
 |---|---|
 | Harness | `system-2/harness`: what runs a test. The Self-Evolving Robots doc uses the same word for its own design loop |
-| Control / part | A button, dial and so on. `Control` in contracts, `features.Part` in the sim |
+| Control / part | A button, dial and so on. `Control` in contracts, `features.Part` in `system-1/core` |
 | Finding / bug report | The same thing: one reported fault |
 | Verdict | One step's result. The sim's PASS, FAIL and so on map to contract statuses in [D9](decisions.md) |
 | Reward | Control coverage × pass rate on covered controls |
