@@ -820,24 +820,31 @@ def _slider(b, hm, img, g, ax=None):
 
 def _toggle(b, hm, img, g):
     h = np.nan_to_num(hm, nan=-1.0)
-    # the base's long side is the lever's axis; its outline gives the direction, as the nut and
-    # lever cover too much of its top for the top alone to have a clear long axis
-    foot = _filled(b["mask"] & (h > b["plateau"] / 2))
-    box = cv2.boxPoints(cv2.minAreaRect(np.argwhere(foot)[:, ::-1].astype(np.float32)))[:, ::-1]
-    e1, e2 = box[1] - box[0], box[2] - box[1]
-    ax = e1 if np.linalg.norm(e1) >= np.linalg.norm(e2) else e2
-    ax = ax / np.linalg.norm(ax)
-    across = np.array([-ax[1], ax[0]])
+    # the base's long side is the lever's axis: first from its outline, as the nut and lever cover much of its top,
+    # then from its top once the lever's overhang is cut off (below)
+    def long_axis(rc):
+        box = cv2.boxPoints(cv2.minAreaRect(rc[:, ::-1].astype(np.float32)))[:, ::-1]
+        e1, e2 = box[1] - box[0], box[2] - box[1]
+        ax = e1 if np.linalg.norm(e1) >= np.linalg.norm(e2) else e2
+        return ax / np.linalg.norm(ax)
+    ax = long_axis(np.argwhere(_filled(b["mask"] & (h > b["plateau"] / 2))))
     base = b["mask"] & (h > b["plateau"] / 2) & (h < b["plateau"] + 0.001)  # its top, clear of nut and lever
     rc = np.argwhere(base).astype(float)
     c0 = rc.mean(0)
+    s = b["sub"]
+    lever_r = s["width"] / 2
+    tip_rc = np.argwhere(s["mask"] & (h > s["h_max"] - 0.001)).mean(0)
+    # the panel under the leaning lever can read at the base's height, stretching its outline that way (6 mm on
+    # 1656, which put the hinge under the tip, and 19 deg off the axis on 1664): keep the base no further out than
+    # the lever's far side, and take the axis again from what is left
+    d = ax * (1.0 if (tip_rc - c0) @ ax > 0 else -1.0)
+    rc = rc[(rc - c0) @ d <= (tip_rc - c0) @ d + lever_r / g.cell]
+    ax = long_axis(rc)
+    across = np.array([-ax[1], ax[0]])
     a0, a1 = _extent(rc, c0, ax)
     w0, w1 = _extent(rc, c0, across)
     c = c0 + (a0 + a1) / 2 * ax + (w0 + w1) / 2 * across  # middle of the base's outline: the hinge
     base_top = float(np.median(hm[base]))
-    s = b["sub"]
-    lever_r = s["width"] / 2
-    tip_rc = np.argwhere(s["mask"] & (h > s["h_max"] - 0.001)).mean(0)
     lean = 1.0 if (tip_rc - c) @ ax > 0 else -1.0
     x = g.vec(lean * ax)
     hinge = g.point(c, base_top)
