@@ -60,9 +60,10 @@ The workspace keeps only `opencv-contrib-python` (see the root `pyproject.toml`)
    - The fingertip position follows a ruler. Slide the tip 100 mm forward and x should go up by 100. The frame has x forward, y left and z up, with z measured from the underside of the arm's base.
    - A joint that is off by a steady amount gets that amount, in radians, in `OFFSET_RAD`.
 3. **One joint at a time.** Run `python tools/arm_check.py COM5 CAL --move elbow_flex`. It asks first, then turns torque on, moves that joint 5° and back at about 2.5°/s, and waits for you to hold the arm before torque goes off. Check that it went the way the header said. It also prints the force estimate with the arm at rest. A value well over 2.5 N means the model's masses, or the servo stiffness it assumes (`real_arm.SERVO_NM_PER_RAD`), are off. Do this for each joint.
-4. **One press.** Find the button's position by resting the fingertip on the centre of its cap while `arm_check.py` runs. Use the panel's outward direction as the normal. Then:
+4. **One press.** Find the button's position by resting the fingertip on the centre of its cap while `arm_check.py` runs. Use the panel's outward direction as the normal. Then, in Python from `system-1/hardware`:
 
 ```python
+import sys; sys.path.insert(0, "../core")   # affordances, features, skills
 import numpy as np, affordances, features, real_arm, skills
 pos, normal = np.array([0.280, 0.066, 0.054]), np.array([-0.64, 0.0, 0.77])   # from arm_check, in m
 button = features.Part("button_1", "button", features.frame(pos, normal, [0, 1, 0]), size=np.array([0.012, 0.012, 0.003]))
