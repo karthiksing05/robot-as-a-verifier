@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ProjectBar } from "../components/ProjectBar";
 import { Pill, Stat, stagger } from "../components/ui";
 import type { Route } from "../lib/route";
 import { useAppSession, useRuns } from "../lib/context";
@@ -34,17 +35,13 @@ export function Project({ route }: { route: Route }) {
 
   return (
     <div className="page projectpage">
-      <a className="note" href="#/projects">← Projects</a>
+      <ProjectBar project={project} tab="story" />
       <header className="projecthero rise">
         <div className="row"><span className="tag">{project.kind === "sim" ? "Sim device" : "Physical product"}</span>{review.revisions.length > 0 && <span className="tag">Rev {review.revisions.at(-1)!.revision}</span>}</div>
         <h1 className="title">{project.name}</h1>
         {project.summary && <p className="wikilede">{project.summary}</p>}
         <b className={`headline big ${review.open.length ? "bad" : review.latest ? "good" : ""}`}>{review.headline}</b>
-        <div className="row">
-          {canRun && <a className="btn accent" href={`#/live?project=${project.id}`}>{review.latest ? "Run it again" : "Start the first run"}</a>}
-          {project.kind === "physical" && <button className="btn ghost" type="button" disabled>The real arm isn't connected</button>}
-          {project.kind === "physical" && <a className="btn ghost" href="#/cad">Open the CAD</a>}
-        </div>
+        {canRun && <div className="row"><a className="btn accent" href={`#/live?project=${project.id}`}>{review.latest ? "Run it again" : "Start the first run"}</a></div>}
         {review.evidence && <p className={`evidence ${review.evidence}`}>{EVIDENCE[review.evidence]}</p>}
       </header>
       <Story project={project} review={review} />

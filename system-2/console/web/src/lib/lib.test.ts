@@ -1,7 +1,7 @@
 import { FORE, HAND, Joints, REST, UPPER, forward, sideFor, solve, solveFree, type Point } from "./so101";
 import fs from "node:fs";
 import path from "node:path";
-import { controlStatus, projectOf, reviewOf, type Project } from "./projects";
+import { controlStatus, liveProject, projectOf, reviewOf, type Project } from "./projects";
 import { ReplayClock, nextDelay } from "./simsource";
 import { diagnose, traceFor, traceOf } from "./trace";
 import { describe, expect, it } from "vitest";
@@ -337,6 +337,15 @@ describe("project review", () => {
     expect(review.open.map((f) => f.target)).toEqual(["button_2"]);
     expect(controlStatus(review.latest!, "button_2")).toBe("failed");
     expect(review.headline).toBe("1 open fault");
+  });
+
+  it("Live follows the link, then the run on screen, then the first sim device", () => {
+    expect(liveProject("appliance", { project: projects[1] }, projects)?.id).toBe("appliance");
+    expect(liveProject(null, { project: projects[2] }, projects)?.id).toBe("sim-14");
+    expect(liveProject(null, null, projects)?.id).toBe("sim-preset-c");
+    expect(liveProject(null, { project: undefined }, projects)).toBeUndefined();
+    expect(liveProject("none", { project: projects[1] }, projects)).toBeUndefined();
+    expect(liveProject("gone", null, projects)?.id).toBe("sim-preset-c");
   });
 
   it("has nothing to say about a project with no runs", () => {

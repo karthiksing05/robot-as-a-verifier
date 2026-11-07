@@ -1,6 +1,6 @@
 // A real sim run, as it happens, from system-2/console/server/live_sim.py. Events are the same contract as a saved run;
 // telemetry (stage, cameras, force) is only for this screen. Nothing here decides or invents a result.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { RunEvent, Report, Step } from "./contracts";
 import type { GraphNode } from "./graph";
 import { toRun, type Run } from "./runs";
@@ -184,6 +184,41 @@ export async function liveCommand(path: string, body: object): Promise<string | 
   } catch {
     return "The bridge isn't reachable.";
   }
+}
+
+export interface LiveNow { running: boolean; project: string | null }
+const IDLE: LiveNow = { running: false, project: null };
+let liveNow = IDLE;
+let nowTimer = 0;
+const nowWatchers = new Set<() => void>();
+
+async function pollNow() {
+  let next = IDLE, wait = 15000; // no bridge is the usual case on a laptop, so ask rarely
+  try {
+    const health = await (await fetch(`${LIVE_URL}/health`)).json();
+    next = { running: !!health.running, project: health.project ?? null };
+    wait = 3000;
+  } catch {
+    // the bridge isn't running, so neither is a run
+  }
+  if (next.running !== liveNow.running || next.project !== liveNow.project) {
+    liveNow = next;
+    nowWatchers.forEach((fn) => fn());
+  }
+  window.clearTimeout(nowTimer);
+  if (nowWatchers.size) nowTimer = window.setTimeout(() => void pollNow(), wait);
+}
+
+/** Whether a run is going, and for which project, for screens other than Live. */
+export function useLiveNow() {
+  return useSyncExternalStore((fn) => {
+    nowWatchers.add(fn);
+    if (nowWatchers.size === 1) void pollNow();
+    return () => {
+      nowWatchers.delete(fn);
+      if (!nowWatchers.size) window.clearTimeout(nowTimer);
+    };
+  }, () => liveNow);
 }
 
 /** Follows the bridge's stream while the screen is open, and reconnects by itself if the bridge restarts. */

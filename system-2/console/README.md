@@ -2,7 +2,7 @@
 
 Part of [System 2](../README.md). The front end: everything a person sees and does during a run. Owners: Karthik and Bayan.
 
-**State:** on `karthik-frontend`. **Live** runs Joseph's MuJoCo pipeline for real through a small bridge, and every run it records can be revisited. The sample fixtures, edits and approvals on saved runs stay in the browser. Nothing reaches a real robot or Onshape until the server below exists.
+**State:** **Live** runs Joseph's MuJoCo pipeline for real through a small bridge, and every run it records can be revisited. The sample fixtures, edits and approvals on saved runs stay in the browser. Nothing reaches a real robot or Onshape until the server below exists.
 
 Style: the [Console Style Study](https://claude.ai/artifact/Wmmtfsv3LoUoZ2ENZ3Dup7), with tokens in [`web/src/styles/tokens.css`](web/src/styles/tokens.css).
 
@@ -41,6 +41,8 @@ Judges can steer but can't approve or enter Prod. A CAD patch has to be approved
 ## Projects
 
 The Console opens on projects, with one project per appliance design. A project holds its revisions and runs, and its review is computed from the run logs. Each project is a file, `system-2/subjects/<id>/project.json`, beside that product's CAD and manual.
+
+Every screen of a project (its story, Live, its CAD, its runs) has the same bar on top, for moving between them or changing project. Live starts and shows runs for the project selected there, and the bridge's `/health` says which project is running. A physical project can't run until the arm is connected, so its Live tab says so and points to the sim.
 
 A run belongs to the project it names in `TestRequest.project`. Older runs are matched by their product name. Runs that match nothing are listed under All runs.
 

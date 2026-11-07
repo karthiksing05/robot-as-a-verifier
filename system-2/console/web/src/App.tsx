@@ -1,7 +1,9 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { ChatDock } from "./components/ChatDock";
 import { SessionContext, runsFor } from "./lib/context";
 import { useEdits } from "./lib/edits";
+import { useLiveNow } from "./lib/live";
+import { useProjects } from "./lib/projects";
 import { useRoute, withTransition } from "./lib/route";
 import { ENVIRONMENTS, OPERATORS, canEnter, signOut, switchOperator, useSession } from "./lib/session";
 import { Approvals } from "./screens/Approvals";
@@ -50,6 +52,9 @@ export function App() {
   const route = useRoute();
   const [theme, setTheme] = useTheme();
   const edits = useEdits(session?.env ?? "demo");
+  const projects = useProjects();
+  const live = useLiveNow();
+  const lastProject = useRef<string | null>(null); // Live opens on the project you were just looking at
 
   // Load the 3D bench while idle, so opening it never shows a wait.
   useEffect(() => {
@@ -63,6 +68,9 @@ export function App() {
   const section = route.parts[0] ?? "projects";
   const pending = edits.filter((e) => e.state === "planned").length;
   const runId = section === "run" ? route.parts[1] : null;
+  const here = section === "project" ? route.parts[1] : section === "live" ? route.query.get("project") : section === "cad" ? projects.find((p) => p.cad)?.id : null;
+  if (here) lastProject.current = here;
+  const hrefFor = (path: string) => (path === "live" && lastProject.current ? `#/live?project=${lastProject.current}` : `#/${path}`);
 
   return (
     <SessionContext.Provider value={session}>
@@ -72,8 +80,8 @@ export function App() {
           <a className="mark" href="#/projects">RAV CONSOLE</a>
           <nav className="nav" aria-label="Main">
             {NAV.map(([path, label]) => (
-              <a key={path} href={`#/${path}`} aria-current={section === path || (path === "projects" && ["project", "run", "runs"].includes(section)) || (path === "wiki" && section === "systems") ? "page" : undefined}>
-                {label}{path === "approvals" && pending > 0 && <span className="count">{pending}</span>}
+              <a key={path} href={hrefFor(path)} aria-current={section === path || (path === "projects" && ["project", "run", "runs"].includes(section)) || (path === "wiki" && section === "systems") ? "page" : undefined}>
+                {label}{path === "live" && live.running && <i className="livedot" role="img" aria-label="running now" />}{path === "approvals" && pending > 0 && <span className="count">{pending}</span>}
               </a>
             ))}
           </nav>

@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type MouseEvent } from "react";
 import { Field } from "../components/Field";
 import { stagger } from "../components/ui";
 import { useAppSession, useRuns } from "../lib/context";
+import { useLiveNow } from "../lib/live";
 import { controlStatus, createProject, projectOf, reviewOf, useProjects, type Project } from "../lib/projects";
 import { go } from "../lib/route";
 import { ENVIRONMENTS } from "../lib/session";
@@ -38,16 +39,21 @@ export function Projects() {
 
 function ProjectCard({ project, runs, i }: { project: Project; runs: Parameters<typeof reviewOf>[0]; i: number }) {
   const review = reviewOf(runs);
-  const open = () => go(`project/${project.id}`);
+  const now = useLiveNow();
+  const stay = (e: MouseEvent) => e.stopPropagation(); // these links go somewhere other than the card does
   return (
-    <article className="panel projectcard rise" style={stagger(i)} tabIndex={0} role="link" aria-label={project.name} onClick={open} onKeyDown={(e) => { if (e.key === "Enter") open(); }}>
+    <article className="panel projectcard rise" style={stagger(i)} onClick={() => go(`project/${project.id}`)}>
       <div className="row"><span className="tag">{project.kind === "sim" ? "Sim device" : "Physical product"}</span>{review.evidence === "mock" && <span className="tag mock">Mock data</span>}</div>
-      <h2>{project.name}</h2>
+      <h2><a href={`#/project/${project.id}`}>{project.name}</a></h2>
       {project.summary && <p>{project.summary}</p>}
       <span className="spacer" />
       <b className={`headline ${review.open.length ? "bad" : review.latest ? "good" : ""}`}>{review.headline}</b>
       {review.latest && <div className="dots" aria-hidden="true">{review.controls.map((id) => <i key={id} className={controlStatus(review.latest!, id)} />)}</div>}
       <span className="note">{review.revisions.length ? `Rev ${review.revisions.map((r) => r.revision).join(", ")} / ${runs.length} run${runs.length === 1 ? "" : "s"}` : "No runs"}</span>
+      <div className="row">
+        <a className="btn ghost" href={`#/live?project=${project.id}`} onClick={stay}>{now.running && now.project === project.id ? <>Live now<i className="livedot" aria-hidden="true" /></> : "Live"}</a>
+        {project.cad && <a className="btn ghost" href="#/cad" onClick={stay}>CAD</a>}
+      </div>
     </article>
   );
 }

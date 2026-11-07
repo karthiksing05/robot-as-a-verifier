@@ -11,6 +11,7 @@ export interface Project {
   summary: string;
   kind: "physical" | "sim";
   sim?: SimDevice;
+  cad?: boolean; // it has a model on the CAD bench
   products: string[]; // runs logged under these product names belong here, for runs that don't name their project
   rules: string[];
   created: string;

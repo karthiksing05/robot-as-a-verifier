@@ -91,6 +91,7 @@ class Hub:
         self.commands: queue.Queue = queue.Queue()
         self.start: dict | None = None
         self.running = False
+        self.project: str | None = None  # the project the current run belongs to
         self.approval: str | None = None  # the name of who approved
         self.awaiting = False  # a plan is on screen: nobody can approve a plan they haven't been shown
         self.rejected = False
@@ -724,7 +725,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?")[0]
         if path == "/health":
-            self.reply(200, {"ok": True, "running": hub.running, "camera_route": importlib.util.find_spec("torch") is not None})
+            self.reply(200, {"ok": True, "running": hub.running, "project": hub.project if hub.running else None, "camera_route": importlib.util.find_spec("torch") is not None})
         elif path == "/scene.json":
             self.reply(200, hub.scene or {"run_id": None})  # polled while a run starts
         elif path.startswith("/scene/"):
@@ -902,6 +903,7 @@ def main() -> None:
             while hub.start is None:
                 hub.cond.wait()
             options, hub.start = hub.start, None
+            hub.project = options.get("project")
             hub.running = True
         try:
             run_once(options)

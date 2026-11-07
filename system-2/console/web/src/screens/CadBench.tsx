@@ -1,11 +1,13 @@
 import rawParams from "@repo/subjects/appliance/cad/params.rev_a.json";
 import { useEffect, useMemo, useState } from "react";
+import { ProjectBar } from "../components/ProjectBar";
 import { Viewer3D, type ApplianceParams } from "../components/Viewer3D";
 import { Pill, stagger } from "../components/ui";
 import type { CADPatch, ParamChange } from "../lib/contracts";
 import { runsFor, useAppSession } from "../lib/context";
 import { ENVIRONMENTS } from "../lib/session";
 import { addEdit } from "../lib/edits";
+import { useProjects } from "../lib/projects";
 
 const REV_A = rawParams as ApplianceParams;
 
@@ -62,6 +64,7 @@ function useFeed(env: ReturnType<typeof useAppSession>["env"]) {
 
 export function CadBench({ theme }: { theme: string }) {
   const { env, operator } = useAppSession();
+  const project = useProjects().find((p) => p.cad);
   const feed = useFeed(env);
   const revB = useMemo(() => applyChanges(REV_A, feed.flatMap((f) => f.changes)), [feed]);
   const [base, setBase] = useState<"A" | "B">("A");
@@ -117,6 +120,7 @@ export function CadBench({ theme }: { theme: string }) {
 
   return (
     <div className="page" style={{ maxWidth: "none" }}>
+      {ENVIRONMENTS[env].connected && project && <ProjectBar project={project} tab="cad" />}
       <div className="row">
         <div className="stack" style={{ marginRight: "auto" }}>
           <h1 className="title">CAD bench</h1>

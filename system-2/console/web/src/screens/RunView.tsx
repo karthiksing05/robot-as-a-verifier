@@ -1,3 +1,4 @@
+import { ProjectBar } from "../components/ProjectBar";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EditForm } from "../components/EditForm";
 import { ExplorationGraph } from "../components/ExplorationGraph";
@@ -91,8 +92,8 @@ function RunPage({ run, runs, edits, route }: { run: Run; runs: Run[]; edits: Op
 
   return (
     <div className="runpage">
+      {project && <ProjectBar project={project} />}
       <div className="runtop">
-        {project && <a className="note" href={`#/project/${project.id}`}>← {project.name}</a>}
         <h1 className="title">{run.product}</h1>
         <span className="mono muted">Rev {run.revision} / {run.id} / {run.status}</span>
         <span className="spacer" style={{ flex: 1 }} />
