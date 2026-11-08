@@ -1,6 +1,6 @@
 """The real rig's live window, for people watching: the wrist camera's newest frame, undistorted and at half size, with
-each part from the last scan outlined and named where the arm's last joint reading puts it (the current step's target
-in green), the gripper's mask, and the status line. During a step, its last look is inset as touch._save_look drew it
+each part from the last scan outlined and named where the arm's last joint reading puts it, nudged onto the frame by
+the scan's orthophoto (ortho_offset; the current step's target in green), the gripper's mask, and the status line. During a step, its last look is inset as touch._save_look drew it
 (the part as believed in white, SAM's outline yellow, the fitted circle green), with a red cross where the press aims.
 
 It reads camera frames and state other threads keep (arm.q, arm.status, backend.parts), never the servo bus, so it runs
@@ -17,6 +17,7 @@ import numpy as np
 SCALE = 0.5    # of the camera's frame
 INSET = 0.42   # the look's width, of the window's
 PERIOD_MS = 80
+SEARCH = 60    # px each way the scan's orthophoto is looked for round where the joints' pose puts it
 PART, TARGET, PRESS = (255, 255, 0), (0, 255, 0), (0, 0, 255)  # BGR
 
 
@@ -45,6 +46,9 @@ def run(backend):
             mujoco.mj_kinematics(wrist.m, fk)
             mujoco.mj_camlight(wrist.m, fk)
             T = rig._cv_pose(fk, wrist.cam) @ wrist.T_hand_eye
+            Kd = K.copy()
+            if backend.scene is not None:
+                Kd[:2, 2] += ortho_offset(img, K, T, backend.scene)
             look = looks.get("last")
             if look and look[1] == target and look[0] >= since:
                 if shown[0] is not look:
@@ -52,7 +56,7 @@ def run(backend):
                 inset = shown[1]
             else:
                 inset = None
-            compose(img, K, T, parts, getattr(arm, "part_shift", None), target, status, inset, errors)
+            compose(img, Kd, T, parts, getattr(arm, "part_shift", None), target, status, inset, errors)
             cv2.imshow("System 1: wrist camera", img)
             cv2.waitKey(PERIOD_MS)
         except Exception as e:  # noqa: BLE001 - the window must never stop the robot
@@ -99,6 +103,29 @@ def compose(img, K, T, parts, shift, target, status, inset=None, errors=None):
             _once(errors, "look", e)
     _text(img, status, (12, 34), 0.8, (255, 255, 255))
     return img
+
+
+def ortho_offset(img, K, T, scene):
+    """Pixels (dx, dy) to move what's drawn through pose T so it lands on img: the scan's orthophoto warped into img
+    through T, then found in img within SEARCH. The joints' pose is only good to a degree or two, and off by different
+    amounts in different poses: near home it put the scan's parts 15-50 px (at this size) left of where they show.
+    (0, 0) if the panel is mostly out of view or the best match is at the search's edge."""
+    import rgbperceive
+
+    ortho, h, w = scene.heightmap[1], *img.shape[:2]
+    H = rgbperceive._homography(K, T, scene.plane[0], 0, 0, 0.0)
+    ref = cv2.warpPerspective(cv2.cvtColor(ortho, cv2.COLOR_BGR2GRAY), H, (w, h))
+    mask = cv2.warpPerspective((ortho.max(2) > 0).astype(np.uint8) * 255, H, (w, h), flags=cv2.INTER_NEAREST)
+    cv2.fillPoly(mask, [rgbperceive._gripper(w)], 0)
+    S = SEARCH
+    y, x = np.nonzero(mask[S:-S, S:-S])
+    if len(x) < 0.05 * w * h:
+        return np.zeros(2)
+    x0, x1, y0, y1 = x.min() + S, x.max() + S + 1, y.min() + S, y.max() + S + 1
+    res = cv2.matchTemplate(cv2.cvtColor(img[y0 - S:y1 + S, x0 - S:x1 + S], cv2.COLOR_BGR2GRAY), ref[y0:y1, x0:x1],
+                            cv2.TM_CCORR_NORMED, mask=mask[y0:y1, x0:x1])
+    d = np.array(cv2.minMaxLoc(res)[3], float) - S
+    return np.zeros(2) if np.abs(d).max() >= S else d
 
 
 def inset_image(look_dir, look, width):
