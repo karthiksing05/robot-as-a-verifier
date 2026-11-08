@@ -124,6 +124,8 @@ class RealBackend(PipelineRobot):
         before, n_ev, t0 = dict(self.arm.app.readings), len(self.arm.app.events), time.monotonic()
         angle = float(step.params.get("angle", 60.0))  # degrees, + counter-clockwise seen from the front
         try:
+            if step.skill == "flip" and "tip" not in p.meta:  # a part the scan measured as a knob and the model named a switch
+                raise RuntimeError("the scan didn't measure its lever (no tip), so there's no push to plan")
             if step.skill == "flip":
                 real_skills.flip(self.arm, p, self.parts)
             else:
