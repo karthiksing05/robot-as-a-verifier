@@ -26,10 +26,12 @@ PROMPTS = {
 }
 
 
-def validate_result(event):
+def validate_result(event, *, tube_only=False, lid_only=False):
     if event.get("saved") != 1:
         raise ValueError("Firmware did not confirm saved calibration")
-    names = ("lid",) if event.get("tube_required", 1) == 0 else ("lid", "tube")
+    if tube_only and event.get("tube_saved") != 1:
+        raise ValueError("Firmware did not confirm saved tube calibration")
+    names = ("tube",) if tube_only else ("lid",) if lid_only or event.get("tube_required", 1) == 0 else ("lid", "tube")
     for name in names:
         sensor = event.get(name, {})
         if not all(isinstance(sensor.get(key), int) and 0 <= sensor[key] <= 1023 for key in ("clear", "shaded", "lo", "hi")):
@@ -38,11 +40,14 @@ def validate_result(event):
             raise ValueError("Unseparated " + name + " thresholds")
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+def main(*, lid_only_mode=False):
+    parser = argparse.ArgumentParser(description="Calibrate only the MC-6 A2 lid sensor." if lid_only_mode else __doc__)
     parser.add_argument("port")
     parser.add_argument("--timeout", type=float, default=600)
     parser.add_argument("--keep-open", action="store_true")
+    if not lid_only_mode:
+        parser.add_argument("--tube-only", action="store_true", help="calibrate A1 with the existing saved lid thresholds")
+    parser.set_defaults(tube_only=False)
     args = parser.parse_args()
     if args.timeout <= 0:
         parser.error("--timeout must be positive")
@@ -64,13 +69,18 @@ def main():
                     event = reader.read()
                     if event and event.get("ev") == "lightcal" and "lid" in event and "tube" in event:
                         identified = True
-                        lid_only = event.get("tube_required", 1) == 0
-                        if lid_only:
+                        lid_only = lid_only_mode or (not args.tube_only and event.get("tube_required", 1) == 0)
+                        if args.tube_only and event.get("saved") != 1:
+                            raise ValueError("Run lid calibration first, then retry with --tube-only")
+                        if lid_only_mode:
+                            print("Calibrating A2 only. Any saved tube thresholds will be preserved.", flush=True)
+                        elif lid_only:
                             print("Tube sensor disabled. Only OPEN and CLOSED lid measurements are required.", flush=True)
                         break
                 else:
                     raise TimeoutError("No MC-6 calibration handshake; upload current MC-6 firmware and check the port")
-                port.write(b"normal\ncalstop\ncal\n")
+                command = b"callid" if lid_only_mode else b"caltube" if args.tube_only else b"cal"
+                port.write(b"normal\ncalstop\n" + command + b"\n")
                 deadline, heartbeat, started, previous = time.monotonic() + args.timeout, time.monotonic(), False, None
                 while time.monotonic() < deadline:
                     if CANCEL.exists():
@@ -83,14 +93,16 @@ def main():
                     if event.get("ev") == "hb":
                         heartbeat = time.monotonic()
                     if event.get("ev") == "error":
+                        if lid_only_mode and event.get("msg") == "unknown command":
+                            raise ValueError("Upload the current MC-6 firmware for lid-only calibration")
                         raise ValueError(event.get("msg", "Firmware command failed"))
                     if event.get("ev") == "cal_error":
-                        retry = "with the lid OPEN" if lid_only else "from OPEN/EMPTY"
+                        retry = "with the well empty and lid closed" if args.tube_only else "with the lid OPEN" if lid_only else "from OPEN/EMPTY"
                         print("Rejected: " + json.dumps(event) + f". Check shading/lighting and retry {retry}, or STOP to cancel.", flush=True)
                     if event.get("ev") != "lightcal":
                         continue
                     stage = event.get("stage")
-                    if stage == "open":
+                    if stage == ("closed" if args.tube_only else "open"):
                         started = True
                     if not started:
                         continue
@@ -99,16 +111,22 @@ def main():
                         raise InterruptedError("Calibration cancelled with STOP")
                     if stage != previous and stage in PROMPTS:
                         prompt = PROMPTS[stage]
-                        if lid_only and stage in ("open", "closed"):
+                        if args.tube_only and stage in ("closed", "tube"):
+                            prompt = ("1. Leave the well EMPTY and CLOSE the lid." if stage == "closed"
+                                      else "2. INSERT the tube and CLOSE the lid.") + " Press/release START; hold still."
+                        elif lid_only and stage in ("open", "closed"):
                             prompt = ("1. OPEN the lid." if stage == "open" else "2. CLOSE the lid.") + " Press/release START; hold still while measuring."
                         print(prompt, flush=True)
                     previous = stage
                     if stage == "saved":
-                        validate_result(event)
-                        output = ROOT / "config/mc6_sensors.json"
+                        validate_result(event, tube_only=args.tube_only, lid_only=lid_only_mode)
+                        output = ROOT / (".pio/mc6-lid-calibration.json" if lid_only_mode else
+                                         ".pio/mc6-tube-calibration.json" if args.tube_only else "config/mc6_sensors.json")
                         record = {"device": "MC-6", "port": args.port, "pins": {"lid": "A2"} if lid_only else {"lid": "A2", "tube": "A1"},
                                   "scope": "lid_only" if lid_only else "lid_and_tube", "ignored_pins": ["A1"] if lid_only else [],
                                   "result": event, "storage": "board EEPROM", "trace": str(trace), "complete": True}
+                        if args.tube_only:
+                            record.update(pins={"tube": "A1"}, scope="tube_only")
                         save_json(output, record)
                         save_json(PROGRESS, {"state": "complete", "calibration": event})
                         print(f"SAVED {output}. Thresholds load automatically after restart.", flush=True)
@@ -123,11 +141,15 @@ def main():
         return 1
 
 
-if __name__ == "__main__":
-    result = main()
+def run_cli(*, lid_only_mode=False):
+    result = main(lid_only_mode=lid_only_mode)
     if "--keep-open" in sys.argv:
         try:
             input("Press Enter to close this window.")
         except (EOFError, KeyboardInterrupt):
             pass
     raise SystemExit(result)
+
+
+if __name__ == "__main__":
+    run_cli()

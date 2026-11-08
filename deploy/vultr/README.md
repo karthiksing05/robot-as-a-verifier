@@ -99,6 +99,8 @@ uv run rav readout mw1-01 --watch   # one device
 
 `NO DATA` means System 1 has received no snapshots since startup. `FRESH` means a snapshot arrived within the last two seconds. `STALE` shows the last known values and their age. With the microwave idle, open and close its door and check that `door` changes in the watcher. Then turn off the board and check that its reading becomes `STALE`. This tests the whole path without moving the arm.
 
+For a short button press, start the watcher before pressing the button. Look for both `EDGE ... btn_time=1` and `EDGE ... btn_time=0`, even if the current-state line only shows `0`. System 1 retains the last 32 received edges per device so the watcher can show both between polls. The firmware queues up to eight debounced changes while a POST is pending. A queued snapshot is retired on HTTP 204, or discarded after two seconds so an old press cannot replay after an outage. The serial log reports expired snapshots or a full queue as `wifi_button_edge_dropped`.
+
 From `system-2` on Vultr, with System 1 running in mock mode and the tunnel connected:
 
 ```sh

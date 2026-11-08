@@ -145,6 +145,28 @@ int main() {
   requireTubePresent = true; step(120); press(PIN_START);
   assert(state == REFUSED && reason == TUBE && !tubeValid); // Needs its own calibration if re-enabled.
   requireTubePresent = false;
+  analogs[PIN_LID] = 650; analogs[PIN_TUBE] = 700;
+  send("caltube\n"); assert(calStage == WAIT_CLOSED);
+  press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(calStage == WAIT_TUBE);
+  analogs[PIN_TUBE] = 640; press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(!calibrating && !requireTubePresent && !tubeValid && tubeCalSaved);
+  assert(loadCalibration() && lid.level == lidOnly.lidOpen && lid.shadedLevel == lidOnly.lidClosed);
+  assert(tube.level == 700 && tube.shadedLevel == 640);
+  requireTubePresent = true;
+  analogs[PIN_LID] = 720;
+  send("callid\n"); assert(calStage == WAIT_OPEN);
+  press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(calStage == WAIT_CLOSED);
+  analogs[PIN_LID] = 665; press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(!calibrating && requireTubePresent && loadCalibration());
+  assert(lid.level == 720 && lid.shadedLevel == 665);
+  assert(tubeCalSaved && tube.level == 700 && tube.shadedLevel == 640);
+  requireTubePresent = false;
   heartbeat(); contains("\"tube_required\":0");
   finish("MC-6");
 }

@@ -4,7 +4,7 @@ from __future__ import annotations
 import anyio
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from rav_interface import (Checkpoint, Decision, EscalationPolicy, Frame, Plan, RoutineHandle, RoutineName, SceneReport, StepTrace,
                            SystemStatus)
 
@@ -17,12 +17,19 @@ class ApplianceList(BaseModel):
     devices: list[str]
 
 
+class ButtonEdge(BaseModel):
+    seq: int
+    channel: str
+    value: int
+
+
 class ApplianceSnapshot(BaseModel):
     device_id: str
     readings: dict[str, int | float | str | bool | None]
     lcd: int | float | str | bool | None
     age_s: float | None
     fresh: bool
+    button_edges: list[ButtonEdge] = Field(default_factory=list)
 
 
 def build_server(engine: RoutineEngine, devices=None) -> MCPServer:

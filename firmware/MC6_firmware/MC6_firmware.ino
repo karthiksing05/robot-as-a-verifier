@@ -73,6 +73,8 @@ struct Light {
 };
 
 enum CalStage : uint8_t { CAL_IDLE, CAL_BOOT, WAIT_OPEN, READ_OPEN, WAIT_CLOSED, READ_CLOSED, WAIT_TUBE, READ_TUBE };
+enum CalibrationMode : uint8_t { CAL_DEFAULT, CAL_LID_ONLY, CAL_TUBE_ONLY };
+CalibrationMode calibrationMode = CAL_DEFAULT;
 struct CalRecord {
   uint16_t magic;
   uint8_t version, flags;
@@ -134,7 +136,7 @@ void buttonEvent(Flash name, const Button &button);
 void buttonTestReply();
 void setButtonTest(bool enabled);
 uint32_t buttonInputMask();
-void guidedCalibrationStart(uint32_t now);
+void guidedCalibrationStart(uint32_t now, CalibrationMode mode = CAL_DEFAULT);
 void calibrationCancel();
 void calibrationReply(Flash stage = nullptr);
 void calibrationFailure(Flash why, uint16_t lidMean, uint16_t tubeMean);
@@ -320,8 +322,9 @@ void render(uint32_t now) {
   char first[17] = {}, second[17] = {};
   if (buttonTest) { copyText(first, F("BUTTON TEST")); copyText(second, F("FOLLOW PC PROMPT")); }
   else if (calibrating) {
-    copyText(first, calFailed ? F("CAL FAILED") : calStage == WAIT_CLOSED ? (requireTubePresent ? F("CLOSE LID/EMPTY") : F("CLOSE LID")) :
-        calStage == WAIT_TUBE ? F("TUBE IN/LID SHUT") : calStage == WAIT_OPEN || calStage == CAL_BOOT ? (requireTubePresent ? F("OPEN LID/EMPTY") : F("OPEN LID")) : F("MEASURING"));
+    const bool measureTube = calibrationMode == CAL_TUBE_ONLY || (calibrationMode == CAL_DEFAULT && requireTubePresent);
+    copyText(first, calFailed ? F("CAL FAILED") : calStage == WAIT_CLOSED ? (measureTube ? F("CLOSE LID/EMPTY") : F("CLOSE LID")) :
+        calStage == WAIT_TUBE ? F("TUBE IN/LID SHUT") : calStage == WAIT_OPEN || calStage == CAL_BOOT ? (measureTube ? F("OPEN LID/EMPTY") : F("OPEN LID")) : F("MEASURING"));
     if (calStage == WAIT_OPEN || calStage == WAIT_CLOSED || calStage == WAIT_TUBE) copyText(second, F("THEN PRESS START"));
   }
   else if (state == DONE) copyText(first, F("DONE"));
@@ -357,6 +360,7 @@ void sampleLight(Light &sensor, Flash name) {
   }
 }
 void calibrationStart(uint32_t now) {
+  calibrationMode = CAL_DEFAULT;
   if (state == RUNNING) { actionEvent(F("stop")); changeState(READY); restoreTime(); }
   calibrating = true; calStage = CAL_BOOT; calCount = 0; lidSum = tubeSum = 0;
   calStarted = calLast = now; tubeValid = false; uiDirty = true;
@@ -398,6 +402,11 @@ bool saveCalibration(const CalRecord &r) {
       check.tubeEmpty == r.tubeEmpty && check.tubeLoaded == r.tubeLoaded;
 }
 bool completeCalibration(bool withTube, uint16_t tubeMean) {
+  if (calibrationMode == CAL_LID_ONLY && tubeCalSaved) {
+    withTube = true;
+    pendingTubeEmpty = tube.level;
+    tubeMean = tube.shadedLevel;
+  }
   CalRecord r = {};
   r.magic = CAL_MAGIC; r.version = CAL_VERSION; r.flags = withTube ? CAL_HAS_TUBE : 0;
   r.lidOpen = pendingLidOpen; r.lidClosed = pendingLidClosed;
@@ -406,7 +415,7 @@ bool completeCalibration(bool withTube, uint16_t tubeMean) {
   if (!saveCalibration(r)) return false;
   applyCalibration(r); calibrating = false; calStage = CAL_IDLE; calFailed = false;
   sampleLight(lid, F("lid"));
-  if (withTube) { sampleLight(tube, F("tube")); tubeValid = true; }
+  if (withTube && requireTubePresent && calibrationMode != CAL_LID_ONLY) { sampleLight(tube, F("tube")); tubeValid = true; }
   calibrationReply(F("saved")); uiDirty = true; return true;
 }
 void calibrationReply(Flash stage) {
@@ -441,11 +450,14 @@ void calibrationFailure(Flash why, uint16_t lidMean, uint16_t tubeMean) {
   Serial.print(F(",\"tube_min\":")); Serial.print(tubeMin); Serial.print(F(",\"tube_max\":")); Serial.print(tubeMax);
   Serial.println(F("}"));
 }
-void guidedCalibrationStart(uint32_t now) {
+void guidedCalibrationStart(uint32_t now, CalibrationMode mode) {
   if (buttonTest) setButtonTest(false);
   if (state == RUNNING) { actionEvent(F("stop")); changeState(READY); restoreTime(); }
   if (state != OFF) changeState(READY);
-  calibrating = true; calStage = WAIT_OPEN; calFailed = false; tubeValid = false; uiDirty = true;
+  calibrationMode = mode;
+  if (mode == CAL_TUBE_ONLY) { pendingLidOpen = lid.level; pendingLidClosed = lid.shadedLevel; }
+  calibrating = true; calStage = mode == CAL_TUBE_ONLY ? WAIT_CLOSED : WAIT_OPEN;
+  calFailed = false; tubeValid = false; uiDirty = true;
   render(now); calibrationReply();
 }
 void startCapture(CalStage stage, uint32_t now) {
@@ -458,13 +470,14 @@ void calibrationPoll(uint32_t now) {
   if (calStage != CAL_BOOT && stopButton.pressed) { calibrationCancel(); return; }
   if (startButton.pressed) {
     if (calStage == WAIT_OPEN) { calFailed = false; startCapture(READ_OPEN, now); }
-    else if (calStage == WAIT_CLOSED) startCapture(READ_CLOSED, now);
+    else if (calStage == WAIT_CLOSED) { calFailed = false; startCapture(READ_CLOSED, now); }
     else if (calStage == WAIT_TUBE) startCapture(READ_TUBE, now);
   }
   bool capturing = calStage == CAL_BOOT || calStage == READ_OPEN || calStage == READ_CLOSED || calStage == READ_TUBE;
   if (!capturing || uint32_t(now - calStarted) < LIGHT_SETTLE_MS || uint32_t(now - calLast) < CAL_SAMPLE_MS) return;
   calLast = now;
-  lid.raw = average(lid.pin); tube.raw = requireTubePresent ? average(tube.pin) : 0;
+  const bool measureTube = calibrationMode == CAL_TUBE_ONLY || (calibrationMode == CAL_DEFAULT && requireTubePresent);
+  lid.raw = average(lid.pin); tube.raw = measureTube ? average(tube.pin) : 0;
   lidSum += lid.raw; tubeSum += tube.raw;
   lidMin = min(lidMin, lid.raw); tubeMin = min(tubeMin, tube.raw);
   if (lid.raw > lidMax) lidMax = lid.raw;
@@ -484,9 +497,12 @@ void calibrationPoll(uint32_t now) {
   if (calStage == READ_OPEN) {
     pendingLidOpen = lidMean; openMinimum = lidMin; calStage = WAIT_CLOSED;
   } else if (calStage == READ_CLOSED) {
-    if (pendingLidOpen > lidMean && pendingLidOpen - lidMean >= MIN_LIGHT_CONTRAST && openMinimum > lidMax + MIN_LIGHT_SEPARATION) {
+    if (calibrationMode == CAL_TUBE_ONLY) {
+      if (lidMean < lid.high) { pendingTubeEmpty = tubeMean; emptyMinimum = tubeMin; calStage = WAIT_TUBE; }
+      else { calibrationFailure(F("lid_open"), lidMean, tubeMean); calStage = WAIT_CLOSED; calFailed = true; }
+    } else if (pendingLidOpen > lidMean && pendingLidOpen - lidMean >= MIN_LIGHT_CONTRAST && openMinimum > lidMax + MIN_LIGHT_SEPARATION) {
       pendingLidClosed = lidMean;
-      if (!requireTubePresent) {
+      if (!measureTube) {
         if (completeCalibration(false, 0)) return;
         calibrationFailure(F("storage_failed"), lidMean, tubeMean); calStage = WAIT_OPEN; calFailed = true;
       } else { pendingTubeEmpty = tubeMean; emptyMinimum = tubeMin; calStage = WAIT_TUBE; }
@@ -499,7 +515,7 @@ void calibrationPoll(uint32_t now) {
         lidMean < pendingLidClosed + uint32_t(pendingLidOpen - pendingLidClosed) * 60 / 100;
     if (contrast && completeCalibration(true, tubeMean)) return;
     calibrationFailure(contrast ? F("storage_failed") : F("insufficient_tube_contrast_or_lid_open"), lidMean, tubeMean);
-    calStage = WAIT_OPEN; calFailed = true;
+    calStage = calibrationMode == CAL_TUBE_ONLY ? WAIT_CLOSED : WAIT_OPEN; calFailed = true;
   }
   uiDirty = true; calibrationReply();
 }
@@ -661,6 +677,13 @@ void executeCommand(uint32_t now) {
   else if (!commandOverflow && !strcmp_P(command, reinterpret_cast<PGM_P>(F("cal")))) {
     if (calibrating) { prefix(F("error")); Serial.println(F(",\"msg\":\"calibration busy\"}")); }
     else guidedCalibrationStart(now);
+  } else if (!commandOverflow && !strcmp_P(command, reinterpret_cast<PGM_P>(F("callid")))) {
+    if (calibrating) { prefix(F("error")); Serial.println(F(",\"msg\":\"calibration busy\"}")); }
+    else guidedCalibrationStart(now, CAL_LID_ONLY);
+  } else if (!commandOverflow && !strcmp_P(command, reinterpret_cast<PGM_P>(F("caltube")))) {
+    if (calibrating) { prefix(F("error")); Serial.println(F(",\"msg\":\"calibration busy\"}")); }
+    else if (!calSaved) { prefix(F("error")); Serial.println(F(",\"msg\":\"calibrate the lid first\"}")); }
+    else guidedCalibrationStart(now, CAL_TUBE_ONLY);
   } else if (!commandOverflow && !strcmp_P(command, reinterpret_cast<PGM_P>(F("calstop")))) {
     calibrationCancel();
   } else if (!commandOverflow && !strcmp_P(command, reinterpret_cast<PGM_P>(F("calstatus")))) {
@@ -717,7 +740,7 @@ static void publishSnapshot() {
            unsigned(tubeValid), unsigned(state == RUNNING ? remaining : setTime),
            reinterpret_cast<const char *>(lastAction), reinterpret_cast<const char *>(stateName()),
            reinterpret_cast<const char *>(colourName()), display1, display2);
-  rav::update(body);
+  rav::update(body, startButton.held | (stopButton.held << 1) | (timeButton.held << 2));
 }
 #endif
 

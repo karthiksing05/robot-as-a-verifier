@@ -8,6 +8,7 @@ Before the first POST, readings and events raise SafetyStop, so no step runs bli
 WiFi. After it, they behave as PicoReadout's do: events raises once nothing has come for STALE_S. The board sends a
 snapshot on every change and at least every 0.5 s, as over USB.
 """
+from collections import deque
 import time
 
 from safety import SafetyStop
@@ -29,6 +30,9 @@ class HttpReadout(SnapshotReadout):
         self.url = url or f"/readout/{device}"
         self.track_events = track_events
         self.channels = CHANNELS.get(device.split("-")[0])
+        self._buttons = {v for k, v in (self.channels or {}).items() if k.startswith("btn_")}  # their mapped names
+        self._button_edges = deque(maxlen=32)
+        self._button_seq = 0
 
     @property
     def started(self):
@@ -40,10 +44,18 @@ class HttpReadout(SnapshotReadout):
         if not self.closed:
             super().ingest(new, track_events=self.track_events, replace=replace)
 
+    def _record_changes(self, changes, track_events):
+        super()._record_changes(changes, track_events)
+        for _, channel, value in changes:
+            if (channel.startswith("btn_") or channel in self._buttons) and value in (0, 1):
+                self._button_seq += 1
+                self._button_edges.append({"seq": self._button_seq, "channel": channel, "value": value})
+
     def snapshot(self):
         with self._lock:
             age = time.monotonic() - self.last if self.started else None
             return {"device_id": self.device, "readings": dict(self._readings), "lcd": self.lcd,
+                    "button_edges": list(self._button_edges),
                     "age_s": round(age, 3) if age is not None else None,
                     "fresh": age is not None and age <= STALE_S and not self.closed}
 
