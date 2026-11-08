@@ -1,80 +1,78 @@
 # Demo video script
 
-**Draft 10, Nov 8, for a re-record.** Karthik records this as a new voiceover, and the video is rebuilt to his recording. About 360 spoken words in roughly 2:45, never faster than about 2.5 words a second.
+**Draft 11, Nov 8, for a re-record.** Built around the real run on the SO-101 (Nov 8, `agent-centrifuge-111834`, Claude Haiku 5.5), filmed from overhead (`initial-vids/IMG_9611.MOV`) and screen-recorded in the Console (`initial-vids/WhatsApp Video …mp4`). About 380 spoken words, roughly 2:50 with the cold open. The plan for the cut is in [draft-plan.md](draft-plan.md).
 
-**What changed from Draft 9:**
-- **The take is split in two.** It opens on the erasing and stops as the chalk touches the board; the drawn board opens out of that point. It comes back at the very end: the camera pulls out while he writes RAAV over the closing line, then he walks off and it fades to black.
-- **Brought up to date with the software as it is now** (Joseph's real-arm work and the System 1 / System 2 interface):
-  - On the real arm, System 1 doesn't touch parts to place them; it takes a last look before each step. The script says "pins down".
-  - Real force limits aren't the sim's 15 N, so the script says "force-limited", not "capped".
-  - A model reads the display photo in System 2, so the script no longer says every verdict comes "not from the model". It says fixed rules turn measurements into verdicts.
-  - The CAD fix has now happened end to end in the sim (MC-6 tube seat, D36). It's said as done, not "built to".
-  - The interface between the systems is a small set of tools with no motor command. Either side can be swapped: four models for System 2, the simulator or the real SO-101 for System 1, any appliance.
-- **A pan-out before the close:** twelve appliance designs, the real centrifuge, the planner in the cloud, over a spinning globe.
-- **Bayan's logo** (our handwriting, bolded) is the RAAV that writes itself on the drawn board.
-
-**Footage rule:** every robot shot is MuJoCo (sim) and carries a `SIMULATION` tag until Joseph's real-arm footage arrives ([HANDOFF_JOSEPH.md](HANDOFF_JOSEPH.md)). The demo uses the Rev A run recorded from the Console on Nov 8 (`agent-centrifuge-043919`, Claude Sonnet 5.5) and the Rev B run (`agent-centrifuge-045535`).
+**What changed from Draft 10:**
+- **The demo is the real run**, in the order the arm ran it: load a test tube, close the lid, switch on, press TIME, turn the speed dial, START, STOP. It says what the run actually found.
+- **A new CAD section:** the centrifuge's tube adapter (the CAD agent's fix, in the sim) and the microwave's two hinges (Rev A and Rev B).
+- **Two systems is shorter.**
+- **The opening:** a fast, motion-blurred push-in as Karthik steps up to the board, then RAAV in the Console's technical font (Michroma). The close mirrors it.
 
 | § | Section | Time | Words |
 |---|---|---|---|
-| 1 | Cold open | 0:00–0:11 | 0 |
-| 2 | What RAAV is | 0:11–0:25 | 40 |
-| 3 | The demo | 0:26–1:22 | 138 |
-| 4 | Two systems | 1:22–2:05 | 106 |
-| 5 | Why it matters, and the close | 2:06–2:52 | 101 |
-| | **Total** | 2:52 | **385** |
+| 1 | Cold open | 0:00–0:08 | 0 |
+| 2 | What RAAV is | 0:08–0:21 | 37 |
+| 3 | The real run | 0:21–1:06 | 112 |
+| 4 | Fixing the design | 1:06–1:28 | 58 |
+| 5 | Two systems | 1:28–2:00 | 82 |
+| 6 | Why it matters, and the close | 2:00–2:46 | 101 |
+| | **Total** | 2:46 | **390** |
 
 Timings assume a natural read; the cut follows the recording.
 
 ---
 
-## 1. Cold open · 0:00–0:11
+## 1. Cold open · 0:00–0:08
 
-*No voiceover. The take (`intro.MOV`), cropped on the question mark: Karthik erases the buzzwords (1.75×), steps up and puts the chalk to the board. It freezes there, and the camera pushes in on the chalk's tip. The drawn chalkboard opens out of that point, and RAAV (Bayan's logo, in our handwriting) writes itself on where he was about to write it. The music starts with the first letter.*
-
----
-
-## 2. What RAAV is · 0:11–0:25
-
-> This is RAAV, Robot As A Verifier. Give it a prototype and its manual, and a low-cost robot arm tests every control it can find, then reports what it measured. Here it is on a centrifuge it has never seen.
-
-*The chalkboard: RAAV rises to the top. A prototype and a manual feed an arm, which feeds a report. The chalk SO-101 points at each as it's named. On "a centrifuge it has never seen", the board turns into the Console's look and the first sim footage.*
+*No voiceover. The take (`intro.MOV`), cropped on the question mark: Karthik erases the buzzwords (1.75×). As he steps up to the board, the camera snaps in on the chalk's tip in a few frames, motion-blurred so it reads as one jump. RAAV appears in the Console's technical font (Michroma), and the board becomes the Console's grid.*
 
 ---
 
-## 3. The demo · 0:26–1:22
+## 2. What RAAV is · 0:08–0:21
 
-> First it surveys the panel with one wrist camera, finds each control, and pins down exactly where it is. A model reads the manual and drafts a test plan, and a person approves it before anything moves.
->
-> Then the arm runs the plan. Every press is force-limited, and fixed rules turn each measurement into a verdict. When the display didn't match the manual, the run stopped, and the plan was amended. When the lid handle needed a pinch grip the spec rules out, the robot refused to guess and reported it.
->
-> From there, RAAV traces a fault to its part in CAD, proposes a fix for a person to approve, and tests the new revision with the same plan. A fix only counts if the score goes up.
+> This is RAAV, Robot As A Verifier. Give it a prototype and its manual, and a low-cost robot arm tests every control it can find, then reports what it measured. Here it is on our centrifuge.
 
-*A tour of the Console, zooming where the cursor works: the run's stages, the plan and its approval, the test, the stopped step, the skipped lid, then Design Analysis and the Rev B run. On "proposes a fix", a small card adds what the voice doesn't: `MC-6 tube 8.15 mm high → Opus widened the bore → reseated within 0.97 mm (sim)`.*
+*The chalkboard diagram (prototype → manual → arm → report), with the arm pointing at each, as in Draft 10.*
 
 ---
 
-## 4. Two systems · 1:22–2:05
+## 3. The real run · 0:21–1:06
 
-> Under the hood, RAAV is two systems. System 1 is the robot: perception, inverse kinematics, control, force limits and the verdict rules. System 2 is a frontier model that reads the manual, plans, recovers from failed steps and diagnoses causes.
+> It scans the panel with one wrist camera and finds six controls. We give it the order of steps; a model writes the plan, quoting the manual for what each step should do, and a person approves it before anything moves.
 >
-> Between them is a small set of tools, and none of them moves a motor or grades a step. So either side can be swapped: System 2 can be any of four models, and System 1 the simulator or a real arm, on any appliance.
+> Then the arm works through it. It loads a test tube, closes the lid, switches the power on, presses TIME, turns the speed dial, and presses START, then STOP. A board inside the centrifuge reports what each control actually did, and fixed rules turn that into a verdict.
 >
-> Vision-language-action models fold all of this into one network, so each new task needs new demonstrations. Our split needs a manual instead. Its limit: a new kind of control still needs a new skill in System 1.
+> Five of six controls passed. Where the centrifuge and its manual disagreed, it said so: TIME didn't add ten seconds, and after START the display read LID, so it asked a person to check the lid instead of guessing.
 
-*Two full-height panels already filled with the Rev A run's own data; each part lights up as it's named. The model's `move_joint` and `grade_own_step` bounce off the tool lane; a 40 N press goes through and stops at the cap. On "swapped", the model name flicks through four models, and System 1's header flips between `MuJoCo` and `SO-101 · real` while appliance names cycle. The VLA aside is a card over the dimmed panels.*
+*Split screen: the overhead phone footage on the left, the Console's Live screen on the right, in sync. Each step lights a step strip along the bottom as the arm does it. Alternate views cut in: the wrist camera's own feed with its detection rings, the Console's 3D arm, and the second phone's close view of the lid and the light ring. Cards carry what the voice doesn't say: `STOP · 19.5 N, 5.6 mm`, `display read “2800 RPM 0:30”`, `reward 0.83`.*
 
 ---
 
-## 5. Why it matters, and the close · 2:06–2:52
+## 4. Fixing the design · 1:06–1:28
+
+> When a part is wrong, RAAV's CAD agent fixes the geometry. In simulation, a tube stopped eight millimetres above its seat; the agent widened the adapter's bore and added a lead-in, and on retest it seated. Our microwave's hinge fused shut when printed; its second revision opens the clearances, and hinges are next for the agent.
+
+*Two before-and-after diffs, about five seconds each. The centrifuge's well insert, Rev A against the agent's patch: the bore and lead-in highlighted, `+0.4 mm · 45° lead-in · Opus 5.5 · $0.43`, `seated within 0.97 mm`. Then the microwave hinge, Rev A against Rev B, the knuckles and pin highlighted: `0.025 mm → 0.25 mm clearance`, `pin: two heads → one`.*
+
+---
+
+## 5. Two systems · 1:28–2:00
+
+> Under the hood, RAAV is two systems. System 1 is the robot: perception, motion, force limits and the verdict rules. System 2 is a frontier model that plans, recovers from failed steps and diagnoses causes. Between them is a small set of tools, none of which moves a motor or grades a step, so either side can be swapped: any of four models, the simulator or the real arm. Vision-language-action models fold all of this into one network and need new demonstrations for every task. Our split needs a manual.
+
+*The two pre-filled panels from Draft 10, now with the real run's data where we have it.*
+
+---
+
+## 6. Why it matters, and the close · 2:00–2:46
 
 > Why does this matter? Software already has verification, from AI-written proofs to flight code. Hardware has nothing like it. In James Dyson's words, "I made 5,127 prototypes of my vacuum before I got it right. There were 5,126 failures." Biosafety labs and spacecraft tell the same story: in hardware, failures surface late.
 >
 > Today, RAAV runs on twelve appliance designs in simulation and a real centrifuge, with its planner in the cloud. Any lab with a low-cost arm could do the same.
 >
-> As AI starts designing hardware, every design should be measured like this before anyone relies on it.
+> As AI starts designing hardware, every design should be measured before anyone relies on it. That's RAAV.
 
-*One shared screen for the examples: the Console in a window on the right, the case cards on the left. The three software cards shrink to one line each as the voice turns to hardware, and **Dyson is the centrepiece**: a large card where a grid of 5,127 cells fills in red, one prototype each, and the last cell turns green, with `DC01 · 1993 · 15 years` and the source; the quote itself is only spoken. Pirbright and JWST come in smaller beneath it, on "biosafety labs" and "spacecraft". On "Today", the camera pulls back: the window shrinks away and a spinning globe fills the frame. The twelve appliance names ring it, a pin lands on New York for the real centrifuge, a small cloud marked System 2 orbits it, and on "any lab" pins light up around the world. On the last sentence it cuts back to the take, frozen on the chalk's tip, and pulls out while Karthik writes RAAV. He walks off, and it fades to black.*
+*As in Draft 10: the case cards with Dyson at the centre, then the pull-back to the globe. On the last sentence, the same fast motion-blurred jump in reverse lands on the take, and Karthik writes RAAV as the line ends. He walks off; fade to black.*
 
 ---
 
@@ -82,6 +80,14 @@ Timings assume a natural read; the cut follows the recording.
 
 | Line | Holds because | Watch for |
 |---|---|---|
+| "finds six controls" | Real run `agent-centrifuge-111834`: `FOUND 6 controls: START, STOP, TIME+, POWER, SPEED, display` (Console screen recording, 3:15) | |
+| "We give it the order of steps; a model writes the plan, quoting the manual" | The centrifuge project's instruction gives the eight demo steps (`system-2/subjects/centrifuge/project.json`); plan-1's WHY column quotes the manual for each step (recording, 3:15) | Don't say the model chose the steps |
+| "loads a test tube, closes the lid, switches the power on, presses TIME, turns the speed dial, and presses START, then STOP" | plan-1: tube_pick, tube_place, lid_close, flip POWER, press TIME+, turn SPEED −60°, press START, press STOP; Karthik's run order | |
+| "A board inside the centrifuge reports what each control actually did" | Arduino R4 readout (PRs #15, #17); report lines like `STOP drives STOP (0 -> 1 -> 0)` | |
+| "Five of six controls passed" | `finish_run · 6 controls: 5 passed, 1 untested` (display untested); reward 0.83 | |
+| "TIME didn't add ten seconds, and after START the display read LID, so it asked a person to check the lid" | The model's summary: TIME+ left the display at "0:30" (`2800 RPM 0:30`), not "adds 10 s"; after START the display read "LID", "so the lid may not have closed fully"; "Things to check by a person" | The overhead footage shows the ring lighting after START, so don't say the lid failed; it flagged it |
+| "In simulation, a tube stopped eight millimetres above its seat; the agent widened the adapter's bore and added a lead-in, and on retest it seated" | `docs/devpost.md`, README: 8.15 mm high; Opus 5.5 analyst, 14 tool calls, 102 s, $0.43; bore 0.4 mm too narrow, widened, 45° lead-in; reseated within 0.97 mm, within 0.2 mm of the designer's fix | Sim only, not printed |
+| "Our microwave's hinge fused shut when printed; its second revision opens the clearances, and hinges are next for the agent" | `appliances/microwave/source/faults.md` F1: Rev A (Onshape `Hinge.step`) has 0.025 mm clearances and a pin headed at both ends; Rev B: 0.25 mm, 0.4 mm knuckle gaps, one head. The CAD loop handles sliding buttons only so far (D36) | **Rev B was made by the team, not the agent.** Don't say the agent made it |
 | "tests every control it can find, then reports what it measured" | `docs/product.md`: inputs are the product, its manual, an optional spec and CAD; outputs are findings with evidence, coverage and a reward | |
 | "a centrifuge it has never seen" | `docs/journey.md` §10: no device names, layouts or fault types in prompts or harness code | The sim needs the device's own data files; that's the world, not the tester |
 | "surveys … finds each control, and pins down exactly where it is" | Survey, Scan, Segment (OWLv2, SAM 2.1), Map run in System 1; the sim Rev A run also touched each part. On the real arm touches are off (`real_backend.py`, `touches = False`): it takes a last look before each step, triangulating the cap from two views | Don't say "touches" |
