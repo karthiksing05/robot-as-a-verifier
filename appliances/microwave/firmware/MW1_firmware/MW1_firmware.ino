@@ -1,11 +1,13 @@
-// MW-1 Mock Microwave firmware, v1.0
-// Arduino Uno + Grove Base Shield v2 (VCC switch on 5V).
+// MW-1 Mock Microwave firmware, v1.1
+// Arduino Uno or UNO R4 WiFi + Grove Base Shield v2 (VCC switch on 5V).
 // Library: Grove - LCD RGB Backlight (Seeed, rgb_lcd.h).
 // Serial: 115200 baud, one JSON object per line. Commands: ping, status, cal, reset.
+// WiFi (UNO R4 WiFi with arduino_secrets.h): also POSTs a snapshot of every channel to rav-server (rav_wifi.h).
 
 #include <Arduino.h>
 #include <Wire.h>
 #include "rgb_lcd.h"
+#include "rav_wifi.h"
 
 // ---------------- pins
 const uint8_t PIN_START = 2;     // INPUT_PULLUP, LOW = pressed
@@ -40,6 +42,7 @@ uint8_t power = 0;                // 0 HI, 1 MED, 2 LO
 const char *const PWR[] = {"HI", "MED", "LO"};
 uint32_t stateSince = 0, lastTick = 0;
 const char *msg = nullptr; bool msgRed = false; uint32_t msgSince = 0;
+const char *lastCook = "";       // the last cook event's value, for the WiFi snapshot
 
 struct Btn { uint8_t pin; const char *ev; bool stable; bool raw; uint32_t changed; };
 Btn btns[] = {{PIN_START, "btn_start", 0, 0, 0}, {PIN_STOP, "btn_stop", 0, 0, 0}, {PIN_TIME, "btn_time", 0, 0, 0},
@@ -67,11 +70,15 @@ void buzzer() {
 }
 
 // ---------------- serial helpers
+#if defined(__AVR__)
 int freeRam() { extern int __heap_start, *__brkval; int v; return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int)__brkval); }
+#else
+int freeRam() { return -1; }     // the R4 has 32 KB: nothing to watch
+#endif
 void evStart(const char *ev) { Serial.print(F("{\"t\":")); Serial.print(millis()); Serial.print(F(",\"ev\":\"")); Serial.print(ev); Serial.print('"'); }
 void evInt(const char *ev, long v) { evStart(ev); Serial.print(F(",\"v\":")); Serial.print(v); Serial.println('}'); }
 void evStr(const char *ev, const char *v) { evStart(ev); Serial.print(F(",\"v\":\"")); Serial.print(v); Serial.println(F("\"}")); }
-void evCook(const char *v) { evStr("cook", v); }
+void evCook(const char *v) { lastCook = v; evStr("cook", v); }
 
 // ---------------- door sensor
 uint16_t avgRead(uint8_t pin, uint8_t n) { uint32_t s = 0; for (uint8_t i = 0; i < n; i++) s += analogRead(pin); return s / n; }
@@ -197,6 +204,19 @@ void handleSerial() {
   }
 }
 
+#ifdef RAV_WIFI
+// Every channel the sim's device has (device.yaml's firmware.channels, minus the buzzer's stand-ins), plus state and
+// the display's two lines as LCD, joined as the sim shows them.
+void snapshot(char *o, size_t n) {
+  char shown[36];
+  if (line2[0]) snprintf(shown, sizeof(shown), "%s  %s", line1, line2); else snprintf(shown, sizeof(shown), "%s", line1);
+  snprintf(o, n, "{\"btn_start\":%u,\"btn_stop\":%u,\"btn_time\":%u,\"btn_power\":%u,\"btn_30s\":%u,\"door\":%u,"
+           "\"time\":%u,\"power_level\":\"%s\",\"cook\":\"%s\",\"state\":\"%s\",\"backlight\":\"%s\",\"LCD\":\"%s\"}",
+           btns[B_START].stable, btns[B_STOP].stable, btns[B_TIME].stable, btns[B_POWER].stable, btns[B_ADD30].stable,
+           doorShut, cookTime, PWR[power], lastCook, STATE_NAME[st], blName, shown);
+}
+#endif
+
 void setup() {
   Serial.begin(115200);
   for (uint8_t i = 0; i < 5; i++) pinMode(btns[i].pin, INPUT_PULLUP);
@@ -207,6 +227,9 @@ void setup() {
   for (uint8_t i = 0; i < 5; i++) btns[i].raw = btns[i].stable = digitalRead(btns[i].pin) == LOW;
   resetAll();
   keyBeep();
+#ifdef RAV_WIFI
+  rav::begin();                  // blocks a few seconds while it joins; the display already shows READY
+#endif
 }
 
 void loop() {
@@ -227,4 +250,8 @@ void loop() {
   if (st == S_DONE && now - stateSince >= DONE_MS) go(S_READY);
   if (msg && now - msgSince >= MSG_MS) refreshUi();
   if (now - lastHb >= 1000) { lastHb = now; heartbeat(); }
+#ifdef RAV_WIFI
+  static uint32_t lastSnap = 0;
+  if (now - lastSnap >= 10) { lastSnap = now; char b[RAV_SNAPSHOT_MAX]; snapshot(b, sizeof(b)); rav::update(b); }
+#endif
 }

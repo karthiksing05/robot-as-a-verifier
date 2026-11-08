@@ -6,6 +6,8 @@
     RAV_TOKEN=... uv run rav-server --robot sim --host 0.0.0.0     # System 2 on another laptop
     uv sync --extra sim --extra arm
     uv run rav-server --robot real --arm-port COM5 --calibration makecu.json   # asks before torque goes on
+    ... --readout serial --readout-port COM7                    # the appliance's Pico on USB, not the operator
+    RAV_TOKEN=... RAV_DEVICE_KEY=... ... --host 0.0.0.0 --readout http --readout-device mw1   # the board over WiFi
 """
 from __future__ import annotations
 
@@ -17,6 +19,7 @@ import socket
 
 import uvicorn
 
+from .device_api import DeviceApi, Router
 from .engine import RoutineEngine
 from .mcp_server import build_server
 from .telemetry import Telemetry
@@ -62,7 +65,10 @@ def make_robot(args):
         return lambda: MockRobot()
     if args.robot == "real":  # built once, here on the main thread, so that main can ask before torque goes on
         from .real_backend import RealBackend
-        robot = RealBackend(args.arm_port, args.calibration, refine=not args.no_refine)
+        robot = RealBackend(args.arm_port, args.calibration, refine=not args.no_refine,
+                            readout_port=args.readout_port if args.readout == "serial" else None,
+                            readout_device=args.readout_device if args.readout == "http" else None,
+                            readout_url=readout_url(args))
         return lambda: robot
     from .sim_backend import SimBackend  # imports MuJoCo and torch
 
@@ -81,7 +87,8 @@ def make_robot(args):
 def enable_torque(robot, confirmed: bool) -> None:
     """The real arm's gate: say what torque on means, then turn it on only on a yes, or with --enable-torque."""
     print(f"{robot.rig.name}: torque goes on next, and the five arm joints hold where they are. System 2 can then start "
-          "routines that move the arm, and after each test motion this terminal asks what changed on the device. "
+          "routines that move the arm" + (", and after each test motion this terminal asks what changed on the device"
+          if type(robot.arm.app).__name__ == "OperatorReadout" else "") + ". "
           "Ctrl+C stops the arm where it is, then turns torque off as the server stops: the arm goes limp and falls, "
           "so support it first. In an emergency, switch off the arm's power.")
     if confirmed:
@@ -91,15 +98,30 @@ def enable_torque(robot, confirmed: bool) -> None:
     robot.arm.enable(confirm=True)
 
 
-def build_app(engine: RoutineEngine, host: str, token: str | None):
+def readout_url(args) -> str | None:
+    if args.readout != "http":
+        return None
+    host = socket.gethostname() if args.host in ("0.0.0.0", "::") else args.host
+    return f"http://{host}:{args.port}/readout/{args.readout_device}"
+
+
+def build_app(engine: RoutineEngine, host: str, token: str | None, readouts: dict | None = None,
+              device_key: str | None = None):
+    """The MCP app behind RAV_TOKEN, and with readouts ({device: HttpReadout}) the boards' /readout/<device> beside it,
+    behind RAV_DEVICE_KEY (device_api.py)."""
     if host not in LOOPBACK and not token:
         raise SystemExit(f"refusing to listen on {host} without a token: set RAV_TOKEN")
+    if readouts and host not in LOOPBACK and not device_key:
+        raise SystemExit(f"refusing to take device readings on {host} without a key: set RAV_DEVICE_KEY")
+    if readouts and device_key and device_key == token:
+        raise SystemExit("RAV_DEVICE_KEY must differ from RAV_TOKEN: the boards should never hold the key that moves the arm")
     mcp = build_server(engine)
     # Off a loopback address the token is the guard, and the SDK's host check would reject the laptop's LAN address.
     from mcp.server.transport_security import TransportSecuritySettings
     security = None if host in LOOPBACK else TransportSecuritySettings(enable_dns_rebinding_protection=False)
     app = mcp.streamable_http_app(host=host, transport_security=security)
-    return RequireToken(app, token) if token else app
+    app = RequireToken(app, token) if token else app
+    return Router(DeviceApi(readouts, device_key), app) if readouts else app
 
 
 def main(argv=None) -> None:
@@ -129,9 +151,20 @@ def main(argv=None) -> None:
     ap.add_argument("--arm-port", help="real: the servo bus's serial port, such as COM5")
     ap.add_argument("--calibration", help="real: the file lerobot-calibrate wrote for the arm")
     ap.add_argument("--enable-torque", action="store_true", help="real: turn torque on at startup without asking")
+    ap.add_argument("--readout", default="operator", choices=["operator", "serial", "http"],
+                    help="real: where verdicts read the device: the operator at this terminal, the appliance's Pico on "
+                         "--readout-port, or a board POSTing to /readout/<--readout-device> over WiFi (RAV_DEVICE_KEY)")
+    ap.add_argument("--readout-port", help="real, --readout serial: the Pico's serial port, such as COM7")
+    ap.add_argument("--readout-device", help="real, --readout http: the board's name in its URL, such as mw1")
     args = ap.parse_args(argv)
     if args.robot == "real" and (args.depth or not (args.arm_port and args.calibration)):
         ap.error("--robot real needs --arm-port and --calibration, and has no depth camera for --depth")
+    if args.readout != "operator" and args.robot != "real":
+        ap.error("--readout is for --robot real")
+    if (args.readout == "serial") != bool(args.readout_port) or (args.readout == "http") != bool(args.readout_device):
+        ap.error("--readout serial takes --readout-port, and --readout http takes --readout-device")
+    if args.readout_device and not all(c.isalnum() or c in "-_" for c in args.readout_device):
+        ap.error("--readout-device is letters, digits, - and _: it goes in the URL")
     if args.robot != "sim" and (args.fault or args.answer_key or args.error_rate or args.error_schedule or args.placement != "nominal"
                                 or args.device or args.mount or args.effector != "stock"):
         ap.error("--fault, --placement, --answer-key, --device, --mount, --effector probe and --error-* are for --robot sim only: they must never reach a real arm")
@@ -147,7 +180,8 @@ def main(argv=None) -> None:
     engine = RoutineEngine(lambda: telemetry.instrument(make()), robot_name=args.robot)
     telemetry.status_fn = engine.status
     try:
-        app = build_app(engine, args.host, os.environ.get("RAV_TOKEN"))
+        readouts = {args.readout_device: real.http_readout} if real and real.http_readout else None
+        app = build_app(engine, args.host, os.environ.get("RAV_TOKEN"), readouts, os.environ.get("RAV_DEVICE_KEY"))
         try:  # before torque: a port in use would otherwise stop the server, and drop the arm, right after the yes
             sock = socket.create_server((args.host, args.port), family=socket.AF_INET6 if ":" in args.host else socket.AF_INET)
         except OSError as e:
@@ -156,6 +190,8 @@ def main(argv=None) -> None:
             enable_torque(real, args.enable_torque)
         watching = telemetry.serve(args.telemetry_port) if args.telemetry_port else 0
         print(f"System 1 ({args.robot}) waiting on http://{args.host}:{args.port}/mcp" + (f", telemetry on http://127.0.0.1:{watching}" if watching else ""))
+        if readouts:
+            print(f"device readout: {args.readout_device} POSTs to {readout_url(args)}. No step runs until it does")
         Server(uvicorn.Config(app, log_level="warning"), engine, real).run(sockets=[sock])
     finally:
         try:
