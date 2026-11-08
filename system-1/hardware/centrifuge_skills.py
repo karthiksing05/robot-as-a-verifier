@@ -38,7 +38,7 @@ OVER_TILT = math.radians(20)  # manipulate's 45 put the tool over the real lid's
 # the real lid's first close stopped 10 mm short above its edge (Nov 8): deeper, and a little further behind it
 OVER_FRONT, OVER_BEHIND, OVER_CLEAR, OVER_DOWN = 0.05, 0.018, 0.025, 0.016
 SAFE_BACK, SAFE_UP = 0.06, 0.03  # a close starts from here, nearer the arm and higher, clear of the open lid
-CLOSE_TO = 50.0                       # deg: drawn back to here, then let go: at 78 the real lid didn't fall shut (Nov 8)
+CLOSE_TO = 30.0                       # deg: drawn back to here, then let go: from 78 the real lid stayed open, from 50 it fell but not shut (Nov 8)
 FALL_S = 1.5
 # the tube: jaws open around its 18 mm collar, down straight, shut, lift clear of the rack
 TUBE_GRIP_DOWN = -0.002               # the grip centre below the collar top found: at 3 mm it went too far down
