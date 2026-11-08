@@ -58,5 +58,6 @@ def real_driver(sim, pace=False):
     import real_arm
     pad = fake_bus.FakePad(sim) if sim.sensing == "tactile" else None
     arm = real_arm.RealArm(fake_bus.make(sim, tempfile.mkdtemp(prefix="fake_bus_")), app=sim.app, pad=pad, pace=pace)
+    arm.table_z, arm.workspace, arm.standoff = sim.table_z, sim.workspace, sim.standoff  # the sim's desk and camera
     arm.enable(confirm=True)
     return arm
