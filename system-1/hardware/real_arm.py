@@ -52,6 +52,7 @@ SERVO_P = 160
 # miss, the cap trips with nothing touching); on stiffer ones it reads low and the cap trips late (sim/docs/real-arm.md,
 # Servo numbers). Measure it with system-1/arm/bringup/stiffness_test.py and put the result here before any test step.
 SERVO_NM_PER_RAD = 36.0
+OUT_OK = np.radians(15)  # enable() starts from a joint up to this far past its limit
 MOTOR_IDS = {"shoulder_pan": 1, "shoulder_lift": 2, "elbow_flex": 3, "wrist_flex": 4, "wrist_roll": 5, "gripper": 6}
 
 
@@ -108,6 +109,12 @@ class RealArm(rig.ArmBase):
     # wrist_roll at home, so views and presses start from it: -90 deg puts the camera on top of the gripper, centred,
     # instead of 7 cm to its side (same views in reach); the gripper then sits along the bottom of the picture
     home_roll = np.radians(-90)  # camera on top; +90 (under) pointed the survey away from the panel
+    # Free moves (skills.move_joints) at twice the sim's cap: the joints still peak under 1.8 rad/s, inside MAX_STEP_RAD,
+    # and a cosine profile arrives at rest. Guarded moves keep guard_speed.
+    tip_speed = 0.2
+    # one re-command of an approach pose: the press is by stall and the last look's pose is from the joint readings, so
+    # the ~1.2 mm one round leaves doesn't matter, and each further round cost 0.7 s
+    sag_tries = 1
     hard_cap_n = 30.0  # the estimate drifts to ~13 N on a press approach with nothing touching and crossed 20 N on a light
     # contact; stalls and the press depth limit (14 mm past the expected top, ~6 N) bound the real force
 
@@ -162,15 +169,15 @@ class RealArm(rig.ArmBase):
 
     def enable(self, confirm=False):
         """Torque on for the five arm joints, holding where they are. confirm must be True: the caller has checked the
-        arm is clear to move. Refuses while a joint reads outside the model's limits, which the first command would
-        then jump it back inside."""
+        arm is clear to move. A joint a little outside the model's limits (resting limp past one) steps back inside on the
+        first commands, MAX_STEP_RAD a tick; one far outside means a wrong joint mapping, so that refuses."""
         if confirm is not True:
             raise RuntimeError("enable(confirm=True) turns torque on, and the arm then holds and moves: confirm it")
         self._read()  # the limp arm may have moved since the last reading: hold it where it is now
         out = [f"{j} reads {np.degrees(q):+.1f} deg, outside {np.degrees(lo):+.0f} to {np.degrees(hi):+.0f}"
-               for j, q, lo, hi in zip(ARM_JOINTS, self.q, self.ik.lo, self.ik.hi) if not lo <= q <= hi]
+               for j, q, lo, hi in zip(ARM_JOINTS, self.q, self.ik.lo, self.ik.hi) if not lo - OUT_OK <= q <= hi + OUT_OK]
         if out:
-            raise SafetyStop("; ".join(out) + ". Move it inside by hand, or check the joint mapping (tools/arm_check.py)")
+            raise SafetyStop("; ".join(out) + ". Check the joint mapping (tools/arm_check.py), or move it inside by hand")
         p = self.bus.sync_read("P_Coefficient", ARM_JOINTS, normalize=False)
         if any(p[j] != SERVO_P for j in ARM_JOINTS):  # torque is still off, as an EEPROM write needs
             self.bus.sync_write("P_Coefficient", dict.fromkeys(ARM_JOINTS, SERVO_P), normalize=False)

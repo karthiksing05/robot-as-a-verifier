@@ -114,7 +114,7 @@ def test_torque_off_after_exit_exception_and_ctrl_c():
                 for _ in range(5):
                     arm.send(arm.cmd)
                     arm.tick()
-                assert all(bus.fake.torque[i] for i in ARM_IDS) and not bus.fake.torque[6]  # the gripper is left off
+                assert all(bus.fake.torque[i] for i in [*ARM_IDS, 6])  # the gripper holds closed too
                 if exc:
                     raise exc("test")
         except (ValueError, KeyboardInterrupt) as e:
@@ -133,7 +133,7 @@ def test_refuses_torque_without_confirmation():
         assert not any(bus.fake.torque.values()) and not bus.fake.goal
         # moved by hand after the last reading, with no tick since: enable() must read again
         q = sim.d.qpos[sim.qadr[1]]
-        sim.d.qpos[sim.qadr[1]] = sim.ik.lo[1] - 0.05  # shoulder_lift past its limit, as if resting on its stop
+        sim.d.qpos[sim.qadr[1]] = sim.ik.lo[1] - 0.4  # shoulder_lift 23 deg past its limit: a wrong joint mapping
         _raises(SafetyStop, arm.enable, True)
         assert not any(bus.fake.torque.values())
         sim.d.qpos[sim.qadr[1]], sim.d.qpos[sim.qadr[2]] = q, sim.d.qpos[sim.qadr[2]] - np.radians(20)
