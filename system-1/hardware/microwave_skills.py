@@ -41,7 +41,7 @@ PRESS_TILTS = (0, 10, 20, 30)  # the tool this far below level (deg), flattest f
 PRESS_SPEED, PRESS_HOLD_S = 0.008, 0.3  # at 15 mm/s the sim's cap bottomed and the force jumped past 15 N in a tick
 PRESS_SLOW, PRESS_SLOW_FROM = 0.003, 0.006  # and slower over the last of the way: START at 8 mm/s did it on the stiffer arm
 PRESS_N = 6.0          # sim: stop pushing at this over the estimate's noise (the cap bottoms at 3 N)
-PRESS_N_REAL = 12.0    # real: stop pushing past this (tared), short of PRESS_DEPTH_REAL: it overpressed going the whole way
+PRESS_N_REAL = 20.0    # real: stop pushing past this (tared), short of PRESS_DEPTH_REAL: it overpressed going the whole way
 
 # --- door_open: the jaws round the bar, centred, at its middle, drawn round the hinge's arc ---
 GRIP_SPARE = 0.005     # the jaws open to the bar's width plus this a side
@@ -52,7 +52,7 @@ BACK_OFF = 0.02        # and off it this far, once let go: 40 back with the tool
 GRIP_TILTS = (0, 10, 20, 30)
 GAP_PER_OPEN = real_skills.GAP_PER_OPEN  # real gripper: m of gap per unit of opening
 SIM_GAP = (0.0158, 0.075)  # sim gripper: the gap at 0 rad, and per rad (manipulate.JAW_GAP)
-SQUEEZE = 0.0          # real: shut to the calibrated close, which the bar stops short (not real_skills' overdrive)
+SQUEEZE = -0.3         # real: shut ~450 ticks past the calibrated close (real_skills' overdrive): at 0 the jaws didn't close on the handle (Nov 8)
 PULL_DEG = 45.0        # default: open this far. Past ~50 deg the leaf comes in beside the jaws
 PULL_SPEED, UNLATCH_SPEED, UNLATCH_DEG = 0.02, 0.006, 5.0  # m/s along the arc; slower through the latch
 PULL_LAG = 0.025       # the tip this far behind its command: the door won't come (the sim's force estimate read 14.6 N
@@ -139,7 +139,7 @@ def _go(arm, pts, axes, speed, bias, limit=None, slow=None, along=True, lag_max=
                 if limit is not None and stall is None and f > limit:
                     return k - 1, f"met {f:.1f} N", peak
                 if force_max is not None and f > force_max:
-                    return k - 1, f"pulled {f:.1f} N, over the {force_max:g} N limit: stopped before it dragged the appliance", peak
+                    return k - 1, f"stopped at {f:.1f} N, over its {force_max:g} N limit", peak
                 lag = float(np.linalg.norm(to - arm.tip_pose()[0]))
                 if lag_max and lag > lag_max:
                     return k - 1, f"fell {lag * 1000:.0f} mm behind its path at {f:.1f} N", peak
