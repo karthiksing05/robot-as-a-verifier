@@ -40,8 +40,9 @@ from rig import ARM_JOINTS, CONTROL_HZ, HARD_FORCE_CAP_N, MAX_STEP_RAD, TICK_RAD
 # into this model through np.deg2rad alone. Hence sign +1 and no offset. Unchecked on the team's arm: tools/arm_check.py
 # is for that, and what it finds goes here. Expect offsets of a few degrees, as a hand sweep's middle isn't the model's.
 SIGN = np.array([1, 1, 1, 1, 1])                       # ARM_JOINTS order
-# lift, elbow and wrist_flex fitted to 23 hand-eye views (16.3 px -> 3.6 px); hand-eye can't see pan's or roll's
-OFFSET_RAD = np.radians([0.0, 2.0, -3.7, -3.9, 0.0])
+# lift, elbow and wrist_flex: the hand-eye views (4.6 px rms) refitted with lift held where six desk touches came out
+# flat (12.8 -> 1.9 mm spread); hand-eye can't see pan's or roll's
+OFFSET_RAD = np.radians([0.0, -1.9, -4.8, -2.24, 0.0])
 # P gain enable() sets on the five arm joints. The RobiServo-01 ships at 160. LeRobot's follower writes 16 on every
 # connect (lerobot-calibrate, teleop), and at 16 a loose motor didn't follow a 5 deg move at all; at 160 it stopped 5
 # steps short (system-1/arm/bringup/results.md).
