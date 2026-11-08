@@ -288,6 +288,14 @@ def _jaws(arm):
     return tip_shape(arm).name == "stock" and hasattr(arm, "grip")
 
 
+# The stock gripper on an arm that can't open it (RealArm drives only the five arm joints): pushed shut, see _jaws
+SHUT_WHY = "the gripper can't open on this arm, and shut its wedge presses a lever into its pivot or a knob along its axis"
+
+
+def _shut(arm):
+    return tip_shape(arm).name == "stock" and not hasattr(arm, "grip")
+
+
 def _moving_jaw(opening):
     """The moving jaw's tip, open to `opening` (rad): STOCK_JAW_OPEN moved out along x by the change in the gap."""
     return TipShape("stock_moving", STOCK_JAW_OPEN.pts + [_jaw_gap(opening) - _jaw_gap(JAW_PUSH_OPEN), 0.0, 0.0])
@@ -441,6 +449,8 @@ def _slide_plan(arm, p, to, parts):
 def _turn_plan(arm, p, angle, parts, ends=(1, -1)):
     """Push the fin near one end along an arc about the dial's axis; whichever end the arm reaches better. A one-sided
     fin (meta one_sided: from the axis out along +x) has only the one end."""
+    if _shut(arm):
+        return SHUT_WHY
     if _jaws(arm):
         return _pinch_plan(arm, p, angle, parts)
     n, x, y = p.normal, p.x, p.T[:3, 1]
@@ -825,6 +835,8 @@ def _flip_plan(arm, p, parts):
     # armed them before centre on 1654 and the lever pushed the pad back from 4 deg short of it, so wait until half
     # of FLIP_PAST beyond. Applies to the probe's pad and the stock gripper's jaw alike
     until = side(lean) - side(-FLIP_PAST)
+    if _shut(arm):
+        return SHUT_WHY
     if not _jaws(arm):
         plan = _sideways(arm, p.pos + side(lean) * x, n, -x, 0.0, h, v @ n + r, until, "lever",
                          obstacles=_obstacles(p, parts, p.size[2] - v @ n - r))
