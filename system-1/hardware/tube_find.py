@@ -29,6 +29,8 @@ COLOURS = {"green": [((70, 90, 50), (100, 255, 255))],
            # the red collar reads hue 170-175; the rack flap's orange tape 2-4 at lower saturation, and hue 0-8 took it
            "red": [((160, 110, 50), (180, 255, 255))]}
 MIN_PX = 400               # at 1920 wide: a collar from 20 cm is 2000+
+Z_RANGE = (0.02, 0.15)   # m above the arm's base: where a collar on a rack on the table can be
+INLIER = 0.006           # m: a photo agrees with a point when its blob's ray passes this close
 MAX_SPREAD = 0.006         # m: the rays must pass this close to the point they give, on average
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "last_looks")
 
@@ -67,22 +69,33 @@ def nearest(rays):
 
 def locate(frames, colour):
     """The collar's point from frames (each with T_base_cam and K), and how far the rays spread about it, or None and
-    why. Each frame offers its blobs; the frame's blob nearest the point the others' biggest give is kept, and the
-    worst ray is dropped while the spread is over MAX_SPREAD and three would be left."""
-    seen = [(f, b) for f in frames for b in [blobs(f, colour)] if b]
+    why. Every pair of blobs from photos taken at different poses proposes a point between Z_RANGE; the one that the
+    most photos agree with (a blob's ray within INLIER of it) wins, refined on those. The rack's orange tape and STOP's
+    cap are real objects too, so one-at-a-time pruning kept them: a vote doesn't, as the collar is in more photos."""
+    seen = [(i, [ray(f, uv) for _, uv in blobs(f, colour)]) for i, f in enumerate(frames)]
+    seen = [(i, rs) for i, rs in seen if rs]
     if len(seen) < 2:
         return None, None, f"{colour} collar in {len(seen)} of {len(frames)} photos: it needs two"
-    x, _ = nearest([ray(f, b[0][1]) for f, b in seen])
-    rays = []
-    for f, b in seen:  # each photo's blob nearest that first guess
-        cand = [ray(f, uv) for _, uv in b]
-        rays.append(min(cand, key=lambda r: np.linalg.norm((np.eye(3) - np.outer(r[1], r[1])) @ (x - r[0]))))
-    x, spread = nearest(rays)
-    while spread > MAX_SPREAD and len(rays) > 3:
-        rays.pop(min(range(len(rays)), key=lambda i: nearest(rays[:i] + rays[i + 1:])[1]))
-        x, spread = nearest(rays)
+    off = lambda r, x: np.linalg.norm((np.eye(3) - np.outer(r[1], r[1])) @ (x - r[0]))  # noqa: E731
+    best = None
+    for a, (i, ra) in enumerate(seen):
+        for j, rb in seen[a + 1:]:
+            if i // 2 == j // 2:  # a view and its partner 15 mm over: too short a baseline to place a point
+                continue
+            for r1 in ra:
+                for r2 in rb:
+                    x, _ = nearest([r1, r2])
+                    if not Z_RANGE[0] < x[2] < Z_RANGE[1] or (x - r1[0]) @ r1[1] < 0 or (x - r2[0]) @ r2[1] < 0:
+                        continue
+                    inl = [min(rs, key=lambda r: off(r, x)) for _, rs in seen]
+                    inl = [r for r in inl if off(r, x) < INLIER]
+                    if best is None or len(inl) > len(best):
+                        best = inl
+    if best is None or len(best) < 3:
+        return None, None, f"no point {Z_RANGE[0] * 1000:.0f}-{Z_RANGE[1] * 1000:.0f} mm up that 3 photos' {colour} blobs agree on"
+    x, spread = nearest(best)
     if spread > MAX_SPREAD:
-        return None, None, f"the {colour} collar's rays spread {spread * 1000:.0f} mm over {len(rays)} photos"
+        return None, None, f"the {colour} collar's rays spread {spread * 1000:.0f} mm over {len(best)} photos"
     return x, spread, ""
 
 
