@@ -133,6 +133,7 @@ class RealBackend(PipelineRobot):
                       for p in self.parts] + ([display] if display is not None else [])
         return self.current_scene()
 
+    last_skill = None  # the step run before this one (execute)
     CLAMP = -0.05  # resting, the jaws shut ~75 ticks past the calibrated close: a loose jaw caught on buttons (Nov 8)
 
     def _clamp(self) -> None:
@@ -158,6 +159,7 @@ class RealBackend(PipelineRobot):
         import centrifuge_skills
 
         self._clamp()  # each step starts with the jaws shut: a skill that needs them open opens them itself
+        prev, self.last_skill = self.last_skill, step.skill
         p = next((q for q in self.parts if q.id == step.target), None)
         if self.appliance == "microwave" and step.skill in self.MICROWAVE_SKILLS:
             return self._microwave_step(step, p)
@@ -168,7 +170,9 @@ class RealBackend(PipelineRobot):
         import real_skills
         import skills
 
-        if not self.at_home:
+        # straight on from the last step where home is only a detour: a held tube to the well, the well to the lid
+        straight = (step.skill == "tube_place" and getattr(self.arm, "holding", False)) or                    (step.skill == "lid_close" and prev == "tube_place")
+        if not self.at_home and not straight:
             skills.go_home(self.arm)
         self.arm.status = "between steps"  # reading the device here sets its baseline, with nothing to ask
         before, n_ev, t0 = dict(self.arm.app.readings), len(self.arm.app.events), time.monotonic()

@@ -38,9 +38,9 @@ OVER_TILT = math.radians(20)  # manipulate's 45 put the tool over the real lid's
 # the real lid's first close stopped 10 mm short above its edge (Nov 8): deeper, and a little further behind it
 OVER_FRONT, OVER_BEHIND, OVER_CLEAR, OVER_DOWN = 0.05, 0.018, 0.025, 0.010  # 16 down closed it: the jaw's tip is enough
 SAFE_BACK, SAFE_UP = 0.06, 0.03  # a close starts from here, nearer the arm and higher, clear of the open lid
-CLOSE_TO = 30.0                       # deg: drawn back to here, then let go: from 50 it didn't shut, from 5 it did with room to spare (Nov 8)
-FALL_S = 0.5
-LID_SPEED, DRAW_SPEED = 0.10, 0.07  # m/s: the lid close's moves, and its draw back
+CLOSE_TO = 60.0                       # deg: a fast draw (DRAW_SPEED) to here flicks it, and it falls shut (Nov 8)
+FALL_S = 0.2
+LID_SPEED, DRAW_SPEED = 0.15, 0.15  # m/s: the lid close's moves, and its flick back
 # the tube: jaws open around its 18 mm collar, down straight, shut, lift clear of the rack
 TUBE_GRIP_DOWN = -0.002               # the grip centre below the collar top found: at 3 mm it went too far down
 TUBE_OPEN = 0.2                       # 0.3 opened far wider than the red collar on the real arm (Nov 8)
@@ -288,7 +288,7 @@ def pick_tube(arm, collar_top):
     return {"verdict": "FAIL" if why else "done", "reason": (why or f"shut on the collar and lifted {LIFT * 1000:.0f} mm") + jaws}
 
 
-PLACE_UP, PLACE_BACK = PLACE_ABOVE, 0.06  # out of the well (as high as the place started, which reached), then toward the arm: the arm went home past the open lid (Nov 8)
+PLACE_UP, PLACE_BACK = 0.06, 0.03  # out of the well this far up, then toward the arm: enough to clear the open lid
 
 
 def _toward(p):

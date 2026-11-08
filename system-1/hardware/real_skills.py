@@ -58,7 +58,9 @@ def flip(arm, p, parts, snap=None, plane=None):
     """A toggle flipped in four straight moves, the gripper held as for a press (tilt and roll): to just above where the push starts, down to it, across the lever (the
     flip plan's push, past its centre), and up. No look, guarded descent or let-go moves: on the real arm those were
     ten waypoints, and contact sensing can't feel this lever anyway. The operator says whether it flipped."""
-    plan = affordances._flip_plan(arm, p, parts, shut_ok=True)
+    # its neighbours left out: the plan's room check is the sim pad's, and here the push is FLIP_PUSH_H over the panel
+    # (START, 30 mm across the push, refused POWER once the push went 2 mm lower, Nov 8)
+    plan = affordances._flip_plan(arm, p, [p], shut_ok=True)
     if isinstance(plan, str):
         raise RuntimeError(plan)
     n, label = plan.n, f"flip {p.id}"
