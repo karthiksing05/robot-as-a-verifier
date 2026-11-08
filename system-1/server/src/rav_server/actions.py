@@ -24,7 +24,8 @@ def manipulate_actions(stock_gripper: bool, open_deg: float = 105.0) -> list[Act
     """Offered only by a rig with a device file: hook_pull with the probe, pick and place with the stock gripper."""
     if stock_gripper:
         return [ActionSpec(skill="pick", kinds=["object"], about="the jaws on the object's faces, shut by the servo's load, lift it clear. OBSERVED, with what the jaws read"),
-                ActionSpec(skill="place", kinds=["well"], params=[ParamSpec(name="force_limit", min=0.1, max=MAX_FORCE_N, default=3.0, unit="N", about="going down, stop at this")],
+                ActionSpec(skill="place", kinds=["well"], params=[ParamSpec(name="force_limit", min=0.1, max=MAX_FORCE_N, default=3.0, unit="N", about="going down, stop at this"),
+                                                             ParamSpec(name="drop_mm", min=0.0, max=120.0, default=0.0, unit="mm", about="0 lowers it in. Over 0, holds it with its grip point this far above where it sits once seated, clear of the well's surroundings, opens the jaws and lets it fall in")],
                            about="lower what the jaws hold into this well, let go, lift clear. Says how far above its seat it was let go")]
     return [ActionSpec(skill="hook_pull", kinds=["handle"], params=[
         ParamSpec(name="angle", min=0.0, max=open_deg, unit="deg", about="where to leave the handle, from shut. Past vertical it falls to its stop; from there, 0 draws it back over and lets it fall shut"),

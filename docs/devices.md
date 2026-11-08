@@ -14,11 +14,12 @@ Splits: **dev** devices are for building and tuning, **validation** for checking
 ### MC-6 mini centrifuge (`centrifuge`), the reference device
 **Split:** dev. **Revisions:** A, B, M1.
 
-A benchtop mini centrifuge with a separate tube rack. You load a tube from the rack into well A, close the lid, set the time and speed, and run it. The display counts down, and the light ring shows the state.
+A benchtop mini centrifuge (v7: Arduino Uno, 16 mm panel buttons, light sensors) with a separate four-position tube rack. You take a tube from the rack into well A, close the lid, set the time and speed, and run it; the display counts down and the light ring shows the state.
 
-**Controls:** POWER toggle; START, STOP and TIME+ buttons; SPEED dial; lid handle; rack cover lip; display and light ring; wells A and B; one tube.
-**Theory pieces:** enables (power), interlocks (open lid blocks START, shown as `LID`), requires (a seated tube, shown as `TUBE`), drives (dial to speed, TIME+ to time), displays (speed and time; ring colour by mode), momentary and latching returns, two hinge mechanisms, a sensed container and an object, and a timed `running` mode.
-**Faults:** F1 mechanical: STOP binds in its bezel and never closes its switch. F2 ergonomic: the lid handle is a pinch fin with no lip to hook. F3 mechanical: well A is too tight, so the tube sits high and isn't sensed. F3 is masked by F2 (the lid can't be opened), and M1 fixes F2 alone to unmask it.
+**Controls:** POWER toggle; START, STOP and TIME+ buttons; SPEED dial (270°, no detents); lid handle; rack cover lip; display and light ring; wells A and B; two tubes.
+**Theory pieces:** enables (power), interlocks (open lid blocks START and aborts a run, shown as `LID`), requires (a seated tube, shown as `TUBE`), drives (dial to speed, TIME+ to time, STOP resets it), displays (speed and time; ring colour by mode), momentary and latching returns, two hinge mechanisms, a sensed container and objects, a timed `running` mode and a timed return from `done`.
+**Faults:** F2 ergonomic: the lid handle is a pinch fin with no lip to hook. F3 mechanical: well A is too tight (Ø15.6 mm for a 16 mm tube), so the tube sits high and isn't sensed. F3 is masked by F2 (the lid can't be opened), and M1 fixes F2 alone to unmask it.
+**Source notes (manual vs firmware, kept as the firmware does it):** the display reads `1000rpm` / `0:30` where the manual shows `1000 RPM 0:30`; at power-on the speed is wherever the dial is, not 1000 rpm; after a `TUBE` refusal, seating the tube and pressing START again gives `TUBE` until STOP or TIME+ brings back READY (the tube light is only read under steady white); TIME+ stops at 10:00 rather than wrapping.
 
 ### IT-90 lab interval timer (`interval-timer`)
 **Split:** dev. **Revisions:** A, B, M1.
@@ -46,6 +47,15 @@ A desktop printer for 40 mm direct-thermal labels, with the roll under a cover h
 **Controls:** POWER toggle; FEED and PRINT buttons; DARKNESS dial; cover lip; display and status light.
 **Theory pieces:** enables (power), interlocks (open cover blocks FEED and PRINT, shown as `COVER`), drives (dial to darkness 1 to 9, PRINT to the label count), displays (darkness and count; light colour by mode), momentary buttons, latching toggle, continuous dial, a hinged cover mechanism with a sensor, a power-on default (count 000), and a timed `running` mode.
 **Faults:** F1 mechanical: FEED binds in its bezel and never closes its switch. F2 firmware: PRINT prints with the cover open instead of refusing with `COVER`. F3 ergonomic: the cover's lift tab sits 2 mm above the deck, too close to the body for a fingertip to get under it. F2 is masked by F3 (the cover can't be opened), and M1 fixes F3 alone to unmask it.
+
+### MW-1 mock microwave (`microwave`)
+**Split:** dev. **Revisions:** A, B.
+
+A mock countertop microwave (Arduino Uno, Grove LCD and buzzer, plywood and acrylic box) with a door hinged on its left and a D-handle, on an 80 mm riser for the arm. You pull the door open past its snap latch, close it to a click, set the time with TIME or +30s and the power with POWER, and press START; the display counts down in amber and shows `DONE` in green.
+
+**Controls:** TIME, POWER, STOP, +30s and START buttons; door handle (vertical hinge, about 130-145°); 16 x 2 display with a coloured backlight. No power switch.
+**Theory pieces:** interlocks (an open door refuses START and +30s, shown as `CLOSE DOOR`, and pauses a cook, shown as `DOOR OPEN`), requires (a set time, shown as `SET TIME`), drives (TIME and +30s to the time, POWER to the level), displays (time and level; backlight by mode), a mode state (ready, set, cooking, paused, door open, done), a timed `running` mode and a timed return from `done`, momentary buttons, a door on a vertical hinge with a snap latch and a sensor, and a buzzer.
+**Faults:** F1 mechanical: the door hinges are printed with 0.025 mm clearances, so they fuse and the door is seized.
 
 ### HS-20 tube heat sealer (`tube-sealer`)
 **Split:** dev. **Revisions:** A, B, M1, M2.

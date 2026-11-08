@@ -14,9 +14,9 @@ REGISTRY = json.loads((REPO / "appliances/registry.json").read_text())
 CONSOLE = next(iter(ORIGINS))
 
 
-def test_the_registry_has_the_centrifuge_and_ten_more():
+def test_the_registry_has_the_centrifuge_the_microwave_and_ten_more():
     ids = {d["id"] for d in REGISTRY}
-    assert len(ids) == 11 and "centrifuge" in ids
+    assert len(ids) == 12 and {"centrifuge", "microwave"} <= ids
     assert {d["id"] for d in REGISTRY if d["split"] == "held_out"} == {"coffee-grinder", "hotplate-stirrer"}
 
 

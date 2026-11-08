@@ -1,0 +1,21 @@
+{
+ "plywood_3mm_sheet1_600x300": [
+  "base#1",
+  "top#1",
+  "back#1",
+  "door#1",
+  "side_R#1",
+  "lcd_shelf#1",
+  "catch_shelf#1",
+  "sensor_shelf#1",
+  "door_strike#1"
+ ],
+ "plywood_3mm_sheet2_600x300": [
+  "side_L#1",
+  "divider#1",
+  "control_panel#1"
+ ],
+ "acrylic_3mm_clear_sheet1_600x300": [
+  "door_window#1"
+ ]
+}
