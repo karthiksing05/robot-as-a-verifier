@@ -3,38 +3,115 @@
 import { Fragment, useState } from "react";
 import { JOURNEY, type Stage } from "../lib/journey";
 import { GALLERY, splitLabel } from "../lib/gallery";
-import { demoHref, fmtCredits, fmtRatio, fmtScore, fmtShare, fmtTokens, fmtUsd, loadResults, modelName, pieceName, sections, tiedOnScore, type Round } from "../lib/wikidata";
+import { chartPanels, demoHref, fmtCredits, fmtRatio, fmtScore, fmtShare, fmtTokens, fmtUsd, loadResults, modelName, logDomain, pieceName, sections, tiedOnScore, type Round } from "../lib/wikidata";
 
 const data = import.meta.glob("../data/{model-results,wiki-docs}.json", { import: "default", eager: true }) as Record<string, unknown>;
-const RESULTS = loadResults(data["../data/model-results.json"]);
+export const RESULTS = loadResults(data["../data/model-results.json"]);
 const DOCS = (data["../data/wiki-docs.json"] ?? {}) as { theory?: string | null; devices?: string | null };
 
 const STAGE_PILL: Record<Stage, string> = { done: "passed", "in progress": "inconclusive", planned: "planned" };
 
+const LANES = ["Robot", "Model", "Product"] as const;
+
+/** The design's turns as a timeline: one lane per area, one column per date. Pick a turn to read it. */
 export function Journey() {
-  const [area, setArea] = useState<string>("All");
-  const areas = ["All", "Robot", "Model", "Product"];
-  const shown = JOURNEY.filter((t) => area === "All" || t.area === area);
+  const dates = [...new Set(JOURNEY.map((t) => t.when))];
+  const [picked, setPicked] = useState(0);
+  const turn = JOURNEY[picked];
   return (
-    <>
-      <div className="seg" role="group" aria-label="Show turns about">
-        {areas.map((a) => <button key={a} type="button" aria-pressed={area === a} onClick={() => setArea(a)}>{a}</button>)}
-      </div>
-      <ol className="journey">
-        {shown.map((t) => (
-          <li key={t.title} data-stage={t.stage}>
-            <div className="jwhen"><span className="label">{t.when}</span><span className="label">{t.area}</span></div>
-            <i className="jdot" aria-hidden="true" />
-            <div className="jcard">
-              <div className="jhead"><b>{t.title}</b>{t.stage !== "done" && <span className={`pill ${STAGE_PILL[t.stage]}`}>{t.stage}</span>}</div>
-              <p><span className="label">Problem</span>{t.problem}</p>
-              <p><span className="label">Change</span>{t.change}</p>
-              {t.evidence && <p className="jevidence">{t.evidence}</p>}
-            </div>
-          </li>
+    <figure className="mfig" aria-label="Timeline of the design's turns, by date and by area: robot, model and product.">
+      <div className="tl3" style={{ "--cols": dates.length } as React.CSSProperties}>
+        <span className="label tl3corner">Nov</span>
+        {dates.map((d) => <span key={d} className="label tl3date">{d.replace(/^Nov\s*/, "")}</span>)}
+        {LANES.map((lane) => (
+          <Fragment key={lane}>
+            <span className="label tl3lane">{lane}</span>
+            {dates.map((d) => (
+              <div key={d} className="tl3cell">
+                {JOURNEY.map((t, i) => t.area === lane && t.when === d && (
+                  <button key={t.title} type="button" className="tl3dot" data-stage={t.stage} aria-pressed={picked === i} aria-label={`${i + 1}. ${t.title}, ${t.when}, ${t.stage}`} title={t.title} onClick={() => setPicked(i)}>{i + 1}</button>
+                ))}
+              </div>
+            ))}
+          </Fragment>
         ))}
-      </ol>
-    </>
+      </div>
+      <div className="jcard tl3card" data-stage={turn.stage} aria-live="polite">
+        <div className="jhead"><span className="wikistep">{picked + 1}</span><b>{turn.title}</b><span className="label">{turn.when} · {turn.area}</span>{turn.stage !== "done" && <span className={`pill ${STAGE_PILL[turn.stage]}`}>{turn.stage}</span>}</div>
+        <p><span className="label">Problem</span>{turn.problem}</p>
+        <p><span className="label">Change</span>{turn.change}</p>
+        {turn.evidence && <p className="jevidence">{turn.evidence}</p>}
+      </div>
+    </figure>
+  );
+}
+
+const SHAPES = ["circle", "square", "triangle", "diamond"] as const;
+const slotOf = (model: string) => Math.max(0, RESULTS.models.indexOf(model)) % SHAPES.length;
+
+function Mark({ x, y, slot, size = 5 }: { x: number; y: number; slot: number; size?: number }) {
+  const shape = SHAPES[slot];
+  const cls = `mk m${slot + 1}`;
+  if (shape === "circle") return <circle className={cls} cx={x} cy={y} r={size} />;
+  if (shape === "square") return <rect className={cls} x={x - size + 0.5} y={y - size + 0.5} width={2 * size - 1} height={2 * size - 1} />;
+  if (shape === "triangle") return <path className={cls} d={`M${x} ${y - size - 1} L${x + size + 0.5} ${y + size - 0.5} L${x - size - 0.5} ${y + size - 0.5} Z`} />;
+  return <path className={cls} d={`M${x} ${y - size - 1} L${x + size + 1} ${y} L${x} ${y + size + 1} L${x - size - 1} ${y} Z`} />;
+}
+
+/** Moves a mark that would sit on top of an earlier one sideways by a mark's width, so every model stays visible. */
+function dodge<T extends { cx: number; cy: number }>(marks: T[]): T[] {
+  const placed: T[] = [];
+  for (const m of marks) {
+    let cx = m.cx;
+    while (placed.some((o) => Math.abs(o.cx - cx) < 9 && Math.abs(o.cy - m.cy) < 9)) cx += 10;
+    placed.push({ ...m, cx });
+  }
+  return placed;
+}
+
+/** Faults found against dollars per device, one small chart per scored round. */
+export function ModelChart() {
+  const panels = chartPanels(RESULTS);
+  const [lo, hi] = logDomain(panels.flatMap((p) => p.points.map((x) => x.perDevice)));
+  const [hover, setHover] = useState<string | null>(null);
+  if (!panels.length) return null;
+  const W = 280, H = 170, L = 38, R = 12, T = 12, B = 34;
+  const x = (v: number) => L + ((Math.log10(Math.max(v, lo)) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo))) * (W - L - R);
+  const y = (share: number) => T + (1 - share) * (H - T - B);
+  const ticks: number[] = [];
+  for (let v = lo; v <= hi * 1.001; v *= 10) ticks.push(v);
+  const money = (v: number) => (v >= 1 ? `$${v.toFixed(0)}` : `$${v.toPrecision(1).replace(/^0/, "")}`);
+  return (
+    <figure className="mfig" aria-label="Small multiples, one per scored round: each model's share of planted faults found against its dollars per device, on a log scale, with the rule baseline as a dashed line.">
+      <div className="mlegend" aria-hidden="true">
+        {RESULTS.models.map((m) => <span key={m}><svg width="14" height="14" viewBox="0 0 14 14"><Mark x={7} y={7} slot={slotOf(m)} size={4.5} /></svg>{modelName(m)}</span>)}
+        <span><svg width="22" height="14" viewBox="0 0 22 14"><line className="basel" x1="0" y1="7" x2="22" y2="7" /></svg>Rules baseline</span>
+      </div>
+      <div className="mpanels">
+        {panels.map((p) => {
+          const shown = p.points.find((q) => `${p.id}:${q.model}` === hover);
+          return (
+            <div key={p.id} className="mpanel">
+              <div className="mpanelhead"><span className="wikistep">ROUND {p.id}</span><span className="note">{p.title}</span></div>
+              <svg className="mdg" viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby={`mc-${p.id}`}>
+                <title id={`mc-${p.id}`}>{`Round ${p.id}: ${p.points.map((q) => `${modelName(q.model)} found ${q.found} of ${q.planted} at ${fmtUsd(q.perDevice)} per device`).join("; ")}${p.baseline !== null ? `; rules baseline found ${Math.round(p.baseline * 100)}%` : ""}`}</title>
+                {[0, 0.5, 1].map((s) => <g key={s}><line className="grid" x1={L} x2={W - R} y1={y(s)} y2={y(s)} /><text className="lab" x={L - 6} y={y(s) + 4} textAnchor="end">{s * 100}%</text></g>)}
+                {ticks.map((v) => <text key={v} className="lab" x={x(v)} y={H - B + 16} textAnchor="middle">{money(v)}</text>)}
+                <text className="lab dim" x={W - R} y={H - 3} textAnchor="end">per device, log scale</text>
+                {p.baseline !== null && <line className="basel" x1={L} x2={W - R} y1={y(p.baseline)} y2={y(p.baseline)} />}
+                {dodge(p.points.map((q) => ({ q, cx: x(q.perDevice), cy: y(q.share) }))).map(({ q, cx, cy }) => (
+                  <g key={q.model} tabIndex={0} className="mpt" onMouseEnter={() => setHover(`${p.id}:${q.model}`)} onMouseLeave={() => setHover(null)} onFocus={() => setHover(`${p.id}:${q.model}`)} onBlur={() => setHover(null)}>
+                    <circle className="hit" cx={cx} cy={cy} r="12" />
+                    <Mark x={cx} y={cy} slot={slotOf(q.model)} />
+                  </g>
+                ))}
+              </svg>
+              <p className="note mreadout">{shown ? `${modelName(shown.model)}: ${shown.found} of ${shown.planted} faults, ${fmtUsd(shown.perDevice)} per device` : " "}</p>
+            </div>
+          );
+        })}
+      </div>
+    </figure>
   );
 }
 

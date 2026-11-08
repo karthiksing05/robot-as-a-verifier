@@ -24,7 +24,7 @@ export function Runs() {
       <section className="hero rise">
         <Field baseX={0.82} reach={0.5} />
         <h1 className="title">All runs</h1>
-        <div className="row"><a className="btn accent" href="#/projects">Projects</a></div>
+        <div className="row"><a className="btn accent" href="#/studies">Studies</a></div>
       </section>
       <div>
         <div className="panel rise" style={stagger(1)}>

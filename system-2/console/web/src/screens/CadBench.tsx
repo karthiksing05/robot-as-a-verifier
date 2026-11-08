@@ -123,7 +123,7 @@ export function CadBench({ theme }: { theme: string }) {
       {ENVIRONMENTS[env].connected && project && <ProjectBar project={project} tab="cad" />}
       <div className="row">
         <div className="stack" style={{ marginRight: "auto" }}>
-          <h1 className="title">CAD bench</h1>
+          <h1 className="title">Design Analysis</h1>
           <span className="label">Appliance / {params.handle_style} handle / subjects/appliance/cad</span>
         </div>
         <Pill status="pending">Onshape not connected</Pill>

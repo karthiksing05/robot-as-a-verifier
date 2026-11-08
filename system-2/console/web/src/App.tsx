@@ -4,6 +4,7 @@ import { SessionContext, runsFor } from "./lib/context";
 import { useEdits } from "./lib/edits";
 import { useLiveNow } from "./lib/live";
 import { useProjects } from "./lib/projects";
+import { NAV, isCurrent, screenOf } from "./lib/nav";
 import { useRoute, withTransition } from "./lib/route";
 import { ENVIRONMENTS, OPERATORS, canEnter, signOut, switchOperator, useSession } from "./lib/session";
 import { Approvals } from "./screens/Approvals";
@@ -45,8 +46,6 @@ function useTheme() {
   return [value, set] as const;
 }
 
-const NAV = [["projects", "Projects"], ["motivation", "Motivation"], ["wiki", "How it works"], ["live", "Live"], ["cad", "CAD"], ["approvals", "Approvals"], ["edits", "Edit log"]] as const;
-
 export function App() {
   const session = useSession();
   const route = useRoute();
@@ -65,7 +64,7 @@ export function App() {
 
   if (!session) return <Login />;
 
-  const section = route.parts[0] ?? "projects";
+  const section = screenOf(route.parts[0]);
   const pending = edits.filter((e) => e.state === "planned").length;
   const runId = section === "run" ? route.parts[1] : null;
   const here = section === "project" ? route.parts[1] : section === "live" ? route.query.get("project") : section === "cad" ? projects.find((p) => p.cad)?.id : null;
@@ -77,11 +76,11 @@ export function App() {
       <div className="app">
         <header className="top">
           <span className="topstatic" aria-hidden="true" />
-          <a className="mark" href="#/projects">RAAV CONSOLE</a>
+          <a className="mark" href="#/studies">RAAV CONSOLE</a>
           <nav className="nav" aria-label="Main">
-            {NAV.map(([path, label]) => (
-              <a key={path} href={hrefFor(path)} aria-current={section === path || (path === "projects" && ["project", "run", "runs"].includes(section)) || (path === "wiki" && section === "systems") ? "page" : undefined}>
-                {label}{path === "live" && live.running && <i className="livedot" role="img" aria-label="running now" />}{path === "approvals" && pending > 0 && <span className="count">{pending}</span>}
+            {NAV.map(([path, screen, label]) => (
+              <a key={path} href={hrefFor(path)} aria-current={isCurrent(screen, section) ? "page" : undefined}>
+                {label}{screen === "live" && live.running && <i className="livedot" role="img" aria-label="running now" />}{screen === "approvals" && pending > 0 && <span className="count">{pending}</span>}
               </a>
             ))}
           </nav>
@@ -108,7 +107,7 @@ export function App() {
               {section === "cad" && <Suspense fallback={<div className="sweep" role="status" aria-label="Loading the CAD bench" />}><CadBench theme={theme} /></Suspense>}
               {section === "approvals" && <Approvals />}
               {section === "edits" && <EditLog />}
-              {(section === "wiki" || section === "systems") && <Wiki route={route} />}
+              {section === "wiki" && <Wiki route={route} />}
             </div>
           </main>
           {/* The chat steers the sample runs. Live and recorded runs have their own controls. */}

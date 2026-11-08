@@ -12,7 +12,7 @@ export function EditLog() {
     <div className="page">
       <div className="row">
         <div className="stack" style={{ marginRight: "auto" }}>
-          <h1 className="title">Edit log</h1>
+          <h1 className="title">Revision History</h1>
         </div>
         <button className="btn ghost" type="button" disabled={!edits.length} onClick={() => downloadText(`edits-${env}.jsonl`, edits.map((e) => JSON.stringify(e)).join("\n") + "\n")}>Export JSONL</button>
         {!confirming && <button className="btn ghost" type="button" disabled={!edits.length} onClick={() => setConfirming(true)}>Clear test edits</button>}

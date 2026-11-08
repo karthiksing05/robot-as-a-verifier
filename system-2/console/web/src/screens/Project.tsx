@@ -29,7 +29,7 @@ export function Project({ route }: { route: Route }) {
 
   if (!project) {
     if (!ready) return <div className="sweep" role="status" aria-label="Loading the project" />;
-    return <div className="page"><div className="empty"><h2>No project called {route.parts[1]}</h2><a className="btn ghost" href="#/projects">All projects</a></div></div>;
+    return <div className="page"><div className="empty"><h2>No project called {route.parts[1]}</h2><a className="btn ghost" href="#/studies">All studies</a></div></div>;
   }
   const own = runs.filter((r) => projectOf(r, projects)?.id === project.id);
   const review = reviewOf(own);

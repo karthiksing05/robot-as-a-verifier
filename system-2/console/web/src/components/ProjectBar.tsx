@@ -18,7 +18,7 @@ export function ProjectBar({ project, tab, locked = false }: { project?: Project
   const tabs: [Tab, string][] = [["story", "Story"], ["live", "Live"], ...(project?.cad ? [["cad", "CAD"] as [Tab, string]] : [])];
   return (
     <nav className="projectbar" aria-label="Project">
-      <a className="note" href="#/projects">Projects</a>
+      <a className="note" href="#/studies">Studies</a>
       <span className="note" aria-hidden="true">/</span>
       <select className="compact" aria-label="Project" value={project?.id ?? "none"} disabled={locked} onChange={(e) => switchTo(e.target.value)}>
         {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}

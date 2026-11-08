@@ -16,7 +16,7 @@ export function Projects() {
   const [adding, setAdding] = useState(false);
 
   if (!ENVIRONMENTS[env].connected) {
-    return <div className="page"><h1 className="title">Projects</h1><div className="empty rise"><h2>Real arm and real CAD: not connected yet</h2></div></div>;
+    return <div className="page"><h1 className="title">Studies</h1><div className="empty rise"><h2>Real arm and real CAD: not connected yet</h2></div></div>;
   }
   const unfiled = runs.filter((r) => !projectOf(r, projects)).length;
 
@@ -24,10 +24,10 @@ export function Projects() {
     <div className="page">
       <section className="hero rise">
         <Field baseX={0.82} reach={0.5} />
-        <h1 className="title">Projects</h1>
+        <h1 className="title">Studies</h1>
         <div className="row">
           <button className="btn accent" type="button" disabled={operator.role === "judge"} onClick={() => setAdding(!adding)}>{adding ? "Close" : "New project"}</button>
-          <a className="btn ghost" href="#/motivation">Why this exists</a>
+          <a className="btn ghost" href="#/background">Background</a>
         </div>
       </section>
       {adding && <NewProjectForm />}

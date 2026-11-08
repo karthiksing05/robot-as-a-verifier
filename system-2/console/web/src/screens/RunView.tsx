@@ -434,7 +434,7 @@ function Patches({ run }: { run: Run }) {
               <dt>Cost</dt><dd>A reprint takes about 15 to 40 minutes (docs/product.md).</dd>
               <dt>Backend</dt><dd className="mono">{p.backend}</dd>
             </dl>
-            <div className="row"><a className="btn ghost" href="#/cad">Open on the CAD bench</a></div>
+            <div className="row"><a className="btn ghost" href="#/design-analysis">Open in Design Analysis</a></div>
           </article>
         );
       })}

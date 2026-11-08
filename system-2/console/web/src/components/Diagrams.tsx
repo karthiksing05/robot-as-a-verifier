@@ -18,7 +18,7 @@ export function Figure({ caption, label, width, children }: { caption: string; l
   return (
     <figure className="dgfig">
       <div className="dgscroll">
-        <svg className="dg" style={{ minWidth: Math.min(width, 560) }} viewBox={`0 0 ${width} ${(children as React.ReactElement<{ "data-h": number }>).props["data-h"]}`} role="img" aria-label={label}>
+        <svg className="dg" style={{ minWidth: width > 420 ? Math.min(width, 560) : undefined, maxWidth: width <= 420 ? width * 1.35 : undefined }} viewBox={`0 0 ${width} ${(children as React.ReactElement<{ "data-h": number }>).props["data-h"]}`} role="img" aria-label={label}>
           <Arrow />
           {children}
         </svg>
@@ -31,17 +31,17 @@ export function Figure({ caption, label, width, children }: { caption: string; l
 /** Who may write to what. The missing arrow is the point. */
 export function TrustLoop() {
   return (
-    <Figure width={820} label="The model proposes a plan or patch. Code moves the arm. Sensors produce verdicts. Code computes the score, which goes back to the model. The model has no path to write verdicts." caption="The loop is closed, and one write path doesn't exist: nothing the model produces can reach a verdict.">
-      <g data-h={250}>
-        <Box x={10} y={40} w={200} h={70} title="The model thinks" sub="proposes plans and patches" />
-        <Box x={310} y={40} w={200} h={70} title="Code moves" sub="routines with hard limits" />
-        <Box x={610} y={40} w={200} h={70} title="Sensors decide" sub="force, travel, readout" gate />
-        <Box x={310} y={170} w={200} h={60} title="Score" sub="recomputable from the log" />
-        <line className="a" x1="210" y1="75" x2="308" y2="75" markerEnd="url(#dg-arrow)" /><text className="lab" x="259" y="66" textAnchor="middle">a plan</text>
-        <line className="a" x1="510" y1="75" x2="608" y2="75" markerEnd="url(#dg-arrow)" /><text className="lab" x="559" y="66" textAnchor="middle">contact</text>
-        <path className="a" d="M710 110 V200 H512" markerEnd="url(#dg-arrow)" /><text className="lab" x="610" y="192" textAnchor="middle">verdicts</text>
-        <path className="a" d="M310 200 H110 V112" markerEnd="url(#dg-arrow)" /><text className="lab" x="210" y="192" textAnchor="middle">evidence</text>
-        <path className="no" d="M170 40 C 320 -8, 500 -8, 650 40" /><text className="nolab" x="410" y="10" textAnchor="middle">no write path</text>
+    <Figure width={360} label="The model proposes a plan or patch. Code moves the arm. Sensors produce verdicts. Code computes the score, which goes back to the model. The model has no path to write verdicts." caption="The loop is closed, and one write path doesn't exist: nothing the model produces can reach a verdict.">
+      <g data-h={236}>
+        <Box x={8} y={16} w={150} h={60} title="The model thinks" sub="plans and patches" />
+        <Box x={202} y={16} w={150} h={60} title="Code moves" sub="routines, hard limits" />
+        <Box x={202} y={160} w={150} h={60} title="Sensors decide" sub="force, travel, readout" gate />
+        <Box x={8} y={160} w={150} h={60} title="Score" sub="recomputable from log" />
+        <line className="a" x1="158" y1="46" x2="200" y2="46" markerEnd="url(#dg-arrow)" /><text className="lab" x="180" y="38" textAnchor="middle">plan</text>
+        <line className="a" x1="290" y1="76" x2="290" y2="158" markerEnd="url(#dg-arrow)" /><text className="lab" x="296" y="122">contact</text>
+        <line className="a" x1="202" y1="190" x2="160" y2="190" markerEnd="url(#dg-arrow)" /><text className="lab" x="181" y="182" textAnchor="middle">verdicts</text>
+        <line className="a" x1="70" y1="160" x2="70" y2="78" markerEnd="url(#dg-arrow)" /><text className="lab" x="64" y="122" textAnchor="end">evidence</text>
+        <path className="no" d="M120 76 L 238 160" /><text className="nolab" x="180" y="122" textAnchor="middle">no write path</text>
       </g>
     </Figure>
   );
@@ -89,39 +89,42 @@ export function RunFlow() {
 /** Heights from two photos: nearer things shift further between them. */
 export function Parallax() {
   return (
-    <Figure width={620} label="The wrist camera takes two photos 15 millimetres apart. A raised button shifts further between them than the panel behind it, and that difference gives its height." caption="A camera with no depth sensor still gets depth: what's nearer shifts further between two photos. Depth = focal length × baseline ÷ shift.">
-      <g data-h={270}>
-        <rect className="box" x="160" y="14" width="46" height="26" /><text className="sub" x="150" y="32" textAnchor="end">photo 1</text>
-        <rect className="box" x="410" y="14" width="46" height="26" /><text className="sub" x="466" y="32">photo 2</text>
-        <line className="a" x1="210" y1="27" x2="404" y2="27" markerEnd="url(#dg-arrow)" /><text className="lab" x="308" y="20" textAnchor="middle">15 mm</text>
-        <line className="ray" x1="183" y1="40" x2="300" y2="190" /><line className="ray" x1="433" y1="40" x2="300" y2="190" />
-        <line className="ray far" x1="183" y1="40" x2="350" y2="232" /><line className="ray far" x1="433" y1="40" x2="350" y2="232" />
-        <rect className="surface" x="60" y="232" width="500" height="20" /><text className="sub" x="72" y="226">panel</text>
-        <rect className="gate" x="272" y="190" width="56" height="42" /><text className="sub" x="372" y="212">raised button</text>
+    <Figure width={380} label="The wrist camera takes two photos 15 millimetres apart. A raised button shifts further between them than the panel behind it, and that difference gives its height." caption="A camera with no depth sensor still gets depth: what's nearer shifts further between two photos. Depth = focal length × baseline ÷ shift.">
+      <g data-h={262}>
+        <rect className="box" x="92" y="14" width="40" height="26" /><text className="sub" x="84" y="32" textAnchor="end">photo 1</text>
+        <rect className="box" x="248" y="14" width="40" height="26" /><text className="sub" x="296" y="32">photo 2</text>
+        <line className="a" x1="134" y1="27" x2="244" y2="27" markerEnd="url(#dg-arrow)" /><text className="lab" x="190" y="20" textAnchor="middle">15 mm</text>
+        <line className="ray" x1="112" y1="40" x2="190" y2="190" /><line className="ray" x1="268" y1="40" x2="190" y2="190" />
+        <line className="ray far" x1="112" y1="40" x2="236" y2="232" /><line className="ray far" x1="268" y1="40" x2="236" y2="232" />
+        <rect className="surface" x="16" y="232" width="348" height="20" /><text className="sub" x="24" y="226">panel</text>
+        <rect className="gate" x="162" y="190" width="56" height="42" /><text className="sub" x="250" y="212">raised button</text>
       </g>
     </Figure>
   );
 }
 
-/** What each verdict looks like in force against travel. Shapes, not a recording. */
+/** What each verdict looks like in force against travel. Shapes, not a recording. Three small plots that wrap. */
 export function ForceShapes() {
-  const Plot = ({ x, name, d, note, stroke }: { x: number; name: string; d: string; note: string; stroke: string }) => (
-    <g transform={`translate(${x} 0)`}>
-      <text className="t" x="0" y="18">{name}</text>
-      <line className="axis" x1="0" y1="32" x2="0" y2="170" /><line className="axis" x1="0" y1="170" x2="210" y2="170" />
-      <line className="cap" x1="0" y1="58" x2="210" y2="58" /><text className="sub" x="210" y="52" textAnchor="end">force cap</text>
-      <path className={stroke} d={d} />
-      <text className="sub" x="0" y="190">{note}</text>
-    </g>
-  );
+  const plots = [
+    ["PASS", "curve pass", "M0 170 C 25 165, 45 112, 62 104 L 78 138 C 110 136, 150 134, 190 132", "clicks at about 3 N, full travel"],
+    ["FAIL", "curve fail", "M0 170 C 8 150, 14 80, 20 58", "binds: 0.3 mm of travel, at the cap"],
+    ["MISSED", "curve muted", "M0 168 L 190 167", "no contact: not the device's fault"],
+  ] as const;
   return (
-    <Figure width={760} label="Three force against travel shapes. A pass rises to a click and travels its full distance. A fail hits the force cap almost at once with barely any travel. A miss shows no force at all." caption="Shapes for illustration, not a recording. Force rises up the page and travel runs across. The readout confirms a pass: a control that clicks but changes nothing still fails.">
-      <g data-h={200}>
-        <Plot x={20} name="PASS" stroke="curve pass" d="M0 170 C 25 165, 45 112, 62 104 L 78 138 C 110 136, 150 134, 190 132" note="clicks at about 3 N, full travel" />
-        <Plot x={275} name="FAIL" stroke="curve fail" d="M0 170 C 8 150, 14 80, 20 58" note="binds: 0.3 mm of travel, at the cap" />
-        <Plot x={530} name="MISSED" stroke="curve muted" d="M0 168 L 190 167" note="no contact: not the device's fault" />
-      </g>
-    </Figure>
+    <figure className="dgfig">
+      <div className="dgmulti">
+        {plots.map(([name, stroke, d, note]) => (
+          <svg key={name} className="dg" viewBox="-14 0 244 200" role="img" aria-label={`${name}: ${note}`}>
+            <text className="t" x="0" y="18">{name}</text>
+            <line className="axis" x1="0" y1="32" x2="0" y2="170" /><line className="axis" x1="0" y1="170" x2="210" y2="170" />
+            <line className="cap" x1="0" y1="58" x2="210" y2="58" /><text className="sub" x="210" y="52" textAnchor="end">force cap</text>
+            <path className={stroke} d={d} />
+            <text className="sub" x="0" y="190">{note}</text>
+          </svg>
+        ))}
+      </div>
+      <figcaption>Shapes for illustration, not a recording. Force rises up the page and travel runs across.</figcaption>
+    </figure>
   );
 }
 

@@ -222,3 +222,31 @@ export function deviceCards(markdown: string | null | undefined): DeviceCard[] {
 
 /** Where a device runs in the Demo: its project, if the doc names one, or the start form. */
 export const demoHref = (card: DeviceCard) => (card.project ? `#/live?project=${encodeURIComponent(card.project)}` : "#/live");
+
+// ---- the Models chart: faults found against cost per device ----
+
+export interface ChartPoint { model: string; found: number; planted: number; share: number; perDevice: number }
+export interface ChartPanel { id: string; title: string; points: ChartPoint[]; baseline: number | null }
+
+/** One panel per finished scored round that ran at least two models. A point is one model's share of planted faults found
+ *  against its dollars per device (a run is one device). The baseline costs nothing, so it's a line, not a point. */
+export function chartPanels(results: Results): ChartPanel[] {
+  return results.rounds
+    .filter((r) => r.kind === "eval" && r.status === "done")
+    .map((r) => {
+      const points = r.rows
+        .filter((x) => !x.baseline && x.usd !== null && x.runs > 0 && x.faults_planted > 0)
+        .map((x) => ({ model: x.model, found: x.faults_found, planted: x.faults_planted, share: x.faults_found / x.faults_planted, perDevice: (x.usd ?? 0) / x.runs }));
+      const base = r.rows.find((x) => x.baseline && x.faults_planted > 0);
+      return { id: r.id, title: r.title, points, baseline: base ? base.faults_found / base.faults_planted : null };
+    })
+    .filter((p) => p.points.length >= 2);
+}
+
+/** Powers of ten that cover every value, for a log axis. */
+export function logDomain(values: number[]): [number, number] {
+  const pos = values.filter((v) => v > 0);
+  if (!pos.length) return [0.001, 1];
+  const lo = Math.floor(Math.log10(Math.min(...pos))), hi = Math.ceil(Math.log10(Math.max(...pos)));
+  return [10 ** lo, 10 ** Math.max(hi, lo + 1)];
+}

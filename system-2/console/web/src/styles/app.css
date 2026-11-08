@@ -95,7 +95,7 @@ pre.code { font-family: var(--mono); font-size: 11.5px; line-height: 1.5; backgr
 .field-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 .login { position: relative; height: 100%; display: grid; place-items: center; padding: 24px 16px; overflow: hidden; background: var(--bg); }
 .gobox { position: relative; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; transform: translate(calc(var(--px, 0) * -8px), calc(var(--py, 0) * -8px)); }
-.gobox .wordmark { font-family: var(--display); font-weight: var(--display-weight); font-size: clamp(30px, 6vw, 62px); letter-spacing: 0.05em; line-height: 1; }
+.gobox .wordmark { margin: 0; max-width: min(92vw, 15ch); font-family: var(--display); font-weight: var(--display-weight); font-size: clamp(26px, 5.4vw, 56px); letter-spacing: 0.04em; line-height: 1.15; text-wrap: balance; }
 .envpick { display: flex; border: 1px solid var(--line); background: var(--surface); }
 .envpick button { background: none; border: 0; border-right: 1px solid var(--line); padding: 8px 20px; min-width: 150px; cursor: pointer; color: var(--muted); display: flex; flex-direction: column; gap: 1px; transition: background var(--mid) var(--ease), color var(--mid) var(--ease); }
 .envpick button:last-child { border-right: 0; }
@@ -441,6 +441,8 @@ pre.code { font-family: var(--mono); font-size: 11.5px; line-height: 1.5; backgr
 .dgfig figcaption { font: 400 12px/1.5 var(--mono); color: var(--muted); max-width: 90ch; }
 .dgscroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); padding: 12px; }
 .dg { display: block; width: 100%; height: auto; color: var(--ink); }
+.dgmulti { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 250px)); gap: 8px; }
+.dgmulti .dg { background: var(--surface); border: 1px solid var(--line); padding: 10px; }
 .dg text { fill: var(--ink); font: 400 13px var(--serif); }
 .dg .t { font: 600 13px var(--mono); }
 .dg .sub { fill: var(--muted); }
