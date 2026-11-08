@@ -24,7 +24,7 @@ from rig import CONTROL_HZ, SafetyStop  # noqa: E402
 SPEED = 0.015       # m/s along the press: free-air tracking was clean at 20 mm/s and stick-slipped at 2
 STALL_M = 0.004     # lag growth past the free-air baseline that counts as pressed (free air: up to 2 mm at 20 mm/s)
 BASELINE_S = 0.5    # moving this long first, so the start-up lag is over before the baseline is taken
-START_M = 0.06      # start this far over the limp surface reading (that reading is 1.5-2.5 cm low)
+START_M = 0.06      # start this far over the limp surface reading
 UP = np.array([0.0, 0.0, 1.0])  # presses move straight down, with the gripper leaning TILT for reach: no sideways push to slip
 SPOTS_M = [(0, 0), (0.04, 0), (-0.04, 0), (0, 0.04), (0, -0.04), (0, 0)]
 
@@ -77,7 +77,8 @@ def main(argv=None, bus=None, ask=input):
         ask("Lift the arm about 10 cm and tip the gripper forward a little. Hold it and press Enter: ")
         arm.tick()  # read_q() is the last tick's reading: this one is the lifted pose, not the surface
         floor = arm.workspace[2][0] + 0.002
-        depth = min(START_M, mid[2] + START_M - floor)  # ends at the limp reading (a missed stall stays under ~12 N), never below the floor
+        depth = min(START_M + 0.01, mid[2] + START_M - floor)  # 1 cm past the limp reading, which read ~5 mm under the
+        # surface (stalls at 30-31 mm over a 26 mm reading): room for the 4 mm stall, a missed one stops ~6 N in; never below the floor
         rows, now = [], arm.read_q()
         print("Planned presses (tip mm; lean from vertical; joints deg):")
         for k, (dx, dy) in enumerate(SPOTS_M):
