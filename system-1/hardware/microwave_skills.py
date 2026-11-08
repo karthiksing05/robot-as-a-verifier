@@ -194,9 +194,9 @@ def press(arm, p, R, depth=None):
 
 # --- the door ---
 
-def door_geometry(p, R):
+def door_geometry(p, R, nudge=(0.0, 0.0, 0.0)):
     """(the bar's middle with the door shut, the hinge point, its axis), arm frame. From the handle itself, or from a
-    named button plus device.yaml's offsets."""
+    named button plus device.yaml's offsets; both moved by nudge (mm, device frame: toward the arm, right, up)."""
     if p.kind == "handle":
         bar = np.asarray(p.pos, float)
         if "hinge" in p.meta:  # the sim's CAD handle carries its hinge
@@ -205,6 +205,7 @@ def door_geometry(p, R):
         bar = p.pos + R @ (np.subtract(HANDLE, BUTTONS[_name(p)]) / 1000)
     else:
         raise RuntimeError(f"target the handle or a named button ({', '.join(BUTTONS)}): {p.id} is neither")
+    bar = bar + R @ (np.asarray(nudge, float) / 1000)
     return bar, bar + R @ (np.subtract(HINGE, HANDLE) / 1000), _unit(R @ np.asarray(HINGE_AXIS))
 
 
@@ -219,11 +220,11 @@ def _angle_of(bar0, H, k, at):
     return math.degrees(math.atan2(float(k @ np.cross(u, v)), float(u @ v)))
 
 
-def open_door(arm, p, R, angle=PULL_DEG):
+def open_door(arm, p, R, angle=PULL_DEG, nudge=(0.0, 0.0, 0.0)):
     """The jaws open round the handle's bar at its middle, the bar centred between them, shut on it, drawn round the
     hinge's arc to angle (deg), opened and backed off. Says how far round the bar really went, from the arm's joint
     readings where the pull ended."""
-    bar0, H, k = door_geometry(p, R)
+    bar0, H, k = door_geometry(p, R, nudge)
     label = f"door_open {p.id}"
     gap = BAR_D + 2 * GRIP_SPARE
     centre_x = JAW_FACE_X + gap / 2  # the bar's middle from the fixed jaw's tip, toward the moving jaw
@@ -283,11 +284,11 @@ def open_door(arm, p, R, angle=PULL_DEG):
             "reason": f"{what}: the pull {why or 'ended short'} at {reached:.0f} deg" if held else what}
 
 
-def close_door(arm, p, R, angle=None):
+def close_door(arm, p, R, angle=None, nudge=(0.0, 0.0, 0.0)):
     """The shut jaws' tip swept round the arc toward shut from CLOSE_FROM further open than the door is believed to rest
     (angle, deg: door_open's last reading by default), in front of the bar, so it meets the bar wherever it really is
     and pushes it to SHUT_AT; held while the latch pulls it shut, then back off."""
-    bar0, H, k = door_geometry(p, R)
+    bar0, H, k = door_geometry(p, R, nudge)
     label = f"door_close {p.id}"
     angle = float(angle if angle is not None else getattr(arm, "door_deg", PULL_DEG))
     if angle < 2.0:
@@ -341,10 +342,14 @@ def close_door(arm, p, R, angle=None):
             + ("" if shut else f": it {why or 'stopped'} short of shut")}
 
 
+def _nudge(params):
+    return tuple(float(params.get(k, 0.0)) for k in ("dx_mm", "dy_mm", "dz_mm"))
+
+
 SKILLS = {
     "mw_press": lambda arm, p, R, params: press(arm, p, R, float(params.get("depth_mm", 0)) / 1000),
-    "door_open": lambda arm, p, R, params: open_door(arm, p, R, float(params.get("angle", PULL_DEG))),
-    "door_close": lambda arm, p, R, params: close_door(arm, p, R, params.get("angle")),
+    "door_open": lambda arm, p, R, params: open_door(arm, p, R, float(params.get("angle", PULL_DEG)), _nudge(params)),
+    "door_close": lambda arm, p, R, params: close_door(arm, p, R, params.get("angle"), _nudge(params)),
 }
 
 

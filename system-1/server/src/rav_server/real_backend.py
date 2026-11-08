@@ -119,7 +119,8 @@ class RealBackend(PipelineRobot):
             pickle.dump(self.scene, f)
         import display_view
         # the display, which the scan never finds, from the buttons before their press shift: an observe photographs it
-        display = None if any(p.kind == "display" for p in self.parts) else display_view.display_part(self.parts, self.plane_T)
+        # display_view places the MC-6's screen from its buttons: on another appliance it marked the cardboard (Nov 8)
+        display = None if self.appliance != "centrifuge" or any(p.kind == "display" for p in self.parts)             else display_view.display_part(self.parts, self.plane_T)
         shift = getattr(self.arm, "part_shift", None)
         if shift is not None:  # as tools/press_part.py: the scan's parts and each last look's answer
             self.parts = [shifted(p, shift) for p in self.parts]
