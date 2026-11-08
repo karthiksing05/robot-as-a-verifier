@@ -2,12 +2,29 @@
   "id": "centrifuge",
   "name": "MC-6 mini centrifuge",
   "summary": "A benchtop mini centrifuge with a four-position tube rack and two tubes: power switch, three push buttons, a speed dial, a hinged lid, two wells, a display and a light ring.",
+  "instruction": "Run the MC-6 demo: these eight steps, in this order, and nothing else. 1. tube_pick on STOP (it finds the red tube in the rack with the camera and lifts it). 2. tube_place on STOP (it lowers the held tube into well A). 3. lid_close on STOP. 4. flip POWER with toward=1 (up, to ON). 5. press TIME+. 6. turn SPEED with angle=-60. 7. press START. 8. press STOP. Propose them as one plan, then report what each step did.",
   "kind": "sim",
-  "sim": { "path": "appliances/centrifuge/device.yaml", "rev": "A", "revs": ["A", "B", "M1"] },
+  "sim": {
+    "path": "appliances/centrifuge/device.yaml",
+    "rev": "A",
+    "revs": [
+      "A",
+      "B",
+      "M1"
+    ]
+  },
   "manual": "appliances/centrifuge/manual.md",
-  "products": ["MC-6 mini centrifuge (sim)"],
-  "real": { "runs": ["real-"] },
-  "rules": ["Usable with no thumbs"],
+  "products": [
+    "MC-6 mini centrifuge (sim)"
+  ],
+  "real": {
+    "runs": [
+      "real-"
+    ]
+  },
+  "rules": [
+    "Usable with no thumbs"
+  ],
   "split": "dev",
   "created": "2026-11-07"
 }
