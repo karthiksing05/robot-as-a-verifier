@@ -185,7 +185,7 @@ def grip_turn(arm, p, plane, angle, wrist=None, snap=None):
         snap()  # the jaws closed on the knob, or not
     arm.status = f"{label}: turn"
     dq = np.zeros(5)
-    dq[4] = angle
+    dq[4] = -angle  # + is counter-clockwise seen from the front; a + wrist roll turned the real SPEED dial clockwise
     skills.move_joints(arm, arm.cmd + dq)
     gripper(arm, GRIP_OPEN, 0.4)
     arm.bus.sync_write("Torque_Limit", {"gripper": 500}, normalize=False)
