@@ -12,7 +12,7 @@ button_stop,button_stop,bought,bought,,centrifuge,5015.2,
 cap_stop,cap_stop,bought,bought,button cap,centrifuge,398.2,
 button_time,button_time,bought,bought,,centrifuge,5015.2,
 cap_time,cap_time,bought,bought,button cap,centrifuge,398.2,
-dial_knob,dial_knob,laser_stack,plywood,dial,centrifuge,804.8,0.5
+dial_knob,dial_knob,laser_stack,plywood,dial,centrifuge,4072.2,2.4
 well_insert_A_revA,well_insert_A,print,PLA,,centrifuge,1184.8,1.5
 lid_hinge_base,lid_hinge_base,print,PLA,,centrifuge,3233.6,4.0
 lid_hinge_pin,lid_hinge_pin,stock,filament,,centrifuge,56.5,0.1

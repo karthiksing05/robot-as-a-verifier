@@ -1,4 +1,12 @@
-# MC-6 — changes, v6 (old `centrifuge_cad_v6`) → v7 (this folder)
+# MC-6 — changes
+
+## v7.2 (2026-11-08)
+- **SPEED knob 2× larger:** hub Ø10 → Ø20 mm, fin 3 × 9 → 6 × 18 mm. Same D-hole for the pot shaft, same 4 plies, same height on the shaft. Laser file `dial_knob_ply__x4.dxf`.
+- Replaces the 2.5× knob tried in v7.1 (its fin passed over the TIME+ cap and needed the knob raised 2 mm).
+- Rechecked: 360° knob sweep with no contact (≥ 3.1 mm); feasibility checks 23/23 pass.
+- `device.yaml`'s `dial_knob` geoms and `dial_1` control (knob_radius 5, fin_length 18, fin_width 3, floor_gap 5) describe the v7 knob and need updating to these sizes (hub radius 10, fin 6 wide reaching 18 from the axis, underside 5 above the face).
+
+## v6 (old `centrifuge_cad_v6`) → v7
 
 ## Mechanical
 - **Buttons:** the 3 printed bezels + laser caps + 12 mm tactile switches are gone. START, STOP and TIME+ are now 16 mm panel pushbuttons (same as the microwave) in 16.2 mm holes in the control face, nut behind. Bodies: `button_*` (fixed) + `cap_*` (moving). Cap travel 1.5 mm, click at 1.0 mm (was 0.3 mm travel).

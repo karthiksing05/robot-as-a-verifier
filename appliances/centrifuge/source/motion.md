@@ -19,7 +19,9 @@ Body names match the STEP (`step/bodies.csv`). Bodies starting with `ref_` are b
 
 ## SPEED dial
 - Moving body: `dial_knob` (knob with a pointer fin) on a 10 kΩ pot (`ref_pot`).
-- Axis: along n, through the knob centre at about (46.04, 50.5, 80.04).
+- Knob (v7.2, 2× the v7 knob): Ø20 mm hub, fin 6 mm wide reaching 18 mm from the axis, 12 mm tall (4 × 3 mm plies). Its underside sits 5 mm above the control face.
+- Axis: along n, through the pot shaft at y = 50.5 on the control face's centre line.
+- Nothing touches anywhere in the 360° sweep, and the fin never passes over the TIME+ cap (min gaps: TIME+ housing 3.1 mm, TIME+ cap 3.1 mm, control face and side panel 5 mm).
 - **Range 270°.** Joint angle q runs from 0 (minimum, 1000 rpm) to −270° (maximum, 6000 rpm) about +n, i.e. **clockwise seen from the front raises the speed**.
 - Hard end stops at both ends (the pot's own stops).
 - **No detents.** It's continuous; the firmware rounds to 50 steps of 100 rpm. Light friction, stays where it's left.
