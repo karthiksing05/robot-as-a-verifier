@@ -10,9 +10,9 @@ A robot arm that finds the controls on a device it has never seen, operates them
 
 | Part | What it is |
 |---|---|
-| Arm | An SO-101 with a 25 mm probe on its wrist, ending in a 12 mm round fingertip that does all the pressing |
+| Arm | An SO-101 with its gripper held closed. The fixed jaw's end, a 4 x 3 mm nub, is the fingertip that does all the pressing |
 | Wrist camera | A $19 USB camera, no depth sensing |
-| Fingertip sensor | A SensX 25 pressure pad (a thin film with a 5 x 5 grid of pressure cells) on the fingertip |
+| Fingertip sensor | None: force comes from the servos' own feedback |
 | Desk board | A printed checkerboard on the desk at a known spot, so each camera can work out where it is relative to the arm. Nothing is stuck on the device itself |
 
 **The task.** Put a device on the desk: a panel of buttons, toggles, sliders, dials, knobs, a door and a display. The robot has to work out what each control is and where it is, operate it, and check the device reacted.
@@ -106,11 +106,11 @@ PYTHONUTF8=1 .venv/Scripts/python tools/bench.py runs/bench.jsonl slop18 1650 --
 | `--seed N --placement random` | A generated device, placed somewhere else on the desk (default: preset C) |
 | `--slop` | Servos as soft as real ones, with the small zone where they don't correct errors and the play in their gears (default: perfectly stiff) |
 | `--stiffness NM` | Servo stiffness in N·m/rad with `--slop`. The default is 36; 18 matches the team's servos at the default gain of LeRobot, the software that drives the SO-101 |
-| `--sensing tactile` | The SensX 25 pad on the fingertip, with servo feedback for sideways force (needs `--slop`) |
-| `--sensing loadcell` | A cheap load cell behind the probe instead of the pad (needs `--slop`) |
+| `--sensing tactile` | A SensX 25 pad on the fingertip, with servo feedback for sideways force (needs `--slop`). Modelled for the old probe; the jaw has none |
+| `--sensing loadcell` | A cheap load cell behind the fingertip instead of the pad (needs `--slop`). Not built |
 | `--sensing current` | No sensor at all: force estimated from the servos' own feedback (needs `--slop`) |
 | `--ideal` | No camera noise and no joint calibration error |
-| `--offsets DEG` | Joint calibration error up to ±DEG on every joint (default: random errors with a standard deviation of 0.5° on the four joints that position the probe) |
+| `--offsets DEG` | Joint calibration error up to ±DEG on every joint (default: random errors with a standard deviation of 0.5° on the four joints that position the fingertip) |
 | `--no-refine` | Skip the camera's last look before each test |
 | `--depth [--stereo]` | The earlier version of the pipeline, which used a depth camera on the wrist instead of the USB camera |
 | `--real-driver` | The real arm's driver, `RealArm`, drives the sim through a simulated motor bus (needs `--slop`, `--sensing current` or `tactile`, and LeRobot; see [the real arm](docs/real-arm.md#tests)) |

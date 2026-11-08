@@ -113,13 +113,13 @@ def _rotate(v, k, th):
 
 # --- motion with sagging servos ---
 
-def _approach(arm, pos, axis, label):
+def _approach(arm, pos, axis, label, q0=None):
     """Move the tip to pos, pointing along axis, then command the pose again by however far the joint readings
     fell short, until they are within SAG_TOL of it: gravity sags STS3215 servos about 10 mm at the tip, one
-    round leaves about 1.2 mm (friction), two about 0.25. Returns the pose and the bias, command minus
-    reading, that holds the arm on poses near it."""
+    round leaves about 1.2 mm (friction), two about 0.25. q0 seeds the IK (default the command), and so sets the
+    wrist roll. Returns the pose and the bias, command minus reading, that holds the arm on poses near it."""
     arm.status = f"{label}: approach"
-    q, ok, err, _ = arm.ik.solve(pos, axis, arm.cmd)
+    q, ok, err, _ = arm.ik.solve(pos, axis, arm.cmd if q0 is None else q0)
     if not ok:  # the solver's best guess can point the arm anywhere: an unreachable touch swung the real arm away
         raise SafetyStop(f"{label}: the approach is out of reach (best IK is {err * 1000:.0f} mm off)")
     skills.move_joints(arm, q)
@@ -187,6 +187,18 @@ class _Push:
     centre: float = 0.0   # a lever's centre, this far past contact: it can't go over before
 
 
+def _trail(arm, q, m):
+    """q with the wrist rolled so the closed moving jaw, on the tip frame's +x side, trails a push along m: the IK
+    leaves the roll where its seed has it."""
+    q = q.copy()
+    for _ in range(2):
+        arm.ik.fk(q)
+        R = arm.ik.d.site_xmat[arm.ik.tip].reshape(3, 3)
+        x, z, back = R[:, 0], R[:, 2], m - (m @ R[:, 2]) * R[:, 2]
+        q[4] = np.clip(q[4] + math.atan2(np.cross(x, -back) @ z, x @ -back), arm.ik.lo[4], arm.ik.hi[4])
+    return q
+
+
 def _obstacles(p, parts, datum):
     """The other parts as (position on the plane through p's origin, footprint radius, top above the datum,
     id); datum is the height above the panel that the plan measures from."""
@@ -221,9 +233,10 @@ def _sideways(arm, face, n, m, floor, contact_h, top, until, what, touch_floor=N
         d = pt - c
         return np.linalg.norm(d - (d @ n) * n) < np.interp(up, JAW_H, JAW_R) + r + margin
 
+    q0 = _trail(arm, arm.cmd, m)
     for gap in (GAP, 0.001):
         ends = (0.0, gap + until / 2, gap + until)
-        tip, q = place(-n, _lowest(-n, n)), arm.cmd
+        tip, q = place(-n, _lowest(-n, n)), q0
         for _ in range(2):  # the arm can't always point the probe along -n; the tilt lowers one side of the pad
             axes = []
             for s in ends:
@@ -240,7 +253,7 @@ def _sideways(arm, face, n, m, floor, contact_h, top, until, what, touch_floor=N
     else:
         return f"no room for the pad: {hit[0]} is in the way"
     top = max([top] + [ot for c, r, ot, _ in obstacles if near(path(0, gap)[0], c, r, 0.005, ot - low)])
-    qs, q = [], arm.cmd
+    qs, q = [], q0
     for pt in (path(0, gap)[0] + HOVER * n, *(path(s, gap)[0] for s in ends)):
         q, ok, err, _ = arm.ik.solve(pt, -n, q)
         if not ok:
@@ -308,8 +321,8 @@ def _flip_plan(arm, p, parts):
 def _guarded(arm, path, length, n, limit, speed, bias, until=None, expect=None, track=False, centre=0.0):
     """Push the pad along path(s, contact) -> (tip, direction) for s in [0, length], IK every tick, slowing as
     the force against the motion nears limit and through the last END_ZONE before `until`. Stops at limit
-    (force_limit); at twice limit in all or, given `until` (a push, not a descent), at limit across the motion
-    (side_force: pressed on a part's side or end); when something below pushes the pad off (LOW_N, and more
+    (force_limit); at twice limit in all or, given `until` (a push, not a descent), at limit across the motion in
+    the panel plane (side_force: pressed on a part's side or end); when something below pushes the pad off (LOW_N, and more
     than it resists the motion: a rounded edge pushes up a little too); `until` past first contact; at the
     end; or when the command has run LEAD_MAX ahead of the pad. Force is arm.tip_force_vec(), the 3D contact
     force on the probe. "held" is how far along the pad was when something last pushed back. When the part lets
@@ -393,8 +406,8 @@ def _guarded(arm, path, length, n, limit, speed, bias, until=None, expect=None, 
             s, freed, hold, lead = at, at, -e, 0.0
         if f >= limit:
             g["stop"] = "force_limit"
-        elif np.linalg.norm(F) >= limit + side_n or (until is not None and np.linalg.norm(F + f * m) >= side_n):
-            g["stop"] = "side_force"
+        elif np.linalg.norm(F) >= limit + side_n or (until is not None and np.linalg.norm(F + f * m - (F @ n) * n) >= side_n):
+            g["stop"] = "side_force"  # a jaw's tapered side lifts it as it pushes: that is too_low's to judge
         elif Fm @ n >= max(low_n, f):
             g["stop"] = "too_low"
         elif until is not None and met() is not None and at - met() >= until:
@@ -440,7 +453,7 @@ def _push(arm, plan, limit, label):
     n = plan.n
     for s0 in (0.0, -RETRY):
         start = plan.path(s0, None)[0]
-        _, bias = _approach(arm, start + HOVER * n, -n, label)
+        _, bias = _approach(arm, start + HOVER * n, -n, label, plan.qs[0])
         arm.status = f"{label}: descend"
         dz, why, peak = _descend(arm, start, n, plan.slow, plan.touch, bias)
         if why is None:
@@ -694,7 +707,7 @@ def _refine(arm, p, plan, refine, label, result):
     if plan is None:
         _approach(arm, _aim(p) + skills.APPROACH_M * p.normal, -p.normal, label)
     else:
-        _approach(arm, plan.path(0, None)[0] + HOVER * plan.n, -plan.n, label)
+        _approach(arm, plan.path(0, None)[0] + HOVER * plan.n, -plan.n, label, plan.qs[0])
     arm.status = f"{label}: refine"
     p = refine(arm, p)
     result.update(refined=bool(p.meta.get("refined")), refine_shift_mm=round(p.meta.get("refine_shift", 0.0) * 1000, 2))

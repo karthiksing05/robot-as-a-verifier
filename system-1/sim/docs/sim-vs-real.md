@@ -38,7 +38,7 @@ Every number in these docs comes from a simulation. This page says what the sim 
 
 Each test is cheap, and each settles a number that changes the results.
 
-1. **Servo stiffness, about 10 minutes.** Hold a pose at LeRobot's default gain. Press the probe on a kitchen scale, then hang 100-200 g at the tip, and log each servo's goal minus present position, Present_Load and Present_Current. That gives the stiffness (18 or 36 N·m/rad?) and shows which register carries the most signal, which decides whether servo-only sensing can work.
+1. **Servo stiffness, about 10 minutes.** Hold a pose at LeRobot's default gain. Press the fingertip on a kitchen scale, then hang 100-200 g at the tip, and log each servo's goal minus present position, Present_Load and Present_Current. That gives the stiffness (18 or 36 N·m/rad?) and shows which register carries the most signal, which decides whether servo-only sensing can work.
 2. **The SensX 25, about 15 minutes.** Press it with known weights from 0.1 to 10 N, then leave one on for a minute. That gives its noise, smallest readable force, calibration and drift. Put the numbers into `robot.PAD_NOISE_KPA`, `PAD_THRESHOLD_KPA` and `PAD_GAIN` and rerun the benchmark.
 3. **One real photo of a device panel** from the USB camera at 12 cm, through `rgbperceive.py`. That shows how much the clean renders flatter segmentation.
 4. **Calibration offsets.** Command the arm to touch three known points on the desk board and compare. That says whether σ 0.5° is optimistic.
