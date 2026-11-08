@@ -225,6 +225,10 @@ def main(argv=None) -> None:
     make = make_robot(args)
     real = make() if args.robot == "real" else None  # the backend make_robot built, torque still off
     telemetry.real = real is not None
+    if real:
+        real.live_feed = telemetry.add_feed("wrist")  # live_view's window, for the Console
+        if args.telemetry_port:
+            telemetry.follow_real_arm(real.arm, lambda: real.parts)  # and its 3D view
     engine = RoutineEngine(lambda: telemetry.instrument(make()), robot_name=args.robot)
     telemetry.status_fn = engine.status
     try:

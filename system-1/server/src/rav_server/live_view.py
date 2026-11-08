@@ -58,6 +58,11 @@ def run(backend):
                 inset = None
             compose(img, Kd, T, parts, getattr(arm, "part_shift", None), target, status, inset, errors)
             cv2.imshow("System 1: wrist camera", img)
+            if getattr(backend, "live_feed", None):  # main.py's telemetry: the Console shows this same picture
+                try:
+                    backend.live_feed(img)
+                except Exception as e:  # noqa: BLE001
+                    _once(errors, "feed", e)
             cv2.waitKey(PERIOD_MS)
         except Exception as e:  # noqa: BLE001 - the window must never stop the robot
             _once(errors, "live view", e)

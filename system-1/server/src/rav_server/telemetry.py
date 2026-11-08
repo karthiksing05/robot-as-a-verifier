@@ -298,19 +298,29 @@ class Telemetry:
         arm.on_tick = on_tick
         return robot
 
-    def _export(self) -> None:
-        """Reads a scratch copy, so that exporting can't touch the run's own state."""
-        if not hasattr(self.arm, "m"):
+    def _export(self, arm: Any = None, parts: list = ()) -> None:
+        """Reads a scratch copy, so that exporting can't touch the run's own state. parts: the real arm's scan, each a
+        disc on a body named for it, where the Console's halo finds the target."""
+        arm = self.arm if arm is None else arm
+        if not hasattr(arm, "m"):
             return
         try:
             import mujoco
+            import numpy as np
 
-            m = self.arm.m
+            m = arm.m
             d = mujoco.MjData(m)
-            d.qpos[:] = self.arm.d.qpos
+            d.qpos[:] = arm.d.qpos
             mujoco.mj_kinematics(m, d)
             scene, blobs = build_scene(m, d, self.run_id)
             self.moving = list(scene["moving"])
+            for p in parts:
+                r = p.meta.get("radius") or p.meta.get("pad_radius") or p.meta.get("knob_radius") or max(p.size[:2]) / 2
+                q = np.zeros(4)
+                mujoco.mju_mat2Quat(q, p.T[:3, :3].flatten())
+                scene["geoms"].append({"name": p.id, "body": len(scene["bodies"]), "type": "cylinder", "size": [float(r), 0.002, 0],
+                                       "pos": [0, 0, 0], "quat": [1, 0, 0, 0], "mesh": -1, "mat": -1, "rgba": [0.2, 0.85, 0.9, 1]})
+                scene["bodies"].append({"name": p.id, "pos": p.pos.round(6).tolist(), "quat": q.round(6).tolist()})
         except Exception:
             traceback.print_exc()
             return
@@ -346,6 +356,31 @@ class Telemetry:
             img = render(depth=False)[0]
             self.views[name] = (now + 1 / PANEL_FPS, img)
         return img
+
+    def add_feed(self, name: str) -> Callable[[Any], None]:
+        """A feed drawn elsewhere, as the real rig's live window: the call returned puts a BGR frame on /feed/<name>,
+        and costs nothing with nobody watching."""
+        if name not in self.feeds:
+            self.feeds.append(name)
+        return lambda img: self.publish_frame(name, img) if self.watching.get(name) else None
+
+    def follow_real_arm(self, arm: Any, parts: Callable[[], Any]) -> None:
+        """The real arm in the Console's 3D view, posed by what arm.d holds (RealArm's own loop poses it from the joint
+        readings; nothing here reads the servo bus), with parts() as discs, exported again whenever it's a new list."""
+        def follow():
+            shown = object()
+            while not self.closed.wait(1 / POSE_FPS):
+                try:
+                    if parts() is not shown:
+                        shown = parts()
+                        self._export(arm, shown or [])
+                    if self.watching.get("poses") and self.moving:
+                        self._publish_pose(arm)
+                except Exception:  # what people watch must never stop the robot
+                    traceback.print_exc()
+                    return
+
+        threading.Thread(target=follow, name="telemetry-real-arm", daemon=True).start()
 
     def publish_frame(self, feed: str, img: Any) -> None:
         import cv2
