@@ -1,0 +1,81 @@
+{
+  "device": "MW-1",
+  "pin": "A0",
+  "port": "COM6",
+  "result": {
+    "t": 182576,
+    "ev": "doorcal",
+    "stage": "saved",
+    "open": 541,
+    "closed": 481,
+    "close_below": 505,
+    "open_above": 517,
+    "saved": 1,
+    "host_at": "2026-11-08T07:07:26.567403+00:00"
+  },
+  "trace": ".pio/door-calibration-events.jsonl",
+  "storage": "board EEPROM",
+  "complete": true,
+  "firmware_sha256": "ce0f7811ecf00c9556915ca773cb1eabc89321cbb598d1fb330975b1895ad2c2",
+  "verification": {
+    "complete": true,
+    "door_open": {
+      "t": 233992,
+      "ev": "door",
+      "v": 0,
+      "raw": 521,
+      "host_at": "2026-11-08T07:08:18.057267+00:00"
+    },
+    "door_closed": {
+      "t": 272632,
+      "ev": "door",
+      "v": 1,
+      "raw": 502,
+      "host_at": "2026-11-08T07:08:56.762384+00:00"
+    },
+    "final_status": {
+      "t": 429680,
+      "ev": "hb",
+      "btn_start": 0,
+      "btn_stop": 0,
+      "btn_time": 0,
+      "btn_power": 0,
+      "btn_30s": 0,
+      "door": 1,
+      "door_raw": 500,
+      "door_cal": 541,
+      "door_closed": 481,
+      "door_lo": 505,
+      "door_hi": 517,
+      "door_saved": 1,
+      "buzzer": 0,
+      "time": 15,
+      "power_level": "MED",
+      "state": "COOKING",
+      "door_pause": 0,
+      "display": [
+        "0:15",
+        "POWER MED"
+      ],
+      "light": "amber",
+      "calibrating": 0,
+      "lcd_present": 1,
+      "button_test": 0,
+      "rgb_present": 1,
+      "rgb_addr": 98,
+      "lcd_pending": 0,
+      "i2c": "software",
+      "i2c_us": 20,
+      "host_at": "2026-11-08T07:11:34.104625+00:00"
+    },
+    "button_pins": {
+      "btn_start": 4,
+      "btn_stop": 3,
+      "btn_time": 5,
+      "btn_power": 7,
+      "btn_30s": 6
+    },
+    "buzzer_a1_user_confirmed_audible": true,
+    "trace": ".pio/door-verification-events.jsonl"
+  }
+}

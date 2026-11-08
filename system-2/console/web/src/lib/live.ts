@@ -5,9 +5,10 @@ import type { RunEvent, Report, Step } from "./contracts";
 import { stepNodeId, type GraphNode } from "./graph";
 import { toRun, type Run } from "./runs";
 
-export const LIVE_URL = "http://127.0.0.1:8765";
-export const AGENT_URL: string = import.meta.env?.VITE_AGENT_URL ?? "http://127.0.0.1:8790"; // rav-agent: the model's run, System 2
-export const TELEMETRY_URL: string = import.meta.env?.VITE_TELEMETRY_URL ?? "http://127.0.0.1:8781"; // rav-server's streams, System 1
+export const READ_ONLY_CONSOLE = import.meta.env?.VITE_CONSOLE_READ_ONLY === "1";
+export const LIVE_URL = READ_ONLY_CONSOLE ? "/_rav/live" : "http://127.0.0.1:8765";
+export const AGENT_URL: string = import.meta.env?.VITE_AGENT_URL ?? (READ_ONLY_CONSOLE ? "/_rav/agent" : "http://127.0.0.1:8790");
+export const TELEMETRY_URL: string = import.meta.env?.VITE_TELEMETRY_URL ?? (READ_ONLY_CONSOLE ? "/_rav/telemetry" : "http://127.0.0.1:8781");
 
 export interface Telemetry {
   wall: number;

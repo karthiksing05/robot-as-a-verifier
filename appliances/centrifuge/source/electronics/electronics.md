@@ -12,8 +12,8 @@ The Uno doesn't fit inside the centrifuge. The Uno, shield and a half breadboard
 | `btn_stop` | 16 mm pushbutton | D3 | 1 = pressed | `cap_stop` |
 | `btn_time` | 16 mm pushbutton | D4 | 1 = pressed | `cap_time` |
 | `speed` | 10 kΩ pot | A0 | 1000–6000 rpm, step 100 | `dial_knob` |
-| `lid` | Grove Light Sensor v1.2 | A1 | 1 = closed (shaded) | `ref_light_lid`, shaded by `lid_sensor_fin` |
-| `tube` | Grove Light Sensor v1.2 under well A | A2 | 1 = seated (shaded) | `ref_light_tube`, shaded by the tube |
+| `lid` | Grove Light Sensor v1.2 | A2 | 1 = closed (shaded) | `ref_light_lid`, shaded by `lid_sensor_fin` |
+| `tube` | Grove Light Sensor v1.2 under well A | A1 | 1 = seated (shaded) | `ref_light_tube`, shaded by the tube |
 | `time` | — | — | seconds (set, or left while running) | |
 | `run` | — | — | `start`, `stop`, `done`, `refused:LID`, `refused:TUBE`, `abort:LID` | |
 | display | SSD1306 OLED 128×64, I2C 0x3C | A4/A5 | 2 lines of 2×-size text | `ref_oled` |

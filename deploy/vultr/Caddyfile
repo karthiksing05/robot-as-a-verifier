@@ -1,0 +1,32 @@
+{$RAV_PUBLIC_HOST} {
+	@tunnel {
+		path /tunnel
+		method GET
+		header Upgrade websocket
+	}
+	handle @tunnel {
+		reverse_proxy 127.0.0.1:7000
+	}
+
+	@appliance {
+		method POST
+		path_regexp ^/readout/[A-Za-z0-9_-]{1,64}$
+	}
+	handle @appliance {
+		request_body {
+			max_size 4KB
+		}
+		rewrite * /cloud{uri}
+		reverse_proxy 127.0.0.1:8780 {
+			header_up Host 127.0.0.1:8780
+			transport http {
+				response_header_timeout 2s
+			}
+		}
+	}
+
+	handle {
+		root * /var/www/rav-console
+		file_server
+	}
+}

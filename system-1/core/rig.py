@@ -15,6 +15,8 @@ import cv2
 import mujoco
 import numpy as np
 
+from safety import SafetyStop
+
 # The arm's model file. It stays with the sim's assets: the scenes the sim generates include it by relative path.
 ARM_XML = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sim", "assets", "so101",
                        "so101_new_calib.xml")
@@ -42,10 +44,6 @@ DEADBAND_EST_TICKS = 1     # the dead zone the rig believes (register default); 
 TARE_S = 0.2               # tare() zeroes the estimate on this much of the latest readings
 WEAK_ARM_M = 0.1           # force estimate: directions the joints feel through less moment arm than this are attenuated
 SENSED_NOISE_N = 2.5       # with sensing, skills keep contact thresholds above this (arm.noise_n), in the estimate's units
-
-
-class SafetyStop(Exception):
-    pass
 
 
 @runtime_checkable

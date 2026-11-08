@@ -56,6 +56,10 @@ class McpSystem1:
     def system_status(self) -> SystemStatus:
         return SystemStatus(**self._call("system_status"))
 
+    def appliance_readout(self, device_id: str | None = None) -> dict:
+        body = self._call("appliance_readout", device_id=device_id)
+        return body.get("result", body)
+
     def scene_get(self) -> SceneReport:
         return SceneReport(**self._call("scene_get"))
 

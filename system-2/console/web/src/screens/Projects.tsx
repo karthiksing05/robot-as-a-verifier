@@ -3,7 +3,7 @@ import { Field } from "../components/Field";
 import { stagger } from "../components/ui";
 import { useAppSession, useRuns } from "../lib/context";
 import { galleryOf, splitLabel } from "../lib/gallery";
-import { useLiveNow } from "../lib/live";
+import { READ_ONLY_CONSOLE, useLiveNow } from "../lib/live";
 import { pieceName } from "../lib/wikidata";
 import { controlStatus, createProject, projectOf, reviewOf, useProjects, type Project } from "../lib/projects";
 import { go } from "../lib/route";
@@ -26,9 +26,10 @@ export function Projects() {
         <Field baseX={0.82} reach={0.5} />
         <h1 className="title">Studies</h1>
         <div className="row">
-          <button className="btn accent" type="button" disabled={operator.role === "judge"} onClick={() => setAdding(!adding)}>{adding ? "Close" : "New project"}</button>
+          {!READ_ONLY_CONSOLE && <button className="btn accent" type="button" disabled={operator.role === "judge"} onClick={() => setAdding(!adding)}>{adding ? "Close" : "New project"}</button>}
           <a className="btn ghost" href="#/background">Background</a>
         </div>
+        {READ_ONLY_CONSOLE && <p className="note">Hosted demo. Browse the bundled projects and recorded runs.</p>}
       </section>
       {adding && <NewProjectForm />}
       <div className="projectgrid">

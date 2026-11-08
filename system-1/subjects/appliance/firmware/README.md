@@ -1,6 +1,6 @@
 # The appliance's Pico
 
-The Pico inside the printed appliance reports its controls to the laptop over USB, and every verdict on the real arm comes from what it reports. On the laptop, `system-1/hardware/pico_readout.py` reads it, and `hw_rig.make_rig(..., readout_port="COM7")` puts it on the rig. Owner: Max. [`main.py`](main.py) is only a starting point.
+The Pico inside the printed appliance reports its controls to the laptop over USB, and every verdict on the real arm comes from what it reports. On the laptop, `system-1/hardware/pico_readout.py` reads it, and `hw_rig.make_rig(..., readout_port="COM7")` puts it on the rig. `rav-server --robot real ... --readout serial --readout-port COM7` uses it; [over WiFi](#over-wifi) the board POSTs the same snapshots instead. Owner: Max. [`main.py`](main.py) is only a starting point.
 
 ## What the Pico sends
 
@@ -33,3 +33,40 @@ r = pico_readout.PicoReadout("COM7")
 r.readings, r.events, r.lcd
 r.close()
 ```
+
+## Over WiFi
+
+A board on the WiFi (UNO R4 WiFi, Pico W, ESP32) can send the same snapshots to rav-server over HTTP instead of USB. Nothing about the snapshot changes: the same flat object, on every change and at least every 0.5 s.
+
+```
+POST http://<System 1 laptop>:8780/readout/<device>
+Authorization: Bearer <RAV_DEVICE_KEY>
+Content-Type: application/json
+
+{"BTN1": 0, "BTN2": 1, "DOOR": 0, "LCD": "BTN 2"}
+```
+
+| Reply | Meaning |
+|---|---|
+| 204 | taken |
+| 400 | not one flat JSON object (values must be numbers, strings, bools or null) |
+| 401 | wrong key. The device key is `RAV_DEVICE_KEY`, never `RAV_TOKEN`: a board can feed readings but never move the arm |
+| 404 | rav-server was started for another `--readout-device` |
+| 413 | over 4 KB |
+
+Start the server for it, on the laptop's LAN address, with both keys set and different:
+
+```
+RAV_TOKEN=... RAV_DEVICE_KEY=... uv run rav-server --robot real --arm-port COM5 --calibration makecu.json --host 0.0.0.0 --readout http --readout-device mw1
+```
+
+Until the first POST, no test step runs (it stops with "no readings yet"), and 2 s without one stops the next step, as with USB. On Windows, allow port 8780 inbound in the firewall.
+
+Check it from any laptop on the WiFi, or post by hand to try the server without a board:
+
+```
+curl -H "Authorization: Bearer $RAV_DEVICE_KEY" http://<laptop>:8780/readout/mw1
+curl -X POST -H "Authorization: Bearer $RAV_DEVICE_KEY" -H "Content-Type: application/json" -d '{"BTN1": 1}' http://<laptop>:8780/readout/mw1
+```
+
+The MC-6 and MW-1 sketches (`appliances/{centrifuge,microwave}/firmware/`) do this on an UNO R4 WiFi; their firmware README has the setup. [`wifi_uno_r4/`](wifi_uno_r4/wifi_uno_r4.ino) is a starting point for a new appliance, with placeholder pins. Each uses the same `rav_wifi.h`; copy `arduino_secrets.h.example` to `arduino_secrets.h` (gitignored) and fill it in. Each still sends over USB too. In `system-1/hardware`, `http_readout.HttpReadout` is the laptop's side; `rav_server/device_api.py` serves the endpoint.

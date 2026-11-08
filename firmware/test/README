@@ -1,0 +1,21 @@
+
+Run from the project root:
+
+    python test/run_host_tests.py
+    python -m unittest discover -s test -p 'test_*calibration.py' -v
+
+Requires g++ with C++17 on PATH. This runner compiles each actual sketch
+separately against the hardware fakes in host/fakes, runs state-machine
+assertions, and validates every emitted JSON line. Executables are placed
+in the ignored .pio/host-tests directory. MW-1 is checked with the sketch's
+current door-requirement setting, then with the opposite boolean initializer
+in a generated sketch copy. The deployed firmware sources remain unchanged.
+
+This is a host simulation, not a PlatformIO on-device test suite. It does
+not open a serial port or upload firmware. Follow each sketch's hardware
+bring-up checklist after building and uploading its own environment.
+
+The Python tests cover press/release capture, chords and duplicate mappings,
+extended GPIO assignments, concurrent source edit protection, fragmented
+serial lines, raw event tracing and loss-of-heartbeat detection. They require
+the same pyserial dependency as the operator scripts.

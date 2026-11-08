@@ -71,8 +71,8 @@ Deliver **two separate sketches**: `MC6_firmware/MC6_firmware.ino` and `MW1_firm
 | POWER toggle (SPDT) | D5 | INPUT_PULLUP, LOW = ON |
 | NeoPixel ring, 24 × WS2812B, GRB | D6 | Adafruit_NeoPixel. **Brightness cap 50/255**; set it before the first `show()`, so there's no full-white flash at power-up |
 | SPEED pot, 10 kΩ | A0 | 0–1023 |
-| Lid light sensor | A1 | shaded = lid closed |
-| Tube light sensor (under well A) | A2 | shaded = tube seated |
+| Lid light sensor | A2 | shaded = lid closed |
+| Tube light sensor (under well A) | A1 | shaded = tube seated |
 | OLED SSD1306 128 × 64, I2C | A4 SDA / A5 SCL | address 0x3C (fall back to 0x3D if not found); U8x8 text mode |
 
 ### Behaviour (matches the MC-6 user manual)

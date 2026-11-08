@@ -19,6 +19,12 @@ Built by Karthik, Joseph, Max and Bayan for MakeCU 2026 (Columbia, Nov 7 to 8).
 
 They talk through [seven tools](docs/system-boundary.md#control-what-system-2-can-call) over MCP, and each has its own install. System 2 can start routines, but it has no tool that moves a joint. [`docs/`](docs/README.md) holds what both sides need to read, and the pitch.
 
+## Appliance firmware
+
+The current MC-6 centrifuge and MW-1 microwave board project is in [`firmware/`](firmware/README.md). Each appliance has its own **Arduino Uno R4 WiFi** and upload target: `mc6` or `mw1_r4_wifi`. Open `firmware/` as its own VS Code/PlatformIO project, or run builds from that directory. It includes the sketches, button discovery, saved calibration records, serial monitors and host tests.
+
+The existing appliance-local firmware files remain older snapshots. Use the top-level `firmware/` project for the current physical boards; the simulation device definitions remain in `appliances/`.
+
 ## Get running
 
 You need [uv](https://docs.astral.sh/uv/). It installs Python 3.12 for you.
@@ -38,6 +44,8 @@ cd system-2 && uv sync && uv run rav run                                       #
 ```
 
 To reach System 1 on another machine, start the server with `RAV_TOKEN=<secret>` and `--host 0.0.0.0`, then run `RAV_TOKEN=<secret> uv run rav run --url http://<its address>:8780/mcp`.
+
+For the appliance HTTPS endpoint and System 2 on Vultr, see [the reverse WebSocket setup](deploy/vultr/README.md).
 
 Each run writes `system-2/runs/<id>/events.jsonl` and `report.json`. The Console renders those files.
 

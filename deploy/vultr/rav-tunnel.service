@@ -1,0 +1,15 @@
+[Unit]
+Description=Robot as a Verifier reverse WebSocket tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+DynamicUser=yes
+LoadCredential=tunnel-token:/etc/rav/tunnel-token
+ExecStart=/opt/rav-tunnel/bin/python /opt/rav-tunnel/tunnel.py relay
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

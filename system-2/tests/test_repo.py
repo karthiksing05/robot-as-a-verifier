@@ -35,9 +35,9 @@ def test_harness_doesnt_import_the_cad_kernel_or_console_doesnt_reach_in():
     assert not {"cadquery"} & set().union(*(imports(p) for p in (ROOT / "harness/src").rglob("*.py")))
 
 
-def test_the_root_holds_only_the_two_systems_appliances_and_docs():
+def test_the_root_holds_only_the_two_systems_appliances_firmware_and_docs():
     tracked = {p.name for p in REPO.iterdir() if p.is_dir() and not p.name.startswith(".")}
-    assert tracked - {"node_modules", "__pycache__", "runs"} == {"system-1", "system-2", "appliances", "docs"}
+    assert tracked - {"node_modules", "__pycache__", "runs"} == {"system-1", "system-2", "appliances", "firmware", "docs"}
 
 
 def test_live_extra_matches_the_sims_requirements():
@@ -49,7 +49,7 @@ def test_live_extra_matches_the_sims_requirements():
 def test_markdown_links_resolve():
     broken = []
     for md in REPO.rglob("*.md"):
-        if {".venv", "runs", "node_modules"} & set(md.parts):
+        if {".venv", ".pio", "runs", "node_modules"} & set(md.parts):
             continue
         for target in re.findall(r"\]\(([^)\s]+)\)", md.read_text(encoding="utf-8")):
             if re.match(r"[a-z]+:", target) or target.startswith("#"):
