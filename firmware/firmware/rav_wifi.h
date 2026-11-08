@@ -1,16 +1,27 @@
-// Post snapshots directly to System 1 on the private hotspot.
+// Post snapshots to System 1 through the Vultr HTTPS endpoint by default.
 #pragma once
 
 #define RAV_WIFI 1
 #include <WiFiS3.h>
 
+#ifndef RAV_USE_TLS
+#define RAV_USE_TLS 1
+#endif
+#if RAV_USE_TLS
+#include <WiFiSSLClient.h>
+#endif
+
 namespace rav {
 constexpr size_t SNAPSHOT_MAX = 320;
 const uint32_t SEND_EVERY_MS = 500;
-const uint16_t TIMEOUT_MS = 300;   // a slow reply mustn't hold up the buttons for long
+const uint16_t TIMEOUT_MS = RAV_USE_TLS ? 1500 : 300;
 const uint32_t REJOIN_MS = 10000;  // WiFi.begin blocks for a few seconds: don't retry it every loop
 
+#if RAV_USE_TLS
+WiFiSSLClient client;
+#else
 WiFiClient client;
+#endif
 char last[SNAPSHOT_MAX] = "";
 uint32_t sentAt = 0, joinAt = 0;
 bool joinedOnce = false;

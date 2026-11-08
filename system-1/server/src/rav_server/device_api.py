@@ -16,6 +16,7 @@ import json
 import math
 
 PREFIX = "/readout/"
+CLOUD_PREFIX = "/cloud" + PREFIX
 MAX_BODY = 4096
 SCALAR = (int, float, str, bool, type(None))
 
@@ -73,7 +74,7 @@ class DeviceApi:
 
 
 class Router:
-    """/readout/... to the boards' DeviceApi, everything else to the MCP app behind RAV_TOKEN."""
+    """Route local and VPS readouts separately from the MCP app."""
 
     def __init__(self, devices, app, device_port=None):
         self.devices, self.app = devices, app
@@ -82,6 +83,14 @@ class Router:
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             readout = scope["path"].startswith(PREFIX)
+            cloud = scope["path"].startswith(CLOUD_PREFIX)
+            if cloud:
+                if (isinstance(self.devices.key, dict) and scope["method"] == "POST"
+                        and (self.device_port is None or scope["server"][1] != self.device_port)):
+                    return await self.devices({**scope, "path": scope["path"][len("/cloud"):]}, receive, send)
+                await send({"type": "http.response.start", "status": 404, "headers": []})
+                await send({"type": "http.response.body", "body": b""})
+                return
             if self.device_port is not None:
                 # ASGI's server address comes from the accepted socket, independent of the Host header.
                 on_device_port = scope["server"][1] == self.device_port

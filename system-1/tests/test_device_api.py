@@ -90,6 +90,21 @@ def test_appliance_listener_is_separate_from_mcp():
     assert c.post("http://127.0.0.1:8782/mcp", json={}, headers={"Authorization": f"Bearer {TOKEN}"}).status_code == 404
 
 
+def test_cloud_readout_is_publish_only_and_requires_a_per_device_key():
+    readout = http_readout.HttpReadout("mw1-01")
+    engine = RoutineEngine(MockRobot, "mock")
+    route = "/cloud/readout/mw1-01"
+    auth = {"Authorization": f"Bearer {KEY}"}
+    c = TestClient(build_app(engine, "127.0.0.1", TOKEN, {"mw1-01": readout}, {"mw1-01": KEY}))
+    assert c.post(route, json={"door": 1}).status_code == 401
+    assert c.post(route, json={"door": 1}, headers=auth).status_code == 204
+    assert readout.readings == {"door": 1}
+    assert c.get(route, headers=auth).status_code == 404
+    legacy = TestClient(build_app(engine, "127.0.0.1", TOKEN, {"mw1-01": readout}))
+    assert legacy.post(route, json={"door": 0}).status_code == 404
+    assert readout.readings == {"door": 1}
+
+
 def test_refuses_to_start_without_a_separate_key_off_loopback():
     with pytest.raises(SystemExit, match="RAV_DEVICE_KEY"):
         client(key=None)
