@@ -180,7 +180,7 @@ def run(args) -> None:
         policy, respond = _survey_review(args, system1, log)
         try:
             _print(run_test(system1, request, log, planner=_only(args.only, args.angle), approve=_operator_ran_it if real else auto_approve,
-                            policy=policy, respond=respond))
+                            policy=policy, respond=respond, rescan=not args.reuse_scan))
         finally:
             _save_frames(system1, system1.scene_get().scene.frames, log.dir / "frames")
     finally:
@@ -336,6 +336,7 @@ def main(argv=None) -> None:
     r = sub.choices["run"]
     r.add_argument("--product", default="Device under test")
     r.add_argument("--only", default=None, metavar="CONTROL,...", help="run only the plan's steps on these controls, such as button_1")
+    r.add_argument("--reuse-scan", action="store_true", help="test the scene System 1 holds from its last scan, without scanning again")
     r.add_argument("--angle", type=float, default=None, metavar="DEG",
                    help="turn each knob or dial once by this much (+ counter-clockwise seen from the front), such as -60")
     a = sub.add_parser("agent", help="one run with the frontier model at the controls, on a running server (sim: plans auto-approve)")

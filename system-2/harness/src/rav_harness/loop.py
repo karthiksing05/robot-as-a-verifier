@@ -112,8 +112,9 @@ def _amend(decision: Decision, plan: Plan, remaining: list[Step], approve: Appro
 def run_test(system1: System1, request: TestRequest, log: RunLog, planner: Planner = rule_planner,
              approve: Approver = auto_approve, steering: Steering | None = None,
              wait: Callable[[], None] | None = None, policy: EscalationPolicy = TETHERED,
-             respond: Responder = rule_responder) -> Report:
-    """One coverage run. `wait` is called while paused; without one, a pause ends the run as stopped.
+             respond: Responder = rule_responder, rescan: bool = True) -> Report:
+    """One coverage run. `wait` is called while paused; without one, a pause ends the run as stopped. rescan=False
+    tests the scene System 1 already holds from its last explore, without scanning again.
 
     Steering applies whenever System 1 is holding, so how often that is depends on the policy. Only `stop` reaches a
     routine between stops."""
@@ -121,7 +122,11 @@ def run_test(system1: System1, request: TestRequest, log: RunLog, planner: Plann
     if approve is auto_approve and not robot_may_auto_approve(robot := system1.system_status().robot):
         raise PermissionError(f"plans on {robot} must be approved by a person")
     log.emit("run_started", request)
-    scene, fallback = explore(system1, log, policy, respond)
+    if rescan:
+        scene, fallback = explore(system1, log, policy, respond)
+    else:
+        held = system1.scene_get()
+        scene, fallback = held.scene, held.fallback_plan
     log.emit("scene_ready", scene.model_copy(update={"controls": [c for c in scene.controls if c.id != DEVICE_CONTROL]}))
     plan = planner(request, scene, fallback)
     log.emit("plan_ready", plan)
