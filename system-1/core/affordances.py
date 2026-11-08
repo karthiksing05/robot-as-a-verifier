@@ -115,7 +115,9 @@ def _approach(arm, pos, axis, label):
     round leaves about 1.2 mm (friction), two about 0.25. Returns the pose and the bias, command minus
     reading, that holds the arm on poses near it."""
     arm.status = f"{label}: approach"
-    q, *_ = arm.ik.solve(pos, axis, arm.cmd)
+    q, ok, err, _ = arm.ik.solve(pos, axis, arm.cmd)
+    if not ok:  # the solver's best guess can point the arm anywhere: an unreachable touch swung the real arm away
+        raise SafetyStop(f"{label}: the approach is out of reach (best IK is {err * 1000:.0f} mm off)")
     skills.move_joints(arm, q)
     for _ in range(3):
         if np.linalg.norm(arm.ik.fk(q)[0] - arm.tip_pose()[0]) < SAG_TOL:
