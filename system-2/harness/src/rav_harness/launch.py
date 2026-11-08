@@ -18,7 +18,7 @@ from .model import REPO
 SYSTEM_1 = REPO / "system-1"
 SECRETS = ("_KEY", "_TOKEN", "_PAT", "_SECRET")  # by ending: PATH must get through. RAV_TOKEN is System 1's own, and stays
 READY_S = 180.0
-EFFECTORS = ("probe", "stock")  # the fingertip probe, or the SO-101's own gripper
+EFFECTORS = ("stock", "probe")  # the SO-101's own gripper (the real arm's only effector), or the sim-only fingertip probe
 REV = re.compile(r"^[A-Za-z0-9]+$|^(F[0-9]+=[A-Za-z0-9]+)(,F[0-9]+=[A-Za-z0-9]+)*$")  # a revision, or fault choices like F1=B,F2=A
 
 
@@ -48,7 +48,7 @@ class Device:
     error_schedule: str | None = None
     fault_seed: int | None = None  # which fault `random` picks. System 1 uses the device seed when it's unset
     speed: float = 0.0
-    effector: str = "probe"
+    effector: str = "stock"
 
     @classmethod
     def from_request(cls, body: dict) -> Device:
@@ -60,7 +60,7 @@ class Device:
         rev, revs = device.pop("rev", None), device.pop("revs", None)
         if rev is not None and (not isinstance(rev, str) or not REV.match(rev) or (revs and rev not in revs and "=" not in rev)):
             raise ValueError(f"no revision {rev}" + (f": this device has {', '.join(revs)}" if revs else ""))
-        effector = device.pop("effector", None) or "probe"
+        effector = device.pop("effector", None) or "stock"
         if effector not in EFFECTORS:
             raise ValueError(f"no effector {effector}: it's {' or '.join(EFFECTORS)}")
         faults = fault if isinstance(fault, list) else [fault] if fault else []

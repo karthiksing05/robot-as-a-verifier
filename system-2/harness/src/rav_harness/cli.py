@@ -193,7 +193,7 @@ def main(argv=None) -> None:
     e.add_argument("--error-schedule", default=None, metavar="WHEN:KIND,...", help="force these robot errors on every run, such as 5:device_moved_silent")
     e.add_argument("--repeats", type=int, default=1)
     e.add_argument("--appliances", default=None, help="authored devices as id:rev, comma-separated, such as interval-timer:A. In place of --devices")
-    e.add_argument("--effector", default="probe", choices=["probe", "stock"])
+    e.add_argument("--effector", default="stock", choices=["stock", "probe"])
     e.add_argument("--models", default=",".join(MODELS))
     e.add_argument("--baseline", action="store_true", help="also run the rule-based plan on each")
     e.add_argument("--route", default="depth", choices=["depth", "rgb"])

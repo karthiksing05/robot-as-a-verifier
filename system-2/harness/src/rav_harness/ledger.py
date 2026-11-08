@@ -132,6 +132,9 @@ def run_spend(rows: list[dict], prices: dict[str, dict] | None = None, rate: flo
             "credits": round(credits, 4), "usd": round(credits * rate, 4), "unpriced_calls": sum(c is None for c in costs)}
 
 
+RUN_GAP_S = 600.0  # a run never waits this long between model calls; the same label after that is another run
+
+
 class Budget:
     """Decides whether another run may start. A run can cost as much as the dearest one measured so far on that model, plus
     a margin; before anything's been measured, a conservative guess from the token cap."""
@@ -144,10 +147,17 @@ class Budget:
         self.first_run_tokens, self.margin = first_run_tokens, margin
 
     def _worst_run(self, model: str) -> tuple[float | None, int]:
-        per_run: dict[str, list[dict]] = {}
-        for row in self.ledger.rows():
-            if wire_name(row["model"]) == wire_name(model):
-                per_run.setdefault(str(row.get("run")), []).append(row)
+        per_run: dict[tuple[str, int], list[dict]] = {}
+        last: dict[str, tuple[float, int]] = {}  # label -> (time of its last call, which run of that label)
+        for row in sorted(self.ledger.rows(), key=lambda r: r.get("at", 0)):
+            if wire_name(row["model"]) != wire_name(model):
+                continue
+            label, at = str(row.get("run")), row.get("at", 0)
+            seen, n = last.get(label, (None, 0))
+            if seen is not None and at - seen > RUN_GAP_S:  # labels repeat across rounds: a long silence starts another run
+                n += 1
+            last[label] = (at, n)
+            per_run.setdefault((label, n), []).append(row)
         if not per_run:
             return None, self.first_run_tokens
         costs = [sum(cost_of(r, self.prices) or 0 for r in rows) * self.rate for rows in per_run.values()]

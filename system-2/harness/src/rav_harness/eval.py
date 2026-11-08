@@ -361,7 +361,7 @@ def rescore(folder: str | pathlib.Path) -> dict:
 
 
 def run_authored(specs: list[str], models: list[str], error_rate: float = 0.0, error_seed: int = 0, error_schedule: str | None = None,
-                   effector: str = "probe", out: str | pathlib.Path = "runs", config: AgentConfig | None = None, budget: Budget | None = None) -> dict:
+                   effector: str = "stock", out: str | pathlib.Path = "runs", config: AgentConfig | None = None, budget: Budget | None = None) -> dict:
     """Authored devices, each as `id:rev`, in the order given; every model on each before the next."""
     folder = pathlib.Path(out).resolve() / time.strftime("eval-%m%d-%H%M%S")
     folder.mkdir(parents=True, exist_ok=True)

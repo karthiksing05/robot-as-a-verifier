@@ -39,15 +39,15 @@ def test_any_revision_of_any_device_makes_its_server_command(entry, tmp_path):
         cmd = server_command(device, 9000, 9001, tmp_path / "answer_key.json", None, None)
         assert cmd[cmd.index("--device") + 1] == str(REPO / entry["device"]) and cmd[cmd.index("--rev") + 1] == rev
         assert (REPO / entry["device"]).is_file()  # the server runs in system-1, so a repo-relative path wouldn't reach it
-        assert cmd[cmd.index("--effector") + 1] == "probe"  # the default while the gripper skills are being fixed
+        assert cmd[cmd.index("--effector") + 1] == "stock"  # the real arm's only effector
         assert cmd[cmd.index("--answer-key") + 1] == str(tmp_path / "answer_key.json")  # written for scoring; no tool reads it
         assert "--fault" not in cmd  # a device file's faults are its revision's
 
 
-def test_the_effector_can_be_the_gripper_and_nothing_else():
+def test_the_effector_is_the_gripper_unless_the_sim_probe_is_asked_for():
     sim = {"path": "x/device.yaml", "rev": "A", "revs": ["A", "B"]}
-    assert Device.from_request({"device": {**sim, "effector": "stock"}}).effector == "stock"
-    assert Device.from_request({"device": {**sim, "effector": None}}).effector == "probe"
+    assert Device.from_request({"device": {**sim, "effector": "probe"}}).effector == "probe"
+    assert Device.from_request({"device": {**sim, "effector": None}}).effector == "stock"
     with pytest.raises(ValueError, match="effector"):
         Device.from_request({"device": {**sim, "effector": "claw"}})
 

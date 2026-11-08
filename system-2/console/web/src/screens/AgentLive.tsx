@@ -62,7 +62,7 @@ function StartForm({ project, health, again, judge, send }: { project?: Project;
   const [fault, setFault] = useState(sim?.fault ?? "");
   const revs = revisionsOf(project);
   const [rev, setRev] = useState(sim?.rev ?? revs[0] ?? "");
-  const [effector, setEffector] = useState("probe");
+  const [effector, setEffector] = useState("stock");
   const [placement, setPlacement] = useState("nominal");
   const [model, setModel] = useState(health.models.includes(DEFAULT_MODEL) ? DEFAULT_MODEL : health.models[0] ?? "");
   const [maxTurns, setMaxTurns] = useState(String(MAX_TURNS));
@@ -88,7 +88,7 @@ function StartForm({ project, health, again, judge, send }: { project?: Project;
       </div>}
       {sim?.path && <div className="field">
         <label className="label" htmlFor="a-effector">Effector</label>
-        <select id="a-effector" value={effector} onChange={(e) => setEffector(e.target.value)}><option value="probe">Fingertip probe</option><option value="stock">SO-101 gripper</option></select>
+        <select id="a-effector" value={effector} onChange={(e) => setEffector(e.target.value)}><option value="stock">SO-101 gripper</option><option value="probe">Probe (sim only)</option></select>
       </div>}
       {!sim?.path && <div className="field">
         <label className="label" htmlFor="a-fault">Planted fault</label>

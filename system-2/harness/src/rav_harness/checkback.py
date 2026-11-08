@@ -39,11 +39,12 @@ def output_checks(step: Step, own: set[str]) -> list[Check]:
 
 
 def missing_checkback(steps: list[Step], own: dict[str, set[str]], tried_before: Iterable[str] = (), can_observe: bool = True,
-                      group: int = GROUP) -> list[str]:
+                      group: int = GROUP, read_back: bool = True) -> list[str]:
     """What the plan is missing, one line each; empty when it checks back.
 
     own: control id -> the channels it's known to drive (from earlier steps' verdicts). tried_before: controls already
-    operated in this run. can_observe: the robot offers observe on something in the scene."""
+    operated in this run. can_observe: the robot offers observe on something in the scene. read_back: False for steps that
+    a closing look follows at once (a restore), which reads the whole device back instead of (ii)."""
     problems = []
     seen = set(tried_before)
     run: list[str] = []  # changing steps since the last check-back
@@ -62,11 +63,11 @@ def missing_checkback(steps: list[Step], own: dict[str, set[str]], tried_before:
         elif changes(s):
             run.append(s.id)
             ends_unchecked = s.id
-            if len(run) == group + 1:
+            if read_back and len(run) == group + 1:
                 problems.append(f"{run[0]} to {s.id}: {len(run)} changes in a row with no check-back. After a group of changes (a mode change, a power "
                                 f"cycle, a procedure; at most {group}), {_how(can_observe)}")
         seen.add(s.target)
-    if ends_unchecked and sum(changes(s) for s in steps) >= 2:
+    if read_back and ends_unchecked and sum(changes(s) for s in steps) >= 2:
         problems.append(f"after {ends_unchecked}: the plan ends on changes it never checks back. {_how(can_observe).capitalize()}")
     return problems
 

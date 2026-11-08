@@ -130,6 +130,8 @@ class ToolBelt:
         self.changed_any = False
         self.closing_tried = False
         self.closing_nudged = False
+        self.close_ready = False  # the approved plan asked for a closing look
+        self.closing_after = False  # the running one did
         self.side_effects: list[str] = []
         self.checkback = {"plans_refused": 0, "output_checks_failed": 0, "checkbacks_run": 0, "checkbacks_failed": 0, "closing_looks": 0,
                           "closing_differences": 0}
@@ -173,8 +175,14 @@ class ToolBelt:
                     "when {subject, op, value}, mapping, message}], procedures [{name, goal, manual_ref, steps [{primitive, target, pre [conditions], effects [conditions]}]}]. "
                     "Use the scene's control ids. Every field but ids is optional; say only what the manual or the scan supports")}},
                 "required": ["hypothesis"]}),
-            ToolSpec("propose_plan", "Submits steps. They're checked, then go for approval if they need it. Nothing moves until run_plan.", {
-                "type": "object", "properties": {"steps": {"type": "array", "items": step}, "why": {"type": "string"}}, "required": ["steps"]}),
+            ToolSpec("propose_plan", "Submits steps. They're checked, then go for approval if they need it. Nothing moves until run_plan, "
+                     "except with restore.", {
+                "type": "object", "properties": {"steps": {"type": "array", "items": step}, "why": {"type": "string"},
+                                                 "close_with_look": {"type": "boolean", "description": "On your last plan: once its steps are done, the "
+                                                                     "robot takes the closing look itself and run_plan returns what differs from the first look"},
+                                                 "restore": {"type": "boolean", "description": "Steps that put the device back as the first look found it. "
+                                                             "They run at once, then the closing look is taken again. Each still checks an output"}},
+                "required": ["steps"]}),
             ToolSpec("run_plan", "Runs the approved plan and returns at the next stop that needs you.", no_args),
             ToolSpec("answer_stop", "Answers a stop: continue, amend (replaces the remaining steps), skip, or abort. Returns at the next stop.", {
                 "type": "object", "properties": {"kind": {"type": "string", "enum": ["continue", "amend", "skip", "abort"]},
@@ -339,9 +347,8 @@ class ToolBelt:
         """(iii): the run ends with a look compared with the first, and the device back where it started, or the reason."""
         if not self.check_back or self.operator_note or self.needs_recovery or self.first_state is None:
             return None
-        if self.changes_since_look and not self.closing_tried:
-            return ("Look at the device once more before finishing (look_at_device): the closing look is compared with the first, so the report "
-                    "says what this run left changed. Then call finish_run again.")
+        if self.changes_since_look and not self.closing_tried:  # the robot takes the closing look itself: no turn spent asking for it
+            self._look()
         diffs = self.closing_differences()
         if diffs and not self.closing_nudged:  # once: then finishing anyway is the model's call, and the report lists them
             self.closing_nudged = True
@@ -381,7 +388,7 @@ class ToolBelt:
                 problems.append(f"{item.get('id', '?') if isinstance(item, dict) else item}: {e}".replace("\n", " ")[:400])
         return steps, requires, problems
 
-    def _validate(self, steps: list[Step], malformed: list[str] | None = None) -> None:
+    def _validate(self, steps: list[Step], malformed: list[str] | None = None, read_back: bool = True, check_back: bool = True) -> None:
         if self.scene is None:
             raise ToolRejected("refused", "Nothing seen yet: look_at_device first.")
         if self.scene_stale:
@@ -390,10 +397,10 @@ class ToolBelt:
         problems = [*(malformed or []), *check_steps(steps, self.scene.controls, self.status.actions)]
         problems += [f"{s.id}: the operator asked not to test {s.target}" for s in steps if self.canon.get(s.target, s.target) in self.skipped_by_operator]
         problems += unsourced_bounds(steps)
-        if self.check_back:
+        if self.check_back and check_back:
             missing = cb.missing_checkback(steps, {s.target: self.own.get(self.canon.get(s.target, s.target), set()) for s in steps},
                                            [c.id for c in self.scene.controls if self.canon.get(c.id, c.id) in {v.target for v in self.verdicts}],
-                                           self._can_observe())
+                                           self._can_observe(), read_back=read_back)
             if missing:
                 self.checkback["plans_refused"] += 1
                 self.log.emit("message", {"role": "harness", "text": f"check-back missing: {len(missing)} problems", "checkback_missing": missing})
@@ -428,7 +435,7 @@ class ToolBelt:
             self.requires[s.id] = requires.get(s.id, [])
         self.approved += [s.model_copy(update={"target": self.canon.get(s.target, s.target)}) for s in steps]
 
-    def tool_propose_plan(self, steps: Any = None, why: str = "") -> dict:
+    def tool_propose_plan(self, steps: Any = None, why: str = "", close_with_look: bool = False, restore: bool = False) -> dict:
         closed = None
         if self.holding and not self.needs_recovery:  # a new plan replaces what's left of the held one: close it, rather than refuse
             self._resume(Decision(kind="abort", note="replaced by a new plan"))
@@ -436,7 +443,7 @@ class ToolBelt:
             closed = "The routine that was holding at a stop has been closed, so this plan can run."
         self._guard_idle("planning")
         parsed, requires, malformed = self._parse_steps(steps)
-        self._validate(parsed, malformed)
+        self._validate(parsed, malformed, check_back=not restore)  # a restore is read back whole by the closing look that follows it
         self.plans += 1
         plan = Plan(plan_id=f"plan-{self.plans}", steps=parsed, source="model")
         first = not self.approved
@@ -451,6 +458,10 @@ class ToolBelt:
             self.log.emit("plan_amended", {"level": level, "by": None, "steps": [s.id for s in parsed], "why": why})
         self._accept(parsed, requires)
         self.ready = plan
+        self.close_ready = bool(close_with_look or restore)
+        if restore:  # one call: the steps run now, and the closing look follows them
+            view = self.tool_run_plan()
+            return {"approved": True, "plan_id": plan.plan_id, **view}
         return {"approved": True, "plan_id": plan.plan_id, "next": "run_plan", **({"note": closed} if closed else {})}
 
     def tool_run_plan(self) -> dict:
@@ -462,9 +473,30 @@ class ToolBelt:
         if self.ready is None:
             raise ToolRejected("refused", "No approved plan is ready: propose_plan first.")
         plan, self.ready = self.ready, None
+        self.closing_after, self.close_ready = self.close_ready, False
         self.queue = deque(plan.steps)
         self.handle = self._start("run_plan", plan)
-        return self._wait()
+        return self._maybe_close(self._wait())
+
+    def _maybe_close(self, view: dict) -> dict:
+        """A plan sent with close_with_look ends with the closing look, taken here rather than by another model turn. Only
+        what differs from the first look comes back: the full scene is a get_scene away."""
+        if self.closing_after and self.holding and not self.queue and not self.needs_recovery:  # held at its last step: nothing left to run
+            self._resume(Decision(kind="abort", note="done: closing look"))
+            self._wait()
+            view = {**view, "status": "completed", "note": "held at its last step with nothing left to run, so closed for the closing look"}
+        if not (self.closing_after and view.get("status") == "completed" and not self.holding and not self.queue and not self.needs_recovery):
+            return view
+        self.closing_after = False
+        look = self._look()
+        if look.get("status") != "completed":
+            view["closing_look"] = {"status": look.get("status"), "reason": look.get("reason"), "note": "The closing look didn't complete: look_at_device to retry."}
+            return view
+        diffs = self.closing_differences()
+        self.closing_nudged = True  # the model has seen them: finish_run won't repeat them
+        view["closing_look"] = {"scene_version": self.scene_version, "matches_first_look": not diffs, "differences": diffs,
+                                **({"next": "put these back with propose_plan restore true, or say in finish_run why they stay"} if diffs else {"next": "finish_run"})}
+        return view
 
     def _start(self, routine: str, plan: Plan | None = None) -> RoutineHandle:
         try:
@@ -652,7 +684,7 @@ class ToolBelt:
         decision = Decision(kind=kind, note=note, targets=list(targets or []))
         if kind == "amend":
             parsed, requires, malformed = self._parse_steps(steps)
-            self._validate(parsed, malformed)
+            self._validate(parsed, malformed, read_back=False)  # usually a retest: each change still checks an output
             self.amendments += 1
             level = self._level(parsed, list(self.queue))
             by = None
@@ -671,7 +703,7 @@ class ToolBelt:
             self._resume(decision)
             if kind == "skip":
                 self.queue = deque(s for s in self.queue if s.target not in decision.targets)
-        return self._wait()
+        return self._maybe_close(self._wait())
 
     def tool_recover(self, action: str = "home", note: str | None = None) -> dict:
         if action not in ("home", "re_explore"):

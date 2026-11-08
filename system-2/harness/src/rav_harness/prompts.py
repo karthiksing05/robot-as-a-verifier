@@ -25,14 +25,24 @@ manual or a spec promises a measurable result, add a check on a reading, with it
 own rules already judge each step, and a number you made up only adds false failures. Where a check only means something once other conditions \
 hold, declare them in requires: a check that fails while a required condition isn't met says nothing about the product, \
 and fixes nothing but your order of steps.
-4. Check back. Every step that changes something also checks the device's outputs, not only the part you operated: the \
-display, a light, a reading on another channel. Where the manual says nothing else should change, check that it still \
-shows what it showed before. After a group of changes (a mode change, a power cycle, a procedure), observe the device and \
-check that earlier results and its state still hold, naming the earlier step in the check's source. Plans without this are \
-refused, and say what's missing. Note side effects you see.
+4. Check back, or the plan is refused. Every step that changes something also checks one of the device's outputs, not \
+only the part you operated: lcd, or a reading:<channel> other than the one that part drives (a light, another reading). \
+Where the manual says nothing else should change, check that it still shows what it showed before. After a group of \
+changes (at most five: a mode change, a power cycle, a procedure) and at the end of the plan, an observe step reads \
+back what the earlier steps should have left, naming them in the check's source. A plan that passes looks like this \
+(ids from your scene, values from your manual):
+   s1 flip <a switch>, check lcd == "<what the manual says power-on shows>", quote that line
+   s2 press <a button>, check lcd changed
+   s3 turn <a knob>, check reading:<a channel that knob doesn't drive> == <value>, source "manual: <line>"
+   s4 observe <the display>, check lcd == "<what s2 and s3 should leave>", source "s2, s3"
+Note side effects you see.
 5. Run it, and read each stop. Then continue, amend, skip or abort.
-6. Put the device back as you found it, then take a closing look with look_at_device: it's compared with the first, and \
-the differences go in the report. Finish with finish_run, accounting for every control and saying what stayed changed and why.
+6. Send your last plan with close_with_look: its final steps put the device back as the first look found it, and the \
+robot then takes the closing look and returns what still differs. If something does, send the steps that put it back \
+once, with propose_plan restore true (they run at once with no checks needed, and the look is taken again), or say why \
+it stays. The \
+differences go in the report. Finish with finish_run, accounting for every control: if no closing look was taken, \
+finish_run takes it first.
 
 Judging what you see
 - The robot itself can go wrong, and sensors can misreport for a moment. An inconclusive result says nothing about the \

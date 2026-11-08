@@ -804,14 +804,13 @@ def test_a_plan_without_check_back_is_refused_and_the_run_closes_with_a_look_com
                {"id": "s3", "skill": "press", "target": "c1", "check": [{"metric": "reading:R_c2", "op": "==", "value": 1, "source": "s2 left it at 1"}]}]
     report, events, client, robot = go(tmp_path, [say(call("look_at_device")), say(call("propose_plan", steps=steps("c1", "c2"))),
                                                   say(call("propose_plan", steps=checked)), say(call("run_plan")),
-                                                  say(call("finish_run", summary="x")), say(call("look_at_device")), say(call("finish_run", summary="x")),
+                                                  say(call("finish_run", summary="x")),
                                                   say(call("finish_run", summary="The readings stay where the presses left them."))],
                                        robot=Robot(controls=("c1", "c2")), config=AgentConfig(check_back=True))
     told = list(dict.fromkeys(errors_told(client)))
     assert "s1: press c1 changes something but checks none of the device's outputs" in told[0] and "never checks back" in told[0]
-    assert "Look at the device once more before finishing" in told[1]
-    assert "isn't as the first look found it" in told[2] and "R_c1: 0 at the start, 1 now" in told[2]
-    assert len(told) == 3 and robot.explores == 2 and events[-1].payload["status"] == "completed"
+    assert "isn't as the first look found it" in told[1] and "R_c1: 0 at the start, 1 now" in told[1]  # finish_run took the closing look itself
+    assert len(told) == 2 and robot.explores == 2 and events[-1].payload["status"] == "completed"
     assert "Closing look differs from the first: R_c1: 0 at the start, 1 now" in report.summary
     stats = next(e.payload["checkback"] for e in events if e.type == "message" and "checkback" in e.payload)
     assert stats["plans_refused"] == 1 and stats["closing_looks"] == 1 and stats["closing_differences"] == 2
@@ -835,3 +834,49 @@ def test_the_starting_state_is_only_what_was_read_before_anything_changed():
     note(_step("s1", "press", "c1", "lcd"), "BUSY", {"R": [0, 1]})
     note(_step("o2", "observe", "d1", "lcd"), "DONE")
     assert belt.first_readings == {"lcd": "READY", "R": 0} and belt.checkback["checkbacks_run"] == 2 and belt.changes_since_look == 1
+
+
+def test_the_closing_look_comes_with_the_last_plan_and_a_restore_is_one_call(tmp_path):
+    out = lambda sid, target, metric: {"id": sid, "skill": "press", "target": target, "check": [{"metric": metric, "op": "changed"}]}  # noqa: E731
+    last = [out("s1", "c1", "lcd"), out("s2", "c2", "lcd"), out("s3", "c1", "reading:R_c2")]
+    restore = [{"id": "u1", "skill": "press", "target": "c1"}]  # no checks: the closing look after it reads the device back
+    report, events, client, robot = go(tmp_path, [say(call("look_at_device")), say(call("propose_plan", steps=last, close_with_look=True)), say(call("run_plan")),
+                                                  say(call("propose_plan", steps=restore, restore=True)), say(call("finish_run", summary="R_c1 stays at 1: pressing sets it."))],
+                                       robot=Robot(controls=("c1", "c2")), config=AgentConfig(check_back=True))
+    assert not errors_told(client) and len(client.requests) == 5 and robot.explores == 3  # no look_at_device turn, and no second nudge at finish
+    results = [r.content for m in client.requests[-1]["messages"] for r in m.results]
+    closing = [r["closing_look"] for r in results if "closing_look" in r]
+    assert closing[0]["differences"] == ["R_c1: 0 at the start, 1 now", "R_c2: 0 at the start, 1 now"] and "restore" in closing[0]["next"]
+    assert len(closing) == 2 and "controls" not in closing[0]  # only what differs comes back, not the scene
+    assert "Closing look differs from the first" in report.summary
+
+
+def test_a_restore_needs_output_checks_but_no_read_back():
+    from rav_harness.checkback import missing_checkback
+    two = [_step("u1", "press", "c1", "lcd"), _step("u2", "press", "c2", "lcd")]
+    assert missing_checkback(two, {}, read_back=False) == [] and missing_checkback(two, {})
+    assert missing_checkback([_step("u1", "press", "c1")], {}, read_back=False)
+
+
+def test_a_plan_held_at_its_last_step_still_gets_its_closing_look(tmp_path):
+    out = lambda sid, target, metric: {"id": sid, "skill": "press", "target": target, "check": [{"metric": metric, "op": "changed"}]}  # noqa: E731
+    last = [out("s1", "c1", "lcd"), out("s2", "c2", "reading:R_c1"), out("s3", "c1", "reading:R_c2")]  # nothing to observe: s3 reads back
+    report, events, client, robot = go(tmp_path, [say(call("look_at_device")), say(call("propose_plan", steps=last, close_with_look=True)), say(call("run_plan")),
+                                                  say(call("finish_run", summary="c1 failed on its retest; the readings stay where the presses left them."))],
+                                       robot=Robot({"c1": ["passed", "failed"]}, controls=("c1", "c2")), config=AgentConfig(check_back=True))
+    ran = next(r.content for m in client.requests[-1]["messages"] for r in m.results if r.call.name == "run_plan")
+    assert not errors_told(client) and "closing_look" in ran and robot.explores == 2 and report.coverage.intermittent == ["c1"]
+
+
+def test_an_amendment_needs_output_checks_but_no_read_back(tmp_path):
+    out = lambda sid, target: {"id": sid, "skill": "press", "target": target, "check": [{"metric": "lcd", "op": "changed"}]}  # noqa: E731
+    first = [out("s1", "c1"), out("s2", "c2"), {**out("s3", "c1"), "check": [{"metric": "reading:R_c2", "op": "changed"}]}]
+    report, events, client, robot = go(tmp_path, [say(call("look_at_device")), say(call("propose_plan", steps=first)), say(call("run_plan")),
+                                                  say(call("answer_stop", kind="amend", steps=[{"id": "a1", "skill": "press", "target": "c2"}])),
+                                                  say(call("answer_stop", kind="amend", steps=[out("a1", "c2"), out("a2", "c1")])),
+                                                  say(call("answer_stop", kind="abort")), say(call("finish_run", summary="c2 failed.")),
+                                                  say(call("finish_run", summary="c2 failed; the readings stay where the presses left them."))],
+                                       robot=Robot({"c2": ["failed", "failed", "failed"]}, controls=("c1", "c2")), config=AgentConfig(check_back=True))
+    told = errors_told(client)
+    assert "a1: press c2 changes something but checks none" in told[0] and not any("never checks back" in t for t in told)
+    assert events[-1].payload["status"] == "completed"

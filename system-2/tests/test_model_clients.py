@@ -300,3 +300,11 @@ def test_the_results_page_prices_each_run_from_its_own_ledger_rows(tmp_path):
     assert row["credits"] == pytest.approx(0.05) and row["usd"] == pytest.approx(0.10) and row["per_run"][0]["tokens"] == 1_000_000
     assert out["rounds"][0]["cost"] == {"tokens": 1_000_000, "credits": 0.05, "usd": 0.1}
     assert out["pricing"]["usd_per_credit"] == 2.0 and "assumption" in out["pricing"]["usd_is"]
+
+
+def test_the_same_run_label_in_two_rounds_is_two_runs_to_the_budget(tmp_path):
+    path = tmp_path / "l.jsonl"
+    rows = [{"at": at, "run": "001-m-x-A", "model": "m", "input": 500_000, "output": 0} for at in (1000.0, 1010.0, 9000.0)]
+    path.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    budget = Budget(None, Ledger(path), PRICES, token_cap=10_000_000)
+    assert budget._worst_run("m")[1] == 1_000_000  # not 1.5M: the third call is a later round's run with the same label

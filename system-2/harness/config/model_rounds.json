@@ -141,6 +141,17 @@
     },
     {
       "id": "4",
+      "title": "Rev A with the stock gripper",
+      "status": "planned",
+      "kind": "eval",
+      "folders": [],
+      "test_set": "The team's arm has only the SO-101's own gripper, so every round before this one (all with the fingertip probe) is a sim reference, not evidence about the real arm. Rev A on the five dev devices with the stock gripper, the four models and the baseline, 5% robot errors, seed 1, the same prompt for every model, with check-back enforced.",
+      "fault_scenarios": [],
+      "spend": "",
+      "takeaway": ""
+    },
+    {
+      "id": "5",
       "title": "The centrifuge, Rev A and Rev B",
       "status": "planned",
       "kind": "eval",

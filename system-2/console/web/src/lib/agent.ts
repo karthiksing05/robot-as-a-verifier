@@ -199,7 +199,7 @@ export function startBody(project: Project | undefined, form: {
   maxTurns: string; errorRate: string; errorSeed: string; auto: boolean;
 }) {
   const sim = project?.sim;
-  const where = sim?.path ? { path: sim.path, rev: form.rev || null, effector: form.effector || "probe" }
+  const where = sim?.path ? { path: sim.path, rev: form.rev || null, effector: form.effector || "stock" }
     : project ? (sim?.seed != null ? { seed: sim.seed } : { preset: "C" }) : { seed: Number(form.seed) };
   return {
     project: project?.id ?? null, device: { ...where, fault: sim?.path ? null : form.fault.trim() || null, placement: form.placement, route: form.route },
