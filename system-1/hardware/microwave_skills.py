@@ -41,6 +41,7 @@ PRESS_TILTS = (0, 10, 20, 30)  # the tool this far below level (deg), flattest f
 PRESS_SPEED, PRESS_HOLD_S = 0.008, 0.3  # at 15 mm/s the sim's cap bottomed and the force jumped past 15 N in a tick
 PRESS_SLOW, PRESS_SLOW_FROM = 0.003, 0.006  # and slower over the last of the way: START at 8 mm/s did it on the stiffer arm
 PRESS_N = 6.0          # sim: stop pushing at this over the estimate's noise (the cap bottoms at 3 N)
+PRESS_N_REAL = 12.0    # real: stop pushing past this (tared), short of PRESS_DEPTH_REAL: it overpressed going the whole way
 
 # --- door_open: the jaws round the bar, centred, at its middle, drawn round the hinge's arc ---
 GRIP_SPARE = 0.005     # the jaws open to the bar's width plus this a side
@@ -187,7 +188,8 @@ def press(arm, p, R, depth=None):
     arm.status = f"{label}: in"
     # the bias following the sag: held as at the approach, the softer sim arm's tip rose 8 mm going 24 mm in, over the cap
     slow = lambda k: PRESS_SLOW if (legs[0][1][k] - p.pos) @ n < PRESS_SLOW_FROM else None  # noqa: E731
-    _, why, peak = _go(arm, legs[0][1], legs[0][2], PRESS_SPEED, bias, None if arm.stall_m else PRESS_N + arm.noise_n, slow, follow=True)
+    _, why, peak = _go(arm, legs[0][1], legs[0][2], PRESS_SPEED, bias, None if arm.stall_m else PRESS_N + arm.noise_n, slow, follow=True,
+                       force_max=PRESS_N_REAL if arm.stall_m else None)
     _hold(arm, PRESS_HOLD_S)
     affordances._unwind(arm, bias)
     arm.status = f"{label}: out"
