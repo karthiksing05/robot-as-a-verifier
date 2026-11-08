@@ -94,7 +94,6 @@ class RealArm(rig.ArmBase):
     # in the panel.
     table_z = 0.0
     workspace = np.array([[0.05, 0.42], [-0.25, 0.25], [0.005, 0.35]])
-    standoff = 0.14  # camera to panel: the jaw tip sits ~11 cm in front of the camera; 12 cm reached no views
     # The force estimate drifts 2.5-10 N along the fingertip in free air on any downward move (tools/creep_log.py, Nov 7),
     # so guarded moves take contact as a stall instead, as tools/press_check.py does, at a speed that tracks smoothly
     # (at 2 mm/s the tip stick-slips)
@@ -105,13 +104,13 @@ class RealArm(rig.ArmBase):
     # each photo's pose comes from the joint readings, so a view needn't be met to 0.5 mm: re-commanding to that took
     # ~3 s a photo on this stick-slip arm
     view_tol = 0.01
-    # the middle row, three views 50 mm apart. A view sees the panel clear of the gripper from 30 mm to one side of its
-    # middle to 56 mm to the other, so only one end control (POWER, SPEED at +-50 mm) gets two views, which a height
-    # needs. Five views 25 mm apart fixed that but fitted a panel plane tilted 10 mm across SPEED (4 of 49 features on it)
-    # POWER gets three, 30 mm up and down the slope and on the row: one view (two photos a step apart) measured its
-    # thin lever in one scan of three, and on the row alone it saw only the switch's base (6.7 mm), the lever end-on
-    view_looks = [(0.0, -0.05), (0.0, 0.0), (-0.03, 0.05), (0.0, 0.05), (0.03, 0.05)]
-    tip_clear = 0.02  # the jaw tip may come this close to the panel in a scan view: at 30 mm the views at one end failed by 1-3 mm
+    # three columns 50 mm apart across the middle row, each photographed aimed 40 deg up the slope and 10 deg down it: a
+    # view sees the panel clear of the gripper from 30 mm to one side of its middle to 56 mm to the other, and a thin
+    # lever seen from one angle (two photos a step apart) had its height measured in one scan of three. At 160 mm all six
+    # reach with the jaw tip 40-49 mm off the panel; at 140 mm a view over POWER ran the jaw into its 18 mm lever
+    standoff = 0.16
+    view_looks = [(0.0, dv, t) for t in np.radians([-40, 10]) for dv in (-0.05, 0.0, 0.05)]
+    tip_clear = 0.035  # the jaw tip may come this close to the panel in a scan view: over an 18 mm lever
     # wrist_roll at home, so views and presses start from it: -90 deg puts the camera on top of the gripper, centred,
     # instead of 7 cm to its side (same views in reach); the gripper then sits along the bottom of the picture
     home_roll = np.radians(-90)  # camera on top; +90 (under) pointed the survey away from the panel
