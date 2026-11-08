@@ -8,7 +8,7 @@ the arm first. Torque then stays off, so the arm is limp, unless --move.
 
 CAL.json is lerobot-calibrate's file, ~/.cache/huggingface/lerobot/calibration/robots/so_follower/<robot.id>.json.
 What to look for is in system-1/sim/docs/real-arm.md: in short, LeRobot's calibration pose reads near 0 on every joint with the tip
-near (416, 0, 227) mm, and each joint's reading rises when it moves the way POSITIVE says.
+near (398, 0, 224) mm, and each joint's reading rises when it moves the way POSITIVE says.
 """
 import argparse
 import os

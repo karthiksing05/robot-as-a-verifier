@@ -37,7 +37,7 @@ In the order a run uses them:
 | `core/rgbperceive.py` | 1151 | The default RGB pipeline: scan, bundle adjustment, orthophoto, segmentation, plane sweep, classification | `perceive_rgb`, then `analyse` |
 | `core/segmodels.py` | 130 | Thin wrappers for OWLv2 (boxes from text) and SAM 2.1 tiny (outlines from boxes, plus automatic sub-part masks) | `owl`, `sam_boxes`, `sam_auto` |
 | `core/features.py` | 104 | The part record perception hands to the planner: kind, pose, size, motion axis. Format from GAPartNet and SceneFun3D | `Part` |
-| `core/touch.py` | 543 | The probe's touches (panel plane, part heights) and the camera's last look before each test | `touch_plane`, `touch_parts`, `make_refine` |
+| `core/touch.py` | 543 | The fingertip's touches (panel plane, part heights) and the camera's last look before each test | `touch_plane`, `touch_parts`, `make_refine` |
 | `core/affordances.py` | 922 | Test planning and the part-level skills (press, flip, slide, turn, push latch) as guarded motions with readout-backed verdicts | `plan_tests`, `run_step` |
 | `core/skills.py` | 281 | Motion primitives (joint moves, straight lines, going home) and the original appliance skills | `move_joints`, `move_line` |
 | `sim/viz.py` | 786 | Drawing: 3D overlays, ghost arms, camera panels, the dashboard and video writing | `Overlay`, `Dashboard` |

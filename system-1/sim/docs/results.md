@@ -2,7 +2,7 @@
 
 [← Back to the overview](../README.md)
 
-All numbers are from the simulation; nothing has run on hardware yet (see [Sim vs real](sim-vs-real.md)). The headline is the team's setup: the USB camera, servos as soft as the team's (18 N·m/rad), and the SensX 25 pad.
+All numbers are from the simulation; nothing has run on hardware yet (see [Sim vs real](sim-vs-real.md)). Every number on this page was measured with the old 25 mm probe and its pad; the fingertip is now the fixed jaw's end. The headline is the team's setup: the USB camera, servos as soft as the team's (18 N·m/rad), and the SensX 25 pad.
 
 **Nov 7: the sim now uses the bench-measured camera and servos, and surveys with the wrist camera instead of the iPhone.** The team's setup was rerun on the new model on the same 16 devices, before and after a fix to how the scan reads a toggle; its rows are marked "new model". Every other number on this page is from the earlier model (a 1280x720 camera from the datasheet, guessed servo numbers, an iPhone survey) and wasn't rerun.
 
