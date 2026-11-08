@@ -28,6 +28,7 @@ or slider knob, or None; subs: SAM's sub-part masks; flap and pad for a door)}, 
 """
 import functools
 import math
+import pickle
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
@@ -61,6 +62,7 @@ SAM_AUTO = True         # SAM's automatic masks as candidates' sub-parts (hw_rig
                         # scan found the same parts without it, in 9 s instead of 43)
 KEEP_REJECTED = False   # a candidate no kind fits is kept as a round part in scene.rejected, for a review (hw_rig)
 REJECTED_MIN_H, REJECTED_MAX_W = 0.003, 0.040  # ... when it stands at least this proud, and is no wider than this
+SAVE_CAPS = None        # a file the survey and captures go to before the vision stages, to replay with analyse (hw_rig)
 FLAT_BUTTONS = False    # real-rig rules (hw_rig sets it): round button-sized outlines are buttons even when their height
                         # reads flat (dark glossy tops give the sweep little texture) or knob-tall, and extra views
                         # chase only candidates on the panel
@@ -140,6 +142,9 @@ def perceive_rgb(arm, phone, wrist, on_stage=None, on_frame=None, on_survey=None
     scene.views = perceive.plan_views(arm, scene.survey)
     stage("scan")
     caps = scan(arm, wrist, scene.views, on_frame)
+    if SAVE_CAPS:
+        with open(SAVE_CAPS, "wb") as f:
+            pickle.dump((scene.survey, scene.views, caps), f)
 
     def more(cands, poses, Tg):  # a view centred on each candidate with a cell fewer than two views see
         short = [c for c in cands if _fewest_views(c, caps, poses, Tg) < 2 and (not FLAT_BUTTONS or _on_panel(c, Tg, scene.survey))]
@@ -510,6 +515,8 @@ def _panel_plane(X, n0, thr=0.00025, cell=0.01, iters=500):
     n, p = best
     for _ in range(2):
         on = np.abs((X - p) @ n) < thr
+        if on.sum() < 3:  # too few features on it to fit a plane (a five-view real scan): the votes' plane stays
+            break
         p = X[on].mean(0)
         n = np.linalg.svd(X[on] - p, full_matrices=False)[2][2]
         n *= np.sign(n @ n0)
