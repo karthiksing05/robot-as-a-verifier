@@ -38,7 +38,7 @@ OVER_TILT = math.radians(20)  # manipulate's 45 put the tool over the real lid's
 # the real lid's first close stopped 10 mm short above its edge (Nov 8): deeper, and a little further behind it
 OVER_FRONT, OVER_BEHIND, OVER_CLEAR, OVER_DOWN = 0.05, 0.018, 0.025, 0.016
 SAFE_BACK, SAFE_UP = 0.06, 0.03  # a close starts from here, nearer the arm and higher, clear of the open lid
-CLOSE_TO = 30.0                       # deg: drawn back to here, then let go: from 78 the real lid stayed open, from 50 it fell but not shut (Nov 8)
+CLOSE_TO = 5.0                        # deg: drawn back nearly shut, then let go: from 78 and 50 the real lid didn't shut (Nov 8)
 FALL_S = 1.5
 # the tube: jaws open around its 18 mm collar, down straight, shut, lift clear of the rack
 TUBE_GRIP_DOWN = -0.002               # the grip centre below the collar top found: at 3 mm it went too far down
@@ -53,7 +53,8 @@ TUBE_TILTS = (90, 75, 60, 50)
 PAN_XY = np.array([0.0388, 0.0])      # the pan axis, arm frame (manipulate.PAN_XY)
 ABOVE = 0.05                          # a pick starts this far over its grip
 LIFT = 0.12                           # and lifts this far: at 70 mm the 55 mm tube hit the rack going home (Nov 8)
-PLACE_ABOVE = 0.08                    # a place starts this far over the seat (tube bottom ~30 mm over the rim), and lowers until the arm stalls; 90 was 8 mm out of reach (Nov 8)
+PLACE_ABOVE = 0.10                    # a place starts this far over the seat, and lowers until the arm stalls: at 80 the tube clipped the well's rim (Nov 8)
+PLACE_IN_BACK, PLACE_IN_UP = 0.05, 0.03  # and comes in to that start from this far nearer the arm and higher, clear of the rim
 SPEED, ARC_SPEED, GUARD_SPEED = 0.06, 0.04, 0.025  # m/s: twice the first guesses, which were slow for the demo
 GUARD_N = 5.0                         # with no stall sensing (the sim bus), a guarded move stops at this
 STEP_M, STEP_DEG = 0.005, 3.0         # poses checked for reach every this far
@@ -294,7 +295,9 @@ def place_tube(arm, seat):
 
     def build(tilt):
         tip, a, q = _jaws_at(arm, seat - TUBE_GRIP_DOWN * up, TUBE_HELD_X, tilt)
-        return [_line("lower", tip + PLACE_ABOVE * up, tip, a, guard="until"),
+        start = tip + PLACE_ABOVE * up
+        return [_line("in", start - PLACE_IN_BACK * _toward(tip) + PLACE_IN_UP * up, start, a),
+                _line("lower", start, tip, a, guard="until"),
                 ("let go", TUBE_OPEN),
                 _line("up", tip, tip + PLACE_UP * up, a),  # clear of the lid, then back toward the arm
                 _line("back", tip + PLACE_UP * up, tip + PLACE_UP * up - PLACE_BACK * _toward(tip), a),
