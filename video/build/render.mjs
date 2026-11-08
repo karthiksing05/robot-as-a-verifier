@@ -21,7 +21,7 @@ if (mode === "stills") {
     await stage.screenshot({ path: `../out/stills/t${t.toFixed(2)}.png` });
   }
 } else {
-  const from = Number(rest[0] ?? 0), to = Number(rest[1] ?? DUR), out = rest[2] ?? "silent.mp4";
+  const from = Number(rest[0] ?? 0), to = Math.min(DUR, Number(rest[1] ?? DUR)), out = rest[2] ?? "silent.mp4";
   const ff = spawn("ffmpeg", ["-v", "error", "-y", "-f", "image2pipe", "-framerate", "30", "-c:v", "mjpeg", "-i", "-", "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p", `../out/${out}`], { stdio: ["pipe", "inherit", "inherit"] });
   const n0 = Math.round(from * 30), n1 = Math.round(to * 30);
   const started = Date.now();

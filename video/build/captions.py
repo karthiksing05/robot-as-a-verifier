@@ -4,7 +4,8 @@
 """
 import json, os, re
 
-VO_OFFSET = 6.0  # the voiceover starts after the six-second cold open
+import os
+VO_OFFSET = float(os.environ.get("VO_OFFSET", 6.0))  # the first take started after a six-second cold open; guide words are absolute
 FIX = {"RAV": "RAAV", "RAV,": "RAAV,", "RAV.": "RAAV.", "SmallVLA": "SmolVLA", "Gruten": "GR00T", "1": "N1",
        "SEL4": "seL4", "in": "in", "start": "START", "tube.": "TUBE.", "hooked": "hook", "fail": "failed"}
 

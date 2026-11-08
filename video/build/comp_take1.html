@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>RAAV pitch video</title>
+<link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Cabin+Sketch:wght@400;700&family=Inter:wght@500;600&family=JetBrains+Mono:wght@400;500;600&family=Michroma&display=block" rel="stylesheet">
+<style>
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #111417; }
+  .layer { position: absolute; inset: 0; }
+  svg { display: block; }
+  /* the Console's dark theme */
+  #tech { background: #111417; font-family: "JetBrains Mono", monospace; color: #d9dcdf; }
+  #tech .grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px); background-size: 48px 48px; }
+  .mono { font-family: "JetBrains Mono", monospace; }
+  .mich { font-family: "Michroma", sans-serif; letter-spacing: .04em; }
+  .abs { position: absolute; }
+  .label { font: 500 15px "JetBrains Mono", monospace; letter-spacing: .12em; text-transform: uppercase; color: #8b9095; }
+  .box { position: absolute; border: 1.5px solid #3a4046; background: rgba(21,24,27,.92); }
+  .chip { display: inline-block; font: 500 24px "JetBrains Mono", monospace; padding: 6px 12px; border: 1px solid #3a4046; margin-right: 10px; color: #d9dcdf; background: #181b1e; }
+  .s1 { color: #eebc24; } .s2 { color: #8fb3d9; }
+  .row { display: flex; align-items: baseline; gap: 14px; font: 500 27px "JetBrains Mono", monospace; color: #e4e6e8; margin: 0 0 16px; }
+  .row i { width: 10px; height: 10px; flex: none; transform: translateY(-4px); }
+  .src { font: 400 14px "JetBrains Mono", monospace; color: #6d7378; line-height: 1.5; }
+  #captions { position: absolute; left: 0; right: 0; bottom: 46px; text-align: center; pointer-events: none; z-index: 50; }
+  #captions span { display: inline-block; max-width: 1500px; padding: 9px 22px 11px; background: rgba(6, 8, 10, .74); color: #f5f3ec; font: 600 35px/1.32 Inter, sans-serif; border-radius: 4px; text-wrap: balance; }
+  #tag { position: absolute; right: 36px; bottom: 36px; z-index: 40; font: 600 15px "JetBrains Mono", monospace; letter-spacing: .14em; color: #111417; background: #eebc24; padding: 5px 10px; }
+  #rail { position: absolute; left: 0; right: 0; top: 0; height: 58px; display: flex; justify-content: center; align-items: center; gap: 4px; background: linear-gradient(#0c0e10ee, #0c0e1000); z-index: 30; }
+  #rail span { font: 500 15px "JetBrains Mono", monospace; letter-spacing: .08em; color: #5d6268; padding: 6px 10px; border-bottom: 2px solid transparent; }
+  #rail span.on { color: #f1f2f3; border-color: #eebc24; }
+  #rail span.done { color: #9aa0a5; }
+  #vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%); }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 60; }
+  #fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 70; }
+  img.full { position: absolute; inset: 0; width: 1920px; height: 1080px; object-fit: cover; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <!-- act one: the chalkboard -->
+  <div id="chalklayer" class="layer">
+    <svg id="boardsvg" width="1920" height="1080" viewBox="0 0 1920 1080">
+      <defs>
+        <radialGradient id="slate" cx="50%" cy="45%" r="75%"><stop offset="0" stop-color="#34523f"/><stop offset=".7" stop-color="#2c4738"/><stop offset="1" stop-color="#1f3529"/></radialGradient>
+        <filter id="chalk" x="-2%" y="-2%" width="104%" height="104%">
+          <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="3" result="n"/>
+          <feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -2.2 1.55" result="grain"/>
+          <feComposite in="SourceGraphic" in2="grain" operator="in" result="g"/>
+          <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="5" result="w"/>
+          <feDisplacementMap in="g" in2="w" scale="2.4"/>
+        </filter>
+        <filter id="slatetex" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.012 0.03" numOctaves="4" seed="11"/>
+          <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .09 0"/>
+        </filter>
+      </defs>
+      <rect id="slaterect" width="1920" height="1080" fill="url(#slate)"/>
+      <rect width="1920" height="1080" filter="url(#slatetex)"/>
+      <g id="board"><g id="ghosts" opacity=".06" filter="url(#chalk)"></g><g id="ink" filter="url(#chalk)"></g></g>
+      <rect y="1046" width="1920" height="34" fill="#5b4a33"/><rect y="1046" width="1920" height="5" fill="#7b6646"/>
+      <g id="dust"></g>
+      <g id="armchalk" filter="url(#chalk)"></g>
+    </svg>
+    <div id="vignette"></div>
+  </div>
+
+  <!-- act two: the Console look -->
+  <div id="tech" class="layer" style="opacity:0">
+    <div class="grid"></div>
+    <div id="scenes"></div>
+  </div>
+
+  <img id="footage" class="full" style="display:none" alt="">
+  <svg id="overlay" class="layer" width="1920" height="1080" style="pointer-events:none;z-index:20"></svg>
+  <div id="rail" style="display:none"></div>
+  <div id="tag" style="display:none">SIMULATION</div>
+  <div id="captions"><span id="cap" style="display:none"></span></div>
+  <div id="flash"></div><div id="fade"></div>
+</div>
+<script src="walk_take1.js"></script>
+<script src="comp_take1.js"></script>
+</body>
+</html>
