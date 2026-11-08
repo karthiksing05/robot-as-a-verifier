@@ -37,7 +37,8 @@ NAME_SYSTEM = ("A robot arm scanned an appliance's control panel. The photo is t
 NAME_ASK = ("{manual}The ids in the photo: {ids}. For each id, say which control from the manual it is, reading the printed "
             "labels beside the controls. A faint or unreadable label is no reason to leave a control unnamed: name it "
             "from where it sits in the manual's layout (its order along the panel, its colour and shape) next to the "
-            "controls you did name. Or say it isn't a control (a cable, a latch, the lid, the desk). Answer with JSON "
+            "controls you did name. A dot on a switch's lever (a metal bat that may point up or down from its base) is "
+            "that switch. Or say it isn't a control (a cable, a latch, the lid, the desk). Answer with JSON "
             'only: {{"<id>": {{"control": "<the manual\'s name, or null>", '
             '"kind": "<button|dial|knob|toggle|slider|display|none>", "why": "<a few words>"}}}}')
 
