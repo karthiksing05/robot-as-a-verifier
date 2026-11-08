@@ -141,7 +141,7 @@ The encoders' resolution alone also leaves each wrist photo's pose about 0.056°
 
   To fix it, run `system-1/arm/bringup/stiffness_test.py` on one motor at P 160, and put the result in `real_arm.SERVO_NM_PER_RAD`. `system-1/arm/bringup/bus_jitter.py` measures the other two guesses: how fast the bus reads, and how much a held position flickers (the sim uses the bench's 0.95 steps). Both feed the 2.5 N noise floor the skills keep their contact thresholds above. The `Present_Load` register (`robot.SENSE_REGISTER = "load"`) isn't supported.
 - **Bus timing.** The code assumes one write and one read of five servos fit in each 20 ms tick. That hasn't been measured (`system-1/arm/bringup/bus_jitter.py` does). A slow USB adapter could make ticks run long, and then moves run slower than planned, never faster.
-- **The gripper** is never driven. Its torque stays off.
+- **The gripper** is never driven. Its torque stays off, so shut the jaws by hand before a run: the skills and the camera's gripper mask assume them shut. Flips and turns refuse until `RealArm` drives motor 6 (`affordances.SHUT_WHY`).
 
 ## Tests
 
