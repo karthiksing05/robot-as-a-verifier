@@ -88,7 +88,7 @@ def registry():
         meta = cfg.get("meta", {})
         rel = folder.relative_to(REPO)
         out.append({"id": folder.name, "title": meta.get("title", cfg["name"]), "split": meta.get("split"), "revs": list(cfg["revs"]),
-                    "device": str(rel / "device.yaml"), "manual": str(rel / "manual.md"), "project": meta.get("project", folder.name),
+                    "device": (rel / "device.yaml").as_posix(), "manual": (rel / "manual.md").as_posix(), "project": meta.get("project", folder.name),
                     "built": (folder / "build" / "meshes_revB" / "manifest.json").is_file()})
     (DEVICES / "registry.json").write_text(json.dumps(out, indent=1) + "\n")
     return out

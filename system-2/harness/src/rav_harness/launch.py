@@ -130,9 +130,19 @@ def _register(pgid: int, info: dict | None) -> None:
     temp.replace(REGISTRY)
 
 
+def _kill_tree(pid: int, hard: bool = False) -> None:
+    """The process and everything under it: uv and the server it started."""
+    if os.name == "nt":  # no process groups: taskkill takes the tree, always forcibly (the harness runs only mock and sim servers)
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True)
+    else:
+        os.killpg(pid, signal.SIGKILL if hard else signal.SIGTERM)
+
+
 def _is_our_server(pgid: int) -> bool:
+    cmd = (["powershell", "-NoProfile", "-Command", f"(Get-CimInstance Win32_Process -Filter 'ProcessId={pgid}').CommandLine"]
+           if os.name == "nt" else ["ps", "-o", "command=", "-g", str(pgid)])
     try:
-        out = subprocess.run(["ps", "-o", "command=", "-g", str(pgid)], capture_output=True, text=True, timeout=5).stdout
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=10).stdout
     except (OSError, subprocess.SubprocessError):
         return False
     return "rav-server" in out
@@ -144,7 +154,7 @@ def reap_stale_servers() -> list[str]:
     for pgid, info in _registered().items():
         if _is_our_server(int(pgid)):
             try:
-                os.killpg(int(pgid), signal.SIGTERM)
+                _kill_tree(int(pgid))
                 said.append(f"stopped a rav-server left from an earlier run: {info.get('run_id')} on port {info.get('port')}")
             except OSError:
                 pass
@@ -164,8 +174,9 @@ def stop_servers_on_exit() -> None:
     def on_signal(signum, frame):
         stop_all()
         raise SystemExit(128 + signum)
-    for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
-        signal.signal(signum, on_signal)
+    for name in ("SIGINT", "SIGTERM", "SIGHUP"):  # Windows has no SIGHUP
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), on_signal)
 
 
 class System1Process:
@@ -206,10 +217,10 @@ class System1Process:
             return
         if self.process.poll() is None:
             try:
-                os.killpg(self.process.pid, signal.SIGTERM)  # the whole group: uv and the server under it
+                _kill_tree(self.process.pid)
                 self.process.wait(30)
             except subprocess.TimeoutExpired:
-                os.killpg(self.process.pid, signal.SIGKILL)
+                _kill_tree(self.process.pid, hard=True)
                 self.process.wait(5)
             except ProcessLookupError:
                 pass
