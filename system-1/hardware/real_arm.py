@@ -98,6 +98,7 @@ class RealArm(rig.ArmBase):
     # so guarded moves take contact as a stall instead, as tools/press_check.py does, at a speed that tracks smoothly
     # (at 2 mm/s the tip stick-slips)
     stall_m, guard_speed = 0.004, 0.015
+    hard_cap_n = 20.0  # the estimate drifts up to ~10 N in free air and tripped 15 N with nothing touching; stalls stop presses first
 
     def __init__(self, bus, app=None, pad=None, pace=True):
         self.bus, self.pad, self.pace = bus, pad, pace
@@ -184,11 +185,11 @@ class RealArm(rig.ArmBase):
 
     def tick(self):
         self._io()
-        f = self.cap_f if self.cap_f > HARD_FORCE_CAP_N else self.tip_force()
+        f = self.cap_f if self.cap_f > self.hard_cap_n else self.tip_force()
         self.force_log.append((self.d.time, f))
-        if self.torque and f > HARD_FORCE_CAP_N:
+        if self.torque and f > self.hard_cap_n:
             self._back_off()
-            raise SafetyStop(f"tip force {f:.1f} N over hard cap {HARD_FORCE_CAP_N} N")
+            raise SafetyStop(f"tip force {f:.1f} N over hard cap {self.hard_cap_n} N")
         return f
 
     def tip_pose(self):
