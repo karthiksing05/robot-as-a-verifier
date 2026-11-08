@@ -13,6 +13,7 @@ import itertools
 import queue
 import statistics
 import threading
+import traceback
 from collections import Counter, deque
 from collections.abc import Callable
 from typing import Any
@@ -221,6 +222,7 @@ class RoutineEngine:
             except PipelineFailure as e:  # perception couldn't do its job, and the arm is safe: System 2 can respond to this
                 r.stops.put(Checkpoint(routine_id=r.id, stop="pipeline_error", status="aborted", reason=str(e)))
             except Exception as e:  # a hardware fault, or one we can't place: stop first, report second
+                traceback.print_exc()
                 r.stops.put(Checkpoint(routine_id=r.id, stop="safety_abort", status="aborted", reason=f"{type(e).__name__}: {e}"))
             finally:
                 r.paused, r.finished = False, True
@@ -313,6 +315,7 @@ class RoutineEngine:
             try:
                 trace, verdict, attempts, refs = self._attempt(r, step)
             except Exception as e:  # keep the verdicts since the last stop: they're real
+                traceback.print_exc()  # the stop carries only the message: where it came from goes to this terminal
                 r.stops.put(snapshot(stop="safety_abort", status="aborted", reason=f"{type(e).__name__}: {e}"))
                 return
             done += 1
