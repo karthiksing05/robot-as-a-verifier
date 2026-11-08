@@ -9,7 +9,7 @@ from rig import CONTROL_HZ
 
 # a toggle's push came 1 cm above the POWER lever (the scan put its pivot 7 mm over the panel and its tip at 18): lowered.
 # And the jaw passed the lever on its side nearer the buttons, and 5 mm further on its other side: moved this far toward +y
-TOGGLE_DROP = 0.005
+TOGGLE_DROP = 0.0  # 5 mm (for that scan) later caught the jaw on the lips above and below the switch
 TOGGLE_Y = 0.002
 # the jaw came down on the lever's top part and slid along it: it starts this much further back and pushes on further
 GRIP_OPEN, GRIP_ABOVE = 0.2, 0.025  # 0.45 opened far wider than the 12 mm dial
