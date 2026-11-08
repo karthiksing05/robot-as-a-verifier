@@ -19,7 +19,7 @@ What System 2 talks to. It runs routines on a robot and reports [stops](../../do
 
 Before a real arm is useful it needs:
 
-- The appliance's Pico firmware. `hardware/pico_readout.py` streams its readings (`make_rig(..., readout_port=...)`), which `affordances` reads during a slide or turn, but it has only run against a stand-in. `RealBackend` still uses `OperatorReadout`, which asks the operator once a step ends.
+- The appliance's firmware. `--readout serial --readout-port COM7` reads its Pico over USB (`hardware/pico_readout.py`), and `--readout http --readout-device mw1` takes the same snapshots POSTed over WiFi to `/readout/mw1` with `RAV_DEVICE_KEY` (`hardware/http_readout.py`, [`device_api.py`](src/rav_server/device_api.py); the format is in [the firmware README](../subjects/appliance/firmware/README.md#over-wifi)). `affordances` reads either during a slide or turn, but both have only run against stand-ins. Without `--readout`, `RealBackend` uses `OperatorReadout`, which asks the operator once a step ends.
 - A hand-eye calibration, the camera's mount offset on the gripper. Every part the scan finds is shifted by it. The last look before a step re-places buttons and doors, but toggles, sliders and dials are tested where the scan put them. The plane sweep doesn't need it: an offset shared by every photo cancels out, and the bundle adjustment corrects each photo's own error from the joints.
 - The bench numbers on [the real-arm page](../sim/docs/real-arm.md): servo stiffness and bus timing.
 

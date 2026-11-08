@@ -49,3 +49,6 @@ system-2/subjects/appliance/cad/out/
 appliances/*/build/
 appliances/registry.json
 appliances/HELDOUT_BRIEFS.md
+
+# board WiFi credentials and device keys: copy arduino_secrets.h.example, never commit the copy
+arduino_secrets.h
