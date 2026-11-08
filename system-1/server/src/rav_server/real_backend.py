@@ -70,7 +70,13 @@ class RealBackend(PipelineRobot):
         self.arm.enable(confirm=True)
         self.rest = self.arm.read_q()
 
+    survey_look_up_deg = 0.0  # set by the engine from the explore's policy: the survey's views tilted up (+) or down
+
     def perceive(self):
+        import rgbperceive
+
+        up = math.radians(self.survey_look_up_deg)  # up is less wrist flex: the camera turns toward level
+        self.arm.survey_dq = None if not up else [(d[0], d[1], d[2], d[3] - up, *d[4:]) for d in rgbperceive.SURVEY_DQ]
         if self.appliance == "microwave":
             import microwave_skills
             microwave_skills.scan_settings()

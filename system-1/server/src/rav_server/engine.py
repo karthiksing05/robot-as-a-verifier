@@ -250,6 +250,7 @@ class RoutineEngine:
                 code=code, tried=[tried], measured=measured, options=["continue", "abort"])))
         self.robot.review = hold("survey_review", "survey") if r.policy.review_survey else None
         self.robot.review_scan = hold("scan_review", "scan") if r.policy.review_scan else None
+        self.robot.survey_look_up_deg = r.policy.survey_look_up_deg  # the real arm tilts its survey's views (RealBackend)
         try:
             scene = self.robot.perceive()
         finally:
