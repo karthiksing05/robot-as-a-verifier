@@ -1,8 +1,10 @@
 # Demo video script
 
-**Draft 11, Nov 8, for a re-record.** Built around the real run on the SO-101 (Nov 8, `agent-centrifuge-111834`, Claude Haiku 5.5), filmed from overhead (`initial-vids/IMG_9611.MOV`) and screen-recorded in the Console (`initial-vids/WhatsApp Video …mp4`). About 380 spoken words, roughly 2:50 with the cold open. The plan for the cut is in [draft-plan.md](draft-plan.md).
+**Draft 12, Nov 8, for a re-record.** Built around the second real run on the SO-101 (Nov 8, 11:34, `agent-centrifuge-113400`, Claude Haiku 5.5), filmed overhead (`initial-vids/IMG_5920.MOV`), handheld from the side (`initial-vids/WhatsApp Video … 11.37.21.mp4`) and screen-recorded in the Console (`initial-vids/WhatsApp Video … 11.41.33.mp4`). About 395 spoken words, roughly 2:50 with the cold open. The plan for the cut is in [draft-plan.md](draft-plan.md).
 
-**What changed from Draft 10:**
+**What changed from Draft 11:** §3 and §4 follow the new run: every control it pressed responded, but TIME didn't add time and START showed LID, which the model tied to the tube being let go 56 mm above its seat. That leads straight into the CAD section, where the tube seat is the fault the agent has fixed before.
+
+**From Draft 10:**
 - **The demo is the real run**, in the order the arm ran it: load a test tube, close the lid, switch on, press TIME, turn the speed dial, START, STOP. It says what the run actually found.
 - **A new CAD section:** the centrifuge's tube adapter (the CAD agent's fix, in the sim) and the microwave's two hinges (Rev A and Rev B).
 - **Two systems is shorter.**
@@ -12,8 +14,8 @@
 |---|---|---|---|
 | 1 | Cold open | 0:00–0:08 | 0 |
 | 2 | What RAAV is | 0:08–0:21 | 37 |
-| 3 | The real run | 0:21–1:06 | 112 |
-| 4 | Fixing the design | 1:06–1:28 | 58 |
+| 3 | The real run | 0:21–1:08 | 118 |
+| 4 | Fixing the design | 1:08–1:28 | 54 |
 | 5 | Two systems | 1:28–2:00 | 82 |
 | 6 | Why it matters, and the close | 2:00–2:46 | 101 |
 | | **Total** | 2:46 | **390** |
@@ -36,23 +38,23 @@ Timings assume a natural read; the cut follows the recording.
 
 ---
 
-## 3. The real run · 0:21–1:06
+## 3. The real run · 0:21–1:08
 
 > It scans the panel with one wrist camera and finds six controls. We give it the order of steps; a model writes the plan, quoting the manual for what each step should do, and a person approves it before anything moves.
 >
 > Then the arm works through it. It loads a test tube, closes the lid, switches the power on, presses TIME, turns the speed dial, and presses START, then STOP. A board inside the centrifuge reports what each control actually did, and fixed rules turn that into a verdict.
 >
-> Five of six controls passed. Where the centrifuge and its manual disagreed, it said so: TIME didn't add ten seconds, and after START the display read LID, so it asked a person to check the lid instead of guessing.
+> All five controls it pressed responded, but two results didn't add up. TIME didn't add any time. And after START, the display read LID instead of running. RAAV suspected the tube, which it had let go well above its seat, and flagged both for a person to check instead of guessing.
 
-*Split screen: the overhead phone footage on the left, the Console's Live screen on the right, in sync. Each step lights a step strip along the bottom as the arm does it. Alternate views cut in: the wrist camera's own feed with its detection rings, the Console's 3D arm, and the second phone's close view of the lid and the light ring. Cards carry what the voice doesn't say: `STOP · 19.5 N, 5.6 mm`, `display read “2800 RPM 0:30”`, `reward 0.83`.*
+*Split screen: the overhead footage on the left, the Console's Live screen on the right, in sync. A step strip along the bottom lights each step as the arm does it. Other views cut in: the wrist camera's feed with its detection rings, the Console's 3D arm, and the handheld side camera's close-ups of the buttons and of the display reading `LID`. Cards carry what the voice doesn't say: `released 56.2 mm above the seat`, `time stayed 0:40`, `TIME+ · 22.5 N, 7.2 mm`, `reward 0.83 · 5 passed · 1 untested`.*
 
 ---
 
-## 4. Fixing the design · 1:06–1:28
+## 4. Fixing the design · 1:08–1:28
 
-> When a part is wrong, RAAV's CAD agent fixes the geometry. In simulation, a tube stopped eight millimetres above its seat; the agent widened the adapter's bore and added a lead-in, and on retest it seated. Our microwave's hinge fused shut when printed; its second revision opens the clearances, and hinges are next for the agent.
+> A tube that won't seat is a fault our CAD agent has fixed before, in simulation: it widened the adapter's bore and added a lead-in, and on retest the tube seated. Our microwave's hinge fused shut when printed; its second revision opens the clearances, and hinges are next for the agent.
 
-*Two before-and-after diffs, about five seconds each. The centrifuge's well insert, Rev A against the agent's patch: the bore and lead-in highlighted, `+0.4 mm · 45° lead-in · Opus 5.5 · $0.43`, `seated within 0.97 mm`. Then the microwave hinge, Rev A against Rev B, the knuckles and pin highlighted: `0.025 mm → 0.25 mm clearance`, `pin: two heads → one`.*
+*Two before-and-after diffs, about five seconds each. First, the centrifuge's well insert: Rev A against the agent's patch, with the bore and lead-in highlighted and the tags `+0.4 mm · 45° lead-in · Opus 5.5 · $0.43`, `seated within 0.97 mm (sim)`. Then the microwave hinge: Rev A against Rev B, with the knuckles and pin highlighted and the tags `0.025 mm → 0.25 mm clearance`, `pin: two heads → one`, `Rev B · team`.*
 
 ---
 
@@ -80,12 +82,14 @@ Timings assume a natural read; the cut follows the recording.
 
 | Line | Holds because | Watch for |
 |---|---|---|
-| "finds six controls" | Real run `agent-centrifuge-111834`: `FOUND 6 controls: START, STOP, TIME+, POWER, SPEED, display` (Console screen recording, 3:15) | |
-| "We give it the order of steps; a model writes the plan, quoting the manual" | The centrifuge project's instruction gives the eight demo steps (`system-2/subjects/centrifuge/project.json`); plan-1's WHY column quotes the manual for each step (recording, 3:15) | Don't say the model chose the steps |
-| "loads a test tube, closes the lid, switches the power on, presses TIME, turns the speed dial, and presses START, then STOP" | plan-1: tube_pick, tube_place, lid_close, flip POWER, press TIME+, turn SPEED −60°, press START, press STOP; Karthik's run order | |
-| "A board inside the centrifuge reports what each control actually did" | Arduino R4 readout (PRs #15, #17); report lines like `STOP drives STOP (0 -> 1 -> 0)` | |
-| "Five of six controls passed" | `finish_run · 6 controls: 5 passed, 1 untested` (display untested); reward 0.83 | |
-| "TIME didn't add ten seconds, and after START the display read LID, so it asked a person to check the lid" | The model's summary: TIME+ left the display at "0:30" (`2800 RPM 0:30`), not "adds 10 s"; after START the display read "LID", "so the lid may not have closed fully"; "Things to check by a person" | The overhead footage shows the ring lighting after START, so don't say the lid failed; it flagged it |
+| "finds six controls" | Run `agent-centrifuge-113400`: plan coverage START, STOP, TIME+, POWER_switch, SPEED_dial, DISPLAY (Console recording 11.41, ≈1:13) | |
+| "We give it the order of steps; a model writes the plan, quoting the manual" | The project's instruction gives the eight demo steps (`system-2/subjects/centrifuge/project.json`); plan-1's WHY column quotes the manual ("press TIME+ to add 10 s", "Clockwise raises the speed") | Don't say the model chose the steps |
+| "loads a test tube, closes the lid, switches the power on, presses TIME, turns the speed dial, and presses START, then STOP" | plan-1: tube_pick, tube_place, lid_close, flip POWER_switch, press TIME+, turn SPEED_dial −60°, press START, press STOP; all eight ran in order | |
+| "A board inside the centrifuge reports what each control actually did" | Arduino R4 readout; report lines like `START drives START (0 -> 1 -> 0)` | |
+| "All five controls it pressed responded" | `finish_run`: STOP, POWER_switch, TIME+, SPEED_dial, START passed; display untested; reward 0.83 | |
+| "TIME didn't add any time" | TIME+: "Press drove the button (0 to 1 to 0), but the time stayed 0:40 and SPEED changed from 2700/2800" | |
+| "after START, the display read LID instead of running. RAAV suspected the tube, which it had let go well above its seat, and flagged both" | START: "the display showed 'LID' after it, not a run. Possibly the lid or tube seating blocked the start, which would fit the place step being 56 mm above the seat. Not confirmed." Place: "released 56.2 mm above the seat, so the tube may not have seated fully". The handheld clip shows LID on the display (≈2:05) | "Suspected", not "found": the model says not confirmed |
+| "A tube that won't seat is a fault our CAD agent has fixed before, in simulation" | See the next row | Don't say the agent fixed this real tube |
 | "In simulation, a tube stopped eight millimetres above its seat; the agent widened the adapter's bore and added a lead-in, and on retest it seated" | `docs/devpost.md`, README: 8.15 mm high; Opus 5.5 analyst, 14 tool calls, 102 s, $0.43; bore 0.4 mm too narrow, widened, 45° lead-in; reseated within 0.97 mm, within 0.2 mm of the designer's fix | Sim only, not printed |
 | "Our microwave's hinge fused shut when printed; its second revision opens the clearances, and hinges are next for the agent" | `appliances/microwave/source/faults.md` F1: Rev A (Onshape `Hinge.step`) has 0.025 mm clearances and a pin headed at both ends; Rev B: 0.25 mm, 0.4 mm knuckle gaps, one head. The CAD loop handles sliding buttons only so far (D36) | **Rev B was made by the team, not the agent.** Don't say the agent made it |
 | "tests every control it can find, then reports what it measured" | `docs/product.md`: inputs are the product, its manual, an optional spec and CAD; outputs are findings with evidence, coverage and a reward | |
