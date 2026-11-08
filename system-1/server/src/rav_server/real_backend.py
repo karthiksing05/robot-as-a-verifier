@@ -148,6 +148,8 @@ class RealBackend(PipelineRobot):
 
         if getattr(self.arm, "holding", False):  # a picked tube, held at the pick's harder squeeze: leave it
             return
+        if self.last_skill == "mw_press":  # the jaws are still shut from the clamp before it: no pause to clamp again
+            return
         try:
             real_skills.gripper(self.arm, self.CLAMP, hold_s=0.2)
         except Exception as e:  # noqa: BLE001 - a jaw left open is no reason to stop a run

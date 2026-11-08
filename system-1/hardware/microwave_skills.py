@@ -59,11 +59,13 @@ PULL_DEG = 45.0        # default: open this far. Past ~50 deg the leaf comes in 
 PULL_SPEED, UNLATCH_SPEED, UNLATCH_DEG = 0.02, 0.006, 5.0  # m/s along the arc; slower through the latch
 PULL_LAG = 0.025       # the tip this far behind its command: the door won't come (the sim's force estimate read 14.6 N
                        # on the latch alone, near its 15 N cap; Rev A's seized hinge needs 20 N at the bar)
-PULL_N_REAL = 20.0     # real arm: stop the pull past this (tared; ~3.5 N noise moving slowly), or a held door drags the box
+PULL_N_REAL = 40.0     # real arm: stop the pull past this (tared): 20 N stopped it before the real latch let go (Nov 8)
 IN_LAG = 0.008         # going in to the bar, the tip this far behind its command has met something (the sim's force
                        # estimate read 7.6 N in free air there)
 
 # --- door_close: the shut jaws on the bar's front, pushed round to shut ---
+IN_LAG_REAL = 0.02     # real: the arm lags more; 9 mm at 6.3 N in free air read as hitting something (Nov 8)
+IN_SPEED_REAL = 0.02   # real: going in round the bar
 PUSH_IN = 0.001        # the tip this far into the bar's front
 SHUT_AT = 1.0          # pushed to this far short of shut, inside the latch's 2 deg pull-in: pushed on past shut, the
                        # sim's estimate jumped from 3 N to the 15 N cap in one tick at the door's stop
@@ -160,9 +162,13 @@ def _clear(arm, bias, axis):
     _go(arm, [tip + CLEAR_UP * np.array([0.0, 0.0, 1.0])], [axis], CLEAR_SPEED, bias)
 
 
-def _approach(arm, label, at, axis, q0):
+def _approach(arm, label, at, axis, q0, reuse=False):
+    """To at, pointing along axis. reuse: with the last approach's sag correction (a press after a press, nearby on the
+    same panel), in one move instead of a move, a measure and a second move and settle."""
     arm.status = f"{label}: approach"
-    return affordances._approach(arm, at, axis, label, q0)[1]
+    bias = affordances._approach(arm, at, axis, label, q0, bias=getattr(arm, "mw_bias", None) if reuse else None)[1]
+    arm.mw_bias = bias
+    return bias
 
 
 # --- the press ---
@@ -186,7 +192,7 @@ def press(arm, p, R, depth=None):
             first = first or e
     else:
         raise first
-    bias = _approach(arm, label, out, a, q0)
+    bias = _approach(arm, label, out, a, q0, reuse=getattr(arm, "mw_straight", False))
     arm.status = f"{label}: in"
     # the bias following the sag: held as at the approach, the softer sim arm's tip rose 8 mm going 24 mm in, over the cap
     real = bool(arm.stall_m)
@@ -261,7 +267,9 @@ def open_door(arm, p, R, angle=PULL_DEG, nudge=(0.0, 0.0, 0.0)):
     _jaws(arm, gap)
     bias = _approach(arm, label, tip0 - GRIP_OUT * a0, a0, q0)
     arm.status = f"{label}: in round the bar"
-    _, why, _ = _go(arm, legs[0][1], legs[0][2], PRESS_SPEED, bias, lag_max=IN_LAG, follow=True)
+    real = bool(getattr(arm, "stall_m", None))
+    _, why, _ = _go(arm, legs[0][1], legs[0][2], IN_SPEED_REAL if real else PRESS_SPEED, bias,
+                    lag_max=IN_LAG_REAL if real else IN_LAG, follow=True)
     if why:
         affordances._unwind(arm, bias)
         _go(arm, [legs[0][1][0]], [a0], PRESS_SPEED * 2, bias)
@@ -385,6 +393,7 @@ def execute(robot, step, p):
         return {"verdict": "REFUSED", "reason": f"no part called {step.target}"}
     # press after press goes straight from one button to the next, the tip 20 mm off the panel: home is a detour
     straight = step.skill == "mw_press" and getattr(robot, "prev_skill", None) == "mw_press"
+    arm.mw_straight = straight and getattr(arm, "mw_bias", None) is not None
     if not robot.at_home and not straight:
         skills.go_home(arm)
     arm.status = "between steps"  # an operator readout takes its baseline here, with nothing to ask
