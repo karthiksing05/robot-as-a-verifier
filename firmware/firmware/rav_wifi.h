@@ -15,7 +15,9 @@ namespace rav {
 constexpr size_t SNAPSHOT_MAX = 320;
 const uint32_t SEND_EVERY_MS = 500;
 const uint16_t TIMEOUT_MS = RAV_USE_TLS ? 1500 : 300;
-const uint32_t REJOIN_MS = 10000;  // WiFi.begin blocks for a few seconds: don't retry it every loop
+const uint16_t CONNECT_TIMEOUT_MS = 1200;
+const uint32_t RETRY_POST_MS = 5000;
+const uint32_t REJOIN_MS = 15000;
 
 #if RAV_USE_TLS
 WiFiSSLClient client;
@@ -37,6 +39,7 @@ int responseStatus = 0;
 inline void join() {
   joinedOnce = true;
   client.stop();
+  WiFi.setTimeout(CONNECT_TIMEOUT_MS);
   WiFi.begin(SECRET_SSID, SECRET_PASS);
   joinAt = millis();
 }
@@ -44,6 +47,7 @@ inline void join() {
 inline bool post(const char *body, size_t len) {
   if (!client.connected()) {
     client.stop();
+    client.setConnectionTimeout(CONNECT_TIMEOUT_MS);
     if (!client.connect(RAV_HOST, RAV_PORT)) return false;
   }
   client.print(F("POST /readout/" DEVICE_NAME " HTTP/1.1\r\nHost: " RAV_HOST "\r\nAuthorization: Bearer " DEVICE_KEY
@@ -96,7 +100,8 @@ inline void update(const char *body) {
   bool changed = strcmp(body, last) != 0;
   if (now - sentAt < (lastStatus == 204 && changed ? 50 : SEND_EVERY_MS)) return;
   const bool connected = WiFi.status() == WL_CONNECTED;
-  if (connected != lastLink) {
+  const bool linkChanged = connected != lastLink;
+  if (linkChanged) {
     lastLink = connected;
     Serial.print(F("{\"t\":")); Serial.print(now);
     Serial.print(F(",\"ev\":\"wifi_link\",\"v\":\""));
@@ -108,6 +113,7 @@ inline void update(const char *body) {
     sentAt = millis();
     return;
   }
+  if (!linkChanged && lastStatus != -1 && lastStatus != 204 && now - sentAt < RETRY_POST_MS) return;
   strcpy(last, body);  // each sketch builds its snapshot in a SNAPSHOT_MAX byte buffer
   pending = post(body, strlen(body));
   sentAt = millis();

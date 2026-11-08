@@ -80,9 +80,9 @@ Both PlatformIO targets use an Arduino Uno R4 WiFi and the same snapshot publish
 | MC-6 centrifuge | `mc6` | `mc6-01` | [MC-6 secrets example](../../firmware/MC6_firmware/arduino_secrets.h.example) |
 | MW-1 microwave | `mw1_r4_wifi` | `mw1-01` | [MW-1 secrets example](../../firmware/MW1_firmware/arduino_secrets.h.example) |
 
-Set the hotspot SSID and password, the VPS hostname or certificate-covered IP, port 443, and `RAV_USE_TLS=1` in both files. The Uno R4 WiFi uses the root CA bundle in its connectivity firmware. Give each board a distinct ID and key that match its own entry in `RAV_DEVICE_KEYS`. A serial `wifi` event with value `204` means System 1 accepted that board's snapshot. On Vultr, use `rav readout mc6-01` and `rav readout mw1-01` to verify both.
+Set the hotspot SSID and password, the VPS TLS hostname, port 443, and `RAV_USE_TLS=1` in both files. Prefer a DNS name with a matching certificate for the boards. The Uno R4 WiFi uses the root CA bundle in its connectivity firmware. Give each board a distinct ID and key that match its own entry in `RAV_DEVICE_KEYS`. A serial `wifi` event with value `204` means System 1 accepted that board's snapshot. On Vultr, use `rav readout mc6-01` and `rav readout mw1-01` to verify both.
 
-The firmware sends complete, flat JSON snapshots on changes and periodically. Short transitions can fall between sends. Joining Wi-Fi or opening a connection can block the firmware loop, especially during outages. Bench-check button and sensor timing with Wi-Fi enabled before using it in a run.
+The firmware sends complete, flat JSON snapshots on changes and periodically. Short transitions can fall between sends. Wi-Fi joins and connection setup are synchronous calls with short timeouts. The firmware spaces out retries after an error so repeated attempts leave time for button and sensor polling.
 
 Use the top-level `firmware/` PlatformIO project for both boards. On the MC-6, wire the tube sensor to **A1** and the lid sensor to **A2**. The current bench configuration uses the lid sensor and leaves the tube requirement disabled. Recalibrate after swapping the sensor pins, since saved thresholds are tied to the pin assignment.
 
