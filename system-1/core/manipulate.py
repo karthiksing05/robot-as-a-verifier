@@ -27,6 +27,29 @@ HOOK_TILTS = ((60, 90, -30), (50, 90, -30), (40, 90, -30), (60, 90, 0), (50, 90,
 HOOK_TILTS_JAW = ((10, 90, -30), (5, 90, -30), (15, 90, -30), (0, 90, -30), (10, 90, 0), (5, 90, 0), (15, 90, 0))
 HOOK_IN = 0.03                  # start this far out from under the lip
 HOOK_SPEED = 0.03               # m/s along the arc, and in and out
+# come to the entry in a straight line from this far back along the tool and up, the first the arm reaches: a joint move
+# from home straight to the entry, low and nearly level, swung the gripper out over the handle and down onto the lid beside
+# it (kettle-base: 14-18 N, 4 seeds in 5). Near the base, level, the arm can't draw back along the tool: then from above
+HOOK_STAGES = ((0.04, 0.03), (0.02, 0.03), (0.0, 0.03), (0.0, 0.02))
+# every move of a hook reaches its speed over this long from rest: starting at full speed, the servos' lag read as 7-9 N
+# for its first quarter second with nothing touching (label-printer, centrifuge: the run in stopped short at 9 N, D32);
+# ramped over 1 s, 6 N
+HOOK_RAMP_S = 1.0
+# the last of the run in under a lip goes slowly, and meeting something there (the riser behind the lip, nearer than the
+# plan by the arm's calibration error) ends the run in where it is: the swing is planned from there. At full speed the tip
+# struck the kettle's riser at 9-10 N and the estimate overshot the hard cap
+HOOK_FEEL = 0.008               # m: the slow part
+HOOK_FEEL_SPEED = 0.008         # m/s
+HOOK_FEEL_N = 1.5               # over the estimate's noise, from a zero taken just before
+HOOK_SETTLE_S = 0.3             # then this long for the estimate to settle
+HOOK_LIFTS = (0.0, 0.003, 0.006)  # m: having met the face below a lip, go in again this much higher, in turn
+HOOK_RISER_MAX = 0.008          # met further out than this short of the plan, it isn't the riser (the lips run 7-9 mm in)
+# swinging, the jaw gives way along the handle, out from the hinge, when the handle pushes it out: the arm's calibration
+# error puts the hinge a few mm off where it believes, so the arc ran into the handle (label-printer: 5 N true, 9 read)
+HOOK_GIVE = 1e-4                # m per N over the noise per tick
+HOOK_GIVE_MAX = 0.005           # and no further than this in all: 10 mm let the incubator door, left on the jaw, swing onto the wrist camera
+HOOK_GIVE_N = 1.0               # over this, from the estimate's zero at the swing's start
+HOOK_BACK = 0.001               # and the swing starts this far back off what it met
 SETTLE_S = 1.0                  # after letting go, time for a lid to come to rest
 FALL_S = 6.0                    # after drawing one back past vertical, time for it to fall shut
 FORCE_LIMIT = {"hook_pull": 6.0}
@@ -61,18 +84,40 @@ def _changes(app, before, n_events):
 BRANCH_RAD = math.radians(20)  # an IK step bigger than this in one tick jumped to another branch
 
 
-def _follow(arm, poses, speed, bias, limit, what, follow=False):
+def _ramp(length, speed, t0, ramp_s):
+    """Fractions along a segment `length` long, one per tick, at speed, starting t0 s into a move that reaches full
+    speed over its first ramp_s. Returns them and the time at the end."""
+    fs, d, t = [], 0.0, t0
+    while d < length - 1e-9:
+        t += 1 / CONTROL_HZ
+        d = min(length, d + speed * min(1.0, t / ramp_s if ramp_s else 1.0) / CONTROL_HZ)
+        fs.append(d / length)
+    return fs or [1.0], t
+
+
+def _follow(arm, poses, speed, bias, limit, what, follow=False, ramp_s=0.0, give=None, give_zero=None):
     """Move through (tip, axis) poses at speed, watching the force. Returns (peak force, whether it got to the end, why
     not): a soft limit here just records the force, since a part may simply be heavy; the arm's own hard cap still stops
     it. A path whose IK jumps to another branch (a joint more than BRANCH_RAD in one tick) ends there: sent anyway, the
-    incubator's closing hook_pull swung the elbow 124 deg at full speed, and the servo estimate read that as 28 N."""
-    q, peak = arm.cmd - bias, 0.0
-    for (p0, a0), (p1, a1) in zip(poses[:-1], poses[1:]):
-        steps = max(1, int(np.linalg.norm(p1 - p0) / speed * CONTROL_HZ))
-        for i in range(1, steps + 1):
-            f = i / steps
+    incubator's closing hook_pull swung the elbow 124 deg at full speed, and the servo estimate read that as 28 N.
+    ramp_s: reach full speed over this long from rest (see HOOK_RAMP_S). give: a unit vector per pose; the rest of the
+    path shifts back against it by however much the force pushes that way over the noise (see HOOK_GIVE), the force
+    taken from give_zero, the estimate where the move began (its drift there, D32: a give from the bare estimate let a
+    lid's lip slip off the jaw)."""
+    q, peak, t, off = arm.cmd - bias, 0.0, 0.0, np.zeros(3)
+    for j, ((p0, a0), (p1, a1)) in enumerate(zip(poses[:-1], poses[1:])):
+        fs, t = _ramp(float(np.linalg.norm(p1 - p0)), speed, t, ramp_s)
+        for f in fs:
             a = a0 + (a1 - a0) * f
-            q1 = arm.ik.solve(p0 + (p1 - p0) * f, a / np.linalg.norm(a), q, iters=30)[0]
+            if give is not None:
+                g = give[j] + (give[j + 1] - give[j]) * f
+                g /= np.linalg.norm(g)
+                F = arm.tip_force_vec() - (0.0 if give_zero is None else give_zero)
+                push = max(-float(F @ g) - (HOOK_GIVE_N if give_zero is not None else arm.noise_n), 0.0)  # pushed back against g
+                off -= HOOK_GIVE * push * g
+                if np.linalg.norm(off) > HOOK_GIVE_MAX:
+                    off *= HOOK_GIVE_MAX / np.linalg.norm(off)
+            q1 = arm.ik.solve(p0 + (p1 - p0) * f + off, a / np.linalg.norm(a), q, iters=30)[0]
             if np.max(np.abs(q1 - q)) > BRANCH_RAD:
                 return peak, False, f"the {what} path left the arm's reach on this IK branch"
             q = q1
@@ -275,15 +320,79 @@ def hook_pull(arm, parts, i, step):
             q_in = _roll_up(arm, arm.ik.solve(entry[0], entry[1], arm.cmd)[0], entry[1])
             skills.move_joints(arm, np.r_[arm.cmd[:4], q_in[4]])
             arm.grip(HOOK_JAW_OPEN, 0.5)
-        _, bias = affordances._approach(arm, entry[0], entry[1], f"hook_pull {p.id}")
+        a_in = entry[1] / np.linalg.norm(entry[1])
+        stage = None if falls else next((pt for pt in (entry[0] - back * a_in + up * np.array([0, 0, 1.0]) for back, up in HOOK_STAGES)
+                                         if arm.ik.solve(pt, entry[1], arm.cmd)[1]), None)
+        staged = stage is not None
+        _, bias = affordances._approach(arm, stage if staged else entry[0], entry[1], f"hook_pull {p.id}")
         if jaw and arm.sensing:
             # low and near level, the estimate reads 4-5 N with nothing touching (D32): over the noise, not at the bare limit
             limit = params.get("force_limit", FORCE_LIMIT["hook_pull"] + arm.noise_n)
-        peak, ok1, why1 = _follow(arm, [entry, poses[0]], HOOK_SPEED, bias, limit, "in", follow=jaw)
+        way_in = [(stage, entry[1])] * staged + [entry]
+        if not falls:
+            u_in = poses[0][0] - entry[0]
+            feel = min(HOOK_FEEL, float(np.linalg.norm(u_in)))
+            u_in = u_in / np.linalg.norm(u_in)
+            way_in.append((poses[0][0] - feel * u_in, poses[0][1]))
+        else:
+            way_in.append(poses[0])
+        if staged:  # zeroed up there, clear of everything: at the stage over a level tool the drift alone read 7-9 N (D32)
+            arm.tare()
+        peak, ok1, why1 = _follow(arm, way_in, HOOK_SPEED, bias, limit, "in", follow=jaw, ramp_s=HOOK_RAMP_S)
+        arm.tare(False)
+        if ok1 and not falls:
+            ax, k = p.meta["hinge_axis"], max(len(poses) - 1, 1)
+            up_in = _rotate(p.meta["pull"], ax, -now)  # off the lip's underside, shut
+
+            def shifted(d_in, d_up):
+                """The swing and the way off, moved d_in along the way in and d_up off the lip: the same point on the handle
+                all the way up, so the shift turns with it."""
+                d = lambda th: d_in * _rotate(u_in, ax, th) + d_up * _rotate(up_in, ax, th)
+                return ([(pt + d((to - now) * j / k), a) for j, (pt, a) in enumerate(plan0)],
+                        [(pt + d(to - now), a) for pt, a in leave0])
+
+            plan0, leave0 = poses, leave
+            for n_try, lift in enumerate(HOOK_LIFTS):
+                poses, leave = shifted(0.0, lift)
+                start = (poses[0][0] - feel * u_in, poses[0][1])
+                if n_try:  # back out to where the slow part began, higher
+                    _follow(arm, [(arm.ik.fk(arm.cmd - bias)[0], poses[0][1]), start], HOOK_FEEL_SPEED, bias, 2 * limit,
+                            "back", ramp_s=HOOK_RAMP_S)
+                # zeroed where it is, it feels the riser at a few newtons: low and level, the estimate's own drift (D32)
+                # is 4-7 N with nothing touching, and pressed at the bare limit the swing began against the riser and stalled
+                arm.tare()
+                peak1, ok1, why1 = _follow(arm, [start, poses[0]], HOOK_FEEL_SPEED, bias,
+                                           min(limit, HOOK_FEEL_N + arm.noise_n) if arm.sensing else limit, "in", follow=jaw)
+                arm.tare(False)
+                peak = max(peak, peak1)
+                if ok1:
+                    break
+                # from where the joints say the tip is: pressed on something, the command has run on ahead of it
+                short = float((poses[0][0] - arm.ik.fk(arm.read_q())[0]) @ u_in) + HOOK_BACK
+                if short <= HOOK_RISER_MAX:  # met the riser: the jaw is under the lip, short of the plan by this much
+                    poses, leave = shifted(-short, lift)
+                    # back off it before swinging: still pressed, the swing's first ticks read that push and stopped there
+                    _follow(arm, [(arm.ik.fk(arm.cmd - bias)[0], poses[0][1]), poses[0]], HOOK_FEEL_SPEED, bias, 2 * limit,
+                            "back", ramp_s=HOOK_RAMP_S)
+                    for _ in range(int(HOOK_SETTLE_S * CONTROL_HZ)):
+                        arm.send(arm.cmd)
+                        arm.tick()
+                    ok1, why1 = True, None
+                    result["met_riser_mm"] = round(short * 1000, 1)
+                    break
+                # further out than any riser behind a lip: the jaw met the face below it, low by the calibration error
+                result.setdefault("met_below_mm", []).append(round(short * 1000, 1))
+                why1 = f"{why1} {short * 1000:.0f} mm short of the lip, on the face below it"
+            result["lifted_mm"] = round(lift * 1000, 1)
         peak2, ok2, why2 = (0.0, False, None)
         if ok1:
-            peak2, ok2, why2 = _follow(arm, poses, HOOK_SPEED, bias, limit, "swing", follow=jaw)
-        peak3, _, _ = _follow(arm, [(arm.ik.fk(arm.cmd - bias)[0], poses[-1][1]), *leave], HOOK_SPEED, bias, 2 * limit, "out")
+            # along the handle toward the hinge, at each pose's angle
+            ax, k = p.meta["hinge_axis"], max(len(poses) - 1, 1)
+            u_h = _rotate(p.meta["under"], ax, -now)
+            inward = [_rotate(u_h, ax, (to - now) * j / k) for j in range(len(poses))]
+            peak2, ok2, why2 = _follow(arm, poses, HOOK_SPEED, bias, limit, "swing", follow=jaw, ramp_s=HOOK_RAMP_S,
+                                       give=None if falls else inward, give_zero=arm.tip_force_vec() if arm.sensing else None)
+        peak3, _, _ = _follow(arm, [(arm.ik.fk(arm.cmd - bias)[0], poses[-1][1]), *leave], HOOK_SPEED, bias, 2 * limit, "out", ramp_s=HOOK_RAMP_S)
         # a handle let go past its balance point falls on its own: give it time, and stop waiting once a reading says it landed
         for k in range(int((FALL_S if falls else SETTLE_S) * CONTROL_HZ)):
             arm.send(arm.cmd)
@@ -304,6 +413,11 @@ def hook_pull(arm, parts, i, step):
             result.update(verdict="PASS", reason=f"{p.id} swung to {to_deg:g} deg: {moved[0]} {' -> '.join(map(str, seq[moved[0]]))}", channel=moved[0])
         elif not _has_reading_for(arm, p):
             result.update(verdict="OBSERVED", reason=f"the arm carried {p.id} to {to_deg:g} deg, peak {peak:.1f} N. Nothing on this device reads it")
+        elif result.get("lifted_mm"):
+            # it went in higher than planned, having met something below the lip: it may have gone over the lip, not
+            # under it, and swung nothing. Not a finding against the device
+            result.update(verdict="MISSED", reason=f"the arm swung to {to_deg:g} deg and no reading changed, but the jaw went in "
+                          f"{result['lifted_mm']:g} mm higher than planned and may have passed over {p.id}'s lip")
         else:
             result.update(verdict="FAIL", reason=f"the arm swung {p.id} to {to_deg:g} deg and no reading changed")
         if result["verdict"] in ("PASS", "OBSERVED"):
@@ -820,3 +934,450 @@ def place(arm, parts, i, step):
     result.update(lcd=app.lcd, duration_s=round(arm.d.time - t0, 2), collisions=sorted(arm.seen_collisions), force_trace=arm.force_log[log0:])
     arm.status = "idle"
     return result
+
+
+# --- swing: a door on a vertical hinge, with the arm's own jaws --------------------------------------------------------
+# hook_pull lifts a lid from under its lip, about a level hinge. A door on a vertical hinge swings its handle round a
+# horizontal arc instead, and the SO-101 keeps its tool in the vertical plane through its pan axis: a tool square to the
+# handle with the door shut meets it 50-60 deg off square once the door is 45 deg open, and from about 70 deg the handle
+# faces away from the arm altogether. So swing works the door three ways, each over the part of the arc where it can:
+#   grip      the jaws shut on the handle's bar from in front and draw it round the arc: unlatching, up to SWING_GRIP_DEG
+#   straddle  the jaws, opened wide, come down astride the leaf's top edge (found first by touching down on it) and carry
+#             it round the arc either way, the tool steep and the jaws' gap across the leaf
+#   push      the last SWING_GRIP_DEG of a close: the shut fingertip on the bar's front, on past shut so a latch catches
+# It goes only by the handle's hinge line, range, bar size and clearance from the leaf (the Part's meta and size), and
+# what it measures: nothing about any one device.
+SWING_FORCE_N = 10.5        # default force limit. A snap latch takes about 4 N at a handle, and drawing it from a stretched,
+                            # level arm the servos' estimate read about 1.6 x the jaws' true pull + 3.8 N (10.9 N for 4.4,
+                            # 17.5 for 8.2): their joints' friction at a crawl. The jaws themselves held 15 N without slipping
+SWING_CAP_MARGIN_N = 1.5    # whatever is asked, stop this far under the hard cap: a FAIL with its angle, not a safety stop
+SWING_STALL_M = 0.010       # the arm's reading this far behind its command along the arc: the door isn't following
+SWING_GRIP_DEG = 25.0       # the jaws on the bar from shut to here; past it they meet the bar too far off square
+SWING_SPEED = 0.02          # m/s along the arc
+SWING_UNLATCH_SPEED = 0.005  # and over the first SWING_UNLATCH_DEG from shut, where a latch holds: the force builds slowly
+SWING_UNLATCH_DEG = 4.0
+SWING_IN_SPEED = 0.01       # m/s going in to the bar and down astride the leaf
+SWING_OUT = 0.04            # start this far out from the bar, along the tool
+SWING_GRIP_DEPTH = 0.014    # the fixed jaw's tip this far past the bar's middle, along the tool: 8 mm past its back, where
+                            # the jaws narrow behind it. At 8 mm (just past its middle) the bar slid out of them at 4 N
+SWING_GRIP_TILTS = (0, 10, 20, 30)            # deg below level, flattest first: the bar stands upright
+SWING_TOP_TILTS = (90, 80, 70, 60, 50, 40)    # astride the leaf, steepest first
+SWING_STRADDLE_OPEN = 0.35  # gripper (rad) astride the leaf: 42 mm between the jaws' tips
+SWING_STRADDLE_DEPTH = 0.012  # the jaws' tips this far below the leaf's top edge
+SWING_LEAF_T = 0.003        # the leaf's thickness, assumed: only its middle plane is aimed at, and the jaws are 42 mm apart
+SWING_TOUCH_ABOVE = 0.10    # touching down on the leaf starts this far above the handle's top
+SWING_TOUCH_SPEED = 0.01
+SWING_TOUCH_N = 1.5         # over the arm's noise, touching down: the leaf's top
+SWING_LIFT = 0.04           # up off the leaf's top before moving over or away
+SWING_PAST_DEG = 4.0        # a close pushes on this far past shut; the door's stop ends it
+SWING_SHUT_DEG = 2.0        # within this of shut counts as shut
+SWING_STEP_DEG = 2.0        # the arc is planned at this spacing
+SWING_DENSE_M = 0.003       # and any straight move between poses at this
+
+
+def _door_unit(v):
+    v = np.asarray(v, float)
+    return v / np.linalg.norm(v)
+
+
+def _swing_check(arm, p, to_deg):
+    if p.kind != "handle":
+        return f"{p.id} is a {p.kind}: swing works a door by its handle"
+    if p.grip == "pinch":
+        return f"{p.id} needs a pinch grip; the no-thumbs rule allows only the fingertips"
+    if abs(_door_unit(p.meta["hinge_axis"])[2]) < math.cos(math.radians(20)):
+        return f"{p.id}'s hinge isn't upright: swing is for a door on a vertical hinge (hook_pull lifts a lid)"
+    if getattr(arm, "effector", "probe") != "stock" or not hasattr(arm, "grip"):
+        return "swing needs the stock gripper's jaws (effector stock)"
+    if not 0 <= to_deg <= p.meta["open_deg"]:
+        return f"angle must be between 0 and {p.meta['open_deg']:g} deg"
+    return None
+
+
+class _Door:
+    """Where the handle's bar and the leaf are at any angle th from shut (rad), from the Part as it is now."""
+
+    def __init__(self, p):
+        self.H, self.k = np.asarray(p.meta["hinge"], float), _door_unit(p.meta["hinge_axis"])
+        now = p.meta.get("angle", 0.0)
+        self.bar0 = self.H + _rotate(np.asarray(p.pos, float) - self.H, self.k, -now)
+        self.n0 = _rotate(np.asarray(p.normal, float), self.k, -now)
+        self.r_bar = float(p.size[1]) / 2                  # the bar's radius, from its width across
+        self.face = float(p.size[2]) / 2 + float(p.meta["clear"])   # bar's middle to the leaf's outer face, along the normal
+        self.bar_top = float(p.pos[2]) + float(p.size[0]) / 2
+
+    def bar(self, th):
+        return self.H + _rotate(self.bar0 - self.H, self.k, th)
+
+    def n(self, th):
+        return _rotate(self.n0, self.k, th)
+
+    def leaf(self, th):
+        """The leaf's middle plane, at the bar's radius and height."""
+        return self.bar(th) - (self.face + SWING_LEAF_T / 2) * self.n(th)
+
+
+def _swing_roll(arm, q, axis, want):
+    """q with the wrist rolled so the tip frame's x points as near `want` as the tool's axis allows."""
+    a = _door_unit(axis)
+    w = np.asarray(want, float) - (np.asarray(want, float) @ a) * a
+    if np.linalg.norm(w) < 1e-6:
+        return q
+    w = _door_unit(w)
+    lo, hi = arm.m.jnt_range[arm.m.joint("wrist_roll").id]
+    qs = q.copy()
+    for _ in range(3):
+        x = arm.ik.fk_R(qs)[:, 0]
+        turn = math.atan2(np.cross(x, w) @ -a, x @ w)
+        trial = [(arm.ik.fk_R(qt)[:, 0] @ w, qt) for s in (1, -1) for wrap in (0.0, 2 * math.pi, -2 * math.pi)
+                 for qt in [np.r_[qs[:4], qs[4] + s * turn + wrap]] if lo <= qt[4] <= hi]
+        if not trial:
+            break
+        qs = max(trial, key=lambda t: (round(t[0], 2), -abs(t[1][4] - q[4])))[1]
+    return qs
+
+
+def _swing_dense(poses):
+    """Poses (tip, axis, want_x, th) with any long straight move between two split up, for planning."""
+    out = [poses[0]]
+    for p1 in poses[1:]:
+        p0 = out[-1]
+        n = max(1, int(np.linalg.norm(p1[0] - p0[0]) / SWING_DENSE_M))
+        for i in range(1, n + 1):
+            f = i / n
+            w = None if p1[2] is None else (p1[2] if p0[2] is None else _door_unit(p0[2] + (p1[2] - p0[2]) * f))
+            out.append((p0[0] + (p1[0] - p0[0]) * f, _door_unit(p0[1] + (p1[1] - p0[1]) * f), w, p0[3] + (p1[3] - p0[3]) * f))
+    return out
+
+
+def _swing_plan(arm, poses, q0):
+    """IK along (tip, axis, want_x, th) poses, densely, each seeded from the last; the jaws' x keeps its sign along the
+    way, so the wrist doesn't roll over half way. Returns [(q, tip, th)], or None if a pose is out of reach or a step
+    jumps IK branch."""
+    out, q, x_prev = [], np.asarray(q0, float), None
+    for tip, axis, want, th in _swing_dense(poses):
+        arm.check_workspace(tip)
+        q1, *_ = arm.ik.solve(tip, axis, q, iters=60)
+        if want is not None:
+            w = np.asarray(want, float)
+            if x_prev is not None and w @ x_prev < 0:
+                w = -w
+            q1 = _swing_roll(arm, q1, axis, w)
+        q1, ok, err, ang = _solve_rolled(arm, tip, axis, q1, iters=60)
+        if not ok or ang > 3.0 or (out and np.max(np.abs(q1 - q)) > BRANCH_RAD):
+            return None
+        out.append((q1, tip, th))
+        q, x_prev = q1, arm.ik.fk_R(q1)[:, 0]
+    return out
+
+
+def _swing_go(arm, plan, speed, bias, limit, stall=SWING_STALL_M):
+    """Through a plan at `speed` along the tip's path, the bias following the sag. Stops when the force passes limit, or
+    when the arm's reading falls `stall` behind its command (what it holds isn't following: the bias follows the
+    shortfall, so against something fixed the push only grows). Returns (peak force, the index reached, why it stopped
+    short or None)."""
+    peak = 0.0
+    for k in range(1, len(plan)):
+        (q0, p0, th0), (q1, p1, th1) = plan[k - 1], plan[k]
+        v = speed if min(th0, th1) > math.radians(SWING_UNLATCH_DEG) else min(speed, SWING_UNLATCH_SPEED)
+        n = max(1, int(np.linalg.norm(p1 - p0) / v * CONTROL_HZ))
+        for i in range(1, n + 1):
+            q = q0 + (q1 - q0) * i / n
+            arm.send(q + bias)
+            arm.tick()
+            bias += SAG_FOLLOW * (q - arm.read_q())
+            f = float(np.linalg.norm(arm.tip_force_vec()))
+            peak = max(peak, f)
+            if f > limit:
+                return peak, k - 1, f"met {f:.1f} N"
+            lag = float(np.linalg.norm(arm.ik.fk(q)[0] - arm.tip_pose()[0]))
+            if stall and lag > stall:
+                return peak, k - 1, f"stalled {lag * 1000:.0f} mm behind its path at {f:.1f} N"
+    return peak, len(plan) - 1, None
+
+
+def _door_arc(a, b):
+    n = max(2, int(abs(b - a) / math.radians(SWING_STEP_DEG)) + 1)
+    return [a + (b - a) * i / (n - 1) for i in range(n)]
+
+
+def _door_grip_poses(arm, door, ths, tilt, held=np.zeros(3)):
+    up = np.array([0, 0, 1.0])
+    out = []
+    for th in ths:
+        b = door.bar(th)
+        a = _tool_axis(arm, b, math.radians(tilt))
+        x = _door_unit(np.cross(a, up))     # across the bar, level
+        out.append((b + SWING_GRIP_DEPTH * a - (JAW_FACE_X + door.r_bar + JAW_CLEAR) * x + held, a, x, th))
+    return out
+
+
+def _door_top_poses(arm, door, ths, top, tilt, x_c):
+    """Astride the leaf's top edge at the bar's radius: the tip SWING_STRADDLE_DEPTH below the edge, the middle of the
+    jaws' gap (x_c out along x from the tip) on the leaf's middle plane, x across the leaf."""
+    out = []
+    for th in ths:
+        s = door.leaf(th)
+        s[2] = top - SWING_STRADDLE_DEPTH
+        a = _tool_axis(arm, s, math.radians(tilt))
+        x = _door_unit(door.n(th) - (door.n(th) @ a) * a)
+        out.append((s - x_c * x, a, x, th))
+    return out
+
+
+def _door_lifted(pose, dz=SWING_LIFT):
+    return (pose[0] + np.array([0, 0, dz]), *pose[1:])
+
+
+def _door_backed(pose, d=SWING_OUT):
+    return (pose[0] - d * pose[1], *pose[1:])
+
+
+def _touch_top(arm, door, th, tilt, limit):
+    """Find the leaf's top edge: the shut fingertip, its long end edge across the leaf, comes down on it from above the
+    handle. Returns (the top's height, why not)."""
+    s = door.leaf(th)
+    a = _tool_axis(arm, s, math.radians(tilt))
+    x = _door_unit(door.n(th) - (door.n(th) @ a) * a)
+    hi, lo = door.bar_top + SWING_TOUCH_ABOVE, door.bar_top
+    q, *_ = arm.ik.solve(np.r_[s[:2], hi], a, arm.cmd, iters=60)
+    w = tip_shape(arm).world(arm.ik.fk_R(_swing_roll(arm, q, a, x)))
+    low = w[np.argmin(w[:, 2])]   # the fingertip's lowest point is what lands: over the leaf's middle plane
+    plan = _swing_plan(arm, [(np.r_[s[:2] - low[:2], hi], a, x, th), (np.r_[s[:2] - low[:2], lo], a, x, th)], arm.cmd)
+    if plan is None:
+        return None, "the leaf's top is out of reach from above"
+    bias = _settle(arm, plan[0][0])
+    arm.tare()
+    for k in range(1, len(plan)):
+        (q0, p0, _), (q1, p1, _) = plan[k - 1], plan[k]
+        n = max(1, int(np.linalg.norm(p1 - p0) / SWING_TOUCH_SPEED * CONTROL_HZ))
+        for i in range(1, n + 1):
+            arm.send(q0 + (q1 - q0) * i / n + bias)
+            arm.tick()
+            if (k > 3 or i > 10) and float(np.linalg.norm(arm.tip_force_vec())) > limit:
+                at = float(arm.tip_pose()[0][2] + low[2])
+                arm.tare(False)
+                _line(arm, arm.tip_pose()[0] + np.array([0, 0, SWING_LIFT]), a, SWING_IN_SPEED * 2, bias=bias)
+                return at, None
+    arm.tare(False)
+    _line(arm, plan[0][1], a, SWING_SPEED * 2, bias=bias)
+    return None, "touching down at the bar's radius, nothing was there down to the handle's top"
+
+
+def swing(arm, parts, i, step):
+    """Swing a door on a vertical hinge to params.angle (deg from shut) by its handle, with the stock gripper's jaws:
+    gripping the bar to unlatch it, astride the leaf's top edge for the rest of the way, and pushing the bar for the last
+    of a close. PASS: the door's reading changed, as it must when the door leaves shut or reaches it. FAIL: the door held
+    against the force limit (a seized hinge, a jammed latch), or it reached shut, or left it, and nothing read so.
+    OBSERVED: moved between two open angles, which nothing reads. MISSED: the jaws never got hold of it."""
+    p, params = parts[i], step.get("params", {})
+    result = {"skill": "swing", "target": p.id, "verdict": "REFUSED", "channel": None, "readout_change": {}}
+    to_deg = float(params.get("angle", p.meta.get("open_deg", 90.0) - 5.0))
+    why = _swing_check(arm, p, to_deg)
+    now, to = p.meta.get("angle", 0.0), math.radians(to_deg)
+    if why is None and abs(to - now) < math.radians(SWING_SHUT_DEG):
+        why = f"{p.id} is already at {to_deg:g} deg"
+    if why:
+        result["reason"] = why
+        return result
+    limit = float(params.get("force_limit", SWING_FORCE_N))
+    # the estimate's own floor on top (low and near level it reads 4-5 N on nothing, D32), under the hard cap
+    sensed = min(limit + (arm.noise_n if arm.sensing else 0.0), HARD_FORCE_CAP_N - SWING_CAP_MARGIN_N)
+    door = _Door(p)
+    grip = math.radians(SWING_GRIP_DEG)
+    legs = []   # (how, from, to)
+    if to > now:
+        if now < grip:
+            legs.append(("grip", now, min(to, grip)))
+        if to > grip:
+            legs.append(("straddle", max(now, grip), to))
+    else:
+        if now > grip:
+            legs.append(("straddle", now, max(to, grip)))
+        if to < grip:
+            legs.append(("push", min(now, grip), to))
+    app, t0, log0 = arm.app, arm.d.time, len(arm.force_log)
+    before, n_events = dict(app.readings), len(app.events)
+    arm.seen_collisions = set()
+    arm.status = f"swing {p.id}"
+    reached, stop, peak, notes, top = now, "end", 0.0, [], p.meta.get("leaf_top")
+    try:
+        for how, a, b in legs:
+            if how == "grip":
+                got = _swing_grip(arm, door, a, b, sensed)
+            elif how == "straddle":
+                got = _swing_straddle(arm, door, a, b, sensed, top)
+                top = got.get("top", top)
+            else:
+                got = _swing_push(arm, door, a, b, sensed)
+            peak = max(peak, got.get("peak", 0.0))
+            reached = got.get("reached", reached)
+            notes.append(got["note"])
+            if got["status"] != "end":
+                stop = got["status"]
+                break
+        skills.go_home(arm)
+    except SafetyStop as e:
+        result.update(verdict="ABORTED", reason=f"safety stop: {e}", readout_change=_changes(app, before, n_events))
+        try:
+            arm.grip(JAW_SHUT, 0.3)
+            arm.tare(False)
+            skills.go_home(arm)
+        except SafetyStop:
+            pass
+        result.update(lcd=app.lcd, duration_s=round(arm.d.time - t0, 2), collisions=sorted(arm.seen_collisions), force_trace=arm.force_log[log0:])
+        arm.status = "idle"
+        return result
+    for _ in range(int(SETTLE_S * CONTROL_HZ)):
+        arm.send(arm.cmd)
+        arm.tick()
+    seq = _changes(app, before, n_events)
+    moved = [c for c in seq if app.readings.get(c) != before.get(c)]
+    shut_end = min(abs(now), abs(reached)) < math.radians(SWING_SHUT_DEG)   # it left shut or got there: a door sensor's change
+    reached_deg = max(0.0, math.degrees(reached))
+    result.update(peak_force_n=round(peak, 2), force_limit_n=limit, stop={"end": "end", "force": "force_limit"}.get(stop, stop),
+                  readout_change=seq, reached_deg=round(reached_deg, 1), how="; ".join(notes))
+    if stop == "missed":
+        result.update(verdict="MISSED", reason=f"{notes[-1]}, so the door wasn't tested")
+    elif stop == "force":
+        result.update(verdict="FAIL", reason=f"{p.id} held at {reached_deg:.0f} deg of the {to_deg:g} asked: {notes[-1]}",
+                      channel=moved[0] if moved else None)
+    elif moved:
+        result.update(verdict="PASS", channel=moved[0], reason=f"{p.id} swung to {to_deg:g} deg: {moved[0]} {' -> '.join(map(str, seq[moved[0]]))}")
+    elif _has_reading_for(arm, p) and shut_end:
+        result.update(verdict="FAIL", reason=f"the arm swung {p.id} to {to_deg:g} deg and no reading changed")
+    else:
+        result.update(verdict="OBSERVED", reason=f"the arm carried {p.id} to {to_deg:g} deg, peak {peak:.1f} N. Nothing reads it between open angles")
+    went = to if result["verdict"] in ("PASS", "OBSERVED") else reached
+    if abs(went - now) > math.radians(SWING_SHUT_DEG) and result["verdict"] != "MISSED":
+        th, k, H = went - now, door.k, door.H
+        T = p.T.copy()
+        T[:3, 3] = H + _rotate(p.pos - H, k, th)
+        T[:3, :3] = np.c_[_rotate(p.T[:3, 0], k, th), _rotate(p.T[:3, 1], k, th), _rotate(p.T[:3, 2], k, th)]
+        parts[i] = replace(p, T=T, state=went, range=(-went, math.radians(p.meta["open_deg"]) - went),
+                           meta={**p.meta, "angle": went, "pull": _rotate(p.meta["pull"], k, th), "under": _rotate(p.meta["under"], k, th)})
+    if top is not None:
+        parts[i] = replace(parts[i], meta={**parts[i].meta, "leaf_top": top})   # measured, so the next swing needn't touch down again
+    result.update(lcd=app.lcd, duration_s=round(arm.d.time - t0, 2), collisions=sorted(arm.seen_collisions), force_trace=arm.force_log[log0:])
+    arm.status = "idle"
+    return result
+
+
+def _swing_grip(arm, door, a, b, limit):
+    """The jaws round the bar, shut on it, and draw it from a to b round the arc; then let go and back off."""
+    ths = _door_arc(a, b)
+    for tilt in SWING_GRIP_TILTS:
+        poses = _door_grip_poses(arm, door, ths, tilt)
+        plan = _swing_plan(arm, [_door_backed(poses[0])] + poses, arm.cmd)
+        if plan is not None:
+            break
+    else:
+        return {"status": "missed", "note": "the handle's bar is out of reach for the jaws"}
+    arm.grip(_jaw_open(2 * door.r_bar), 0.5)
+    bias = _settle(arm, plan[0][0])
+    arm.tare()
+    a_in = poses[0][1]
+    peak, went = _line(arm, poses[0][0], a_in, SWING_IN_SPEED, limit=PLACE_FORCE_N + getattr(arm, "noise_n", 0.0), bias=bias)
+    if not went:
+        arm.tare(False)
+        _line(arm, plan[0][1], a_in, SWING_SPEED, bias=bias)
+        arm.grip(JAW_SHUT, 0.3)
+        return {"status": "missed", "peak": peak, "note": f"going in round the handle's bar the jaws met {peak:.1f} N"}
+    arm.tare()   # before the squeeze, which itself pushes the arm 3-4 N back along the tool: zeroed after it, that counted
+    _close_on(arm, bias)
+    if not (arm.jaw() > JAW_EMPTY or arm.jaw_load() > JAW_LOAD):
+        arm.grip(_jaw_open(2 * door.r_bar), 0.3)
+        arm.tare(False)
+        _line(arm, plan[0][1], a_in, SWING_SPEED, bias=bias)
+        arm.grip(JAW_SHUT, 0.3)
+        return {"status": "missed", "note": f"the jaws shut on nothing at the handle's bar ({math.degrees(arm.jaw()):.1f} deg)"}
+    # from wherever the squeeze left the tip, with the bar between the jaws
+    held = arm.ik.fk(arm.read_q())[0] - poses[0][0]
+    bias[:] = arm.cmd - arm.read_q()
+    sweep = _swing_plan(arm, _door_grip_poses(arm, door, ths, tilt, held), arm.read_q()) or [(q, t, th) for q, t, th in plan if th >= a][-len(ths):]
+    peak2, k, why = _swing_go(arm, sweep, SWING_SPEED, bias, limit)
+    reached = sweep[k][2]
+    arm.grip(_jaw_open(2 * door.r_bar) + 0.1, 0.4)
+    arm.tare(False)
+    ax = _tool_axis(arm, door.bar(reached), math.radians(tilt))
+    _line(arm, arm.tip_pose()[0] - SWING_OUT * ax, ax, SWING_SPEED, bias=bias)
+    arm.grip(JAW_SHUT, 0.3)
+    if why:
+        return {"status": "force", "peak": max(peak, peak2), "reached": reached,
+                "note": f"the jaws on the bar, drawing it round, {why} at {math.degrees(reached):.0f} deg"}
+    return {"status": "end", "peak": max(peak, peak2), "reached": reached,
+            "note": f"jaws on the bar from {math.degrees(a):.0f} to {math.degrees(b):.0f} deg, tool {tilt} deg down"}
+
+
+def _swing_straddle(arm, door, a, b, limit, top=None):
+    """Astride the leaf's top edge, from a to b. Finds the edge first, unless top (its height) is already known."""
+    ths = _door_arc(a, b)
+    x_c = (2 * JAW_FACE_X + JAW_GAP[0] + JAW_GAP[1] * SWING_STRADDLE_OPEN) / 2   # the gap's middle, out along x from the tip
+    out = {}
+    for tilt in SWING_TOP_TILTS:
+        poses = _door_top_poses(arm, door, ths, top if top is not None else door.bar_top + 0.03, tilt, x_c)
+        if _swing_plan(arm, [_door_lifted(poses[0])] + poses + [_door_lifted(poses[-1])], arm.cmd) is not None:
+            break
+    else:
+        return {"status": "missed", "note": "the leaf's top edge is out of reach along the arc"}
+    if top is None:
+        top, why = _touch_top(arm, door, a, tilt, SWING_TOUCH_N + getattr(arm, "noise_n", 0.0))
+        if top is None:
+            return {"status": "missed", "note": why}
+        out["top"] = top
+    poses = _door_top_poses(arm, door, ths, top, tilt, x_c)
+    down = _swing_plan(arm, [_door_lifted(poses[0]), poses[0]], arm.cmd)
+    plan = down and _swing_plan(arm, poses, down[-1][0])
+    if not plan:
+        return {**out, "status": "missed", "note": "astride the leaf's top edge is out of reach along the arc"}
+    arm.grip(SWING_STRADDLE_OPEN, 0.4)
+    bias = _settle(arm, down[0][0])
+    arm.tare()
+    peak, k, why = _swing_go(arm, down, SWING_IN_SPEED, bias, PLACE_FORCE_N + getattr(arm, "noise_n", 0.0))
+    if why:
+        arm.tare(False)
+        _line(arm, down[0][1], poses[0][1], SWING_IN_SPEED, bias=bias)
+        arm.grip(JAW_SHUT, 0.3)
+        return {**out, "status": "missed", "peak": peak, "note": f"coming down astride the leaf's top edge the jaws met {peak:.1f} N"}
+    arm.tare()
+    peak2, k, why = _swing_go(arm, plan, SWING_SPEED, bias, limit)
+    reached = plan[k][2]
+    arm.tare(False)
+    _line(arm, arm.tip_pose()[0] + np.array([0, 0, SWING_LIFT]), _tool_axis(arm, plan[k][1], math.radians(tilt)), SWING_IN_SPEED * 2, bias=bias)
+    arm.grip(JAW_SHUT, 0.3)
+    if why:
+        return {**out, "status": "force", "peak": max(peak, peak2), "reached": reached,
+                "note": f"astride the leaf, {why} at {math.degrees(reached):.0f} deg"}
+    return {**out, "status": "end", "peak": max(peak, peak2), "reached": reached,
+            "note": f"astride the leaf's top edge ({top * 1000:.0f} mm) from {math.degrees(a):.0f} to {math.degrees(b):.0f} deg, tool {tilt} deg down"}
+
+
+def _swing_push(arm, door, a, b, limit):
+    """The shut fingertip on the bar's front, pushing it from a round to b and on past shut by SWING_PAST_DEG, so a
+    latch catches: the door's stop ends it, and meeting the force limit within SWING_SHUT_DEG of shut is that stop."""
+    end = b - math.radians(SWING_PAST_DEG) if b < math.radians(SWING_SHUT_DEG) else b
+    ths = _door_arc(a, end)
+    for tilt in SWING_GRIP_TILTS:
+        poses = []
+        for th in ths:
+            bb = door.bar(th)
+            ax = _tool_axis(arm, bb, math.radians(tilt))
+            poses.append((bb - (door.r_bar - 0.001) * ax, ax, None, th))
+        plan = _swing_plan(arm, [_door_backed(poses[0])] + poses, arm.cmd)
+        if plan is not None:
+            break
+    else:
+        return {"status": "missed", "note": "the handle's bar is out of reach to push it shut"}
+    bias = _settle(arm, plan[0][0])
+    arm.tare()
+    peak, k, why = _swing_go(arm, plan, SWING_SPEED, bias, limit)
+    reached = plan[k][2]
+    for _ in range(int(0.5 * CONTROL_HZ)):   # held there while a latch takes it
+        arm.send(arm.cmd)
+        arm.tick()
+    arm.tare(False)
+    _line(arm, arm.tip_pose()[0] - SWING_OUT * poses[0][1], poses[0][1], SWING_SPEED, bias=bias)
+    if why and reached > math.radians(SWING_SHUT_DEG):
+        return {"status": "force", "peak": peak, "reached": reached, "note": f"pushing the bar shut, {why} at {math.degrees(reached):.0f} deg"}
+    return {"status": "end", "peak": peak, "reached": max(0.0, min(reached, b)) if not why else 0.0,
+            "note": f"pushed the bar from {math.degrees(a):.0f} deg to shut, tool {tilt} deg down"}

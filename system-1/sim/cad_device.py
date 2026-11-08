@@ -122,6 +122,9 @@ class Firmware:
         changed = []
         for b, qa, da in self.mech:
             s = b["snap"]
+            if "until_deg" in s and data.qpos[qa] > math.radians(s["until_deg"]):  # a latch: it acts only near shut
+                data.qfrc_applied[da] = 0.0
+                continue
             data.qfrc_applied[da] = s["nm"] * math.sin(math.pi / 2 * (data.qpos[qa] - math.radians(s["centre_deg"])) / math.radians(s["centre_deg"]))
         for s in self.sensors:
             if s["adr"] is not None:

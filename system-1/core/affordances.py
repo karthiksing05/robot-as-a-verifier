@@ -44,7 +44,7 @@ import numpy as np
 
 import skills
 from features import canonical_x, frame
-from rig import CONTACT_N, CONTROL_HZ, JAW_PUSH_OPEN, JAW_PUSH_SHUT, STOCK_JAW, STOCK_JAW_OPEN, SafetyStop, tip_shape
+from rig import CONTACT_N, CONTROL_HZ, JAW_PUSH_OPEN, JAW_PUSH_SHUT, STOCK_JAW, STOCK_JAW_OPEN, SafetyStop, TipShape, tip_shape
 
 PAD_R, PAD_T = 0.006, 0.003       # probe pad; the tip site is the centre of its face, and the rod ends inside it
 HOVER = 0.03            # a sideways push starts this far above the pad's first position
@@ -55,6 +55,7 @@ TOUCH_SPEED = 0.004     # m/s, descending near the parts: landing on a rigid par
 TOUCH_BAND = 0.004      # a touch this close to where the floor should be is the floor
 END_ZONE, END_SPEED = 0.004, 0.003  # creep through the last 4 mm of a push, so an end stop isn't hit hard
 ARC_END_ZONE, ARC_END_SPEED = math.radians(8), 0.001  # and through a turn's last 8 deg, slower: a knob coasts
+PRESS_SEARCH_MM = 4.0   # and the stock fingertip tries again this far off each way
 PRESS_TRAVEL = 0.004    # a press stops on force or this far past first contact: no CAD travel
 LANDED_N = 1.0          # force on the pad that ends a descent
 LOW_N = 2.0             # mid-push, a force off the panel above this and above the resistance: the pad is too low
@@ -91,6 +92,7 @@ REGRIP = 0.005          # a turn that moved nothing tries once more with the dia
 # The stock gripper turns a dial as two fingers do: the jaws open either side of the knob, shut on it, and the wrist
 # turns them about the dial's axis. The angle comes from the wrist, from the moment the jaws hold the knob, so the arm's
 # own position error (several mm at these stretched poses, 20 deg and more of a pushed fin's 9 mm radius) drops out.
+JAW_PUSH_NARROW = -0.08           # gripper joint (rad): 9.8 mm between the jaws, for a flip with little room
 JAW_SLACK = 0.006                 # a flip with the jaws pushes on this much further than the plan's travel
 JAW_FACE_X = 0.003                # the stock tip (the fixed jaw's end) to its inner face, along the tip frame's x
 PINCH_OPEN = 0.12                 # gripper joint (rad) going down round the knob: 25 mm between the jaws' tips
@@ -221,6 +223,7 @@ class _Push:
     axis: tuple = None    # arcs: (a point on the part's axis, its unit direction), to measure the angle swept
     roll: float = None    # the wrist roll the plan was made with, for a tip that isn't round (rad)
     jaws: str = None      # the stock gripper opens round the part, and this jaw's inner face pushes: "fixed" or "moving"
+    opening: float = JAW_PUSH_OPEN  # the gripper joint, opened (rad)
 
 
 @dataclass
@@ -279,6 +282,11 @@ def _jaws(arm):
     return tip_shape(arm).name == "stock" and hasattr(arm, "grip")
 
 
+def _moving_jaw(opening):
+    """The moving jaw's tip, open to `opening` (rad): STOCK_JAW_OPEN moved out along x by the change in the gap."""
+    return TipShape("stock_moving", STOCK_JAW_OPEN.pts + [_jaw_gap(opening) - _jaw_gap(JAW_PUSH_OPEN), 0.0, 0.0])
+
+
 def _roll_toward(arm, pos, n, m, q0=None):
     """An IK seed at pos pointing along -n whose wrist roll turns the tip frame's x (the fixed jaw's inner face normal,
     toward the moving jaw) as near m as the tool's axis allows, or None if the roll joint can't get there."""
@@ -317,7 +325,7 @@ def _roll_gain(arm, q, k):
 
 
 def _sideways(arm, face, n, m, floor, contact_h, top, until, what, touch_floor=None, centre=None, k=None,
-              obstacles=(), seed=None, jaw=None, gaps=None):
+              obstacles=(), seed=None, jaw=None, gaps=None, opening=JAW_PUSH_OPEN):
     """Plan a sideways push of `what`. The pad's leading rim meets `face` moving along m, at height contact_h,
     with its lowest point CLEAR above floor; top is the part's top and touch_floor the surface under the pad at
     the start (heights along n, from face). The path is a line along m, or for an arc about the axis through
@@ -327,7 +335,8 @@ def _sideways(arm, face, n, m, floor, contact_h, top, until, what, touch_floor=N
     goes down on the part's far side and counts for room. Returns a _Push, or why it can't be done."""
     rc = None if centre is None else float(np.linalg.norm(np.cross(face - centre, k)))
     jaws = _jaws(arm) and jaw is not None
-    shape = (STOCK_JAW_OPEN if jaw == "moving" else STOCK_JAW) if jaws else tip_shape(arm)
+    moving = _moving_jaw(opening)
+    shape = (moving if jaw == "moving" else STOCK_JAW) if jaws else tip_shape(arm)
 
     def place(R, drop):
         a = -R[:, 2]
@@ -353,7 +362,7 @@ def _sideways(arm, face, n, m, floor, contact_h, top, until, what, touch_floor=N
     if not shape.round:  # the tip's own footprint at the part's heights, not a circle round its widest point
         wf = shape.world(R0)
         if jaws:  # the other jaw goes down beside the part too
-            wf = np.vstack([wf, (STOCK_JAW if jaw == "moving" else STOCK_JAW_OPEN).world(R0)])
+            wf = np.vstack([wf, (STOCK_JAW if jaw == "moving" else moving).world(R0)])
         wz = wf @ n  # each point's height over the tip site
         if not jaws:
             wf, wz = wf[wz <= top + 1e-6], None
@@ -406,7 +415,7 @@ def _sideways(arm, face, n, m, floor, contact_h, top, until, what, touch_floor=N
     return _Push(path, gap + 2 * SIDE_BAND + until, until, n, [qs[0], qs[1], qs[3]],
                  skills.SLOW_ZONE_M + max(top - h, 0.0), gap, touch, rc, what,
                  axis=None if centre is None else (np.asarray(centre, float), np.asarray(k, float) / np.linalg.norm(k)),
-                 roll=None if shape.round else float(seed[4]), jaws=jaw if jaws else None)
+                 roll=None if shape.round else float(seed[4]), jaws=jaw if jaws else None, opening=opening)
 
 
 def _slide_plan(arm, p, to, parts):
@@ -560,19 +569,18 @@ def _pinch_plan(arm, p, angle, parts):
             continue
         # the jaws' footprint at the knob's heights, swept through the turn, against the other parts
         R0 = arm.ik.fk_R(qs[1])
-        w = np.vstack([STOCK_JAW.world(R0), STOCK_JAW_OPEN.world(R0) + (gap - _jaw_gap(JAW_PUSH_OPEN)) * R0[:, 0]])
-        low = kh - PINCH_DEPTH - float(np.max(-(w @ n)))  # the jaws' lowest point above the knob's base
+        w = np.vstack([STOCK_JAW.world(R0), _moving_jaw(PINCH_OPEN).world(R0)])
+        wz = kh - PINCH_DEPTH + w @ n  # each point's height above the knob's base
         w = w - np.outer(w @ n, n)
         hit = None
         for th in np.linspace(0.0, angle, max(2, int(abs(angle) / PINCH_SWEEP) + 1)):
             foot = np.array([p.pos + _rotate(start - p.pos + v, n, th) for v in w])
             for c, r, ot, oid in obstacles:
-                if ot > low:
-                    d = foot - c
-                    d = d - np.outer(d @ n, n)
-                    if float(np.min(np.linalg.norm(d, axis=1))) < r + 0.001:
-                        hit = oid
-                        break
+                d = foot[wz < ot + 0.001] - c  # only what is below the other part's top
+                d = d - np.outer(d @ n, n)
+                if len(d) and float(np.min(np.linalg.norm(d, axis=1))) < r + 0.001:
+                    hit = oid
+                    break
             if hit:
                 break
         if hit:
@@ -747,15 +755,17 @@ def _flip_plan(arm, p, parts):
     # whichever the wrist can roll to face the push. The push runs JAW_SLACK further, as the arm's own error along the
     # throw (up to 6 mm at the test devices' panels) is unseen with servo sensing: a lever already over is held at its
     # stop, which stops the push at the force limit
+    # Opened less where the other jaw has no room (a beaker on the hotplate beside its switch)
     plan = "the wrist can't roll the jaws along the lever's throw"
-    for jaw, xs in (("fixed", -x), ("moving", x)):
-        seed = _roll_toward(arm, p.pos + side(lean) * x + HOVER * n, n, xs)
-        if seed is None:
-            continue
-        plan = _sideways(arm, p.pos + side(lean) * x, n, -x, 0.0, h, v @ n + r, until + JAW_SLACK, "lever",
-                         obstacles=_obstacles(p, parts, p.size[2] - v @ n - r), seed=seed, jaw=jaw)
-        if not isinstance(plan, str):
-            return replace(plan, centre=side(lean) - side(0.0))
+    for opening in (JAW_PUSH_OPEN, JAW_PUSH_NARROW):
+        for jaw, xs in (("fixed", -x), ("moving", x)):
+            seed = _roll_toward(arm, p.pos + side(lean) * x + HOVER * n, n, xs)
+            if seed is None:
+                continue
+            plan = _sideways(arm, p.pos + side(lean) * x, n, -x, 0.0, h, v @ n + r, until + JAW_SLACK, "lever",
+                             obstacles=_obstacles(p, parts, p.size[2] - v @ n - r), seed=seed, jaw=jaw, opening=opening)
+            if not isinstance(plan, str):
+                return replace(plan, centre=side(lean) - side(0.0))
     return plan
 
 
@@ -955,7 +965,7 @@ def _push(arm, plan, limit, label):
         skills.move_joints(arm, q)
     if plan.jaws:
         arm.status = f"{label}: open the jaws"
-        arm.grip(JAW_PUSH_OPEN, 0.4)
+        arm.grip(plan.opening, 0.4)
     try:
         g = _push_open(arm, plan, limit, label, n)
     except SafetyStop:
@@ -1099,6 +1109,31 @@ def _aim(p):
     far toward the hinge as keeps it on the pad: landing a few mm toward the edge puts its rim on the panel
     across the seam, which stops the door going in."""
     return p.pos - max(p.meta.get("pad_radius", PAD_R) - PAD_R, 0.0) * p.x if p.kind == "door" else p.pos
+
+
+def _press(arm, p, limit, label):
+    """_poke, and with a fingertip smaller than the pad (the stock gripper's fixed jaw, 6 x 6 mm against the probe's 12
+    mm) a press that moved no reading tries again PRESS_SEARCH_MM off each way across the face, until one does. The arm's
+    own error at the test devices (5-7 mm) is more than a 10 mm cap's radius: on the wall thermostat, 2 presses in 5
+    landed on the cap's rounded rim or the bezel and held at the limit with the button unmoved. Where a press can't tell
+    the rim from a stuck button, all five fail, and a stuck button is still a FAIL."""
+    before = dict(arm.app.readings)
+    g = _poke(arm, p, limit, label)
+    if tip_shape(arm).round or arm.app.readings != before:
+        return g
+    n, x = p.normal, p.x
+    y = np.cross(n, x)
+    for k, d in enumerate((x, -x, y, -y)):
+        T = p.T.copy()
+        T[:3, 3] += PRESS_SEARCH_MM * 1e-3 * d
+        q = replace(p, T=T, origin=None if p.origin is None else p.origin + PRESS_SEARCH_MM * 1e-3 * d)
+        g2 = _poke(arm, q, limit, f"{label} (search {k + 1})")
+        g2["peak"] = max(g["peak"], g2["peak"])
+        g2["search_mm"] = [round(float(v) * PRESS_SEARCH_MM, 1) for v in (d @ x, d @ y)]
+        g = g2
+        if arm.app.readings != before:
+            break
+    return g
 
 
 def _poke(arm, p, limit, label, settle=0.0, retreat=0.03):
@@ -1370,7 +1405,7 @@ def run_step(arm, parts, step, known=None, refine=None):
     p = None if i is None else parts[i]
     if skill == "observe":
         return _observe(arm, p, target, result)
-    if p is not None and skill in ("hook_pull", "pick", "place"):  # reposition is the backend's: it moves the device, not a part
+    if p is not None and skill in ("hook_pull", "swing", "pick", "place"):  # reposition is the backend's: it moves the device, not a part
         import manipulate
 
         return getattr(manipulate, skill)(arm, parts, i, step)
@@ -1392,7 +1427,7 @@ def run_step(arm, parts, step, known=None, refine=None):
             result["reason"] = f"after refine: {why}"
         else:
             if skill in ("press", "push_latch"):
-                g = (_poke(arm, p, params["force_limit"], label) if skill == "press" else
+                g = (_press(arm, p, params["force_limit"], label) if skill == "press" else
                      _poke(arm, p, params["force_limit"], label, SETTLE_S, LATCH_RETREAT))
                 trace = arm.force_log[log0:]
             elif skill == "turn":
@@ -1407,7 +1442,7 @@ def run_step(arm, parts, step, known=None, refine=None):
             result.update(verdict=verdict, reason=reason, channel=ch, readout_change=seq,
                           peak_force_n=round(float(peak), 2), travel_mm=round(g["travel"] * 1000, 2), stop=g["stop"],
                           contact_offset_mm=g["contact_offset_mm"], force_limit_n=params["force_limit"])
-            result.update({k: g[k] for k in ("touch_mm", "regrip_mm", "located_mm") if k in g})
+            result.update({k: g[k] for k in ("touch_mm", "regrip_mm", "located_mm", "search_mm") if k in g})
             if "landing" in g:
                 result["landing_n"] = round(float(g["landing"]), 2)
             if skill == "turn" and plan.radius and g.get("turned") is not None:
