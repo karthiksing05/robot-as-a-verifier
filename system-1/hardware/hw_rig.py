@@ -38,7 +38,7 @@ def make_rig(arm_port, calibration, app=None, pad=None, readout_port=None):
             rgbperceive.GRIPPER_PX = np.round(np.array(g["gripper_px"]) * rgbperceive.PX_WIDTH / g["width"]).astype(np.int32)
             print(f"Gripper mask from {os.path.normpath(GRIPPER_PX)}")
         rgbperceive.FLAT_BUTTONS = True  # see rgbperceive.FLAT_BUTTONS
-        rgbperceive.EXTRA_VIEWS = rgbperceive.SAM_AUTO = False  # one pass of views, planned to cover the panel (RealArm)
+        rgbperceive.SAM_AUTO = False
         # the real toggle's bushing stands 9-14 mm and SAM outlines it at 61-81 mm2, outside the sim switch's 2.5-6 mm base
         # and 100 mm2 minimum (a 6 mm floor keeps the cable bundle out)
         # a device's flat top beside its panel pulled the survey's plane to 23 deg from flat (n_z 0.92) and the views
