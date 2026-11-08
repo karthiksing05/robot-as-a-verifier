@@ -79,9 +79,9 @@ LC_NOISE_FLOOR_N = 0.05    # the cell's floor along the probe (arm.noise_axial):
 
 
 # effector="stock": the SO-101's own gripper and nothing on it, as the real arm is. The probe's rod and pad stay in the
-# model, by name, but touch nothing and can't be seen; the tip site moves to the fixed jaw's tip, the middle of its end
-# face, and a contact on the gripper within STOCK_TIP_ZONE_M of that tip counts as the tool's, as the pad's did.
-STOCK_TIP = (-0.003, 0.0, -0.0064)  # in the probe body's frame: the fixed jaw's tip
+# model, by name, but touch nothing and can't be seen; the model file's tip site is the fixed jaw's tip, the middle of its
+# end face, and a contact on the gripper within STOCK_TIP_ZONE_M of that tip counts as the tool's, as the pad's did.
+PROBE_SITE = (0.0, 0.0, -0.025)  # effector="probe": the tip site at the pad's face, in the probe body's frame
 PENETRATION_TOL_M = 0.0002  # a contact the arm was already in may go on while it gets no deeper than this
 STOCK_TIP_ZONE_M = 0.03   # the fingers, shut, from their tips back to the palm
 MOVING_TIP_X = (0.0188, 0.075)  # open, the moving jaw's tip stands this far along the tip frame's x: 18.8 mm at gripper 0
@@ -130,16 +130,15 @@ def load_model(path, slop=False, effector="probe"):
     """Compile a scene. With slop, each arm joint gets a passive joint in series for the gear play
     (friction set to 0.1 N.m keeps it shut until a load forces it open; stiff stops keep it at
     BACKLASH_DEG under load), and the servos get the real damping (SERVO_KV). effector: "probe" (the fingertip probe
-    and pad) or "stock" (see STOCK_TIP)."""
-    if not slop and effector == "probe":
-        return mujoco.MjModel.from_xml_path(path)
+    and pad, a sim-only reference) or "stock" (the model file's own tip)."""
     spec = mujoco.MjSpec.from_file(path)
+    if effector == "probe":
+        spec.site("tip").pos = list(PROBE_SITE)
     if effector == "stock":
         for name in ("probe_rod", "probe_pad"):
             g = spec.geom(name)
             g.contype = g.conaffinity = 0
             g.rgba = [0, 0, 0, 0]
-        spec.site("tip").pos = list(STOCK_TIP)
         _jaw_pieces(spec)
     if effector == "stock":
         spec.actuator("gripper").forcerange = [-GRIP_TORQUE_NM, GRIP_TORQUE_NM]

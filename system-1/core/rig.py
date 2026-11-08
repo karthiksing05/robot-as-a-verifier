@@ -159,8 +159,8 @@ def _rect(x0, x1, y0, y1, z):
 
 # The probe's 12 mm pad, 3 mm thick; the tip site is the centre of its face.
 PROBE_TIP = TipShape("probe", _ring(0.006, 0.0) + _ring(0.006, 0.003))
-# The SO-101's own gripper, shut: the two fingertips together, measured off the jaws' collision pieces (sim/robot.py
-# STOCK_TIP puts the site at the fixed jaw's tip, so the block is off centre along +x, toward the moving jaw). A wedge,
+# The SO-101's own gripper, shut: the two fingertips together, measured off the jaws' collision pieces (the model file
+# puts the tip site at the fixed jaw's tip, so the block is off centre along +x, toward the moving jaw). A wedge,
 # not a block: 13.6 x 7 mm at the face, 24 x 12.6 mm 10 mm back, 39 x 16 mm at 30 mm.
 STOCK_TIP = TipShape("stock", sum((_rect(*[v * 1e-3 for v in r]) for r in (
     (-2.9, 10.7, -3.7, 3.3, 0.0), (-4.5, 14.1, -5.4, 5.1, 5.0), (-6.3, 17.5, -6.5, 6.1, 10.0),
@@ -181,7 +181,7 @@ STOCK_JAW_OPEN = TipShape("stock_moving", sum((_rect(*[v * 1e-3 for v in r]) for
 
 
 def tip_shape(arm):
-    return getattr(arm, "tip_shape", PROBE_TIP)
+    return getattr(arm, "tip_shape", STOCK_TIP)  # the real arm has only its gripper
 
 
 class IK:

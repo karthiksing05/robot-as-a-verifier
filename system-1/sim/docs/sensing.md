@@ -2,6 +2,8 @@
 
 [← Back to the overview](../README.md)
 
+**Nov 7: the probe and its pad are gone.** The fingertip is now the stock gripper's shut jaws, with no sensor on them, so the real arm senses force from its servos alone (`--sensing current`). The pad and load-cell options below modelled sensors on the old probe, and every number on this page was measured with it.
+
 The robot needs to feel when the fingertip touches something, and how hard it's pushing. Without that it can't stop a press at the right force, find the panel by touch, or notice it hit the wrong thing. Four ways of doing that were modelled and compared. The team's setup, the SensX 25 pad plus the servos, is the headline. The others are there to show what it gains or loses.
 
 ## The four options
@@ -83,6 +85,6 @@ Where they clearly differ is in how hard the robot has to press and what it can 
 
 The pad and the load cell are close to each other. The pad can tell where on the fingertip the pressure is, which nothing uses yet but could correct off-centre presses. The load cell feels contacts on the probe's rim, which the pad's face misses, but it adds about $10 of parts.
 
-**Recommendation.** Use the SensX pad the team already has, with servo feedback for sideways force, as modelled here. The first job on the real arm is the 15-minute pad bench test in [Sim vs real](sim-vs-real.md). If the real pad turns out much noisier than assumed, a load cell is a cheap, simple fallback that did nearly as well.
+**Recommendation (with the old probe).** Use the SensX pad the team already has, with servo feedback for sideways force, as modelled here. The first job on the real arm is the 15-minute pad bench test in [Sim vs real](sim-vs-real.md). If the real pad turns out much noisier than assumed, a load cell is a cheap, simple fallback that did nearly as well.
 
 Next: [Results](results.md) · [Sim vs real](sim-vs-real.md) · [How it works](how-it-works.md)

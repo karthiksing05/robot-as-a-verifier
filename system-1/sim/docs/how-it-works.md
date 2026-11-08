@@ -11,9 +11,9 @@ The hardware it assumes is the team's planned rig:
 | Part | What it is | In the sim |
 |---|---|---|
 | Arm | SO-101, six serial bus servos (the team's are RobiServo-01, close to a 12 V STS3215) | `robot.py`, with soft servos and gear play when run with `--slop` |
-| Fingertip | A 25 mm probe ending in a 12 mm round pad | The `probe` body in the arm model |
+| Fingertip | The fixed jaw's tip, with the jaws shut beside it unless a skill opens them | The `tip` site in the arm model (`effector="stock"`). Jaw contacts within 30 mm of it count as the fingertip's |
 | Wrist camera | A $19 USB RGB camera (Innomaker U20CAM-1080P, no depth). It is the only camera | `sensors.WristCamera(usb=True)`: 1920x1080, the bench-measured lens, defocus, noise and JPEG |
-| Force sensing | A SensX 25 pressure pad on the probe face, plus what the servos report | `SimArm(sensing="tactile")`. See [Force sensing](sensing.md) |
+| Force sensing | What the servos report, with no sensor on the fingertip | `SimArm(sensing="current")`. See [Force sensing](sensing.md) |
 | Registration | A ChArUco board (a chessboard printed with square markers) on the desk, at a known spot relative to the arm | `world.py`. It tells each camera where it is relative to the arm. Nothing is stuck on the device itself |
 
 ## 1. Survey: where is the device?
@@ -104,7 +104,7 @@ The verdict comes from the device's own readout. In the sim, that's each device'
 - **MISSED.** The step couldn't test the control, for example because first contact came far from where the part should be. That is a finding about the robot, not the device.
 - **REFUSED.** The planner wouldn't try.
 
-A safety layer under every motion stops the arm if the force goes over 15 N, if any part of the arm other than the probe touches anything, or if a command would leave the joint limits or the workspace.
+A safety layer under every motion stops the arm if the force goes over 15 N, if any part of the arm other than the jaws near their tips touches anything, or if a command would leave the joint limits or the workspace.
 
 Code: `touch.make_refine` (the last look), `affordances.run_plan` and the skills in `affordances.py`, motion primitives in `skills.py`, the safety layer in `robot.SimArm.tick`.
 
