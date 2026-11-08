@@ -15,10 +15,14 @@ function el(tag, cls, html, parent, style = "") { const n = document.createEleme
 const show = (n, o, dy = 0) => { n.style.opacity = o; n.style.transform = `translateY(${(1 - o) * dy}px)`; };
 
 let WORDS = [], CAPS = [], LAY = null, CLIPS = {}, DUR = 165;
-// The take ends on its own push-in to RAAV (untransformed by then). The drawn slate fades in under it while his
-// handwritten RAAV, cut out of that very frame (raav_hand.png, footage.py RAAV_AT), stays put; then RAAV rises.
-const FADE = [14.1, 15.0], RISE = [15.1, 16.4];
-const HAND = { x: 475, y: 275, w: 1040, h: 440 };
+// The take is split (footage.py). Opening: it freezes as the chalk touches the board, the camera pushes in on that point,
+// and the drawn board opens out of it while Bayan's RAAV logo (docs/assets/logo.png, our handwriting) writes itself on.
+// Closing: back to the same frozen point, then out to the full frame while he really writes RAAV, walks off, black.
+const PUSH = [6.6, 8.4], OPEN = [8.2, 9.3], INK = [8.9, 10.4], RISE = [10.6, 11.8];
+const CAM0 = { cx: 1012.8, cy: 505.9, s: 1.45 }, CAM1 = { cx: 993, cy: 442, s: 3.2 }, CAMID = { cx: 960, cy: 540, s: 1 }; // CAM0 = the old crop
+const camLerp = (a, b, k) => ({ cx: lerp(a.cx, b.cx, k), cy: lerp(a.cy, b.cy, k), s: Math.exp(lerp(Math.log(a.s), Math.log(b.s), k)) });
+const LOGO = "../../docs/assets/logo.png";
+const HAND = { x: 460, y: 282, w: 1000, h: 456 };
 const norm = (w) => w.replace(/[^\w-]/g, "").toLowerCase();
 function T(word, after = 0) {
   const w = WORDS.find((x) => x.s >= after - 0.01 && norm(x.w).startsWith(word.toLowerCase()));
@@ -67,8 +71,10 @@ function buildChalk() {
 
   const s2 = T("this");
   // RAAV, where the take left it
-  SC.raav = svg("g", {}, $("board"));
-  svg("image", { href: "raav_hand.png", x: HAND.x, y: HAND.y, width: HAND.w, height: HAND.h }, SC.raav);
+  SC.raav = svg("g", { "clip-path": "url(#inkwipe)" }, $("board"));
+  const cp = svg("clipPath", { id: "inkwipe", clipPathUnits: "userSpaceOnUse" }, $("boardsvg").querySelector("defs"));
+  SC.wipe = svg("rect", { x: HAND.x - 20, y: HAND.y - 40, width: 0, height: HAND.h + 80 }, cp);
+  svg("image", { href: LOGO, x: HAND.x, y: HAND.y, width: HAND.w, height: HAND.h }, SC.raav);
   // a prototype (the centrifuge, roughly)
   const pr = T("prototype");
   P(rectP(170, 520, 300, 190), pr - 0.1, 0.35); P(poly([170, 520], [240, 460], [540, 460], [470, 520]), pr + 0.2, 0.25); P(poly([540, 460], [540, 650], [470, 710]), pr + 0.4, 0.2);
@@ -150,6 +156,7 @@ function seekChalk(t, turn) {
   const lift = ramp(t, turn, turn + 1.4);
   $("ink").setAttribute("opacity", 1 - lift * 0.95);
   $("ink").setAttribute("transform", `translate(0 ${-lift * 40})`);
+  SC.wipe.setAttribute("width", ramp(t, INK[0], INK[1]) * (HAND.w + 40));
   const k = eio(ramp(t, RISE[0], RISE[1])), cx = HAND.x + HAND.w / 2, cy = HAND.y + HAND.h / 2;
   SC.raav.setAttribute("opacity", 1 - lift * 0.95);
   SC.raav.setAttribute("transform", `translate(${lerp(cx, 990, k)} ${lerp(cy, 215, k) - lift * 40}) scale(${lerp(1, 0.55, k)}) translate(${-cx} ${-cy})`);
@@ -211,6 +218,44 @@ function drawCursor(t, cam) {
   svg("path", { d: "M0 0 L0 26 L7 20 L12 31 L17 29 L12 18 L21 18 Z", transform: `translate(${x} ${y})`, fill: "#fff", stroke: "#111", "stroke-width": 1.6, "stroke-linejoin": "round" }, g);
 }
 
+/* ───────────── a caricature globe ───────────── */
+// Rough continents as [lon, lat] outlines: a cartoon, not a map.
+const LANDS = [
+  [[-165, 65], [-140, 70], [-95, 72], [-75, 62], [-60, 50], [-80, 30], [-97, 18], [-85, 10], [-105, 22], [-118, 33], [-125, 48], [-150, 58]],
+  [[-80, 10], [-60, 8], [-35, -7], [-40, -22], [-58, -38], [-70, -52], [-75, -40], [-72, -15], [-81, -4]],
+  [[-10, 36], [0, 43], [-5, 48], [5, 53], [10, 58], [25, 70], [40, 66], [40, 45], [28, 40], [15, 38]],
+  [[-17, 15], [-10, 30], [10, 37], [33, 31], [43, 12], [51, 11], [40, -15], [32, -28], [20, -35], [12, -17], [8, 4], [-8, 5]],
+  [[40, 45], [40, 66], [70, 73], [110, 77], [140, 72], [170, 66], [140, 55], [130, 35], [120, 22], [105, 10], [100, 20], [80, 8], [72, 20], [58, 25], [48, 30]],
+  [[114, -22], [122, -18], [131, -12], [142, -11], [153, -27], [146, -39], [135, -35], [115, -34]],
+];
+/** Draws a globe into SVG group g: centre (cx, cy), radius r, turned to lon0 degrees. pins: [{lon, lat, at, label}] pulse in from `at`. */
+function drawGlobe(g, t, cx, cy, r, lon0, o = {}) {
+  const ink = o.ink ?? "#8fb3d9", land = o.land ?? "#eebc24", tilt = (o.tilt ?? 18) * Math.PI / 180, D = Math.PI / 180;
+  g.innerHTML = "";
+  const P = (lon, lat) => { const l = (lon - lon0) * D, p = lat * D; const x = Math.cos(p) * Math.sin(l), y0 = Math.sin(p), z0 = Math.cos(p) * Math.cos(l);
+    const y = y0 * Math.cos(tilt) - z0 * Math.sin(tilt), z = y0 * Math.sin(tilt) + z0 * Math.cos(tilt); return [cx + r * x, cy - r * y, z]; };
+  const line = (pts, attrs) => { let d = "", pen = false; for (const [lon, lat] of pts) { const [x, y, z] = P(lon, lat); if (z > 0) { d += `${pen ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`; pen = true; } else pen = false; } if (d) svg("path", { d, fill: "none", ...attrs }, g); };
+  svg("circle", { cx, cy, r: r + 26, fill: ink, opacity: 0.06 }, g);
+  svg("circle", { cx, cy, r, fill: o.sea ?? "#151b22", stroke: ink, "stroke-width": 2.5 }, g);
+  for (let lon = 0; lon < 360; lon += 30) line(Array.from({ length: 61 }, (_, i) => [lon, -90 + i * 3]), { stroke: ink, "stroke-width": 1.2, opacity: 0.45 });
+  for (let lat = -60; lat <= 60; lat += 30) line(Array.from({ length: 121 }, (_, i) => [i * 3, lat]), { stroke: ink, "stroke-width": 1.2, opacity: lat ? 0.35 : 0.6 });
+  for (const poly of LANDS) {
+    const pts = []; poly.concat([poly[0]]).forEach((q, i, a) => { if (!i) return; const [a0, a1] = a[i - 1]; const n = Math.ceil(Math.hypot(q[0] - a0, q[1] - a1) / 3); for (let k = 0; k < n; k++) pts.push([a0 + (q[0] - a0) * k / n, a1 + (q[1] - a1) * k / n]); });
+    line(pts, { stroke: land, "stroke-width": 3, "stroke-linejoin": "round", opacity: 0.9 });
+  }
+  const pos = [];
+  for (const pin of o.pins ?? []) {
+    const [x, y, z] = P(pin.lon, pin.lat), k = ramp(t, pin.at, pin.at + 0.4) * clamp(z * 4);
+    pos.push([x, y, z]);
+    if (k <= 0) continue;
+    const age = (t - pin.at) % 1.6;
+    svg("circle", { cx: x, cy: y, r: 8 + age * 22, fill: "none", stroke: land, "stroke-width": 2, opacity: k * (1 - age / 1.6) }, g);
+    svg("circle", { cx: x, cy: y, r: 7, fill: land, opacity: k }, g);
+    if (pin.label) { const tx = svg("text", { x: x + 14, y: y - 12, fill: "#e4e6e8", "font-size": 22, "font-family": "JetBrains Mono", opacity: k }, g); tx.textContent = pin.label; }
+  }
+  return pos;
+}
+
 /* ───────────── the Console's look: demo cards, the two systems, the end ───────────── */
 const SC = {};
 function card(label, color, x, y, w) {
@@ -231,15 +276,7 @@ function buildTech() {
   SC.note = el("div", "abs mono", "", SC.cards, "right:36px;top:76px;font-size:16px;color:#9aa0a5;background:rgba(10,12,14,.7);padding:5px 10px;opacity:0;max-width:820px;text-align:right");
   const RUN = "Rev A run · Claude Sonnet 5.5 · MuJoCo";
   const s3 = S.s3;
-  SC.beats = []; const OLD_BEATS = [
-    { a: T("touches", s3), b: S.model - 0.2, freeze: true, stamp: "explore", s1: "First scan stopped on a corrupt frame<br>→ System 2 reran it: <b>9 controls</b> mapped", src: RUN },
-    { a: S.model + 0.4, b: S.then - 0.2, stamp: "plan", s2: "35 properties to test · plan check<br>refused plan 0; the model fixed it", p: "Karthik · Approve", pAt: T("person", s3), src: RUN + " · approved in the Console" },
-    { a: T("capped", s3) - 0.3, b: S.display - 0.2, stamp: "test", s1: "Hard cap <b>15 N</b> · steps ask ≤ 14 N<br>Retries 0 / 2 / 4 by autonomy<br>Verdicts: fixed rules, in System 1", src: "docs/system-boundary.md · decisions D31, D34" },
-    { a: S.display, b: S.lid - 0.2, freeze: true, stamp: "s1 flip POWER", s1: "lcd <b>“1000rpm  0:30”</b><br>≠ manual “1000 RPM 0:30”", s2: "Plan amended: s2 … s11<br>Level <b>0 · automatic</b>, set by code", src: RUN + " · step s1" },
-    { a: S.lid, b: S.lidui - 0.1, freeze: true, stamp: "s7 turn handle_1", s1: "<b style='color:#ff8a7a'>SKIPPED</b> before the arm moved<br>rule: usable with no thumbs", s2: "Finding: “NO-THUMBS” on the lid lip", src: RUN + " · step s7" },
-    { a: S.there, b: S.test - 0.2, stamp: "Design Analysis", s2: "F2 · lid_grip <span class='old'>pinch</span> → tip<br>F3 · well_a_id <span class='old'>15.6</span> → 16.8 mm", p: "approves the patch", pAt: T("approve", S.there), src: "Rev B as drawn by the team · patches from a run aren't shown yet" },
-    { a: S.test, b: S.s4 - 0.3, stamp: "Rev B", s1: "handle_1 swung to <b style='color:#7fd68f'>100°</b> ✓<br>well A seats the tube ✓", src: "verification check (verify.stock.json) · Rev B run agent-centrifuge-045535" },
-  ];
+  SC.beats = [];
   const RAIL = ["survey", "scan", "segment", "map", "touch", "plan", "test", "verdicts", "report", "CAD fix", "Rev B"];
   SC.railAt = [T("surveys", s3), S.wrist, T("finds", s3), T("finds", s3) + 0.5, S.touches, S.model, S.then, T("verdict", s3), T("reported", s3), S.there, S.test];
   $("rail").innerHTML = RAIL.map((r) => `<span>${r}</span>`).join("");
@@ -285,7 +322,7 @@ function buildTech() {
   SC.envs = [
     { n: env("move_joint(2, 40°)", B), t: T("motor", s4) - 0.3, y: 470, kind: "bounce" },
     { n: env("grade_own_step(s1, pass)", B), t: T("grades", s4) - 0.2, y: 560, kind: "bounce" },
-    { n: env("run_plan · press button_3 at 40 N", B), t: T("limits", T("swapped", s4)) - 1.4, y: 420, kind: "through" },
+    { n: env("run_plan · press button_3 at 40 N", B), t: T("grades", s4) + 1.9, y: 420, kind: "through" },
   ];
   SC.stamp4 = el("div", "abs mono", "no such tool", SC.sys, "left:878px;top:700px;width:164px;text-align:center;font-size:18px;color:#ff8a7a;opacity:0");
   SC.vla = el("div", "box", `<div class="label" style="margin-bottom:12px">instead: one network</div><div class="mono" style="font-size:26px;color:#e4e6e8">perception + reasoning + control</div>
@@ -308,24 +345,42 @@ function buildTech() {
   // §5 one shared screen: the Console in a window on the right, six cases filling in on the left
   SC.win = el("div", "abs", "", SC.cards, `left:${WIN.x - 2}px;top:${WIN.y - 2}px;width:${1920 * WIN.s + 4}px;height:${1080 * WIN.s + 4}px;border:2px solid #3a4046;border-radius:6px;box-shadow:0 30px 90px rgba(0,0,0,.6);opacity:0;pointer-events:none`);
   SC.feat = el("div", "abs", "", SC.cards, `left:${WIN.x}px;top:${WIN.y - 64}px;opacity:0;font:500 22px "JetBrains Mono",monospace;color:#e4e6e8;white-space:nowrap`);
-  SC.cases = el("div", "abs", "", SC.cards, "left:56px;top:136px;width:640px;opacity:0");
+  SC.cases = el("div", "abs", "", SC.cards, "left:56px;top:104px;width:640px;opacity:0");
   const group = (txt, c) => el("div", "label", txt, SC.cases, `color:${c};margin:0 0 12px`);
   const CASES = [["proofs", "lean", "Lean", "Two AI-claimed refutations of the Exponential Time Hypothesis, checked", "Oct 2026 · still under examination", "#8fb3d9"],
     ["flight", "chip", "CompCert", "A compiler proven correct, qualified for ATR 42/72 avionics", "compcert.org · 2026", "#8fb3d9"],
     ["flight", "shield", "seL4", "A proven kernel on Boeing's Little Bird: a red team couldn't break out in flight", "DARPA HACMS", "#8fb3d9"],
+    ["dyson", "stack", "Dyson", "", "Fast Company · May 2007", "#e38b7a"],
     ["biosafety", "flask", "Pirbright", "Foot-and-mouth virus most likely escaped through damaged drains", "UK HSE report · 2007", "#e38b7a"],
-    ["spacecraft", "scope", "JWST", "Sunshield fasteners shook loose in an acoustic test, part of a 29-month delay", "review board · 2018", "#e38b7a"],
-    ["prototypes", "stack", "Dyson", "5,127 prototypes over 15 years before the first vacuum", "DC01 · 1993", "#e38b7a"]];
+    ["spacecraft", "scope", "JWST", "Sunshield fasteners shook loose in an acoustic test, part of a 29-month delay", "review board · 2018", "#e38b7a"]];
   SC.caseN = [];
   CASES.forEach(([w, icon, title, fact, src, c], i) => {
     if (i === 0) group("software · proven before use", "#8fb3d9");
-    if (i === 3) { const g = group("hardware · found after the fact", "#e38b7a"); g.style.marginTop = "22px"; }
-    const n = el("div", "", `<svg width="44" height="44" viewBox="0 0 64 64" style="flex:none">${ICON[icon]}</svg><div><div style="display:flex;align-items:baseline;gap:14px"><span class="mich" style="font-size:22px;color:${c}">${title}</span><span class="mono" style="font-size:13px;color:#8b9095">${src}</span></div><div style="font:500 19px/1.35 Inter,sans-serif;color:#dfe2e5;margin-top:5px">${fact}</div></div>`, SC.cases,
-      `display:flex;gap:16px;align-items:flex-start;padding:14px 18px;margin-bottom:10px;background:rgba(21,24,27,.95);border:1.5px solid ${c}55;border-left:4px solid ${c};opacity:0`);
-    SC.caseN.push({ n, t: T(w, s5) + (i === 2 ? 0.35 : 0) });
+    if (i === 3) { const g = group("hardware · found after the fact", "#e38b7a"); g.style.marginTop = "18px"; }
+    const big = title === "Dyson";
+    const body = big ? `<canvas width="500" height="150" style="display:block;margin-top:10px;width:500px;height:150px"></canvas><div class="mono" style="font-size:16px;color:#9aa0a5;margin-top:8px">one cell per prototype · DC01 · 1993 · 15 years</div>`
+      : `<div class="fact" style="font:500 19px/1.35 Inter,sans-serif;color:#dfe2e5;margin-top:5px;overflow:hidden">${fact}</div>`;
+    const n = el("div", "", `<svg width="${big ? 56 : 44}" height="${big ? 56 : 44}" viewBox="0 0 64 64" style="flex:none">${ICON[icon]}</svg><div><div style="display:flex;align-items:baseline;gap:14px"><span class="mich" style="font-size:${big ? 30 : 22}px;color:${c}">${title}</span><span class="mono" style="font-size:13px;color:#8b9095">${src}</span></div>${body}</div>`, SC.cases,
+      `display:flex;gap:16px;align-items:flex-start;padding:${big ? "18px 22px" : "12px 18px"};margin-bottom:10px;background:rgba(21,24,27,.95);border:1.5px solid ${c}${big ? "" : "55"};border-left:${big ? 6 : 4}px solid ${c};opacity:0;${big ? "box-shadow:0 0 40px #e38b7a33" : ""}`);
+    SC.caseN.push({ n, t: T(w, s5) + (i === 2 ? 0.35 : 0), soft: i < 3, fact: n.querySelector(".fact"), grid: n.querySelector("canvas") });
   });
-  SC.titleBg = el("div", "abs", "", SC.cards, "inset:0;background:#111417;opacity:0");
-  SC.title = el("div", "abs", `<div class="mich" style="font-size:150px;color:#f1f2f3;text-align:center">RAAV</div><div class="mich" style="font-size:44px;color:#eebc24;text-align:center;letter-spacing:.2em;margin-top:6px">ROBOT AS A VERIFIER</div><div class="mono" style="font-size:22px;color:#8b9095;text-align:center;margin-top:40px">MakeCU 2026</div>`, SC.cards, "left:0;right:0;top:330px;opacity:0");
+  // §3: what the CAD loop did, as the voice says "proposes"
+  SC.cadcard = el("div", "abs mono", `<div class="label" style="color:#8fb3d9;margin-bottom:8px">the full loop, in the sim · D36</div>MC-6 tube stopped <b style="color:#ff8a7a">8.15 mm</b> high<br>Opus 5.5 widened the bore, added a lead-in<br>retest: seated within <b style="color:#7fd68f">0.97 mm</b>`, SC.cards,
+    "left:56px;bottom:150px;font-size:22px;line-height:1.5;color:#e4e6e8;background:rgba(14,16,18,.94);border:1.5px solid #8fb3d9;border-left:5px solid #8fb3d9;padding:18px 24px;opacity:0;box-shadow:0 20px 60px rgba(0,0,0,.5)");
+  // §5 the pan-out: a globe, the twelve appliances, the real centrifuge, System 2 in the cloud
+  SC.globeSvg = svg("svg", { width: 1920, height: 1080, style: "position:absolute;left:0;top:0;opacity:0;transform-origin:960px 450px" }, SC.cards);
+  SC.globe = svg("g", {}, SC.globeSvg);
+  SC.tunnel = svg("path", { fill: "none", stroke: "#8fb3d9", "stroke-width": 2.5, "stroke-dasharray": "9 9", opacity: 0 }, SC.globeSvg);
+  SC.cloud = svg("g", { opacity: 0 }, SC.globeSvg);
+  for (const [x, y, r] of [[-46, 8, 30], [-8, -14, 42], [36, 0, 34], [64, 14, 24], [-70, 18, 20]]) svg("circle", { cx: x, cy: y, r, fill: "#1b2530", stroke: "#8fb3d9", "stroke-width": 2.5 }, SC.cloud);
+  svg("rect", { x: -88, y: 14, width: 176, height: 30, fill: "#1b2530" }, SC.cloud);
+  const ct = svg("text", { x: 0, y: 12, "text-anchor": "middle", fill: "#cfe0f1", "font-size": 22, "font-family": "Michroma" }, SC.cloud); ct.textContent = "System 2";
+  const APPS = ["centrifuge", "coffee-grinder", "cuvette-reader", "hotplate-stirrer", "incubator", "interval-timer", "kettle-base", "label-printer", "microwave", "tube-sealer", "vortex-mixer", "wall-thermostat"];
+  SC.apps = APPS.map((a, i) => { const right = i >= 6, j = i % 6; const real = a === "centrifuge";
+    return { at: i * 0.09, n: el("div", "abs mono", `${a}${real ? ' <span style="color:#eebc24">· sim + real</span>' : ""}`, SC.cards,
+      `${right ? "right" : "left"}:110px;top:${200 + j * 92}px;font-size:22px;color:#dfe2e5;padding:9px 16px;background:rgba(21,24,27,.92);border:1.5px solid ${real ? "#eebc24" : "#3a4046"};opacity:0;text-align:${right ? "right" : "left"}`) }; });
+  SC.backendLine = el("div", "abs mono", "", SC.col1, "left:430px;top:30px;font-size:19px;color:#eebc24;opacity:0;line-height:1.45");
+
 }
 
 // §5: the Console sits in a window on the right; each view gets a feature label (keyed to the scenes tour's own clock)
@@ -333,6 +388,21 @@ const WIN = { x: 748, y: 196, s: 0.594 };
 const FEATS = [[0, "Studies · every appliance, one harness"], [7.9, "Story · Rev A vs Rev B, control by control"], [14.5, "Settings · simulator or the real arm"],
   [16.9, "Methodology · the model plans, sensors decide"], [20.5, "Architecture · 7 tools, no joint commands"], [24.6, "Verdicts · rules on force, travel, readings"]];
 const popDim = () => 1;
+/** Dyson's 5,127 prototypes, one cell each: red as they fill, the last one green. */
+function drawPrototypes(cv, p, last) {
+  const g = cv.getContext("2d"), cols = 127, rows = 41, w = cv.width / cols, h = cv.height / rows, n = Math.floor(5127 * p);
+  g.clearRect(0, 0, cv.width, cv.height);
+  g.fillStyle = "#2a2f35"; g.fillRect(0, 0, cv.width, cv.height);
+  g.fillStyle = "#e5604f";
+  for (let i = 0; i < Math.min(n, 5126); i++) g.fillRect((i % cols) * w + 0.5, Math.floor(i / cols) * h + 0.5, w - 1, h - 1);
+  if (last > 0) { const i = 5126, x = (i % cols) * w, y = Math.floor(i / cols) * h; g.fillStyle = "#7fd68f"; g.globalAlpha = last; g.fillRect(x - 3, y - 3, w + 6, h + 6); g.globalAlpha = 1; }
+}
+const APPS12 = ["centrifuge", "coffee-grinder", "cuvette-reader", "hotplate-stirrer", "incubator", "interval-timer", "kettle-base", "label-printer", "microwave", "tube-sealer", "vortex-mixer", "wall-thermostat"];
+/** §5's pull-back: 0 → 1 from "Today". The Console window shrinks onto New York as the globe comes in. */
+function pan(t) { const S = LAY.steps; return eio(ramp(t, S.today - 0.2, S.today + 1.3)); }
+const NYC = [960, 334];
+function winRect(k) { const f = lerp(1, 0.03, k), c0 = [WIN.x + 960 * WIN.s, WIN.y + 540 * WIN.s]; return { f, c: [lerp(c0[0], NYC[0], k), lerp(c0[1], NYC[1], k)], c0 }; }
+const CITIES = [[-0.1, 51.5], [2.35, 48.9], [13.4, 52.5], [139.7, 35.7], [127, 37.6], [116.4, 39.9], [77.6, 13], [103.8, 1.35], [151.2, -33.9], [-46.6, -23.5], [-99.1, 19.4], [-79.4, 43.7], [-122.4, 37.8], [18.4, -33.9], [3.4, 6.5], [-71.1, 42.4], [8.5, 47.4], [34.8, 32.1]];
 const MODELS = ["claude-sonnet-5-5", "claude-haiku-5-5", "openai-gpt-5.4", "grok-4.7"];
 function seekTech(t) {
   const S = LAY.steps;
@@ -396,7 +466,11 @@ function seekTech(t) {
       }
     }
     SC.gate.style.opacity = gate; SC.stamp4.style.opacity = stamp;
-    const sw = T("swapped", s4);
+    const sw = T("four", s4), sim = T("simulator", s4), app = T("appliance", s4);
+    SC.backendLine.style.opacity = ramp(t, sim - 0.2, sim + 0.2);
+    SC.col1.querySelector(".sub").style.opacity = 1 - ramp(t, sim - 0.2, sim + 0.2);
+    const flip = Math.floor(Math.max(0, t - sim) / 0.8) % 2, ai = Math.floor(Math.max(0, t - app) / 0.28);
+    SC.backendLine.innerHTML = (flip ? "SO-101 · real arm" : "MuJoCo · simulator") + (t > app ? `<br><span style="color:#9aa0a5">${APPS12[ai < 24 ? ai % 12 : 0]}</span>` : "");
     const n = Math.floor((t - sw + 0.2) / 0.45); // the model cycles through the four that have run, then settles
     SC.model.textContent = "model: " + MODELS[n >= 0 && n < 9 ? n % MODELS.length : 0];
     show(SC.vla, ramp(t, vla - 0.2, vla + 0.4) * (1 - ramp(t, split - 0.3, split + 0.3)), 14);
@@ -408,15 +482,36 @@ function seekTech(t) {
     const lm = T("limit", split); SC.limit.style.opacity = ramp(t, lm - 0.2, lm + 0.3);
   }
   // §5
-  const end = S.end;
-  const wo = ramp(t, s5 - 0.2, s5 + 0.5) * (1 - ramp(t, end - 1.0, end - 0.6));
-  SC.win.style.opacity = SC.cases.style.opacity = wo;
-  for (const c of SC.caseN) { const k = ramp(t, c.t - 0.15, c.t + 0.3); c.n.style.opacity = k; c.n.style.transform = `translateX(${(1 - eio(k)) * -24}px)`; }
+  const wo = ramp(t, s5 - 0.2, s5 + 0.5) * (1 - ramp(t, S.outro + 0.3, S.outro + 0.8));
+  const pk = pan(t), wr = winRect(pk);
+  SC.win.style.opacity = wo * (1 - ramp(pk, 0.75, 1));
+  SC.win.style.transform = `translate(${wr.c[0] - wr.c0[0]}px, ${wr.c[1] - wr.c0[1]}px) scale(${wr.f})`;
+  SC.cases.style.opacity = wo * (1 - ramp(t, S.today - 0.2, S.today + 0.5));
+  SC.cases.style.transform = `translateX(${-pk * 500}px)`;
+  const go = ramp(t, S.today + 0.1, S.today + 0.9) * (1 - ramp(t, S.outro + 0.3, S.outro + 0.8));
+  SC.globeSvg.style.opacity = go;
+  SC.cadcard.style.opacity = ramp(t, T("proposes", S.s3) - 0.2, T("proposes", S.s3) + 0.3) * (1 - ramp(t, S.test - 0.4, S.test));
+  if (go > 0) {
+    SC.globeSvg.style.transform = `scale(${lerp(1.3, 1, eio(ramp(t, S.today + 0.1, S.today + 1.8)))})`;
+    const pins = [{ lon: -74, lat: 40.7, at: S.realc, label: "MC-6 · real arm" }, ...CITIES.map(([lon, lat], i) => ({ lon, lat, at: S.anylab + i * 0.11 }))];
+    const pos = drawGlobe(SC.globe, t, 960, 450, 300, -74 + 11 * (t - (S.today + 1.3)), { pins });
+    const co = ramp(t, S.cloud - 0.2, S.cloud + 0.3), cx = 1290, cy = 150 + Math.sin(t * 1.4) * 8;
+    SC.cloud.setAttribute("opacity", co); SC.cloud.setAttribute("transform", `translate(${cx} ${cy})`);
+    const ny = pos[0];
+    if (ny && ny[2] > 0) { SC.tunnel.setAttribute("d", `M${ny[0]} ${ny[1]} Q ${(ny[0] + cx) / 2 + 60} ${Math.min(ny[1], cy) - 80} ${cx - 40} ${cy + 40}`); SC.tunnel.setAttribute("opacity", co * clamp(ny[2] * 4)); SC.tunnel.style.strokeDashoffset = -t * 36; }
+    else SC.tunnel.setAttribute("opacity", 0);
+  }
+  for (const a of SC.apps) { const k = ramp(t, S.twelve + a.at - 0.1, S.twelve + a.at + 0.25) * (1 - ramp(t, S.outro + 0.3, S.outro + 0.8)); a.n.style.opacity = k; a.n.style.transform = `translateY(${(1 - eio(k)) * 14}px)`; }
+  const hw = T("hardware", s5), dy = SC.caseN[3].t;
+  for (const c of SC.caseN) {
+    const k = ramp(t, c.t - 0.15, c.t + 0.3); c.n.style.opacity = k; c.n.style.transform = `translateX(${(1 - eio(k)) * -24}px)`;
+    if (c.fact) { const shut = c.soft ? eio(ramp(t, hw, hw + 0.6)) : 0; c.fact.style.maxHeight = `${(1 - shut) * 60}px`; c.fact.style.opacity = 1 - shut; c.fact.style.marginTop = `${5 * (1 - shut)}px`; }
+    if (c.grid && k > 0) drawPrototypes(c.grid, ramp(t, dy + 0.4, T("failures", dy) + 0.4), ramp(t, T("failures", dy) + 0.5, T("failures", dy) + 0.8));
+  }
   const f = FEATS.findLast(([a]) => a <= (SC.tourSec ?? 0));
-  SC.feat.style.opacity = wo * (SC.tourClip === "tour/scenes" ? 1 : 0);
+  SC.feat.style.opacity = wo * (SC.tourClip === "tour/scenes" ? 1 : 0) * (1 - ramp(t, S.today - 0.3, S.today + 0.2));
   if (f) SC.feat.innerHTML = f[1].replace(/^([^·]+)·/, '<span style="color:#eebc24">$1</span>·');
-  SC.titleBg.style.opacity = ramp(t, end - 0.5, end + 0.2);
-  SC.title.style.opacity = ramp(t, end - 0.2, end + 0.5);
+
 }
 
 /* ───────────── captions and the clock ───────────── */
@@ -441,27 +536,27 @@ window.seek = async function (t) {
     const sec = hold != null && frozen ? hold : c0 + (t - from) * speed;
     let z = zoom, cam = null;
     if (clip.startsWith("tour/")) cam = camAt(t);
-    if (clip === "tour/scenes") cam = { cx: (960 - WIN.x) / WIN.s, cy: (540 - WIN.y) / WIN.s, s: WIN.s };
+    if (clip === "tour/scenes") { const wr = winRect(pan(t)), s = WIN.s * wr.f; cam = { cx: 960 - (wr.c[0] - 960) / s, cy: 540 - (wr.c[1] - 540) / s, s }; }
     SC.tourSec = sec; SC.tourClip = clip;
-    if (clip === "intro") {
-      // centered on the question mark, then following the take's own push-in to RAAV
-      const k = eio(ramp(t, 11.6, 13.8)); // identity by the hold, so the cutout lines up
-      z = [lerp(1.45, 1.0, k), lerp(1130, 980, k), lerp(430, 480, k)];
-    }
+    if (clip === "intro") SC.introCam = cam = t < S.s3 ? camLerp(CAM0, CAM1, eio(ramp(t, PUSH[0], PUSH[1]))) : camLerp(CAM1, CAMID, eio(ramp(t, S.outro + 0.3, S.outro + 5.0)));
     const f = frozen ? 1 : 0;
     await setFrame(frameOf(clip, sec), `saturate(${1 - 0.6 * f}) brightness(${(1 - 0.3 * f) * popDim(t)})`, z, cam);
-    if (cam) drawCursor(t, cam);
+    if (cam && clip !== "intro") drawCursor(t, cam);
   } else await setFrame(null);
-  $("footage").style.opacity = seg?.[2] === "intro" ? 1 - ramp(t, FADE[0], FADE[1]) : 1;
+  $("footage").style.opacity = seg?.[2] === "intro" && t > S.s3 ? ramp(t, S.outro, S.outro + 0.6) : seg?.[2] === "tour/scenes" ? 1 - ramp(pan(t), 0.75, 1) : 1;
   $("tag").style.display = seg && /^clean_3d|^wrist/.test(seg[2]) ? "block" : "none";
   // chalk, from the take's end until the turn
-  const chalkO = (t >= FADE[0] ? 1 : 0) * (1 - ramp(t, turn + 0.6, turn + 1.6));
+  const chalkO = (t >= OPEN[0] ? 1 : 0) * (1 - ramp(t, turn + 0.6, turn + 1.6));
   $("chalklayer").style.opacity = chalkO;
+  const R = eio(ramp(t, OPEN[0], OPEN[1])) * 1250, opening = t < S.s3 && R > 0; // the board opens out of the chalk's tip
+  $("chalklayer").style.clipPath = t < OPEN[1] ? `circle(${R + 60}px at 960px 540px)` : "none";
+  const ic = SC.introCam; // the mask is laid out in the image's own pixels, before the camera's scale
+  $("footage").style.webkitMaskImage = opening && ic ? `radial-gradient(circle at ${ic.cx}px ${ic.cy}px, transparent ${R / ic.s}px, black ${(R + 60) / ic.s}px)` : "none";
   if (chalkO > 0) seekChalk(t, turn);
   $("tech").style.opacity = ramp(t, turn + 0.4, turn + 1.4);
   seekTech(t);
   caption(t);
-  $("fade").style.opacity = ramp(t, DUR - 1.0, DUR);
+  $("fade").style.opacity = ramp(t, DUR - 1.8, DUR - 0.3);
 };
 
 window.ready = (async () => {
@@ -469,7 +564,7 @@ window.ready = (async () => {
   CAPS = await (await fetch("captions.json")).json();
   LAY = await (await fetch("segments.json")).json();
   CLIPS = await (await fetch("../out/frames/clips.json")).json();
-  DUR = LAY.steps.end + 4.5;
+  DUR = LAY.steps.fin;
   await document.fonts.load('700 40px "Cabin Sketch"'); await document.fonts.load('40px "Architects Daughter"');
   await document.fonts.load('40px Michroma'); await document.fonts.load('500 20px "JetBrains Mono"'); await document.fonts.load('600 20px Inter');
   await document.fonts.ready;
