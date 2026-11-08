@@ -4,11 +4,15 @@ thread at startup, and the engine's worker then uses this backend. close() takes
 rested when torque went on, then turns torque off, unless Ctrl+C already stopped it mid-motion."""
 from __future__ import annotations
 
+import pickle
 import threading
 import time
 from dataclasses import replace
 
 from .sim_backend import CORE_DIR, HARDWARE_DIR, PipelineRobot, on_path
+
+
+LAST_SCAN = "last_scan.pkl"  # in the folder rav-server runs in
 
 
 def shifted(p, shift):
@@ -23,7 +27,7 @@ def load_models():
     import segmodels
 
     t0 = time.monotonic()
-    segmodels.owl(), segmodels.sam_boxes()
+    segmodels.owl(), segmodels.sam_boxes(), segmodels.sam_auto()
     print(f"OWLv2 and SAM loaded on {segmodels.DEVICE} in {time.monotonic() - t0:.0f} s", flush=True)
 
 
@@ -52,7 +56,8 @@ class RealBackend(PipelineRobot):
         t0, telemetry = time.monotonic(), getattr(self, "on_stage", None)
 
         def on_stage(name, scene=None):  # each stage of the scan in this terminal, as it starts
-            print(f"  scan {time.monotonic() - t0:5.1f} s: {name}", flush=True)
+            views = f" ({len(scene.views)} views so far)" if name == "scan" and getattr(scene, "views", None) else ""
+            print(f"  scan {time.monotonic() - t0:5.1f} s: {name}{views}", flush=True)
             if telemetry:
                 telemetry(name, scene)
         self.on_stage = on_stage
@@ -62,6 +67,8 @@ class RealBackend(PipelineRobot):
             self.on_stage = telemetry
         print(f"  scan {time.monotonic() - t0:5.1f} s: done, {len(self.parts)} parts: "
               + ", ".join(f"{p.id} ({p.kind})" for p in self.parts), flush=True)
+        with open(LAST_SCAN, "wb") as f:  # the whole scan, to work out offline what it saw and why
+            pickle.dump(self.scene, f)
         shift = getattr(self.arm, "part_shift", None)
         if shift is not None:  # as tools/press_part.py: the scan's parts and each last look's answer
             self.parts = [shifted(p, shift) for p in self.parts]

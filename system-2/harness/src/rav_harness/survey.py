@@ -19,8 +19,10 @@ from .runlog import RunLog
 SYSTEM = ("You help a robot arm find the controls of an appliance on a desk in front of it, before it scans. The photo is "
           "from the arm's wrist camera. Coloured dots are 3D points the robot measured, grouped into flat surfaces, each "
           "outlined and numbered. The robot will next photograph one surface up close to find the controls.")
-ASK = ("Surfaces the robot measured (tilt from flat, points): {surfaces}. The dots show which points belong to which "
-       "surface; outlines can overlap.\n\n{manual}"  # not System 1's pick: told it, the model agreed with it
+# Only the numbers: not System 1's pick (told it, the model agreed with it) nor the tilts (it picked a vertical edge by
+# its tilt over the panel the photo showed)
+ASK = ("The photo shows surfaces {surfaces}. The dots show which points belong to which surface; outlines can "
+       "overlap.\n\n{manual}"
        "Answer with JSON only:\n"
        '{{"why": "<one sentence: which surface the manual\'s controls are on, and what in the photo shows it>", '
        '"panel": <the numbered surface that holds the controls, or null if none does>, '
@@ -38,8 +40,7 @@ def survey_reviewer(system1: System1, client: ModelClient, log: RunLog, manual: 
         if e is None or e.code != "survey_review":
             return respond(stop)
         m = e.measured
-        surfaces = ", ".join(f"{c['k']}: {c['tilt_deg']} deg, {c['points']}" + ("" if c["faces_arm"] else ", faces away")
-                             for c in m["candidates"])
+        surfaces = ", ".join(str(c["k"]) for c in m["candidates"])
         images = [Image("image/jpeg", system1.evidence_frame(ref).data_b64) for ref in m.get("frames", [])]
         for k, image in enumerate(images):  # what the model saw, and below what it said, to check its pick afterwards
             (log.dir / f"survey_review_{k + 1}.jpg").write_bytes(base64.b64decode(image.data_b64))

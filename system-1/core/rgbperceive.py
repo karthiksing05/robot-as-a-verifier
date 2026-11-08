@@ -280,10 +280,12 @@ def use_panel(survey, k):
     survey.update(panel=T, extent=(u0 - a, u1 + a, v0 - a, v1 + a), picked=k)
 
 
-def draw_candidates(survey):
-    """The survey photo that shows the most of the picked panel, with each candidate surface's points, outline and
-    number (k + 1), at half size: what System 2 sees at a survey_review stop."""
+def draw_candidates(survey, shown=None):
+    """The survey photo that shows the most of the picked panel, turned so the panel's slope runs down the picture, with
+    each shown candidate surface's points, outline and number (k + 1), at half size: what System 2 sees at a
+    survey_review stop. shown: candidate indices (default all)."""
     pts, cands = survey["points"], survey["candidates"]
+    shown = range(len(cands)) if shown is None else shown
 
     def seen(f, idx):
         uv, z = _project(f.K, f.T_base_cam, pts[idx])
@@ -291,14 +293,23 @@ def draw_candidates(survey):
         ok = (z > 0) & (uv[:, 0] >= 0) & (uv[:, 1] >= 0) & (uv[:, 0] < w) & (uv[:, 1] < h)
         return uv[ok]
     f = max((c.frame for c in survey["captures"]), key=lambda f: len(seen(f, cands[survey["picked"]][2])))
-    img, labels = f.rgb.copy(), []
-    for k, (_, _, idx, _) in enumerate(cands):
-        uv = seen(f, idx)
+    h, w = f.rgb.shape[:2]
+    T = survey["panel"]
+    d = np.diff(_project(f.K, f.T_base_cam, np.array([T[:3, 3], T[:3, 3] + 0.05 * T[:3, 0]]))[0], axis=0)[0]
+    # the wrist camera is mounted rolled: turn the picture so "down the panel" points down, as a person would see it
+    if abs(d[1]) >= abs(d[0]):
+        code, turn = (None, lambda uv: uv) if d[1] > 0 else (cv2.ROTATE_180, lambda uv: np.c_[w - 1 - uv[:, 0], h - 1 - uv[:, 1]])
+    else:
+        code, turn = ((cv2.ROTATE_90_CLOCKWISE, lambda uv: np.c_[h - 1 - uv[:, 1], uv[:, 0]]) if d[0] > 0 else
+                      (cv2.ROTATE_90_COUNTERCLOCKWISE, lambda uv: np.c_[uv[:, 1], w - 1 - uv[:, 0]]))
+    img, labels = (f.rgb.copy() if code is None else cv2.rotate(f.rgb, code)), []
+    for k in shown:
+        uv = turn(seen(f, cands[k][2]))
         if len(uv) < 3:
             continue
         col = CANDIDATE_COLORS[k % len(CANDIDATE_COLORS)]
         for u, v in uv.astype(int):
-            cv2.circle(img, (int(u), int(v)), 4, col, -1)
+            cv2.circle(img, (int(u), int(v)), 5, col, -1)
         cv2.polylines(img, [cv2.convexHull(uv.astype(np.int32))], True, col, 3)
         # the number on one of its own points, the one furthest from the numbers already drawn (surfaces' middles meet)
         u, v = uv[np.argmax([min((np.hypot(*(p - q)) for q in labels), default=-np.hypot(*(p - uv.mean(0)))) for p in uv])]

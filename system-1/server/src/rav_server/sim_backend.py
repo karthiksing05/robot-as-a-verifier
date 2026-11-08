@@ -276,10 +276,12 @@ class PipelineRobot:
         import rgbperceive
 
         cands, picked = survey["candidates"], survey["picked"]
-        ref = self._store(rgbperceive.draw_candidates(survey), "the survey: each numbered outline is a flat surface the "
-                          "robot measured, and the scan will look closely at the one that holds the controls")
-        measured = {"candidates": [{"k": k + 1, "tilt_deg": round(math.degrees(math.acos(min(1.0, abs(float(n[2]))))), 1),
-                                    "points": len(idx), "faces_arm": faces} for k, (n, _, idx, faces) in enumerate(cands)],
+        # the three biggest, and the pick: eight overlapping outlines on the real centrifuge made the photo unreadable
+        shown = sorted(set(sorted(range(len(cands)), key=lambda k: -len(cands[k][2]))[:3]) | {picked})
+        ref = self._store(rgbperceive.draw_candidates(survey, shown), "the survey: each numbered outline is a flat "
+                          "surface the robot measured, and the scan will look closely at the one that holds the controls")
+        measured = {"candidates": [{"k": k + 1, "tilt_deg": round(math.degrees(math.acos(min(1.0, abs(float(cands[k][0][2]))))), 1),
+                                    "points": len(cands[k][2]), "faces_arm": cands[k][3]} for k in shown],
                     "picked": picked + 1, "frames": [ref] if ref else []}
         decision = self.review(measured)
         if decision.kind == "abort":
