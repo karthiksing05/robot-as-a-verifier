@@ -19,13 +19,14 @@ DEVICE = SYSTEM_1.parent / "appliances" / "kettle-base" / "device.yaml"
 
 
 @pytest.fixture
-def arm():
+def arm(monkeypatch):
     pytest.importorskip("mujoco")
     if not DEVICE.exists():
         pytest.skip("no appliances/kettle-base")
     import sim_rig
     import skills
 
+    monkeypatch.setattr(sim_rig.robot, "SERVO_NM_PER_RAD", sim_rig.robot.SERVO_NM_PER_RAD)  # make_rig's stiffness is process-wide
     # the true contact force: the servo estimate has no history to go on after the arm is put in place
     a = sim_rig.make_rig(0, slop=True, offsets=0, stiffness=18.0, sensing="perfect", device=str(DEVICE), effector="stock").arm
     skills.go_home(a)
