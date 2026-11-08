@@ -65,7 +65,7 @@ rav (System 2)  --MCP over HTTP-->  rav-server --robot real  -->  RealBackend (s
 
 Most of this is `RealArm` class attributes and `hw_rig` settings, so it arrives with the merge. Three things live
 only in the tools and need porting into `RealBackend`: the 5.4 mm shift, going back to rest before torque off, and
-skipping touches if we want that. Two files aren't in git: `hand_eye.json` (meant to be tracked: `.gitignore`
+skipping touches. Two files aren't in git: `hand_eye.json` (meant to be tracked: `.gitignore`
 excepts it) and `gripper_px.json`, both in `system-1/arm/camera/camera_out/` of the hardware checkout. Whichever
 checkout runs `rav-server` needs both.
 
@@ -80,17 +80,17 @@ A dry merge (`git merge-tree`) conflicts in two files. Everything else merges, i
   (`RealArm`), main's otherwise. The other hunks put main's dial arcs, jaw opening and press search beside the
   branch's press direction, press depth and reused approach bias, and both sides can stay.
 
-Decisions for you:
+Decided Nov 8, to apply at the merge:
 
-1. **Hard cap.** The branch has no cap on the force estimate on the real arm. Keep none, or set one above the false
-   trips (60 N, say) as a last resort?
-2. **Touches in explore.** Run them on the real panel (untested there; stall contact after the merge), or skip them
-   in `RealBackend` as `scan_check` does?
-3. **Press search.** Main re-presses 4 mm off each way when a press changed nothing: up to 4 more presses, each
-   asking at the terminal. Keep that on the real arm?
-4. **The 5.4 mm shift.** A `RealArm` setting applied after the scan and after each last look, or fix its cause
-   (the camera mount) first?
-5. **Rest at shutdown.** Move the arm back to rest in `close()`, or keep "hold the arm, then Ctrl+C"?
+1. **Hard cap.** 70 N on the force estimate on the real arm, above the 35-60 N it read on free moves. The branch has
+   none.
+2. **Touches in explore.** Skipped in `RealBackend`, as `scan_check` does: they never ran on a real panel.
+3. **Press search.** Kept: main re-presses 4 mm off each way when a press changed nothing, up to 4 more presses, each
+   asking at the terminal.
+4. **The 5.4 mm shift.** Ported from `press_part.py` into `RealBackend`, applied after the scan and after each last
+   look. Revisit only if it doesn't carry over to the next appliance.
+5. **Shutdown.** `RealBackend.close()` goes home, then back to the pose the arm rested in at startup, then turns
+   torque off, as `scan_check` does. Torque off at home would drop the arm from mid-air.
 
 ## First session, after the merge
 
@@ -110,8 +110,7 @@ Check the arm is clear, put a hand on the power switch, and type yes in A. Then 
 uv run rav explore --url http://127.0.0.1:8780/mcp --id real-scan-1
 ```
 
-Watch that the survey poses stay in front of the arm, and that the touch-offs (if kept) stop at the panel instead
-of pushing on. Compare the list it prints with `scan_check`'s. The record is in `runs/real-scan-1/events.jsonl`.
+Watch that the survey poses stay in front of the arm and nothing touches the device. Compare the list it prints with `scan_check`'s. The record is in `runs/real-scan-1/events.jsonl`.
 
 **2. One press.**
 
@@ -120,7 +119,7 @@ uv run rav run --url http://127.0.0.1:8780/mcp --id real-press-1 --only button_1
 ```
 
 It scans again, prints the one step, and asks in B. Then in A, type what changed (`START`) or press Enter. Watch the
-jaw land on the cap. If you answer Enter and keep the press search, expect up to 4 more presses.
+jaw land on the cap. If you answer Enter, expect up to 4 more presses, 4 mm off each way.
 
 **3. Full plan.**
 
@@ -134,9 +133,10 @@ same approval in B.
 **Safety.**
 
 - Torque goes on only after the yes in A. Don't pass `--enable-torque` in these sessions.
-- The torque yes is also the consent for the scan and the touches: explore moves the arm with no approval in B.
-- After the merge as it stands, nothing in software caps force on the estimate (decision 1). A press is bounded by
-  the stall check, the 9 mm depth and the servos' own torque limit (680/1000) and overload protection. The workspace
-  box stops any target below 5 mm over the desk.
+- The torque yes is also the consent for the scan: explore moves the arm with no approval in B.
+- A press is bounded by the stall check, the 9 mm depth, the 70 N cap on the force estimate (decision 1), and the
+  servos' own torque limit (680/1000) and overload protection. The workspace box stops any target below 5 mm over
+  the desk.
 - Stop the arm from A (Ctrl+C) or the power switch, not from B: if System 2 stops, System 1 finishes the step it's
-  on before it holds. Ctrl+C in A drops the arm limp, so hold it first. Keep a hand on the power switch for every motion.
+  on before it holds. Ctrl+C in A stops the arm at once, so it can't go back to rest: hold it before torque goes off.
+  Keep a hand on the power switch for every motion.
