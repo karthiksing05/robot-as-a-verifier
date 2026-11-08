@@ -80,6 +80,10 @@ class RealBackend(PipelineRobot):
         def on_stage(name, scene=None):  # each stage of the scan in this terminal, as it starts
             views = f" ({len(scene.views)} views so far)" if name == "scan" and getattr(scene, "views", None) else ""
             print(f"  scan {time.monotonic() - t0:5.1f} s: {name}{views}", flush=True)
+            if name == "scan" and getattr(scene, "views", None):  # before the arm moves: a panel off to the side shows here
+                T, ext = scene.survey["panel"], scene.survey["extent"]
+                print(f"  panel centre (mm) {(T[:3, 3] * 1000).round().tolist()}, extent {[round(e * 1000) for e in ext]}; "
+                      f"views look at y = {[round(v['look'][1] * 1000) for v in scene.views]}", flush=True)
             self.stage = f"scan {time.monotonic() - t0:.0f} s: {name}"
             if telemetry:
                 telemetry(name, scene)
