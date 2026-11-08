@@ -116,8 +116,9 @@ class RealArm(rig.ArmBase):
     # one re-command of an approach pose: the press is by stall and the last look's pose is from the joint readings, so
     # the ~1.2 mm one round leaves doesn't matter, and each further round cost 0.7 s
     sag_tries = 1
-    hard_cap_n = 30.0  # the estimate drifts to ~13 N on a press approach with nothing touching and crossed 20 N on a light
-    # contact; stalls and the press depth limit (14 mm past the expected top, ~6 N) bound the real force
+    # no hard cap on the force estimate: it read 35-60 N on free moves home and stopped the arm. Stalls and the press depth
+    # limit bound a press; the servos cap themselves (Torque_Limit 680/1000, overload protection)
+    hard_cap_n = float("inf")
 
     def __init__(self, bus, app=None, pad=None, pace=True):
         self.bus, self.pad, self.pace = bus, pad, pace
