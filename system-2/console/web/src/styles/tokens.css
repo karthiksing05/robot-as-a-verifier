@@ -8,9 +8,11 @@
   --ink: #191b1d;
   --muted: #5a5e60;
   --line: #b9bab4;
-  --accent: #7a5600;
-  --accent-ink: #ffffff;
-  --accent-wash: rgba(122, 86, 0, 0.1);
+  --accent: #7a5600; /* text and thin lines: dark gold that reads on the light surface */
+  --accent-fill: #e9b43c; /* fills: the SO-101's yellow, with dark ink on it, as in the dark theme */
+  --accent-ink: #1a1405;
+  --accent-wash: rgba(233, 180, 60, 0.18);
+  --viewport: #d9d9d3; /* behind 3D views and video */
   --pass: #00809a;
   --fail: #b23a1e;
   --fail-wash: rgba(178, 58, 30, 0.08);
@@ -37,8 +39,10 @@
   --muted: #b4b5ae;
   --line: #474d51;
   --accent: #e3ae3c;
+  --accent-fill: #e3ae3c;
   --accent-ink: #1a1405;
   --accent-wash: rgba(227, 174, 60, 0.12);
+  --viewport: #15181b;
   --pass: #1fa3ba;
   --fail: #e66a4a;
   --fail-wash: rgba(230, 106, 74, 0.12);

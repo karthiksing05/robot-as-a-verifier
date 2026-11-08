@@ -1,0 +1,177 @@
+[
+ {
+  "s": 12.6,
+  "e": 15.51,
+  "t": "This is RAAV, Robot As A Verifier."
+ },
+ {
+  "s": 15.51,
+  "e": 20.17,
+  "t": "Give it a prototype and its manual, and a low-cost robot arm tests"
+ },
+ {
+  "s": 20.17,
+  "e": 24.49,
+  "t": "every control it can find, then reports what it measured."
+ },
+ {
+  "s": 24.49,
+  "e": 28.26,
+  "t": "Here it is on a centrifuge it has never seen."
+ },
+ {
+  "s": 29.0,
+  "e": 33.46,
+  "t": "First it surveys the panel with one wrist camera, finds each"
+ },
+ {
+  "s": 33.46,
+  "e": 38.09,
+  "t": "control, and touches it to pin down exactly where it is."
+ },
+ {
+  "s": 38.09,
+  "e": 41.82,
+  "t": "A model reads the manual and drafts a test plan,"
+ },
+ {
+  "s": 41.82,
+  "e": 45.69,
+  "t": "and a person approves it before anything moves."
+ },
+ {
+  "s": 45.88,
+  "e": 48.35,
+  "t": "Then the arm runs the plan."
+ },
+ {
+  "s": 48.35,
+  "e": 52.03,
+  "t": "Every press is capped in force, and every verdict"
+ },
+ {
+  "s": 52.03,
+  "e": 55.89,
+  "t": "comes from sensor readings, not from the model."
+ },
+ {
+  "s": 55.89,
+  "e": 62.56,
+  "t": "When the display didn't match the manual, the run stopped, and the plan was amended."
+ },
+ {
+  "s": 62.56,
+  "e": 66.54,
+  "t": "When the lid handle needed a pinch grip the spec rules"
+ },
+ {
+  "s": 66.54,
+  "e": 70.74,
+  "t": "out, the robot refused to guess and reported it."
+ },
+ {
+  "s": 70.92,
+  "e": 76.98,
+  "t": "From there, RAAV is built to trace a fault to its part in CAD, propose a fix"
+ },
+ {
+  "s": 76.98,
+  "e": 82.65,
+  "t": "for a person to approve, and test the new revision with the same plan."
+ },
+ {
+  "s": 82.65,
+  "e": 86.22,
+  "t": "A fix only counts if the score goes up."
+ },
+ {
+  "s": 87.0,
+  "e": 89.97,
+  "t": "Under the hood, RAAV is two systems."
+ },
+ {
+  "s": 89.97,
+  "e": 93.83,
+  "t": "System 1 is the robot: perception, inverse kinematics,"
+ },
+ {
+  "s": 93.83,
+  "e": 97.18,
+  "t": "control, force limits and the verdict rules."
+ },
+ {
+  "s": 97.18,
+  "e": 100.79,
+  "t": "System 2 is a frontier model that reads the manual,"
+ },
+ {
+  "s": 100.79,
+  "e": 104.96,
+  "t": "plans, recovers from failed steps and diagnoses causes."
+ },
+ {
+  "s": 105.1,
+  "e": 110.4,
+  "t": "The model never sends a motor command or grades its own work, so it can be"
+ },
+ {
+  "s": 110.4,
+  "e": 115.78,
+  "t": "swapped for a better one, and System 1's limits hold whatever it says."
+ },
+ {
+  "s": 115.91,
+  "e": 119.38,
+  "t": "Vision-language-action models fold all of this into one"
+ },
+ {
+  "s": 119.38,
+  "e": 123.17,
+  "t": "network, so each new task needs new demonstrations."
+ },
+ {
+  "s": 123.17,
+  "e": 125.75,
+  "t": "Our split needs a manual instead."
+ },
+ {
+  "s": 125.75,
+  "e": 131.28,
+  "t": "Its limit: a new kind of control still needs a new skill in System 1."
+ },
+ {
+  "s": 132.0,
+  "e": 133.8,
+  "t": "Why does this matter?"
+ },
+ {
+  "s": 133.8,
+  "e": 138.32,
+  "t": "Software already has verification: Lean now checks AI-written proofs,"
+ },
+ {
+  "s": 138.32,
+  "e": 142.24,
+  "t": "and proven code like CompCert and seL4 guards aircraft."
+ },
+ {
+  "s": 142.24,
+  "e": 146.09,
+  "t": "Hardware has nothing like it, so failures surface late,"
+ },
+ {
+  "s": 146.09,
+  "e": 150.59,
+  "t": "in biosafety labs, in spacecraft, in thousands of prototypes."
+ },
+ {
+  "s": 150.59,
+  "e": 154.05,
+  "t": "As AI starts designing hardware, every design should"
+ },
+ {
+  "s": 154.05,
+  "e": 158.08,
+  "t": "be measured like this before anyone relies on it."
+ }
+]

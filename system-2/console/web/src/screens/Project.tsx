@@ -4,6 +4,7 @@ import { Pill, Stat, stagger } from "../components/ui";
 import type { Route } from "../lib/route";
 import { useAppSession, useRuns } from "../lib/context";
 import { galleryOf, splitLabel } from "../lib/gallery";
+import { previewOf } from "../lib/previews";
 import { controlStatus, projectOf, projectsIn, reviewOf, useProjects, type Project as ProjectData, type Review } from "../lib/projects";
 import { ENVIRONMENTS } from "../lib/session";
 import type { DeviceCard } from "../lib/wikidata";
@@ -38,18 +39,23 @@ export function Project({ route }: { route: Route }) {
   const canRun = project.kind === "sim" && operator.role !== "judge";
   const device = galleryOf(project.id);
   const split = splitLabel(project.split ?? device?.split);
-  const about = device?.body.join(" ").trim();
+  // The plain description only: the device notes after it (source notes, firmware quirks) live further down.
+  const about = device?.body.join(" ").split("**")[0].replace(/`/g, "").trim();
+  const picture = previewOf(project.id);
 
   return (
     <div className="page projectpage">
       <ProjectBar project={project} tab="story" />
-      <header className="projecthero rise">
-        <div className="row"><span className="tag">{ENVIRONMENTS[env].runner === "real arm" ? "Real arm" : project.kind === "sim" ? "Sim device" : "Physical product"}</span>{split && <span className="tag">{split}</span>}{review.revisions.length > 0 && <span className="tag">Rev {review.revisions.at(-1)!.revision}</span>}</div>
-        <h1 className="title">{project.name}</h1>
-        {about ? <p className="wikilede">{about}</p> : project.summary && <p className="wikilede">{project.summary}</p>}
-        <b className={`headline big ${review.open.length ? "bad" : review.latest ? "good" : ""}`}>{review.headline}</b>
-        {canRun && <div className="row"><a className="btn accent" href={`#/live?project=${project.id}`}>{review.latest ? "Run it again" : "Start the first run"}</a></div>}
-        {review.evidence && <p className={`evidence ${review.evidence}`}>{EVIDENCE[review.evidence]}</p>}
+      <header className={`projecthero rise ${picture ? "withpic" : ""}`}>
+        <div className="herotext">
+          <div className="row"><span className="tag">{ENVIRONMENTS[env].runner === "real arm" ? "Real arm" : project.kind === "sim" ? "Sim device" : "Physical product"}</span>{split && <span className="tag">{split}</span>}{review.revisions.length > 0 && <span className="tag">Rev {review.revisions.at(-1)!.revision}</span>}</div>
+          <h1 className="title">{project.name}</h1>
+          {about ? <p className="wikilede">{about}</p> : project.summary && <p className="wikilede">{project.summary}</p>}
+          <b className={`headline big ${review.open.length ? "bad" : review.latest ? "good" : ""}`}>{review.headline}</b>
+          {canRun && <div className="row"><a className="btn accent" href={`#/live?project=${project.id}`}>{review.latest ? "Run it again" : "Start the first run"}</a></div>}
+          {review.evidence && <p className={`evidence ${review.evidence}`}>{EVIDENCE[review.evidence]}</p>}
+        </div>
+        {picture && <img className="heropic" src={picture} alt={`${project.name}, rendered from its CAD`} />}
       </header>
       <Story project={project} review={review} />
     </div>

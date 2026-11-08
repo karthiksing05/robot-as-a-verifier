@@ -1,15 +1,16 @@
 // The top navigation and the Methodology page's sections, named like a paper's parts. Paths that were in use before the
 // rename stay as aliases, so old links and bookmarks still land on the same screen.
 
-/** [path in the address, the screen it opens, its label]. The screen names are the app's internal ones. */
+/** [path in the address, the screen it opens, its label, where it sits]. The screen names are the app's internal ones.
+ *  "main" pages are the working screens, in the top bar. "more" pages explain the project, from the settings panel. */
 export const NAV = [
-  ["studies", "projects", "Studies"],
-  ["background", "motivation", "Background"],
-  ["methodology", "wiki", "Methodology"],
-  ["live", "live", "Live Experiment"],
-  ["design-analysis", "cad", "Design Analysis"],
-  ["change-review", "approvals", "Change Review"],
-  ["revision-history", "edits", "Revision History"],
+  ["studies", "projects", "Studies", "main"],
+  ["live", "live", "Live Experiment", "main"],
+  ["design-analysis", "cad", "Design Analysis", "main"],
+  ["change-review", "approvals", "Change Review", "main"],
+  ["revision-history", "edits", "Revision History", "main"],
+  ["background", "motivation", "Background", "more"],
+  ["methodology", "wiki", "Methodology", "more"],
 ] as const;
 
 export type Screen = (typeof NAV)[number][1] | "project" | "run" | "runs";

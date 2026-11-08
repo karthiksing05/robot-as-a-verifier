@@ -1,3 +1,4 @@
+import { useCadList } from "../lib/cad";
 import { useAppSession } from "../lib/context";
 import { useLiveNow } from "../lib/live";
 import { projectsIn, useProjects, type Project } from "../lib/projects";
@@ -11,12 +12,14 @@ const pathFor = (tab: Tab, id: string) => (tab === "story" ? `project/${id}` : `
 export function ProjectBar({ project, tab, locked = false }: { project?: Project; tab?: Tab; locked?: boolean }) {
   const projects = projectsIn(useAppSession().env, useProjects());
   const now = useLiveNow();
+  const cad = useCadList();
+  const hasCad = (p?: Project) => !!p && (!!p.cad || cad.some((c) => c.project === p.id));
   const switchTo = (id: string) => {
     if (id === "none") return go("live?project=none");
     const next = projects.find((p) => p.id === id);
-    go(pathFor(!tab || (tab === "cad" && !next?.cad) ? "story" : tab, id));
+    go(pathFor(!tab || (tab === "cad" && !hasCad(next)) ? "story" : tab, id));
   };
-  const tabs: [Tab, string][] = [["story", "Story"], ["live", "Live"], ...(project?.cad ? [["cad", "CAD"] as [Tab, string]] : [])];
+  const tabs: [Tab, string][] = [["story", "Story"], ["live", "Live"], ...(hasCad(project) ? [["cad", "CAD"] as [Tab, string]] : [])];
   return (
     <nav className="projectbar" aria-label="Project">
       <a className="note" href="#/studies">Studies</a>

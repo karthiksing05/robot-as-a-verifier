@@ -5,12 +5,12 @@ import { NAV, SECTIONS, isCurrent, screenOf, sectionOf } from "./nav";
 import { chartPanels, loadResults, logDomain } from "./wikidata";
 
 describe("the top navigation", () => {
-  it("names its pages like a paper's parts, in order", () => {
-    expect(NAV.map(([, , label]) => label)).toEqual(["Studies", "Background", "Methodology", "Live Experiment", "Design Analysis", "Change Review", "Revision History"]);
+  it("lists its pages in order: working screens, then the explanations", () => {
+    expect(NAV.map(([, , label]) => label)).toEqual(["Studies", "Live Experiment", "Design Analysis", "Change Review", "Revision History", "Background", "Methodology"]);
   });
 
   it("opens each page from its new path", () => {
-    expect(NAV.map(([path]) => screenOf(path))).toEqual(["projects", "motivation", "wiki", "live", "cad", "approvals", "edits"]);
+    expect(NAV.map(([path]) => screenOf(path))).toEqual(["projects", "live", "cad", "approvals", "edits", "motivation", "wiki"]);
   });
 
   it("keeps every old path working", () => {
@@ -30,6 +30,11 @@ describe("the top navigation", () => {
     }
     expect(isCurrent("wiki", screenOf("methodology"))).toBe(true);
     expect(isCurrent("projects", "wiki")).toBe(false);
+  });
+
+  it("keeps the working screens in the top bar, and the pages that explain the project in the settings panel", () => {
+    expect(NAV.filter(([, , , where]) => where === "main").map(([, , label]) => label)).toEqual(["Studies", "Live Experiment", "Design Analysis", "Change Review", "Revision History"]);
+    expect(NAV.filter(([, , , where]) => where === "more").map(([, , label]) => label)).toEqual(["Background", "Methodology"]);
   });
 
   it("never gives two entries the same path", () => {

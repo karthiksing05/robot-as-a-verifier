@@ -49,6 +49,8 @@
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 35%, #000 65%, transparent); mask-image: linear-gradient(90deg, transparent, #000 35%, #000 65%, transparent);
   will-change: transform; animation: static-drift 13s linear infinite, static-jitter 0.42s steps(4) infinite; }
 .topstatic::after { content: ""; position: absolute; left: 0; bottom: 0; width: 72px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent)); will-change: transform; animation: tick-run 8s linear infinite; }
+/* on the light theme, static darkens the bar a little instead of inverting it into grey grime */
+:root:not([data-theme="dark"]) .topstatic::before { mix-blend-mode: multiply; opacity: 0.1; }
 @keyframes static-drift { from { translate: -45vw 0; } to { translate: 105vw 0; } }
 @keyframes static-jitter { 0% { transform: translate(0, 0); } 25% { transform: translate(-7px, 11px); } 50% { transform: translate(5px, -9px); } 75% { transform: translate(-3px, 6px); } 100% { transform: translate(0, 0); } }
 @keyframes tick-run { from { transform: translateX(-80px); } to { transform: translateX(100vw); } }
@@ -59,7 +61,7 @@
 
 /* A thin sweep, shown only if something is still arriving after the preload. */
 .sweep { height: 2px; background: var(--line); overflow: hidden; position: relative; }
-.sweep::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 34%; background: var(--accent); animation: sweep 900ms var(--ease) infinite; }
+.sweep::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 34%; background: var(--accent-fill); animation: sweep 900ms var(--ease) infinite; }
 @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
 
 /* The sign-in panel's scan rule. */

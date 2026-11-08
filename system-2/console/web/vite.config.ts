@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
+import { parse as parseYaml } from "yaml";
 import { defineConfig } from "vitest/config";
 import { FileProjectBackend, ProjectError, type NewProject, type ProjectBackend } from "./server/projects";
 
@@ -68,8 +69,53 @@ function projectApi(backend: ProjectBackend): Plugin {
   };
 }
 
+/** /api/cad: each appliance's printed parts per revision, and the fixes between them. Held-out devices only show Rev A. */
+function applianceCad(): Plugin {
+  const root = path.resolve(repoRoot, "../appliances");
+  const safe = /^[A-Za-z0-9_.-]+$/;
+  const registry = () => JSON.parse(fs.readFileSync(path.join(root, "registry.json"), "utf8")) as { id: string; title: string; split: string; project?: string }[];
+  const meshDir = (id: string, rev: string) => path.join(root, id, "build", `meshes_rev${rev}`);
+  const has = (id: string, rev: string) => fs.existsSync(path.join(meshDir(id, rev), "manifest.json"));
+  return {
+    name: "appliance-cad",
+    configureServer(server) {
+      server.middlewares.use("/api/cad", (req, res) => {
+        const send = (status: number, body: unknown) => {
+          res.statusCode = status;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify(body));
+        };
+        const [id, rev, file] = (req.url ?? "/").split("?")[0].split("/").filter(Boolean).map(decodeURIComponent);
+        const all = registry().filter((d) => has(d.id, "A"));
+        if (!id) return send(200, all.map((d) => ({ id: d.id, project: d.project ?? d.id, title: d.title, split: d.split })));
+        const device = all.find((d) => d.id === id || d.project === id);
+        if (!device) return send(404, { error: `No CAD for ${id}` });
+        const heldOut = /held/i.test(device.split);
+        const revs = ["A", "B"].filter((r) => has(device.id, r) && !(heldOut && r !== "A"));
+        if (rev) {
+          if (!revs.includes(rev) || !file || !safe.test(file) || !file.endsWith(".stl")) return send(404, { error: "No such part" });
+          const full = path.join(meshDir(device.id, rev), file);
+          if (!fs.existsSync(full)) return send(404, { error: "No such part" });
+          res.setHeader("Content-Type", "model/stl");
+          res.setHeader("Cache-Control", "max-age=300");
+          return fs.createReadStream(full).pipe(res);
+        }
+        const parts = Object.fromEntries(revs.map((r) => [r, JSON.parse(fs.readFileSync(path.join(meshDir(device.id, r), "manifest.json"), "utf8"))]));
+        let faults: unknown[] = [];
+        if (!heldOut) {
+          try {
+            const doc = parseYaml(fs.readFileSync(path.join(root, device.id, "device.yaml"), "utf8")) as { faults?: Record<string, Record<string, unknown>> };
+            faults = Object.entries(doc.faults ?? {}).map(([fid, f]) => ({ id: fid, what: f.what, class: f.class, A: f.A ?? null, B: f.B ?? null }));
+          } catch { faults = []; }
+        }
+        send(200, { id: device.id, project: device.project ?? device.id, title: device.title, split: device.split, heldOut, revs, parts, faults });
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), recordedRuns(), projectApi(new FileProjectBackend(path.join(repoRoot, "subjects")))],
+  plugins: [react(), recordedRuns(), applianceCad(), projectApi(new FileProjectBackend(path.join(repoRoot, "subjects")))],
   resolve: { alias: { "@repo": repoRoot } },
   // The app reads system-2/fixtures/ and subjects/ directly, so regenerating them updates the UI.
   server: { port: 5173, host: "127.0.0.1", fs: { allow: [repoRoot] } },
