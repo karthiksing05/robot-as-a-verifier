@@ -1,172 +1,192 @@
 [
  {
-  "s": 15.4,
-  "e": 18.12,
+  "s": 10.8,
+  "e": 13.49,
   "t": "This is RAAV, Robot As A Verifier."
  },
  {
-  "s": 18.12,
-  "e": 22.49,
+  "s": 13.49,
+  "e": 17.8,
   "t": "Give it a prototype and its manual, and a low-cost robot arm tests"
  },
  {
-  "s": 22.49,
-  "e": 26.53,
+  "s": 17.8,
+  "e": 21.78,
   "t": "every control it can find, then reports what it measured."
  },
  {
-  "s": 26.53,
-  "e": 30.11,
+  "s": 21.78,
+  "e": 25.32,
   "t": "Here it is on a centrifuge it has never seen."
  },
  {
-  "s": 30.6,
-  "e": 34.93,
-  "t": "First it surveys the panel with one wrist camera, finds each"
+  "s": 25.8,
+  "e": 29.59,
+  "t": "First it surveys the panel with one wrist camera,"
  },
  {
-  "s": 34.93,
-  "e": 39.44,
-  "t": "control, and touches it to pin down exactly where it is."
+  "s": 29.59,
+  "e": 34.16,
+  "t": "finds each control, and pins down exactly where it is."
  },
  {
-  "s": 39.44,
-  "e": 43.07,
+  "s": 34.16,
+  "e": 38.0,
   "t": "A model reads the manual and drafts a test plan,"
  },
  {
-  "s": 43.07,
-  "e": 46.84,
+  "s": 38.0,
+  "e": 41.97,
   "t": "and a person approves it before anything moves."
  },
  {
-  "s": 47.01,
-  "e": 49.41,
+  "s": 42.18,
+  "e": 44.73,
   "t": "Then the arm runs the plan."
  },
  {
-  "s": 49.41,
-  "e": 52.99,
-  "t": "Every press is capped in force, and every verdict"
+  "s": 44.73,
+  "e": 51.17,
+  "t": "Every press is force-limited, and fixed rules turn each measurement into a verdict."
  },
  {
-  "s": 52.99,
-  "e": 56.74,
-  "t": "comes from sensor readings, not from the model."
- },
- {
-  "s": 56.74,
-  "e": 63.22,
+  "s": 51.17,
+  "e": 58.03,
   "t": "When the display didn't match the manual, the run stopped, and the plan was amended."
  },
  {
-  "s": 63.22,
-  "e": 67.1,
+  "s": 58.03,
+  "e": 62.13,
   "t": "When the lid handle needed a pinch grip the spec rules"
  },
  {
-  "s": 67.1,
-  "e": 71.19,
+  "s": 62.13,
+  "e": 66.44,
   "t": "out, the robot refused to guess and reported it."
  },
  {
-  "s": 71.35,
-  "e": 77.24,
-  "t": "From there, RAAV is built to trace a fault to its part in CAD, propose a fix"
+  "s": 66.64,
+  "e": 72.35,
+  "t": "From there, RAAV traces a fault to its part in CAD, proposes a fix for"
  },
  {
-  "s": 77.24,
-  "e": 82.76,
-  "t": "for a person to approve, and test the new revision with the same plan."
+  "s": 72.35,
+  "e": 77.94,
+  "t": "a person to approve, and tests the new revision with the same plan."
  },
  {
-  "s": 82.76,
-  "e": 86.24,
+  "s": 77.94,
+  "e": 81.6,
   "t": "A fix only counts if the score goes up."
  },
  {
-  "s": 87.0,
-  "e": 89.97,
+  "s": 82.4,
+  "e": 84.96,
   "t": "Under the hood, RAAV is two systems."
  },
  {
-  "s": 89.97,
-  "e": 93.83,
+  "s": 84.96,
+  "e": 88.29,
   "t": "System 1 is the robot: perception, inverse kinematics,"
  },
  {
-  "s": 93.83,
-  "e": 97.18,
+  "s": 88.29,
+  "e": 91.18,
   "t": "control, force limits and the verdict rules."
  },
  {
-  "s": 97.18,
-  "e": 100.79,
+  "s": 91.18,
+  "e": 94.29,
   "t": "System 2 is a frontier model that reads the manual,"
  },
  {
-  "s": 100.79,
-  "e": 104.96,
+  "s": 94.29,
+  "e": 97.97,
   "t": "plans, recovers from failed steps and diagnoses causes."
  },
  {
-  "s": 105.1,
-  "e": 110.4,
-  "t": "The model never sends a motor command or grades its own work, so it can be"
+  "s": 98.01,
+  "e": 100.92,
+  "t": "Between them is a small set of tools, and none"
  },
  {
-  "s": 110.4,
-  "e": 115.78,
-  "t": "swapped for a better one, and System 1's limits hold whatever it says."
+  "s": 100.92,
+  "e": 103.64,
+  "t": "of them moves a motor or grades a step."
  },
  {
-  "s": 115.91,
-  "e": 119.38,
+  "s": 103.64,
+  "e": 107.83,
+  "t": "So either side can be swapped: System 2 can be any of four models,"
+ },
+ {
+  "s": 107.83,
+  "e": 112.0,
+  "t": "and System 1 the simulator or a real arm, on any appliance."
+ },
+ {
+  "s": 112.04,
+  "e": 115.03,
   "t": "Vision-language-action models fold all of this into one"
  },
  {
-  "s": 119.38,
-  "e": 123.17,
+  "s": 115.03,
+  "e": 118.3,
   "t": "network, so each new task needs new demonstrations."
  },
  {
-  "s": 123.17,
-  "e": 125.75,
+  "s": 118.3,
+  "e": 120.53,
   "t": "Our split needs a manual instead."
  },
  {
-  "s": 125.75,
-  "e": 131.28,
+  "s": 120.53,
+  "e": 125.38,
   "t": "Its limit: a new kind of control still needs a new skill in System 1."
  },
  {
-  "s": 132.0,
-  "e": 133.43,
+  "s": 126.0,
+  "e": 127.67,
   "t": "Why does this matter?"
  },
  {
-  "s": 133.43,
-  "e": 137.43,
+  "s": 127.67,
+  "e": 132.32,
   "t": "Software already has verification, from AI-written proofs to flight code."
  },
  {
-  "s": 137.43,
-  "e": 140.48,
+  "s": 132.32,
+  "e": 135.87,
   "t": "Hardware has nothing like it, so failures surface late,"
  },
  {
-  "s": 140.48,
-  "e": 143.11,
+  "s": 135.87,
+  "e": 139.12,
   "t": "in biosafety labs, spacecraft and prototypes."
  },
  {
-  "s": 143.11,
-  "e": 145.86,
+  "s": 139.22,
+  "e": 142.77,
+  "t": "Today, RAAV runs on twelve appliance designs in simulation"
+ },
+ {
+  "s": 142.77,
+  "e": 146.53,
+  "t": "and a real centrifuge, with its planner in the cloud."
+ },
+ {
+  "s": 146.53,
+  "e": 150.07,
+  "t": "Any lab with a low-cost arm could do the same."
+ },
+ {
+  "s": 150.14,
+  "e": 153.34,
   "t": "As AI starts designing hardware, every design should"
  },
  {
-  "s": 145.86,
-  "e": 149.23000000000002,
+  "s": 153.34,
+  "e": 157.14000000000001,
   "t": "be measured like this before anyone relies on it."
  }
 ]
