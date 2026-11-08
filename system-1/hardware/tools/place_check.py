@@ -42,9 +42,6 @@ def main(argv=None, bus=None, ask=input):
             "press Enter: ")
         mid = tip_now(arm)
         print(f"Surface middle with the arm limp: {np.round(mid * 1000, 1)} mm")
-        if mid[2] < arm.workspace[2][0] + 0.02:
-            print(f"That is only {(mid[2] - arm.workspace[2][0]) * 1000:.0f} mm over the workspace floor: use a taller "
-                  f"riser, or touches below it are refused.")
         ask("Lift the arm 3 to 5 cm straight up and hold it there, not folded tight. Press Enter: ")
         if ask(f"The arm will touch the surface {len(SPOTS_M)} times, 4 cm apart, slowly. Is it clear? Type yes to "
                f"go: ").strip() != "yes":
@@ -55,7 +52,9 @@ def main(argv=None, bus=None, ask=input):
         try:
             # The limp reading isn't where the arm under torque finds the surface (the offsets were fitted under load),
             # so the first touch creeps a long way down from 3 cm over it, and the rest start from where it landed
-            s, why = touch.touch(arm, mid + 0.03 * UP, UP, top=0.015, bottom=-0.05, label="place_check")
+            floor = arm.workspace[2][0] + 0.002  # the creep may not aim below the workspace floor
+            s, why = touch.touch(arm, mid + 0.03 * UP, UP, top=0.015, bottom=max(-0.05, floor - mid[2] - 0.03),
+                                 label="place_check")
             if s is None:
                 raise SafetyStop(f"no surface found near the middle: {why}")
             print(f"Surface found under torque at z {s[2] * 1000:.1f} mm ({(s[2] - mid[2]) * 1000:+.1f} vs limp)")
