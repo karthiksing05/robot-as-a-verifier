@@ -525,18 +525,43 @@ pre.code { font-family: var(--mono); font-size: 11.5px; line-height: 1.5; backgr
 .tlturn.bad { border-left-color: var(--fail); }
 .tlturn p { max-width: none; font-size: 15px; }
 .tlturn summary { cursor: pointer; }
-.tlthought { margin-top: 5px; color: var(--muted); font-size: 14px; white-space: pre-wrap; }
+.tlthought { margin-top: 5px; color: var(--muted); }
+.tlturn .tlthought p { font-size: 14px; }
 .tlcaret { display: inline-block; width: 7px; height: 13px; margin-left: 3px; background: var(--accent); vertical-align: -2px; animation: breathe 900ms ease-in-out infinite; }
 .tltool { border: 1px solid var(--line); background: var(--sunk); min-width: 0; }
 .tltool.bad { border-color: var(--fail); background: var(--fail-wash); }
 .tltool summary { cursor: pointer; padding: 5px 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 12.5px; }
 .tlargs { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tltool[open] .tlargs { display: none; }
-.tltool pre { margin: 0; padding: 7px 8px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 11.5px; line-height: 1.5; max-height: 280px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
-.tltool .terror { margin: 0; padding: 0 8px 6px; font-size: 13.5px; }
+.tltool[open] .tlargs { white-space: normal; }
+.tlbody { display: flex; flex-direction: column; gap: 6px; padding: 0 8px 7px; }
+.tltool pre { margin: 0; padding: 7px 8px; border: 1px solid var(--line); font-family: var(--mono); font-size: 11.5px; line-height: 1.5; max-height: 280px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tltool .terror { flex: 1 0 100%; font-size: 13.5px; max-height: 6em; overflow: auto; }
+.tljson summary { padding: 0; font-family: var(--mono); font-size: 10.5px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.tlwhy { margin: 0; font-size: 13.5px; max-width: none; }
+.tlkv { grid-template-columns: max-content minmax(0, 1fr); font-size: 13px; gap: 3px 12px; }
 .tlplan summary { cursor: pointer; font-size: 14px; }
-.tlplan ol { margin: 6px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }
-.tlplan em { font-family: var(--serif); color: var(--muted); }
+.tlplan > .tltable { margin-top: 6px; }
+.tltable { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--surface); }
+.tltable th { text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+.tltable th, .tltable td { padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tltable td.mono:not(.muted) { white-space: nowrap; }
+.tlquote { display: block; font-family: var(--serif); color: var(--muted); }
+.tlcheck { display: block; font-size: 11px; color: var(--muted); }
+.tlprops { display: flex; flex-wrap: wrap; gap: 3px 10px; }
+.tlprop i { font-style: normal; font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; color: var(--muted); }
+.tlprop.passed i { color: var(--pass); }
+.tlprop.failed i { color: var(--fail); }
+.tlprop.inconclusive i, .tlprop.intermittent i { color: var(--warn); }
+.tlsummary { border-left: 2px solid var(--ink); padding: 2px 0 2px 11px; display: flex; flex-direction: column; gap: 4px; }
+.md { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.md p, .md ul, .md ol { margin: 0; max-width: none; }
+.md ul, .md ol { padding-left: 20px; display: flex; flex-direction: column; gap: 3px; }
+.md .mdh { font-weight: 600; }
+.md pre { margin: 0; padding: 7px 8px; background: var(--sunk); border: 1px solid var(--line); font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; }
+.mdtable { border-collapse: collapse; font-size: 13px; }
+.mdtable th, .mdtable td { padding: 3px 8px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.tlmanual { max-height: 320px; overflow: auto; font-size: 13.5px; }
+.pill.untested { color: var(--muted); border-style: dashed; }
 .tloperator { align-self: flex-end; max-width: 85%; background: var(--accent-wash); border: 1px solid var(--accent); padding: 6px 10px; display: flex; flex-direction: column; gap: 2px; }
 .tlasks { max-width: 85%; background: var(--accent-wash); border-left: 2px solid var(--accent); padding: 6px 10px; display: flex; flex-direction: column; gap: 2px; }
 .tlstep { width: 100%; text-align: left; background: var(--surface); color: inherit; border: 1px solid var(--line); padding: 7px 9px; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; transition: border-color var(--fast) var(--ease); }

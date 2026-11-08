@@ -10,6 +10,8 @@ import type { RunEvent, Status, StepVerdict } from "./contracts";
 import { approvalBlock, parsePrompt, type OperatorEdit } from "./edits";
 import { EMPTY_LIVE, TELEMETRY_URL, liveFocus, liveNodes, liveReducer, markAt } from "./live";
 import { buildGraph, placeNodes, recordOfNode } from "./graph";
+import { blocksOf } from "../components/Markdown";
+import { toolBrief } from "../components/ToolView";
 import { coverageOf, eventTimes, fixtureRuns, outcomeOf, rewardOf, toRun } from "./runs";
 import { OPERATORS, canEnter } from "./session";
 
@@ -492,5 +494,21 @@ describe("the model's run", () => {
   it("labels the scripted run as not real", () => {
     expect(evidenceOf(agent)).toBe("mock");
     expect(agent.events.filter((e) => e.type === "model_turn").every((e) => e.payload.model.includes("not a real model"))).toBe(true);
+  });
+
+  it("reads the model's Markdown as blocks", () => {
+    const text = "I've stopped.\n\nWhere things stand:\n\n- **POWER:** on.\n  still on\n- **STOP:** not tested.\n\n| control | status |\n| --- | --- |\n| TIME+ | passed |";
+    expect(blocksOf(text)).toEqual([
+      { kind: "p", text: "I've stopped." },
+      { kind: "p", text: "Where things stand:" },
+      { kind: "ul", items: ["**POWER:** on. still on", "**STOP:** not tested."] },
+      { kind: "table", head: ["control", "status"], rows: [["TIME+", "passed"]] },
+    ]);
+  });
+
+  it("says a plan or a finish in one line instead of its JSON", () => {
+    const controls = [{ id: "A", status: "passed" }, { id: "B", status: "untested" }, { id: "C", status: "passed" }];
+    expect(toolBrief({ tool: "finish_run", args: { summary: "long", controls } })).toBe("3 controls: 2 passed, 1 untested");
+    expect(toolBrief({ tool: "propose_plan", args: { steps: [{}, {}], close_with_look: true } })).toBe("2 steps, then the closing look");
   });
 });

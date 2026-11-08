@@ -35,7 +35,7 @@ export type TimelineItem =
   | { kind: "approval"; key: string; what: string; ref: string; by: string | null; state: "pending" | "approved" | "closed" }
   | { kind: "plan"; key: string; plan: Plan }
   | { kind: "amended"; key: string; level: number; by: string | null; steps: string[]; why: string }
-  | { kind: "message"; key: string; role: string; text: string; by: string | null; asks: boolean }
+  | { kind: "message"; key: string; role: string; text: string; by: string | null; asks: boolean; checklist?: unknown }
   | { kind: "check"; key: string; target: string; counted: boolean; why: string; failed: { metric: string; op: string; value: unknown; actual: unknown }[] }
   | { kind: "steer"; key: string; steer: string; note: string; by: string | null; target: string | null }
   | { kind: "scene"; key: string; scene: SceneInventory }
@@ -78,7 +78,7 @@ export function timelineOf(state: Pick<AgentState, "events" | "deltas">): Timeli
       }
       case "plan_ready": items.push({ kind: "plan", key, plan: p }); break;
       case "plan_amended": items.push({ kind: "amended", key, level: p.level, by: p.by ?? null, steps: p.steps ?? [], why: p.why ?? "" }); break;
-      case "message": items.push({ kind: "message", key, role: p.role, text: p.text, by: p.by ?? null, asks: !!p.asks }); break;
+      case "message": items.push({ kind: "message", key, role: p.role, text: p.text, by: p.by ?? null, asks: !!p.asks, checklist: p.checklist }); break;
       case "check_judged": items.push({ kind: "check", key, target: p.target, counted: !!p.counted, why: p.why ?? "", failed: p.failed ?? [] }); break;
       case "steer_applied": if (p.kind !== "message") items.push({ kind: "steer", key, steer: p.kind, note: p.note ?? "", by: p.by ?? null, target: p.target ?? null }); break;
       case "scene_ready": items.push({ kind: "scene", key, scene: p }); break;

@@ -67,8 +67,14 @@ view), plan it like any other step, then look again before testing.
 to fix it.
 - If you need a person's judgment, ask_operator. Don't invent facts: if you don't know something, say so in finish_run.
 
-Before each tool call, say in a sentence or two what you've concluded and why you're making this call. Keep your calls few: \
-each one costs time on a real machine, and the arm waits while you think."""
+How to write
+- A person watches your run as it happens and already sees each tool's result, the plan and the verdicts. Before each tool \
+call, write one or two short sentences: what you concluded and why this call. Don't restate results, steps or earlier turns.
+- To list more than two things, use a short Markdown list, one line per item. No headings, no preamble.
+- In finish_run, keep the summary to a few sentences: what failed, what you left untested and why, and anything a person \
+must do before the next run. Each control's result and its reason go in controls, not in the summary.
+
+Keep your calls few: each one costs time on a real machine, and the arm waits while you think."""
 
 BRIEF = "Product: {product}\nInstruction: {instruction}\n{manual}\nBegin."
 MANUAL_YES = "A manual is available through read_manual ({pages} pages)."
