@@ -32,6 +32,7 @@ const uint16_t CAL_MAGIC = 0x4D36;
 const uint8_t CAL_VERSION = 2, CAL_HAS_TUBE = 1;
 const uint8_t PIN_RING = 6, PIN_SPEED = A0, PIN_LID = A2, PIN_TUBE = A1;
 const bool OLED_FLIPPED = true;
+const uint8_t OLED_TEXT_ROWS[] = {2, 5};  // 16 px top margin, 8 px bottom margin for 16 px glyphs
 const uint8_t PIXELS = 24, BRIGHTNESS = 50;
 const uint8_t OLED_PRIMARY = 0x3C, OLED_FALLBACK = 0x3D;
 const uint16_t DEBOUNCE_MS = 20, SENSOR_MS = 20, HEARTBEAT_MS = 1000;
@@ -292,9 +293,14 @@ void oledPoll() {
   } else {
     uint8_t row = (oledRows & 1) ? 0 : 1;
     const char *line = row ? display2 : display1;
-    char glyph[2] = {oledColumn < strlen(line) ? line[oledColumn] : ' ', '\0'};
-    oled.drawString(oledColumn, row * 2, glyph);
-    if (++oledColumn == 16) { oledRows &= ~(1 << row); oledColumn = 0; }
+    const uint8_t length = strlen(line);
+    const uint8_t width = length <= 8 ? 2 : 1;
+    const int index = oledColumn / width - (16 / width - length) / 2;
+    const char glyph = index >= 0 && index < length ? line[index] : ' ';
+    if (width == 2) oled.draw2x2Glyph(oledColumn, OLED_TEXT_ROWS[row], glyph);
+    else oled.draw1x2Glyph(oledColumn, OLED_TEXT_ROWS[row], glyph);
+    oledColumn += width;
+    if (oledColumn == 16) { oledRows &= ~(1 << row); oledColumn = 0; }
   }
   if (Mc6I2c::error != Mc6I2c::OK) oledFault();
   else if (oledClearTile == 128 && !oledRows) event(F("oled_sync"), uint16_t(1));

@@ -42,6 +42,17 @@ int main() {
   press(PIN_TIME); assert(setTime == 30); contains("\"ev\":\"btn_time\",\"v\":1");
   pins[PIN_POWER] = LOW; step(); step(20); step(120);
   assert(state == READY && rpm == 1000 && setTime == 30);
+  oled.glyphs.clear(); oledRows = 3; oledColumn = 0;
+  while (oledRows) oledPoll();
+  assert(oled.glyphs.size() == 16);
+  assert(oled.glyphs[0].y == 2 && oled.glyphs[0].width == 2 && oled.glyphs[0].value == '1');
+  assert(oled.glyphs[10].x == 4 && oled.glyphs[10].y == 5 && oled.glyphs[10].value == '0');
+  send("buttons\n"); render(fakeNow);
+  oled.glyphs.clear();
+  while (oledRows) oledPoll();
+  assert(oled.glyphs.size() == 32 && oled.glyphs[0].width == 1 && oled.glyphs[16].y == 5);
+  assert(oled.glyphs.back().x == 15 && oled.glyphs.back().value == 'T');
+  send("normal\n");
   press(PIN_START); assert(state == REFUSED && reason == LID);
   analogs[PIN_LID] = 100; step(20); assert(state == READY);
   press(PIN_START); assert(state == REFUSED && reason == TUBE);

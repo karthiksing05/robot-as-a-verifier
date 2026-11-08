@@ -18,6 +18,8 @@ inline uint8_t u8x8_GetI2CAddress(u8x8_t *display) { return display->address; }
 struct U8X8_SSD1306_128X64_NONAME_SW_I2C {
   u8x8_t display;
   uint8_t flip = 0;
+  struct Glyph { uint8_t x, y, width, value; };
+  std::vector<Glyph> glyphs;
   explicit U8X8_SSD1306_128X64_NONAME_SW_I2C(uint8_t, uint8_t, uint8_t) { display.gpio_and_delay_cb = u8x8_gpio_and_delay_arduino; }
   u8x8_t *getU8x8() { return &display; }
   void setI2CAddress(uint8_t a) { display.address = a; }
@@ -36,9 +38,14 @@ struct U8X8_SSD1306_128X64_NONAME_SW_I2C {
   void setFlipMode(uint8_t mode) { flip = mode; uint8_t command = mode ? 0xA0 : 0xA1; transfer(0x00, 1, &command); }
   void setFont(const uint8_t *) {}
   void drawTile(uint8_t, uint8_t, uint8_t count, uint8_t *data) { transfer(0x40, count * 8, data); }
-  void drawString(uint8_t, uint8_t, const char *text) {
-    uint8_t glyph[8]; std::fill(glyph, glyph + 8, uint8_t(*text)); transfer(0x40, 8, glyph);
+  void drawGlyph(uint8_t x, uint8_t y, uint8_t width, uint8_t value) {
+    glyphs.push_back({x, y, width, value});
+    uint8_t glyph[16]; std::fill(glyph, glyph + 16, value);
+    transfer(0x40, width * 8, glyph);
+    transfer(0x40, width * 8, glyph);
   }
+  void draw1x2Glyph(uint8_t x, uint8_t y, uint8_t value) { drawGlyph(x, y, 1, value); }
+  void draw2x2Glyph(uint8_t x, uint8_t y, uint8_t value) { drawGlyph(x, y, 2, value); }
 };
 struct U8X8_SSD1306_128X64_NONAME_HW_I2C {
   uint8_t address = 0;

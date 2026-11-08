@@ -84,6 +84,8 @@ bool requireTubePresent = false;
 
 ## Display and serial checks
 
+The OLED text starts 16 pixels below the top edge. Both lines use 16-pixel-tall glyphs. Short lines are also double-width, and longer calibration prompts fit across the display.
+
 `OLED_FLIPPED = true` rotates the OLED 180 degrees for its physical mounting. The OLED uses U8x8 with an acknowledged, open-drain software-I2C transport adapted from MW-1: 20 microsecond phases, a 1000 microsecond clock timeout, 500 ms startup settling and a STOP before probing. No `Wire.begin()` runs in this sketch. Each loop clears one tile or writes one glyph, so slow OLED updates do not hold up button/sensor polling for a full screen. `oled_pending` indicates queued output; `oled_sync:1` confirms completion. On an I2C fault, a warning gives its address and numeric error (1 SDA busy, 2 clock timeout, 3 address NACK, 4 data NACK), and `oled_present` becomes 0. Correct wiring and send `oled` to reinitialize.
 
 Use 115200 baud. Commands are case-insensitive and newline terminated:
