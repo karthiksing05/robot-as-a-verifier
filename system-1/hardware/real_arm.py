@@ -46,7 +46,7 @@ OFFSET_RAD = np.radians([0.0, -1.9, -4.8, -2.24, 0.0])
 # P gain enable() sets on the five arm joints. The RobiServo-01 ships at 160. LeRobot's follower writes 16 on every
 # connect (lerobot-calibrate, teleop), and at 16 a loose motor didn't follow a 5 deg move at all; at 160 it stopped 5
 # steps short (system-1/arm/bringup/results.md).
-SERVO_P = 160
+SERVO_P = 120  # down from 160 with D 128: the arm oscillated (Nov 8)
 # and D: LeRobot writes D 32 (P 16) on every connect; with P 160 the arm oscillated holding its views (Nov 8), so
 # damped harder (130 P alone was the fallback)
 SERVO_D = 128  # doubled from 64 on the rig (Nov 8)
