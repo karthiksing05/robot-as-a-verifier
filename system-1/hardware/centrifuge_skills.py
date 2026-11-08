@@ -279,6 +279,7 @@ def pick_tube(arm, collar_top):
     legs = _tube_legs(arm, label, build)
     real_skills.gripper(arm, TUBE_OPEN, hold_s=0.0)  # opening while the arm moves over the tube, not after it gets there
     why, _ = _run(arm, label, *legs)
+    arm.holding = not why  # RealBackend leaves held jaws alone until the place lets go
     try:  # where the jaws stopped and the limit they had, to tell a weak grip from a refused overdrive
         jaws = (f"; gripper at {arm.bus.read('Present_Position', 'gripper', normalize=False)}, limit "
                 f"{arm.bus.read('Min_Position_Limit', 'gripper', normalize=False)}, closed {arm.bus.calibration['gripper'].range_min}")
@@ -312,6 +313,7 @@ def place_tube(arm, seat):
                 ("shut the jaws", 0.0)], q
     held = getattr(arm, "tube_tilt", None)  # the pick's tilt, so the tube goes in as upright as it came out
     _, met = _run(arm, label, *_tube_legs(arm, label, build, (held, *(t for t in TUBE_TILTS if t != held)) if held else TUBE_TILTS))
+    arm.holding = False
     short = (PLACE_ABOVE - met["lower"] if "lower" in met else PLACE_DROP)
     return {"verdict": "done", "reason": f"let go {short * 1000:.1f} mm above the seat" if short > 0.001
             else "let go at the seat", "short_mm": round(short * 1000, 1)}

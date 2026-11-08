@@ -133,6 +133,22 @@ class RealBackend(PipelineRobot):
                       for p in self.parts] + ([display] if display is not None else [])
         return self.current_scene()
 
+    CLAMP = -0.05  # resting, the jaws shut ~75 ticks past the calibrated close: a loose jaw caught on buttons (Nov 8)
+
+    def _clamp(self) -> None:
+        import real_skills
+
+        if getattr(self.arm, "holding", False):  # a picked tube, held at the pick's harder squeeze: leave it
+            return
+        try:
+            real_skills.gripper(self.arm, self.CLAMP, hold_s=0.2)
+        except Exception as e:  # noqa: BLE001 - a jaw left open is no reason to stop a run
+            print(f"couldn't clamp the gripper: {type(e).__name__}: {e}", flush=True)
+
+    def home(self) -> None:
+        super().home()
+        self._clamp()
+
     def execute(self, step):
         """Flips and knob turns as the hardware session ran them on the real centrifuge (real_skills), which
         affordances' own can't do on this arm (its jaws don't open for them), and the centrifuge's lid, rack cover and
@@ -141,6 +157,7 @@ class RealBackend(PipelineRobot):
         photo says."""
         import centrifuge_skills
 
+        self._clamp()  # each step starts with the jaws shut: a skill that needs them open opens them itself
         p = next((q for q in self.parts if q.id == step.target), None)
         if self.appliance == "microwave" and step.skill in self.MICROWAVE_SKILLS:
             return self._microwave_step(step, p)
