@@ -736,18 +736,22 @@ void actionEvent(Flash action) {
 }
 
 #ifdef RAV_WIFI
-static void publishSnapshot() {
-  char body[rav::SNAPSHOT_MAX];
-
-  snprintf(body, sizeof(body),
-           "{\"power\":%u,\"btn_start\":%u,\"btn_stop\":%u,\"btn_time\":%u,\"speed\":%u,\"dial_speed\":%u,"
+static void formatSnapshot(char *body, size_t size) {
+  const auto dial = unsigned(dialSpeed());
+  snprintf(body, size,
+           "{\"power\":%u,\"btn_start\":%u,\"btn_stop\":%u,\"btn_time\":%u,\"speed\":%u,\"dial_speed\":%u,\"applied_speed\":%u,"
            "\"lid\":%u,\"tube\":%u,\"tube_valid\":%u,\"time\":%u,\"run\":\"%s\","
            "\"state\":\"%s\",\"ring\":\"%s\",\"LCD\":\"%s  %s\"}",
            unsigned(powerSwitch.held), unsigned(startButton.held), unsigned(stopButton.held),
-           unsigned(timeButton.held), unsigned(rpm), unsigned(dialSpeed()), unsigned(lid.shaded), unsigned(tube.shaded),
+           unsigned(timeButton.held), dial, dial, unsigned(rpm), unsigned(lid.shaded), unsigned(tube.shaded),
            unsigned(tubeValid), unsigned(state == RUNNING ? remaining : setTime),
            reinterpret_cast<const char *>(lastAction), reinterpret_cast<const char *>(stateName()),
            reinterpret_cast<const char *>(colourName()), display1, display2);
+}
+
+static void publishSnapshot() {
+  char body[rav::SNAPSHOT_MAX];
+  formatSnapshot(body, sizeof(body));
   rav::update(body, startButton.held | (stopButton.held << 1) | (timeButton.held << 2));
 }
 #endif

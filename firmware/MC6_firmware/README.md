@@ -109,4 +109,4 @@ Validate on hardware after calibration; controller acknowledgements do not prove
 
 For a live A1 tube sensor check, run `python tools/monitor_mc6_a1.py COM7` or the VS Code task **Monitor MC-6 A1 sensor**. It displays the 0-1023 value and observed min/max, saving a CSV to `.pio/mc6-a1-readings.csv`. Add `--all` to display/record A0, A2 and A3 alongside A1 when checking wiring. It requests readings without changing calibration or appliance settings. Ctrl+C stops; `--seconds 10` limits the run, and `.pio/mc6-a1-monitor.cancel` provides cooperative cancellation. Close it before opening another serial tool.
 
-`dial_speed` reports the physical A0 dial position mapped to 1000–6000 RPM in every Wi-Fi snapshot and serial heartbeat, including while the appliance is off or running. The Wi-Fi `speed` field and serial `rpm` field report the applied speed setting.
+Wi-Fi `speed` and `dial_speed` both report the physical A0 dial position mapped to 1000–6000 RPM, including while the power toggle is off or a run is active. Wi-Fi `applied_speed` and serial `rpm` report the applied speed setting. Serial `dial_speed` shows the live dial position.

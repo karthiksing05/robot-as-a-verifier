@@ -1,4 +1,5 @@
 #include <cstring>
+#include "support.h"
 
 #define RAV_HOST "test"
 #define RAV_PORT 443
@@ -7,6 +8,7 @@
 #define DEVICE_NAME "mc6-01"
 #define DEVICE_KEY "test"
 #include "../../firmware/rav_wifi.h"
+#include "../../MC6_firmware/MC6_firmware.ino"
 
 int main() {
   const char *released = "{\"btn_time\":0}";
@@ -44,4 +46,16 @@ int main() {
   for (fakeNow = 1081; fakeNow < 31080; ++fakeNow) rav::update(released, 0);
   assert(rav::client.posts.size() == 3);
   assert(WiFi.statusCalls - statusCalls <= 60);
+
+  // Check the actual Wi-Fi JSON channel while the applied speed is frozen.
+  state = OFF;
+  rpm = 3500;
+  char snapshot[rav::SNAPSHOT_MAX];
+  analogs[PIN_SPEED] = 0; pollSensors(fakeNow);
+  formatSnapshot(snapshot, sizeof(snapshot));
+  assert(strstr(snapshot, "\"speed\":1000"));
+  analogs[PIN_SPEED] = 1023; pollSensors(fakeNow + SENSOR_MS);
+  formatSnapshot(snapshot, sizeof(snapshot));
+  assert(strstr(snapshot, "\"speed\":6000"));
+  assert(strstr(snapshot, "\"applied_speed\":3500"));
 }
