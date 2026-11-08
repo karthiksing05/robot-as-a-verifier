@@ -1,111 +1,85 @@
-# Handoff: what System 2 needs from System 1
+# System 1 handoff, Nov 7 2026
 
-**For:** Joseph, and anyone else changing `system-1/`. **From:** Karthik. **Written:** Nov 7, 2026.
+For Joseph. This covers what changed in System 1 on `karthik-frontier-integration` since PRs #4–#10, which are now merged in (D34). The earlier handoff's real-arm list lives in the [server README](server/README.md), and that's still the place for how to run things. This file covers what's new, what you need to review, and what's broken.
 
-## Changed since: the core, sim and hardware split (Joseph, Nov 7)
+Your calls stand. The verdict rules, the torque gate and the 15 N cap are as you left them.
 
-System 1's code is now three folders of flat modules. `core/` is the pipeline: perception, touch, skills and verdict rules. `sim/` is the MuJoCo rig, the film and the benchmark, and `hardware/` has the real arm's and wrist camera's drivers. A rig (`rig.Rig` in `core/rig.py`) is an arm and its cameras, and it is the only thing that changes between the sim and the real arm. `sim_rig.make_rig` builds the sim's and `hw_rig.make_rig` the real one. `rig.Arm` is now the arm interface, and `rav_arm.ports.ArmBackend` is superseded. In the server, `SimBackend` is `PipelineRobot` on the sim's rig. Its signature and the tools haven't changed.
+## 1. The stock gripper is the default
 
-The server now shares two of explore.py's rules. Each touch falls back on its own, so a failed part touch keeps a good touched plane. A last look that raises leaves the part as scanned and the step goes on, where before the routine stopped with a `safety_abort`.
+We no longer have the fingertip probe, so the real arm is a stock SO-101 with its own gripper and nothing else.
 
-`rav-server --robot real --arm-port COM5 --calibration <file>` runs `PipelineRobot` over `hw_rig.make_rig`. It asks at the terminal before torque goes on, and has only run against the fake bus. Before it's useful it needs:
+- `--effector stock` is the default in `rav-server`, `make_rig`, `SimBackend`, the Console and the evals. `--effector probe` is still in the sim as a reference. A real arm refuses it, along with every other sim-only flag (`main.py`).
+- With the stock gripper, `--sensing` defaults to `current`, the servos' own load estimate, because there's no pad.
+- Probe results from earlier rounds are sim references only. They aren't evidence about the real arm.
+- **Wrist camera only.** The rig has no global camera, so the Console and the harness (launch, CLI, evals) now default to the wrist route, OWLv2 and SAM, as on your real System 1. The depth route, which surveys with the sim's `phone` camera, stays in the sim as a reference.
 
-- The appliance's Pico firmware. `hardware/pico_readout.py` streams its readings (`make_rig(..., readout_port=...)`), which `affordances` reads during a slide or turn, but it has only run against a stand-in.
-- A hand-eye calibration, the camera's mount offset on the gripper. Every part the scan finds is shifted by it. The last look before a step re-places buttons and doors, but toggles, sliders and dials are tested where the scan put them. The plane sweep doesn't need it: an offset shared by every photo cancels out, and the bundle adjustment corrects each photo's own error from the joints.
-- The bench numbers on [the real-arm page](sim/docs/real-arm.md): servo stiffness and bus timing.
+## 2. New and changed skills
 
-A later `explore` can take an area of the panel from System 2 and scan only that. It would be built from `perceive.plan_views` and `rgbperceive.scan`, as `perceive_rgb` already does for the extra views of parts too few photos saw, and would go in `core/pipeline.py` with a `PipelineRobot` method.
+All of these are in [`core/affordances.py`](core/affordances.py) and [`core/manipulate.py`](core/manipulate.py), and run on the stock gripper unless noted.
 
-## The goal
+| Skill | How it works now | Sim status |
+|---|---|---|
+| `press` | The closed jaws' tip pushes along the normal. A pulse that's on only briefly still counts as a press | 5/5 on every device |
+| `flip` | The lever goes between the open jaws, and one jaw pushes it over. Your let-go centre (half of `FLIP_PAST` past centre) now applies to both effectors | 20/20 |
+| `turn` | A pinch-turn: the jaws close on the knob and the wrist rolls it. If the knob lags, it grips again, up to 6 times, until it's within 4° of the request. **D35** | Lands short on centrifuge v7 (about 50° for 60°). See section 5 |
+| `hook_pull` | Lifts a lid by its handle: ramped moves, a slow final 8 mm, and retries | Opens 27/30, with no cap trips |
+| `pick`, `place` | Pick grips the object's faces, shutting by servo load. Place lowers into a well, or drops from `drop_mm` | Pick works on most devices. Place is 0/5 on the centrifuge's well A: the jaws hit the top panel |
+| `swing` (door) | Microwave door, using the `_door_*` helpers in `manipulate.py` | In progress: the force estimate trips before the latch breaks |
+| `reposition` | The backend moves the whole device. The scene is stale until the next explore | Re-explore after a move sometimes loses the device |
 
-We're about to get access to a frontier model. We want the whole test process in the sim to run through it: the model looks at what System 1 found on a device, reasons about what to test, starts routines, reads the results, and changes the plan when something goes wrong. It should do this on devices it hasn't seen, not just preset C.
+There are two more changes:
 
-System 1 stays as it is in principle. It never calls a model, it has no joint or motor tool, and its rules decide every verdict. The model works only through routines and the closed skill list, as [the boundary doc](../docs/system-boundary.md) sets out.
+- **Contact recovery.** A move that starts already in contact may continue as long as it gets no deeper. `go_home` backs out of contact before it travels.
+- **Telling direction.** `_judge` takes a dial's direction from its furthest reading, not its last.
 
-The gap is that today's tools were built for a rule-based caller. The rule planner reads the sim's parts directly and always sends valid steps, so nothing had to explain the device or the allowed actions to an outside caller. A model only knows what the tools tell it.
+## 3. What needs you
 
-## What a run will look like
+1. **D32: force at stretched poses.** At the low, far-out poses where the dials and toggles sit, the servo estimate reads 6–13 N when about 0–4 N is really on the tip. **The 15 N cap is unchanged.** The skills just don't trust the estimate there for side-force and landing checks. We can't tell from the sim whether this is real or a sim artifact.
 
-1. The harness starts `explore` and waits for it to finish.
-2. The model reads `system_status` and `scene_get`, then reasons about the device and writes a plan.
-3. The harness checks and approves the plan, then starts `run_plan`.
-4. At each stop, the model reads the numbers, fetches evidence if it needs more, and continues, amends, skips or aborts.
-5. The harness computes the reward from System 1's verdicts and writes the report.
+   To settle it, try the 2-minute scale test in D32:
+   - Hold the tip about 250 mm out and 20–30 mm up, with the tool 45° down.
+   - Move 15 mm in free air and log the estimate.
+   - Press a kitchen scale with about 3 N and log the estimate again.
 
-## What already works
+   An error under 2 N means it's the sim.
+2. **`RealArm` never drives the gripper** ([`hardware/real_arm.py`](hardware/real_arm.py) turns torque on for the five arm joints only). Every stock skill opens and closes the jaws, so on the real arm only `press` (jaws shut) can work as things stand.
 
-These don't need changes:
+   Driving motor 6 (RANGE_0_100) is the one piece of the real path we'd need from you. Pick and place also shut "by the servo's load", which needs motor 6's present load.
+3. **D35: closing the loop on a turn.** The turn measures how far the knob went from the robot's own view: the fin's line seen by the wrist camera before and after, or failing that, the wrist's roll while gripping. It **never** uses the device's reading, so a dead pot still shows up as a fault.
 
-- The seven tools over HTTP, and holding at a stop for as long as System 2 takes
-- The stops, local retries, policies and force clamp
-- `--seed` for generated devices, and both the RGB and depth routes
-- Verdicts that come only from System 1's rules
+   Printed jaws on a real knob may creep like the sim's soft contact does. Please check whether this matches what you see.
+4. **D31 defaults are still open:**
+   - restarting the server for a new device;
+   - `check_steps` validating from the contract alone;
+   - `Step.check` reported beside the verdict;
+   - a 14 N step limit, rejected rather than clamped.
 
-On Nov 7, after #10, both routes scored 7 of 8 controls through the server on preset C, one run each.
+   Each is yours to overrule.
+5. **`effector="stock"` through `driver="real"`** (the sim's motor bus through `RealArm`) is untested. `tests/test_real_backend.py` only covers the default.
 
-## Needed before the first model run (P0)
+## 4. Contracts and flags since your last look
 
-| # | What we need | Why | Where it stands today |
-|---|---|---|---|
-| 1 | **Publish the allowed actions:** which skill each control kind takes, each skill's required params, their ranges and the default force | The model can't guess these, and the wrong skill gets refused | `_check` enforces them, but no tool reports them. `Skill` also lists `press_hold`, `hook_pull`, `observe` and `none`, while the engine offers only five skills |
-| 2 | **Give each control the details needed to plan a step:** dial range in degrees, slider position and travel, and a printed label if the pipeline can read one | A valid `slide` or `turn` depends on these. Today the model could only copy numbers from the fallback plan, not reason about them | `part_to_control` drops `range`, `state` and `meta`, and `label` is always empty |
-| 3 | **Reject bad requests before anything moves.** `routine_start` should return a tool error listing every bad step. An amended plan at `routine_resume` should get the same, and the routine should keep holding | A model's typo shouldn't count as a test result | An unknown target, wrong skill or bad param comes back as a refused step, which maps to `skipped`. That looks the same as a real refusal such as a pinch-only part |
-| 4 | **Make the force limits agree** | A model asking for 20 N should get a clear answer | The engine clamps to 15 N, then `_check` refuses anything above 14 N, so the clamp can turn a request into a refusal |
-| 5 | **Make `home` and a repeat `explore` work on the sim** | The model needs to be able to take another look at a device | `SimBackend` has no `home`, so the routine reports success without moving. `at_home` is never cleared, and `known` carries over |
-| 6 | **Choose the device and fault at startup:** add `--fault` and `--placement` to `rav-server` | We can't test the model's reasoning about failures without failures | `explore.py` has `--placement`, but the server doesn't. `faults.plant` exists, but nothing in the server calls it |
-| 7 | **Report a pipeline failure as something other than a safety abort** | A survey that can't find a plain panel isn't dangerous, and the model could respond to it. A `safety_abort` needs a person to resume | The engine's catch-all turns every exception into `safety_abort` |
-| 8 | **Pass through the measurements the sim already has:** `contact_offset_mm`, `refined`, `refine_shift_mm`, `regrip_mm`, `landing_n`, `collisions` and `lcd` | These are what separate "the part is broken" from "the robot missed". Keep them small, or put the larger ones in the trace only | `run_step` returns them, and `map_verdict` drops them. A stop reporting one step must stay under 2 KB, as `test_engine.py` checks |
+- `make_rig(..., device, rev, effector="stock", mounts, driver="sim")`. `driver="real"` puts `RealArm` over the sim's simulated bus.
+- `--rev` takes a named revision (`A`, `B`, `M1`) or a fault map (`F2=B,F3=A`). A device's faults are its parts, so `--fault` must be empty with `--device`.
+- `pick`, `place` and `hook_pull` are offered only on a rig with a device file. Stock gets pick and place, probe gets hook_pull (`server/src/rav_server/actions.py`).
+- `perceive.refine` sets `meta.seen_x`, the fin's line as seen, which the turn uses.
+- Arm errors are injected per action (skill, target, attempt) with `--error-rate`. `--error-schedule` forces them for tests.
 
-## Needed soon after (P1)
+## 5. Known limits, in priority order
 
-| # | What we need | Why | Where it stands today |
-|---|---|---|---|
-| 9 | **Images by reference:** a survey view of the device, plus before and after frames for a step, fetched through `evidence_get` | This is the biggest step up for reasoning about new objects. Sending them only on request keeps them out of every model turn | `StepTrace.frames` is always empty, and `evidence_get` returns only a trace, though the boundary doc says it can return a frame |
-| 10 | **Evaluate `Step.check`,** or reject steps that include one | Memory is meant to reach System 1 through these checks. Today they're silently ignored | Nothing in the server or `affordances.py` reads `check` |
-| 11 | **Give displays a test:** an `observe` step that reads the display | A display is never tested, so preset C can't score above 0.88 on today's rule plan | `plan_tests` doesn't test displays, and `observe` isn't implemented |
-| 12 | **More planted faults,** covering other kinds of control | With one fault, the model could look good by luck | `FAULTS` holds only `stuck_button`, on `button_2` |
-| 13 | **A separate answer key:** the device's true parts and planted faults, written to a file for scoring | We need to measure what the model missed. It must never reach the model or cross through a tool | Doesn't exist |
-| 14 | **Keep a trace per attempt** | Evidence for an earlier attempt shouldn't disappear | The ref is `trace:<routine>:<step>`, so a retry or a reused step ID overwrites the earlier trace |
-| 15 | **Check that long holds are safe:** hold at a stop for 10 minutes with the server connected, then resume | Model turns can be slow, and the sim's hold hasn't been tested at that length | Holding is built, but untested at that length |
+1. **Turns near the gripper.** From the pinch's look poses, the gripper hides the dial, so the camera can't see the fin and the loop falls back to the wrist. The fix is a look pose that sees the fin.
+2. **Centrifuge v7 detection.** The tube rack is lost every time, yaw errors reach 19°, and some parts get the wrong kind or are duplicated.
+3. **Centrifuge tube.** Pick works 2/5, and placing in well A works 0/5 because of jaw clearance at the top panel. A drop-in experiment (heights 5–40 mm) is running.
+4. **Microwave door.** Unlatching trips the force estimate.
+5. **The hotplate's +60° return** is refused near −57°, now that stock turns are accurate. The check needs revisiting.
+6. **Real reach.** None of the centrifuge poses have been checked against the real arm's limits.
 
-## Later (P2)
+The v7 centrifuge and the MW-1 microwave are now in `appliances/`, with their sources and firmware. Their skills are still being tuned in sim.
 
-- A focused look at one control, as a parameter on `explore`, so the model doesn't have to rescan everything
-- The two unwired escalations, `pose_unstable` and `unknown_control`
-- The planned `press_hold` and `hook_pull` skills
+## Tests
 
-## What we're not asking for
+```
+uv run --extra sim pytest -q        # System 1: 120 pass, 1 skipped on the merge
+```
 
-- **No joint, motor or jog tool**, and no waypoints or raw force commands
-- **No model calls in System 1**, including vision models beyond OWLv2 and SAM
-- **No model influence on verdict rules**
-- **No new tools if we can avoid them.** Items 1 to 9 can fit in the existing seven: new fields on `SystemStatus` and `Control`, validation inside `routine_start` and `routine_resume`, and frames through `evidence_get`
-- **No real-arm work for this.** It's sim only for now, and the same contract should carry over later
-
-## Decisions that are yours
-
-Where you've made a call, it wins. These are my suggestions:
-
-| Question | My suggestion |
-|---|---|
-| Restart the server for each new device, or add a reset? | Restart for now. It needs no new contract, and the test script can handle it |
-| Where should validation live, given that `_check` can plan a sideways push and the sim's renderers belong to one thread? | Run the checks on the worker thread if that's safest, as long as a bad plan fails before the arm moves |
-| Can a failed `Step.check` fail a step? | Report the result beside the verdict first, without changing it, because the boundary doc says verdict rules don't go down from System 2 |
-| Which devices do we use for testing? | Preset C, plus the six generated devices from #10's end-to-end run |
-
-## How we'll know it's ready
-
-No model is needed to check this. A short script should be able to do all of the following using only tool results, without importing anything from `sim/`:
-
-1. Start `rav-server --robot sim --seed <n> --fault <fault>`.
-2. Run `explore`, then build a plan from `system_status` and `scene_get`, without using `fallback_plan`.
-3. Send a plan with a wrong skill and an unknown target. It should be rejected with both problems named, and the arm shouldn't move.
-4. Run a valid plan, and see the planted fault as a failure with enough numbers to explain it.
-5. Answer that stop with an amended plan, and see the amendment run.
-6. Run `home`, then `explore` again, and get a sensible inventory.
-
-## Working together
-
-- Contract changes go in `interface/`, with every use fixed in the same commit, as `CONTRIBUTING.md` describes. Tell Karthik when one lands, because the harness has to match.
-- Items can land one at a time. The harness will start on P0 as it stands, using the fallback plan's numbers until items 1 and 2 arrive.
-- If an item is wrong or too expensive, say so here or on the PR. This list is what we think we need, and you know the pipeline better.
+The tests need each device's `build/` and `appliances/registry.json`, which git ignores. Build them first with `system-1/sim/tools/build.py`; its docstring has the command.

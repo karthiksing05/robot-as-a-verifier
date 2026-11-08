@@ -1,0 +1,12 @@
+{
+  "id": "incubator",
+  "name": "MI-45 mini incubator",
+  "summary": "A small benchtop incubator: power switch, TEMP+ and TEMP- buttons, a windowed chamber door with a pull lip, a display and a status light.",
+  "kind": "sim",
+  "sim": { "path": "appliances/incubator/device.yaml", "rev": "A", "revs": ["A", "B", "M1", "M2"] },
+  "manual": "appliances/incubator/manual.md",
+  "products": ["MI-45 mini incubator (sim)"],
+  "rules": ["Usable with no thumbs"],
+  "split": "validation",
+  "created": "2026-11-07"
+}

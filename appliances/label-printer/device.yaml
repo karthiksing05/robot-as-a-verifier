@@ -1,0 +1,119 @@
+# LP-40 thermal label printer: a RAAV test device (docs/device-authoring.md). Sim truth: the loader, the answer key and
+# evaluation read this file, and no model ever does. Lengths mm, angles deg, in the product frame: origin on the base's
+# bottom face, +X toward the arm, +Z up. Numbers come from cad/model.py and wiring.md.
+#
+# The control face's outer surface is the plane x + z = 119, normal (0.7071, 0, 0.7071), and every control is centred on
+# it at x 42.5, z 76.5 (S below), at its own y: toggle -48, FEED -21, PRINT 5, DARKNESS 35. A cap's top is S + 2.5 n.
+name: lp40
+meta: {title: "LP-40 thermal label printer", split: dev, project: label-printer}
+
+# The centrifuge's placement: the arm's pan axis is at product (274.5, 0, 58), and the stand board makes up the 82 mm.
+placement: {x: 313.3, y: 0.0, yaw: 180.0}
+stand_mm: 82
+mounts: {printer: clamped}
+
+meshes: build/meshes_rev{rev}
+# Each fault is one broken property on one piece (docs/device-theory.md). A choice picks its parts' meshes and parameters.
+faults:
+  F1: {what: "FEED button binds in its bezel and never closes its switch", class: mechanical, piece: button_1, property: actuates,
+       A: {parts: {bezel_feed: bezel_feed_revA}, params: {feed_travel: 0.1}},
+       B: {parts: {bezel_feed: bezel_feed_revB}, params: {feed_travel: 0.3}}}
+  F2: {what: "PRINT prints with the roll cover open, instead of refusing with COVER", class: firmware, piece: button_2, property: interlock_holds,
+       masked_by: [F3],
+       A: {params: {print_guard: "btn_print == 1"}},
+       B: {params: {print_guard: "btn_print == 1 and cover == 1"}}}
+  F3: {what: "the cover's lift tab is a skirt whose lip sits 2 mm above the deck, too close to the body for a fingertip to get under it and lift the cover", class: ergonomic,
+       piece: handle_1, property: operable_under_rules,
+       A: {parts: {cover_lip: cover_lip_revA}, params: {lip_z: 88.0, lip_pull: [0.147, 0, 0.989], lip_clear: 2.0}},
+       B: {parts: {cover_lip: cover_lip_revB}, params: {lip_z: 107.5, lip_pull: [-0.092, 0, 0.996], lip_clear: 21.5}}}
+revs:
+  A: {F1: A, F2: A, F3: A}
+  B: {F1: B, F2: B, F3: B}
+  M1: {F1: A, F2: A, F3: B}   # the lip fixed alone: the cover now opens, which unmasks PRINT's missing cover check
+
+roots:
+  printer:
+    mass_kg: 0.6
+    parts: [base_plate, front_panel, side_panel_L, side_panel_R, back_panel, control_face, top_deck, cover_hinge_base,
+            bay_rim_front, bay_rim_back, bay_rim_L, bay_rim_R,
+            bezel_print, $bezel_feed]
+    visual_only: [label_roll, roll_spindle, spindle_bracket_L, spindle_bracket_R, toggle_base, dial_skirt, display_frame,
+                  light_window, ref_pico, ref_print_head, ref_oled]
+
+bodies:
+  - {name: cap_feed, root: printer, parts: [cap_feed], joint: {type: slide, axis: [-0.7071, 0, -0.7071], anchor: [44.27, -21, 78.27], range: [0, $feed_travel], stiffness: 2000, preload_n: 2.0, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - {name: cap_print, root: printer, parts: [cap_print], joint: {type: slide, axis: [-0.7071, 0, -0.7071], anchor: [44.27, 5, 78.27], range: [0, 0.3], stiffness: 2000, preload_n: 2.0, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - name: dial_knob
+    root: printer
+    parts: [dial_knob]
+    collide_geoms_only: true
+    geoms:   # a 10 mm knob and its 3 mm fin, as primitives: 5 to 16 mm above the face
+      - {type: cylinder, fromto: [46.04, 35, 80.04, 53.81, 35, 87.81], radius: 5.0, mass: 0.003}
+      - {type: box, pos: [52.17, 31.82, 81.67], half: [4.5, 1.5, 5.5], x: [0.5, -0.7071, -0.5], z: [0.7071, 0, 0.7071], mass: 0.001}
+    # a plain potentiometer. Clockwise from outside is negative about +normal, and darkens
+    joint: {type: hinge, axis: [0.7071, 0, 0.7071], anchor: [49.93, 35, 83.93], range: [-270, 0], damping: 0.002, frictionloss: 0.004, armature: 0.0005}
+  - name: power_lever
+    root: printer
+    # 10 mm lever from a pivot 6 mm above the face, leaning 15 deg down the slope (off); q 30 deg leans up the slope (on)
+    geoms:
+      - {type: capsule, fromto: [46.74, -48, 80.74, 55.4, -48, 85.74], radius: 1.5, rgba: [0.75, 0.75, 0.78, 1], mass: 0.002}
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [46.74, -48, 80.74], range: [0, 30], damping: 0.002, armature: 0.0002}
+    snap: {nm: 0.012, centre_deg: 15}
+  - name: cover
+    root: printer
+    parts: [cover, cover_hinge_leaf, $cover_lip, cover_sensor_fin]
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [-55.0, 0, 100.0], range: [0, 105], damping: 0.02, frictionloss: 0.002, armature: 0.001, mass: 0.04}
+
+display: {root: printer, centre: [66.0, 0, 30.0], normal: [1, 0, 0], up: [0, 0, 1], size: [22.0, 11.0]}
+light: {root: printer, centre: [26.0, -45.0, 86.3], radius: 4, colours: {"off": [0.1, 0.1, 0.1, 1], white: [0.95, 0.95, 0.95, 1], blue: [0.1, 0.3, 0.95, 1], red: [0.9, 0.1, 0.1, 1]}}
+
+# The registered inventory: what a scan may miss. Ids are generic; the manual's names never appear here.
+controls:
+  - {id: button_1, kind: button, body: cap_feed, top: [44.27, -21, 78.27], normal: [0.7071, 0, 0.7071], x: [0, 1, 0], size: [10, 10, 2.5], radius: 5.0, travel: 0.3, switch_at: 0.67}
+  - {id: button_2, kind: button, body: cap_print, top: [44.27, 5, 78.27], normal: [0.7071, 0, 0.7071], x: [0, 1, 0], size: [10, 10, 2.5], radius: 5.0, travel: 0.3, switch_at: 0.67}
+  - {id: dial_1, kind: dial, body: dial_knob, top: [46.04, 35, 80.04], normal: [0.7071, 0, 0.7071], x: [0.5, -0.7071, -0.5], size: [18, 18, 11], knob_radius: 5.0, knob_height: 11, fin_length: 18, fin_width: 3, fin_height: 11, floor_gap: 5, one_sided: true, range_deg: [-270, 0]}
+  - {id: toggle_1, kind: toggle, body: power_lever, hinge: [46.74, -48, 80.74], normal: [0.7071, 0, 0.7071], lean: [0.7071, 0, -0.7071], tip: [55.4, -48, 85.74], size: [10, 10, 11.5], lever_len: 11.5, lever_radius: 1.5, base_size: [10, 10, 3]}
+  # the lift tab's lip, on its underside 4 mm in from its edge. Opening swings it about the hinge: pull is that arc's direction at rest,
+  # and clear is the gap under the lip
+  - {id: handle_1, kind: handle, body: cover, reads: true, pos: [26.0, 0, $lip_z], normal: [1, 0, 0], grip: tip, pull: $lip_pull, under: [-1, 0, 0], clear: $lip_clear, hinge: [-55.0, 0, 100.0], axis: [0, -1, 0], open_deg: 105, size: [10, 24, 2.5]}
+  - {id: display_1, root: printer, kind: display, pos: [66.0, 0, 30.0], normal: [1, 0, 0], x: [0, 1, 0], size: [22, 11, 0.5]}
+
+# Faces the probe touches to find where the printer really is (inventory.py): the front panel, either side of the display.
+registration:
+  printer:
+    touches:
+      - {at: [66.0, -45.0, 40.0], normal: [1, 0, 0]}
+      - {at: [66.0, 45.0, 40.0], normal: [1, 0, 0]}
+
+# The Pico's firmware, as data. Channel names are its serial events (wiring.md).
+firmware:
+  channels: {power: 0, btn_feed: 0, btn_print: 0, darkness: 1, cover: 1, count: 0, run: idle}
+  sensors:
+    - {channel: btn_feed, joint: cap_feed, when: "q >= 0.0002"}
+    - {channel: btn_print, joint: cap_print, when: "q >= 0.0002"}
+    - {channel: power, joint: power_lever, when: "q > radians(15)", hysteresis: 0.05}
+    - {channel: darkness, joint: dial_knob, value: "1 + round(-q / radians(270) * 8)"}
+    - {channel: cover, joint: cover, when: "q < radians(2)"}
+  states:
+    dark:
+      show: {lcd: "", ring: "off"}
+    ready:
+      show: {lcd: "DARK {darkness}  {count:03d}", ring: white}
+    feeding:
+      show: {lcd: "FEED", ring: white}
+    running:
+      show: {lcd: "PRINTING", ring: blue}
+    refused:
+      show: {lcd: "{reason}", ring: red}
+  start: dark
+  transitions:   # checked in order; the first match fires
+    - {any: true, when: "power == 0", to: dark, do: {run: idle}}
+    - {from: dark, when: "power == 1", to: ready, do: {count: 0}}
+    - {from: [ready, refused], event: btn_feed, when: "btn_feed == 1 and cover == 1", to: feeding, do: {run: feed}}
+    - {from: [ready, refused], event: btn_feed, when: "btn_feed == 1", to: refused, do: {reason: COVER, run: "refused:COVER"}}
+    - {from: [ready, refused], event: btn_print, when: "$print_guard", to: running, do: {left: 3, run: start}}
+    - {from: [ready, refused], event: btn_print, when: "btn_print == 1", to: refused, do: {reason: COVER, run: "refused:COVER"}}
+    - {from: feeding, after: "1", to: ready, do: {run: idle}}
+    # left counts down by itself while running
+    - {from: running, when: "left <= 0", to: ready, do: {count: "count + 1", run: done}}
+    - {from: refused, when: "cover == 1", to: ready, do: {run: idle}}

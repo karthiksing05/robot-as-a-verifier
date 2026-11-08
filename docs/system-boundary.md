@@ -60,12 +60,12 @@ There are two channels, because the two kinds of traffic have nothing in common.
 
 | Tool | Does | Kind |
 |---|---|---|
-| `system_status` | State, health, the skills on offer, active routine | Read |
-| `scene_get` | The latest `SceneInventory`, and a rule-based fallback plan | Read |
-| `evidence_get` | One frame or force trace, by reference, when the model asks for it | Read |
-| `routine_start` | Starts `explore`, `run_plan` or `home` with a policy. Returns a handle | Write |
+| `system_status` | State, the skills on offer with what each acts on and takes, the force limit, active routine | Read |
+| `scene_get` | The current `SceneInventory`, updated as steps move parts, and a rule-based fallback plan. `stale` means the device moved, so run `explore` | Read |
+| `evidence_get` | One attempt's trace or one camera frame, by reference, when the model asks for it | Read |
+| `routine_start` | Starts `explore`, `run_plan` or `home` with a policy. Returns a handle. A bad plan fails here, naming every problem, before anything moves | Write |
 | `routine_wait` | Blocks until the routine's next [stop](#when-system-1-wakes-system-2), or a timeout. Returns a `Checkpoint` | Read |
-| `routine_resume` | Answers a stop: continue, amend the remaining steps, skip or abort | Write |
+| `routine_resume` | Answers a stop: continue, amend the remaining steps, skip or abort. A bad amendment fails here, and the routine keeps holding | Write |
 | `routine_stop` | Stops at the next step boundary | Write |
 
 **There is no motor, joint or jog tool, on purpose.** System 2's strongest write is a named routine with bounded parameters, and System 1 clamps those parameters to its own limits. So no prompt, bug or bad plan can drive a joint directly. The hardware E-stop stays separate from all of this.
@@ -107,12 +107,13 @@ System 1 defers only for issues that matter, however often those turn out to hap
 | `done` | Routine finished | Holds at home |
 | `checkpoint` | The interval set by the policy | Pauses at the step boundary |
 | `escalation` | One of the codes below | Pauses at the step boundary |
-| `safety_abort` | Force cap, joint limit or hardware fault | **Stops first, reports second** |
+| `safety_abort` | Force cap, joint limit, hardware fault, or anything we can't place | **Stops first, reports second** |
+| `pipeline_error` | Perception couldn't do its job, such as a survey that finds no panel. Only `explore` raises it | Already safe. No person needed: System 2 can respond |
 
 | Situation | System 1 handles it locally | Escalates when |
 |---|---|---|
 | Missed a contact or slipped off a part | Re-looks and retries (`affordances.py` already has `RETRY` and `REGRIP`), up to the policy's budget | `retries_exhausted`: the budget ran out |
-| Small position error | Corrects with the wrist camera's last look | `pose_unstable`: corrections keep growing. *Not wired up yet* |
+| Small position error | Corrects with the wrist camera's last look | `pose_unstable`: the corrections or contact offsets keep growing across steps, or the scene went stale because the device moved. The numbers come with it. On a stale scene the routine holds, and the only answer is to abort it and run `explore` |
 | Low-confidence detection | Holds and reports what it found | `perception_low_confidence`: still below the policy's floor |
 | A control the plan doesn't know | Records it in the inventory | `unknown_control`: only if the policy asks. *Not wired up yet* |
 | A reading changed that shouldn't have | Marks the step `wrong_behavior` | `unexpected_response`: it might change what else is safe to do |
@@ -231,6 +232,12 @@ If code can't place a change, it counts as level 2. So does anything past the fi
 
 1. **Run Tethered on the sim and the arm** as the baseline, and record the [measurements](#tuning-how-much-they-talk) before loosening anything.
 2. **Add the real arm** as a `Robot` in `system-1/server`.
-3. **Split `live_sim.py`.** Its streams and sim hooks go to `system-1/server`, and its run logging to System 2. Until then, the Console's Live screen only works where the sim runs, so it can't show a robot on another laptop.
+3. **Finish splitting `live_sim.py`.** Its streams now also run behind `rav-server` ([`telemetry.py`](../system-1/server/src/rav_server/telemetry.py), on `127.0.0.1` only). The bridge stays as the fallback until the Console watches `rav-agent`'s runs.
 4. **Add the LLM:** `/explore` with memory, then a `Responder` that revises the plan on a failure. Today's rule responder records each failure and carries on.
 5. **Record tool calls in the trace.** The harness logs crossings, but not each `routine_*` call as a `tool_call` event.
+
+**Later, when something needs it:**
+
+- A focused look at one area of the panel, as a parameter on `explore`, so a caller doesn't have to rescan everything. It would be built from `perceive.plan_views` and `rgbperceive.scan`, as `perceive_rgb` already does for the extra views of parts too few photos saw, and would go in `core/pipeline.py` with a `PipelineRobot` method.
+- The `unknown_control` escalation, which needs the pipeline to report parts it couldn't classify.
+- The planned `press_hold` skill.

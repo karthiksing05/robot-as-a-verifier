@@ -1,0 +1,225 @@
+# MC-6 mini centrifuge and MC-R4 rack, v7 (November 2026): the reference test device (docs/device-authoring.md). Sim
+# truth: the loader, the answer key and evaluation read this file, and no model ever does. Lengths mm, angles deg, in the
+# product frame: origin on the base's bottom face, +X toward the arm, +Z up. Sources, all in source/ (Karthik's, not
+# edited here): geometry from step/mc6_rev{A,B}.step and bodies.csv, joints from motion.md, faults from faults.md,
+# placement and mass from logistics.md, firmware from ../firmware/MC6_firmware/MC6_firmware.ino (where it and
+# electronics/electronics.md differ, the .ino wins; see wiring.md).
+name: mc6
+meta: {title: "MC-6 mini centrifuge", split: dev, project: centrifuge}
+
+# logistics.md: product origin 313.3 mm in front of the arm base, facing it (yaw 180), on an 82 mm board (the sim's arm
+# stands 140 mm above its desk and the CAD expects 58). Both clamped: the centrifuge by its rear base lip, the rack by its base.
+placement: {x: 313.3, y: 0.0, yaw: 180.0}
+stand_mm: 82
+mounts: {centrifuge: clamped, rack: clamped}   # clamped: fixed to the bench. free: friction on the bench only
+
+meshes: build/meshes_rev{rev}
+# faults.md. Each fault is one broken property on one piece (docs/device-theory.md). F1 (STOP bezel) is dropped in v7.
+faults:
+  F2: {what: "lid handle is a thin pinch fin with no hook lip, so the lid can't be lifted from below one-handed or with the gripper", class: ergonomic,
+       piece: handle_1, property: operable_under_rules,
+       A: {parts: {lid_handle: lid_handle_revA}, params: {lid_grip: pinch}}, B: {parts: {lid_handle: lid_handle_revB}, params: {lid_grip: tip}}}
+  F3: {what: "well A bore is too tight (15.6 mm for a 16 mm tube), so the tube sits high, the tube sensor doesn't see it, and START gives TUBE",
+       class: mechanical, piece: well_1, property: accepts_object, masked_by: [F2],
+       A: {parts: {well_insert: well_insert_A_revA}, params: {well_a_id: 15.6}}, B: {parts: {well_insert: well_insert_A_revB}, params: {well_a_id: 16.8}}}
+revs:
+  A: {F2: A, F3: A}
+  B: {F2: B, F3: B}
+  M1: {F2: B, F3: A}   # the handle fixed alone: the lid now opens, which unmasks the tight well
+
+materials: {plywood: {density: 600}, acrylic: {density: 1190}, pla: {density: 1240}}
+
+roots:
+  centrifuge:
+    # logistics.md: ~0.25 kg with the bought parts; the lid (below) is its own body
+    mass_kg: 0.22
+    parts: [base_plate, front_panel, control_face, side_panel_L, side_panel_R, top_panel, rotor_plate, lid_hinge_base,
+            button_start, button_stop, button_time, $well_insert]
+    # ref_toggle_lever is not drawn: the STEP poses it ON, and the lever is the capsule body below
+    visual_only: [gusset_L, gusset_R, lid_hinge_pin, tube_sensor_riser_1, ref_ring, ref_toggle, ref_pot, ref_oled, ref_light_lid, ref_light_tube]
+    arm_only: [top_panel, rotor_plate, well_insert_A_revA, well_insert_A_revB]
+    rings:
+      - {centre: [-21, -13], id: $well_a_id, z: [52.0, 60.7]}   # well A: the printed insert
+      - {centre: [-21, 13], id: 16.8, z: [56.1, 59.1]}          # well B: the rotor plate's hole
+  rack:
+    mass_kg: 0.05   # bodies.csv: 71 g with the cover (below)
+    parts: [rack_base, rack_middle, rack_top, rack_back_strip, rack_end_L, rack_end_R, rack_hinge_base]
+    visual_only: [rack_hinge_pin]   # inside the hinge's knuckles
+    arm_only: [rack_middle, rack_top]
+    rings:
+      - {centre: [100.0, 193.42], id: 16.8, z: [49.4, 52.4]}
+      - {centre: [84.57, 175.03], id: 16.8, z: [49.4, 52.4]}
+      - {centre: [69.15, 156.65], id: 16.8, z: [49.4, 52.4]}
+      - {centre: [53.72, 138.26], id: 16.8, z: [49.4, 52.4]}
+
+# motion.md. Forces are its assumptions: buttons ~3 N, toggle 2-3 N at the tip, dial 0.01-0.02 N m, no detents.
+bodies:
+  # 16 mm panel pushbuttons: press along -n, 1.5 mm to the hard stop, switch closes at 1.0 mm. 2 N preload + 1 N/mm:
+  # 3 N at the click, 3.5 N at the stop
+  - {name: cap_start, root: centrifuge, parts: [cap_start], joint: {type: slide, axis: [-0.7071, 0, -0.7071], anchor: [46.04, -22.86, 80.04], range: [0, 1.5], stiffness: 1000, preload_n: 2.0, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - {name: cap_stop, root: centrifuge, parts: [cap_stop], joint: {type: slide, axis: [-0.7071, 0, -0.7071], anchor: [46.04, 0, 80.04], range: [0, 1.5], stiffness: 1000, preload_n: 2.0, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - {name: cap_time, root: centrifuge, parts: [cap_time], joint: {type: slide, axis: [-0.7071, 0, -0.7071], anchor: [46.04, 22.86, 80.04], range: [0, 1.5], stiffness: 1000, preload_n: 2.0, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - name: dial_knob
+    root: centrifuge
+    parts: [dial_knob]
+    collide_geoms_only: true
+    geoms:   # the knob (Ø10) and its pointer fin, as primitives, 5 to 16 mm above the face (the mesh is a plywood stack)
+      - {type: cylinder, fromto: [46.04, 50.5, 80.04, 53.81, 50.5, 87.81], radius: 5.0, mass: 0.003}
+      - {type: box, pos: [52.17, 47.32, 81.67], half: [4.5, 1.5, 5.5], x: [0.5, -0.7071, -0.5], z: [0.7071, 0, 0.7071], mass: 0.001}
+    # a 270 deg pot with its own end stops, no detents, light friction (0.015 N m: stays where it's left). Clockwise
+    # seen from the front raises the speed: q from 0 (1000 rpm) to -270 (6000 rpm) about +n
+    joint: {type: hinge, axis: [0.7071, 0, 0.7071], anchor: [49.93, 50.5, 83.93], range: [-270, 0], damping: 0.002, frictionloss: 0.015, armature: 0.0005}
+  - name: toggle_lever
+    root: centrifuge
+    # SPDT, latching. Pivot at the bushing top, hinge (0, -1, 0); lever 10 mm, Ø3. q = 0 leans 15 deg to the face's
+    # bottom edge (OFF), q = 30 to its top edge (ON); it snaps over centre at 15. 0.025 N m peak snap: 2.5 N at the tip
+    geoms:
+      - {type: capsule, fromto: [46.74, -50.5, 80.74, 55.4, -50.5, 85.74], radius: 1.5, rgba: [0.75, 0.75, 0.78, 1], mass: 0.002}
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [46.74, -50.5, 80.74], range: [0, 30], damping: 0.002, armature: 0.0002}
+    snap: {nm: 0.025, centre_deg: 15}
+  - name: lid
+    root: centrifuge
+    parts: [lid, lid_hinge_leaf, $lid_handle, lid_sensor_fin]
+    # 0-105 deg, closes under its own weight, rests open past vertical on its stop. 31 g: the 3 mm acrylic plate (28.8 g)
+    # with its hinge leaf, handle and fin (bodies.csv; logistics.md's ~60 g is wrong, per Karthik)
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [-56.5, 0, 102.0], range: [0, 105], damping: 0.02, frictionloss: 0.002, armature: 0.001, mass: 0.031}
+  - name: rack_cover
+    root: rack
+    parts: [rack_cover, rack_hinge_leaf, rack_cover_lip]
+    # bodies.csv: about 21 g with its leaf and lip. Own weight only, no latch
+    joint: {type: hinge, axis: [-0.64, -0.77, 0], anchor: [60.39, 179.66, 86.2], range: [0, 105], damping: 0.02, frictionloss: 0.002, armature: 0.001, mass: 0.021}
+
+# Loose things. Both start in the rack: tube_1 in position 2, where the CAD has it, and tube_2 (a copy of the same
+# print) in position 4 (cad/model.py says why not 1 or 3). Tube: Ø16 body, 55 long, collar (18 mm across its flats) and a top loop, ~5 g.
+objects:
+  - name: tube_1
+    part: tube_2
+    root: rack
+    mass_kg: 0.005
+    rgba: [0.92, 0.92, 0.9, 1]
+    collar: [84.57, 175.03, 58.0]
+    collar_top: [84.57, 175.03, 61.0]
+    # the tube's profile, from its top of collar down: [radius, from, to]. The long taper is what lets a tight bore stop it high
+    stack: [[9.5, -6, -8.6], [8.0, -8.6, -17.0], [7.2, -17.0, -22.0], [6.0, -22.0, -28.0], [5.0, -28.0, -34.0], [4.0, -34.0, -40.0], [3.0, -40.0, -46.5], [2.0, -46.5, -55.0]]
+    boxes:
+      - {x: [0.77, -0.64, 0], at: [0, 0, -3.0], half: [9.0, 11.0, 3.0]}    # collar, 18 mm across its flats
+      - {x: [0.77, -0.64, 0], at: [0, 0, 8.6], half: [1.5, 7.0, 7.0]}      # lifting loop
+  - name: tube_2
+    part: tube_2_pos4
+    root: rack
+    mass_kg: 0.005
+    rgba: [0.92, 0.92, 0.9, 1]
+    collar: [53.72, 138.26, 58.0]
+    collar_top: [53.72, 138.26, 61.0]
+    stack: [[9.5, -6, -8.6], [8.0, -8.6, -17.0], [7.2, -17.0, -22.0], [6.0, -22.0, -28.0], [5.0, -28.0, -34.0], [4.0, -34.0, -40.0], [3.0, -40.0, -46.5], [2.0, -46.5, -55.0]]
+    boxes:
+      - {x: [0.77, -0.64, 0], at: [0, 0, -3.0], half: [9.0, 11.0, 3.0]}
+      - {x: [0.77, -0.64, 0], at: [0, 0, 8.6], half: [1.5, 7.0, 7.0]}
+
+# The OLED behind the front panel's window and the 24-LED ring under the rotor plate.
+display: {root: centrifuge, centre: [58.7, 0, 30.0], normal: [1, 0, 0], up: [0, 0, 1], size: [22.0, 11.0]}
+light: {root: centrifuge, centre: [-21, 0, 54.0], radius: 30, colours: {"off": [0.1, 0.1, 0.1, 1], white: [0.95, 0.95, 0.95, 1], blue: [0.1, 0.3, 0.95, 1], green: [0.1, 0.85, 0.2, 1], red: [0.9, 0.1, 0.1, 1]}}
+
+# What a scan may fail to find, as a registered inventory. Each is one part in the product frame, with the keys its kind
+# needs. System 1 uses one only where its scan found nothing there, with source "cad".
+controls:
+  - {id: button_1, kind: button, body: cap_start, top: [46.04, -22.86, 80.04], normal: [0.7071, 0, 0.7071], x: [0, 1, 0], size: [13, 13, 5], radius: 6.5, travel: 1.5, switch_at: 0.667}
+  - {id: button_2, kind: button, body: cap_stop, top: [46.04, 0, 80.04], normal: [0.7071, 0, 0.7071], x: [0, 1, 0], size: [13, 13, 5], radius: 6.5, travel: 1.5, switch_at: 0.667}
+  - {id: button_3, kind: button, body: cap_time, top: [46.04, 22.86, 80.04], normal: [0.7071, 0, 0.7071], x: [0, 1, 0], size: [13, 13, 5], radius: 6.5, travel: 1.5, switch_at: 0.667}
+  - {id: dial_1, kind: dial, body: dial_knob, top: [46.04, 50.5, 80.04], normal: [0.7071, 0, 0.7071], x: [0.5, -0.7071, -0.5], size: [18, 18, 11], knob_radius: 5.0, knob_height: 11, fin_length: 18, fin_width: 3, fin_height: 11, floor_gap: 5, one_sided: true, range_deg: [-270, 0]}
+  - {id: toggle_1, kind: toggle, body: toggle_lever, hinge: [46.74, -50.5, 80.74], normal: [0.7071, 0, 0.7071], lean: [0.7071, 0, -0.7071], tip: [55.4, -50.5, 85.74], size: [10, 10, 11.5], lever_len: 11.5, lever_radius: 1.5, base_size: [10, 10, 3]}
+  - {id: handle_1, kind: handle, body: lid, reads: true, pos: [26.0, 0, 107.0], normal: [1, 0, 0], grip: $lid_grip, pull: [-0.06, 0, 1], under: [-1, 0, 0], clear: 10, hinge: [-56.5, 0, 102.0], axis: [0, -1, 0], open_deg: 105, size: [16, 9, 10]}
+  - {id: handle_2, kind: handle, body: rack_cover, pos: [102.91, 143.98, 81.2], normal: [0.77, -0.64, 0], grip: tip, pull: [0.07, -0.06, 1], under: [-0.77, 0.64, 0], clear: 3, hinge: [60.39, 179.66, 86.2], axis: [-0.64, -0.77, 0], open_deg: 105, size: [16, 9, 3]}
+  - {id: display_1, root: centrifuge, kind: display, pos: [58.7, 0, 30.0], normal: [1, 0, 0], x: [0, 1, 0], size: [22, 11, 0.5]}
+  - {id: well_1, root: centrifuge, kind: well, reads: true, pos: [-21, -13, 60.7], normal: [0, 0, 1], x: [1, 0, 0], size: [16.8, 16.8, 1], collar: [-21, -13, 65.3]}
+  - {id: well_2, root: centrifuge, kind: well, pos: [-21, 13, 59.1], normal: [0, 0, 1], x: [1, 0, 0], size: [16.8, 16.8, 1], collar: [-21, 13, 64.68]}
+  - {id: well_3, root: rack, kind: well, pos: [100.0, 193.42, 52.4], normal: [0, 0, 1], x: [0.77, -0.64, 0], size: [16.8, 16.8, 1], collar: [100.0, 193.42, 58.0]}
+  - {id: well_4, root: rack, kind: well, pos: [84.57, 175.03, 52.4], normal: [0, 0, 1], x: [0.77, -0.64, 0], size: [16.8, 16.8, 1], collar: [84.57, 175.03, 58.0]}
+  - {id: well_5, root: rack, kind: well, pos: [69.15, 156.65, 52.4], normal: [0, 0, 1], x: [0.77, -0.64, 0], size: [16.8, 16.8, 1], collar: [69.15, 156.65, 58.0]}
+  - {id: well_6, root: rack, kind: well, pos: [53.72, 138.26, 52.4], normal: [0, 0, 1], x: [0.77, -0.64, 0], size: [16.8, 16.8, 1], collar: [53.72, 138.26, 58.0]}
+  - {id: tube_1, kind: object, object: tube_1, collar_top: 0.0, jaw_axis: [0.77, -0.64, 0], flats: 18, grips: [{at: [84.57, 175.03, 69.6], axis: [0.64, 0.77, 0], width: 14, depth: 6.0}, {at: [84.57, 175.03, 69.6], axis: [0.77, -0.64, 0], width: 3, depth: 6.0}, {axis: [0.64, 0.77, 0], width: 22, depth: 1.0}, {axis: [0.77, -0.64, 0], width: 18}]}
+  - {id: tube_2, kind: object, object: tube_2, collar_top: 0.0, jaw_axis: [0.77, -0.64, 0], flats: 18, grips: [{at: [53.72, 138.26, 69.6], axis: [0.64, 0.77, 0], width: 14, depth: 6.0}, {at: [53.72, 138.26, 69.6], axis: [0.77, -0.64, 0], width: 3, depth: 6.0}, {axis: [0.64, 0.77, 0], width: 22, depth: 1.0}, {axis: [0.77, -0.64, 0], width: 18}]}
+
+# Faces the probe touches to find where each root really is (inventory.py). Only faces toward the arm: the SO-101 keeps
+# its tool in the plane through its pan axis. Points from ray casts of the CAD, product frame (unchanged since v6).
+registration:
+  centrifuge:
+    touches:
+      - {at: [60.0, -45.0, 50.0], normal: [1, 0, 0]}     # front panel, above the display
+      - {at: [60.0, 45.0, 50.0], normal: [1, 0, 0]}
+  rack:
+    touches:
+      - {at: [128.96, 187.48, 25.0], normal: [0.77, -0.64, 0]}   # middle shelf's front edge: the top's is under the cover's lip
+
+# The Arduino firmware (MC6_firmware.ino v1.0), as data. Channels are its serial events (wiring.md).
+firmware:
+  # power, buttons, speed, lid, tube, run, time: the firmware's events and heartbeat fields. tube_raw_1 and tube_raw_2: the
+  # light under well A shaded by tube 1 or 2, before the firmware's judgement (the heartbeat's tube_raw; one per tube,
+  # because a loader sensor watches one object). The sensors are taken as calibrated as the firmware asks (lid open,
+  # no tube, at power-up), so their thresholds are the geometry's.
+  channels: {power: 0, btn_start: 0, btn_stop: 0, btn_time: 0, speed: 1000, lid: 1, tube: 0, tube_raw_1: 0, tube_raw_2: 0, run: "", time: 30}
+  sensors:
+    - {channel: btn_start, joint: cap_start, when: "q >= 0.001"}   # the switch closes at 1.0 of 1.5 mm
+    - {channel: btn_stop, joint: cap_stop, when: "q >= 0.001"}
+    - {channel: btn_time, joint: cap_time, when: "q >= 0.001"}
+    - {channel: power, joint: toggle_lever, when: "q > radians(15)", hysteresis: 0.05}
+    # the pot over 270 deg (clockwise up, SPEED_INVERT false) to 50 steps of 100 rpm, as readSpeed rounds it. Its
+    # hysteresis (6 ADC counts past half a step, about 1.6 deg) is left out: it needs the wiper's raw reading as a channel,
+    # and a step's judge then reads that one first and calls a regrip's 1-count wiggle a reversal. Tracked in every state,
+    # as the firmware's rpm and heartbeat are; the firmware sends speed events only outside OFF and RUNNING
+    - {channel: speed, joint: dial_knob, value: "1000 + 100 * round(-q / radians(270) * 50)"}
+    # the lid fin shades the lid light when the lid is down: it has lifted clear of most of the sensor by about 2 deg
+    - {channel: lid, joint: lid, when: "q < radians(2)"}
+    # a tube seated in well A: its bottom 3.2 mm over the tube light (shaded); sitting high on Rev A's insert it's 11.1 mm
+    # up and doesn't shade it. Seated = its collar point within 4 mm of where the CAD seats it
+    - {channel: tube_raw_1, object: tube_1, root: centrifuge, near: [-21, -13, 65.3], radius_mm: 3, height_mm: 4}
+    - {channel: tube_raw_2, object: tube_2, root: centrifuge, near: [-21, -13, 65.3], radius_mm: 3, height_mm: 4}
+  # Display: 2 lines of 2x text (a double space splits them). Ring: off, white steady, blue rotating, green, red.
+  states:
+    dark:
+      show: {lcd: "", ring: "off"}
+    ready:
+      show: {lcd: "{speed}rpm  {time//60}:{time%60:02d}", ring: white}
+    running:
+      show: {lcd: "{speed}rpm  {-(-left//1)//60}:{-(-left//1)%60:02d}", ring: blue}
+    done:
+      show: {lcd: "DONE", ring: green}
+    refused:
+      show: {lcd: "{reason}", ring: red}
+  start: dark
+  transitions:
+    # POWER: OFF from anywhere (a run in progress reports stop); ON resets the time to 30 s (the speed is the dial's)
+    - {from: running, when: "power == 0", to: dark, do: {run: stop, left: 0}}
+    - {any: true, when: "power == 0", to: dark}
+    - {from: dark, when: "power == 1", to: ready, do: {time: 30}}
+    # the tube light is judged only under the ring's steady white (READY) for 300 ms; START uses the last judgement
+    - {from: ready, when: "tube != max(tube_raw_1, tube_raw_2)", after: 0.3, to: ready, do: {tube: "max(tube_raw_1, tube_raw_2)"}}
+    # START, from READY, DONE or REFUSED (nothing while running or off)
+    - {from: [ready, done, refused], event: btn_start, when: "btn_start == 1 and lid == 0", to: refused, do: {reason: "LID", run: "refused:LID"}}
+    - {from: [ready, done, refused], event: btn_start, when: "btn_start == 1 and tube == 0", to: refused, do: {reason: "TUBE", run: "refused:TUBE"}}
+    - {from: [ready, done, refused], event: btn_start, when: "btn_start == 1", to: running, do: {left: "time", run: start}}
+    # STOP: ends a run (the set time is kept); in READY resets the time to 30 s; from DONE or REFUSED back to READY
+    - {from: running, event: btn_stop, when: "btn_stop == 1", to: ready, do: {run: stop, left: 0}}
+    - {from: ready, event: btn_stop, when: "btn_stop == 1", to: ready, do: {time: 30}}
+    - {from: [done, refused], event: btn_stop, when: "btn_stop == 1", to: ready}
+    # TIME+: +10 s up to 600 (it stays at 600), and back to READY; nothing while running
+    - {from: [ready, done, refused], event: btn_time, when: "btn_time == 1", to: ready, do: {time: "min(time + 10, 600)"}}
+    # the lid opening during a run aborts it
+    - {from: running, when: "lid == 0", to: refused, do: {reason: "LID", run: "abort:LID", left: 0}}
+    - {from: running, when: "left <= 0", to: done, do: {run: done}}   # left counts down by itself while running
+    # LID clears when the lid is down again; TUBE only on a button press (above)
+    - {from: refused, when: "lid == 1 and reason == 'LID'", to: ready}
+    # DONE returns to READY when the lid opens, or after 60 s
+    - {from: done, when: "lid == 0", to: ready}
+    - {from: done, after: 60, to: ready}
+
+# How far reposition may move the device, and where the arm pushes it from. The arm reaches only faces toward it, so it
+# can push the device away along a push face's normal and no other way. Only a root that isn't clamped moves (mounts
+# above, or rav-server's --mount).
+reposition:
+  dx_mm: 30
+  dy_mm: 30
+  yaw_deg: 0
+  push:
+    centrifuge: [{at: [60.0, 0.0, 50.0], normal: [1, 0, 0]}]     # the front panel's middle, above the display
+    rack: [{at: [128.96, 187.48, 25.0], normal: [0.77, -0.64, 0]}]

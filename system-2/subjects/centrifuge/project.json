@@ -1,0 +1,12 @@
+{
+  "id": "centrifuge",
+  "name": "MC-6 mini centrifuge",
+  "summary": "A benchtop mini centrifuge with a four-position tube rack and two tubes: power switch, three push buttons, a speed dial, a hinged lid, two wells, a display and a light ring.",
+  "kind": "sim",
+  "sim": { "path": "appliances/centrifuge/device.yaml", "rev": "A", "revs": ["A", "B", "M1"] },
+  "manual": "appliances/centrifuge/manual.md",
+  "products": ["MC-6 mini centrifuge (sim)"],
+  "rules": ["Usable with no thumbs"],
+  "split": "dev",
+  "created": "2026-11-07"
+}

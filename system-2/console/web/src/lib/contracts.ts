@@ -1,8 +1,8 @@
 // A hand-written mirror of system-2/contracts (models.py and events.py). Only the fields the Console reads.
 // When the server lands, generate these from `uv run python -m rav_contracts.export_schema` instead.
 
-export type Status = "passed" | "failed" | "observed" | "skipped" | "inconclusive";
-export type ControlKind = "button" | "slider" | "dial" | "toggle" | "door" | "knob" | "display" | "other";
+export type Status = "passed" | "failed" | "intermittent" | "observed" | "skipped" | "inconclusive";
+export type ControlKind = "button" | "slider" | "dial" | "toggle" | "door" | "knob" | "display" | "well" | "object" | "other";
 
 export interface Control {
   id: string;
@@ -11,6 +11,11 @@ export interface Control {
   normal: [number, number, number];
   conf: number;
   source: string;
+  position?: number | null;
+  travel_mm?: number | null;
+  turn_range_deg?: [number, number] | null;
+  on?: boolean | null;
+  latched?: boolean | null;
 }
 
 export interface SceneInventory {
@@ -45,7 +50,17 @@ export interface StepTrace {
   travel_mm: number | null;
   force_trace: [number, number][];
   readout_change: Record<string, unknown[]>;
-  frames: string[];
+  frames: string[]; // evidence_get refs
+  measures?: Record<string, unknown>;
+  checks?: CheckResult[];
+}
+
+export interface CheckResult {
+  metric: string;
+  op: string;
+  value: unknown;
+  actual: unknown;
+  passed: boolean | null;
 }
 
 export interface StepVerdict {
@@ -132,6 +147,7 @@ export interface Coverage {
   observed: string[];
   inconclusive: string[];
   skipped: Record<string, string>;
+  intermittent?: string[]; // failed, then passed on a retest
 }
 
 export interface Reward {
@@ -154,7 +170,7 @@ export interface Report {
 export type EventType =
   | "run_started" | "scene_ready" | "plan_ready" | "approval_needed" | "approved" | "step_started"
   | "step_finished" | "finding" | "root_cause" | "patch_proposed" | "patch_applied" | "steer_applied"
-  | "message" | "report_ready" | "run_finished" | "model_turn" | "tool_call" | "crossing" | "plan_amended";
+  | "message" | "report_ready" | "run_finished" | "model_turn" | "tool_call" | "crossing" | "plan_amended" | "agent_state" | "check_judged";
 
 export interface RunEvent {
   seq: number;

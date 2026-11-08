@@ -1,7 +1,10 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { ChatDock } from "./components/ChatDock";
 import { SessionContext, runsFor } from "./lib/context";
 import { useEdits } from "./lib/edits";
+import { useLiveNow } from "./lib/live";
+import { useProjects } from "./lib/projects";
+import { NAV, isCurrent, screenOf } from "./lib/nav";
 import { useRoute, withTransition } from "./lib/route";
 import { ENVIRONMENTS, OPERATORS, canEnter, signOut, switchOperator, useSession } from "./lib/session";
 import { Approvals } from "./screens/Approvals";
@@ -43,13 +46,14 @@ function useTheme() {
   return [value, set] as const;
 }
 
-const NAV = [["projects", "Projects"], ["motivation", "Motivation"], ["wiki", "How it works"], ["live", "Live"], ["cad", "CAD"], ["approvals", "Approvals"], ["edits", "Edit log"]] as const;
-
 export function App() {
   const session = useSession();
   const route = useRoute();
   const [theme, setTheme] = useTheme();
   const edits = useEdits(session?.env ?? "demo");
+  const projects = useProjects();
+  const live = useLiveNow();
+  const lastProject = useRef<string | null>(null); // Live opens on the project you were just looking at
 
   // Load the 3D bench while idle, so opening it never shows a wait.
   useEffect(() => {
@@ -60,20 +64,23 @@ export function App() {
 
   if (!session) return <Login />;
 
-  const section = route.parts[0] ?? "projects";
+  const section = screenOf(route.parts[0]);
   const pending = edits.filter((e) => e.state === "planned").length;
   const runId = section === "run" ? route.parts[1] : null;
+  const here = section === "project" ? route.parts[1] : section === "live" ? route.query.get("project") : section === "cad" ? projects.find((p) => p.cad)?.id : null;
+  if (here) lastProject.current = here;
+  const hrefFor = (path: string) => (path === "live" && lastProject.current ? `#/live?project=${lastProject.current}` : `#/${path}`);
 
   return (
     <SessionContext.Provider value={session}>
       <div className="app">
         <header className="top">
           <span className="topstatic" aria-hidden="true" />
-          <a className="mark" href="#/projects">RAV CONSOLE</a>
+          <a className="mark" href="#/studies">RAAV CONSOLE</a>
           <nav className="nav" aria-label="Main">
-            {NAV.map(([path, label]) => (
-              <a key={path} href={`#/${path}`} aria-current={section === path || (path === "projects" && ["project", "run", "runs"].includes(section)) || (path === "wiki" && section === "systems") ? "page" : undefined}>
-                {label}{path === "approvals" && pending > 0 && <span className="count">{pending}</span>}
+            {NAV.map(([path, screen, label]) => (
+              <a key={path} href={hrefFor(path)} aria-current={isCurrent(screen, section) ? "page" : undefined}>
+                {label}{screen === "live" && live.running && <i className="livedot" role="img" aria-label="running now" />}{screen === "approvals" && pending > 0 && <span className="count">{pending}</span>}
               </a>
             ))}
           </nav>
@@ -100,7 +107,7 @@ export function App() {
               {section === "cad" && <Suspense fallback={<div className="sweep" role="status" aria-label="Loading the CAD bench" />}><CadBench theme={theme} /></Suspense>}
               {section === "approvals" && <Approvals />}
               {section === "edits" && <EditLog />}
-              {(section === "wiki" || section === "systems") && <Wiki route={route} />}
+              {section === "wiki" && <Wiki route={route} />}
             </div>
           </main>
           {/* The chat steers the sample runs. Live and recorded runs have their own controls. */}

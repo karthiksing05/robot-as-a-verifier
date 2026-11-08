@@ -15,7 +15,7 @@ from .models import (CADPatch, Contract, Finding, Plan, Report, RootCause, Scene
 EventType = Literal[
     "run_started", "scene_ready", "plan_ready", "approval_needed", "approved", "step_started",
     "step_finished", "finding", "root_cause", "patch_proposed", "patch_applied", "steer_applied",
-    "message", "report_ready", "run_finished", "model_turn", "tool_call", "crossing", "plan_amended",
+    "message", "report_ready", "run_finished", "model_turn", "tool_call", "crossing", "plan_amended", "agent_state", "check_judged",
 ]
 
 # Which layer an error belongs to. This split is the point of the trace: a bad decision is the model's to fix,
@@ -45,7 +45,13 @@ PAYLOADS: dict[str, type[Contract] | None] = {
     "tool_call": None,        # a ToolCall: same
     "crossing": None,         # a Crossing: System 1 stopped and handed back to System 2
     "plan_amended": None,     # {"level": 0-3, "by": name or None, "steps": [Step.id], "why": str}
+    "agent_state": None,      # {"state": "thinking" | "calling" | "arm" | "waiting_person" | "idle" | "done", "detail": str}
+    "check_judged": None,     # {"step", "target", "failed": [CheckResult], "requires": [Check], "met": bool, "counted": bool, "why"}
 }
+
+
+# rav-agent also streams {"type": "model_delta", "turn": id, "kind": "thought" | "text", "text": str} to the Console while a
+# turn is being written. These aren't events: they aren't logged, and the finished turn's model_turn is the record.
 
 
 class ModelTurn(Contract):
@@ -88,7 +94,7 @@ class ToolCall(Contract):
 class Crossing(Contract):
     """One stop that reached System 2. Counting these per run is how we measure how much the systems talk."""
     routine: str
-    stop: str  # done, checkpoint, escalation or safety_abort
+    stop: str  # done, checkpoint, escalation, safety_abort or pipeline_error
     code: str | None = None  # the EscalationCode, for an escalation
     step: str | None = None
     target: str | None = None

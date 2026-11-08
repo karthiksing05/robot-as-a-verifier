@@ -43,3 +43,9 @@ system-2/tests/fixtures/onshape/spike_outputs/
 # CAD build output (STLs, renders, assembly.glb); rebuild with python -m rav_cad.parametric
 system-2/cad/out/
 system-2/subjects/appliance/cad/out/
+
+# appliances/<id>/: each test device's sources are committed. Its built meshes, STEP and answer key are not
+# (python system-1/sim/tools/build.py), nor the registry build.py writes, nor the held-out briefs
+appliances/*/build/
+appliances/registry.json
+appliances/HELDOUT_BRIEFS.md

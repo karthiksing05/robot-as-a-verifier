@@ -1,0 +1,12 @@
+{
+  "id": "vortex-mixer",
+  "name": "VM-3 touch vortex mixer",
+  "summary": "A benchtop touch vortex mixer: a mode switch, a START button, a speed dial, a display, a cup head on top and a sample cup in a side holder.",
+  "kind": "sim",
+  "sim": { "path": "appliances/vortex-mixer/device.yaml", "rev": "A", "revs": ["A", "B", "M1"] },
+  "manual": "appliances/vortex-mixer/manual.md",
+  "products": ["VM-3 touch vortex mixer (sim)"],
+  "rules": ["Usable with no thumbs"],
+  "split": "validation",
+  "created": "2026-11-07"
+}

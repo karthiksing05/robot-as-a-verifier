@@ -1,0 +1,12 @@
+{
+  "id": "wall-thermostat",
+  "name": "HT-20 room thermostat",
+  "summary": "A wall-mounted room thermostat on a desk stand: MODE, UP and DOWN buttons on a vertical face, a display and a status light, with no power switch.",
+  "kind": "sim",
+  "sim": { "path": "appliances/wall-thermostat/device.yaml", "rev": "A", "revs": ["A", "B", "M1"] },
+  "manual": "appliances/wall-thermostat/manual.md",
+  "products": ["HT-20 room thermostat (sim)"],
+  "rules": ["Usable with no thumbs"],
+  "split": "dev",
+  "created": "2026-11-07"
+}

@@ -20,10 +20,10 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-KINDS = ("button", "slider", "dial", "toggle", "door", "knob", "display")
+KINDS = ("button", "slider", "dial", "toggle", "door", "knob", "display", "handle", "well", "object")
 # SceneFun3D labels. Their example of tip_push is a light switch, so toggles are tip_push too.
 AFFORDANCE = {"button": "tip_push", "slider": "tip_push", "dial": "rotate", "toggle": "tip_push",
-              "door": "tip_push", "knob": "rotate", "display": "none"}
+              "door": "tip_push", "knob": "rotate", "display": "none", "handle": "hook_pull", "well": "place", "object": "grasp"}
 # The no-thumbs rule: only a fingertip pad may touch the product.
 GRIP = {"knob": "pinch"}
 
@@ -61,7 +61,7 @@ class Part:
 
     @property
     def grip(self):
-        return GRIP.get(self.kind, "tip")
+        return self.meta.get("grip") or GRIP.get(self.kind, "tip")
 
 
 def canonical_x(v, n):

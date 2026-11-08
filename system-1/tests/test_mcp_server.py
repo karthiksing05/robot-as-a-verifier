@@ -38,12 +38,17 @@ def test_a_whole_routine_over_the_protocol():
     async def go():
         async with Client(build_server(engine)) as client:
             assert (await call(client, "system_status"))["state"] == "idle"
+            explore = await call(client, "routine_start", routine="explore")
+            assert (await call(client, "routine_wait", routine_id=explore["routine_id"], timeout_s=5))["stop"] == "done"
+            await anyio.sleep(0.05)
             handle = await call(client, "routine_start", routine="run_plan", plan=plan.model_dump(mode="json"), policy={"checkpoint_every": None})
             rid = handle["routine_id"]
             stop = await call(client, "routine_wait", routine_id=rid, timeout_s=5)
             assert stop["escalation"]["code"] == "step_failed"
             trace = await call(client, "evidence_get", ref=stop["verdicts"][0]["trace_ref"])
-            assert trace["force_trace"]
+            assert trace["result"]["force_trace"]
+            bad_plan = await client.call_tool("routine_resume", {"routine_id": rid, "decision": {"kind": "amend", "steps": [{"id": "x", "skill": "press", "target": "nope"}]}})
+            assert bad_plan.is_error and "no control called nope" in bad_plan.content[0].text
             await call(client, "routine_resume", routine_id=rid, decision={"kind": "continue"})
             end = await call(client, "routine_wait", routine_id=rid, timeout_s=5)
             assert (end["stop"], end["status"]) == ("done", "completed")

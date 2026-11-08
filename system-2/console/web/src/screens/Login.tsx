@@ -33,7 +33,7 @@ export function Login() {
     <div className={`login screen ${zoom ? "zoom" : ""}`} style={zoom ? { transformOrigin: zoom } : undefined}>
       <Field grabber={grabber} />
       <div className="gobox rise">
-        <div className="wordmark">RAV CONSOLE</div>
+        <h1 className="wordmark">Robot As A Verifier</h1>
         <div className="envpick" role="radiogroup" aria-label="Environment">
           {Object.values(ENVIRONMENTS).map((x) => (
             <button key={x.name} type="button" role="radio" aria-checked={env === x.name} onClick={() => setEnv(x.name)}>

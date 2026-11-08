@@ -6,6 +6,12 @@ from typing import Protocol, runtime_checkable
 from rav_interface import Plan, SceneInventory, Step, StepTrace, StepVerdict
 
 
+class PipelineFailure(RuntimeError):
+    """Perception couldn't do its job, and nothing is dangerous. Becomes a pipeline_error stop, which needs no person. Only
+    perceive raises it: anything else a robot raises, mid-motion or from a driver, is a safety_abort, because then we
+    can't be sure the arm is safe."""
+
+
 @runtime_checkable
 class Robot(Protocol):
     def perceive(self) -> SceneInventory: ...

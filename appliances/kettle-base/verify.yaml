@@ -1,0 +1,56 @@
+# How verify.py checks the KB-1 (docs/device-authoring.md). Sim truth, like device.yaml: no model reads it.
+# Nothing here needs pick or place, so every check uses the probe (the stock gripper's skills are still being fixed).
+effector: probe
+
+reach:
+  reachable: [button_1, button_2, dial_1, toggle_1, handle_1]
+
+# The manual's procedure on Rev B, in its order: power on (100C); fill: lift the lid, BOIL is refused with LID, close
+# it; lower the setting; keep-warm on; heat, and it holds; WARM ends the hold.
+workflow:
+  rev: B
+  steps:
+    - {skill: flip, target: toggle_1, expect: {readings: {power: 1, temp: 100, warm: 0}, state: ready, lcd: "100C", ring: white}}
+    - {skill: hook_pull, target: handle_1, expect: {readings: {lid: 0}}}
+    - {skill: press, target: button_2, expect: {state: refused, lcd: LID}}
+    - {skill: hook_pull, target: handle_1, params: {angle: 0}, expect: {readings: {lid: 1}}}
+    - {skill: turn, target: dial_1, params: {angle: 40}, expect: {changed: [temp], readings: {temp: [95, 90, 85, 80]}, lcd: "(95|90|85|80)C"}}
+    - {skill: press, target: button_1, expect: {readings: {warm: 1}, lcd: "(95|90|85|80)C WARM"}}
+    - {skill: press, target: button_2, expect: {state: running, lcd: BOILING, ring: red}}
+    - {wait_s: 9, expect: {state: warming, lcd: "WARM (95|90|85|80)C", ring: orange}}
+    - {skill: press, target: button_1, expect: {state: ready, readings: {warm: 0}}}
+
+faults:
+  F1:   # the power-on default: the switch is fine, the setting it starts at isn't
+    steps:
+      - {skill: flip, target: toggle_1, expect: {readings: {power: 1, temp: 100}, state: ready, lcd: "100C"}}
+    fails_at: 0
+  F2:   # pressing BOIL must close BOIL's switch and not WARM's. Switch sensors read with the power off
+    steps:
+      - {skill: press, target: button_2, expect: {changed: [btn_boil], unchanged: [btn_warm]}}
+    fails_at: 0
+  F2w:  # and the same from the WARM side
+    rev: "F1=B,F2=A,F3=B,F4=B"
+    steps:
+      - {skill: press, target: button_1, expect: {changed: [btn_warm], unchanged: [btn_boil]}}
+    fails_at: 0
+  F3:   # with the lid down as far as it goes, BOIL must heat. The lid is never touched: it rests where its hinge leaf lets it
+    steps:
+      - {skill: flip, target: toggle_1, expect: {readings: {power: 1}}}
+      - {skill: press, target: button_2, expect: {state: running, lcd: BOILING}}
+    fails_at: 1
+  F4:   # keep-warm on, heat, and at the end it must hold
+    steps:
+      - {skill: flip, target: toggle_1, expect: {readings: {power: 1}}}
+      - {skill: press, target: button_1, expect: {readings: {warm: 1}}}
+      - {skill: press, target: button_2, expect: {state: running}}
+      - {wait_s: 9, expect: {state: warming, lcd: "WARM 100C", ring: orange}}
+    fails_at: 3
+  F4x:  # masking: with the lid fault (F3) in too, the same procedure stops at BOIL (refused), before keep-warm can show
+    rev: "F1=B,F2=B,F3=A,F4=A"
+    steps:
+      - {skill: flip, target: toggle_1, expect: {readings: {power: 1}}}
+      - {skill: press, target: button_1, expect: {readings: {warm: 1}}}
+      - {skill: press, target: button_2, expect: {state: running}}
+      - {wait_s: 9, expect: {state: warming, lcd: "WARM 100C", ring: orange}}
+    fails_at: 2

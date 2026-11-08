@@ -1,0 +1,2351 @@
+{
+  "generated": "2026-11-07",
+  "route": "Snowflake Cortex",
+  "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5",
+    "openai-gpt-5.4",
+    "grok-4.7"
+  ],
+  "pricing": {
+    "unit": "Snowflake AI credits",
+    "source": "Snowflake Service Consumption Table, effective 2026-11-04, Table 6(b)",
+    "usd_per_credit": 2.0,
+    "usd_is": "an assumption: $2.00 per AI credit"
+  },
+  "rounds": [
+    {
+      "id": "1",
+      "title": "Short scenarios, no sim",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "soft",
+      "test_set": "Seven made-up scenarios on a fake robot, one run per model, with the same prompts for every model: plan from a manual where one step depends on another, a real fault in that procedure, a real fault next to a robot's miss, a failure that doesn't repeat, a refused request, a safety stop on a healthy product, and reading a number off an image.",
+      "spend": "0.5 Snowflake credits had been used on the account by the end of this round, including the connection tests before it.",
+      "takeaway": "All four models scored 1.00, so this round doesn't separate them. It shows that each one's tool calls and image reading work through the harness, and that each beats the rule-based baseline. The differences it does show are tokens, tool errors and turn time.",
+      "cost": {
+        "tokens": 1011131,
+        "credits": 0.3906,
+        "usd": 0.7812
+      },
+      "rows": [
+        {
+          "model": "claude-haiku-5-5",
+          "runs": 7,
+          "score": 1.0,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": null,
+          "recovered": 2,
+          "recovery_tries": 2,
+          "tokens": 388590,
+          "turns": 58,
+          "median_turn_s": 3.44,
+          "tool_errors": 1,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "missed": [],
+          "credits": 0.0121,
+          "usd": 0.0242,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "claude-haiku-5-5-plan_from_manual",
+              "calls": 8,
+              "tokens": 53308,
+              "credits": 0.0018,
+              "usd": 0.0035
+            },
+            {
+              "run": "claude-haiku-5-5-procedure_fault",
+              "calls": 6,
+              "tokens": 39393,
+              "credits": 0.0015,
+              "usd": 0.0031
+            },
+            {
+              "run": "claude-haiku-5-5-fault_vs_robot_error",
+              "calls": 10,
+              "tokens": 74156,
+              "credits": 0.0023,
+              "usd": 0.0046
+            },
+            {
+              "run": "claude-haiku-5-5-false_alarm",
+              "calls": 8,
+              "tokens": 50800,
+              "credits": 0.0015,
+              "usd": 0.003
+            },
+            {
+              "run": "claude-haiku-5-5-bad_request",
+              "calls": 9,
+              "tokens": 59104,
+              "credits": 0.0015,
+              "usd": 0.003
+            },
+            {
+              "run": "claude-haiku-5-5-safety_abort",
+              "calls": 11,
+              "tokens": 78596,
+              "credits": 0.0026,
+              "usd": 0.0052
+            },
+            {
+              "run": "claude-haiku-5-5-image_read",
+              "calls": 6,
+              "tokens": 33233,
+              "credits": 0.0009,
+              "usd": 0.0019
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "runs": 7,
+          "score": 1.0,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": null,
+          "recovered": 2,
+          "recovery_tries": 2,
+          "tokens": 243671,
+          "turns": 45,
+          "median_turn_s": 2.5,
+          "tool_errors": 3,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "missed": [],
+          "credits": 0.1216,
+          "usd": 0.2432,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "claude-sonnet-5-5-plan_from_manual",
+              "calls": 5,
+              "tokens": 25333,
+              "credits": 0.0166,
+              "usd": 0.0333
+            },
+            {
+              "run": "claude-sonnet-5-5-procedure_fault",
+              "calls": 5,
+              "tokens": 28112,
+              "credits": 0.0184,
+              "usd": 0.0368
+            },
+            {
+              "run": "claude-sonnet-5-5-fault_vs_robot_error",
+              "calls": 10,
+              "tokens": 61807,
+              "credits": 0.0271,
+              "usd": 0.0541
+            },
+            {
+              "run": "claude-sonnet-5-5-false_alarm",
+              "calls": 6,
+              "tokens": 30784,
+              "credits": 0.0155,
+              "usd": 0.0309
+            },
+            {
+              "run": "claude-sonnet-5-5-bad_request",
+              "calls": 6,
+              "tokens": 30453,
+              "credits": 0.0125,
+              "usd": 0.025
+            },
+            {
+              "run": "claude-sonnet-5-5-safety_abort",
+              "calls": 9,
+              "tokens": 48924,
+              "credits": 0.0198,
+              "usd": 0.0396
+            },
+            {
+              "run": "claude-sonnet-5-5-image_read",
+              "calls": 4,
+              "tokens": 18258,
+              "credits": 0.0117,
+              "usd": 0.0234
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "openai-gpt-5.4",
+          "runs": 7,
+          "score": 1.0,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": null,
+          "recovered": 2,
+          "recovery_tries": 2,
+          "tokens": 157810,
+          "turns": 46,
+          "median_turn_s": 2.81,
+          "tool_errors": 4,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "missed": [],
+          "credits": 0.1325,
+          "usd": 0.265,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "openai-gpt-5.4-plan_from_manual",
+              "calls": 5,
+              "tokens": 13703,
+              "credits": 0.0124,
+              "usd": 0.0249
+            },
+            {
+              "run": "openai-gpt-5.4-procedure_fault",
+              "calls": 6,
+              "tokens": 19725,
+              "credits": 0.017,
+              "usd": 0.034
+            },
+            {
+              "run": "openai-gpt-5.4-fault_vs_robot_error",
+              "calls": 10,
+              "tokens": 42795,
+              "credits": 0.0295,
+              "usd": 0.059
+            },
+            {
+              "run": "openai-gpt-5.4-false_alarm",
+              "calls": 5,
+              "tokens": 15830,
+              "credits": 0.0161,
+              "usd": 0.0323
+            },
+            {
+              "run": "openai-gpt-5.4-bad_request",
+              "calls": 7,
+              "tokens": 23692,
+              "credits": 0.0206,
+              "usd": 0.0411
+            },
+            {
+              "run": "openai-gpt-5.4-safety_abort",
+              "calls": 8,
+              "tokens": 28530,
+              "credits": 0.0233,
+              "usd": 0.0465
+            },
+            {
+              "run": "openai-gpt-5.4-image_read",
+              "calls": 5,
+              "tokens": 13535,
+              "credits": 0.0136,
+              "usd": 0.0272
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "grok-4.7",
+          "runs": 7,
+          "score": 1.0,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": null,
+          "recovered": 2,
+          "recovery_tries": 2,
+          "tokens": 221060,
+          "turns": 55,
+          "median_turn_s": 2.89,
+          "tool_errors": 3,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "missed": [],
+          "credits": 0.1244,
+          "usd": 0.2488,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "grok-4.7-plan_from_manual",
+              "calls": 5,
+              "tokens": 16959,
+              "credits": 0.0104,
+              "usd": 0.0207
+            },
+            {
+              "run": "grok-4.7-procedure_fault",
+              "calls": 7,
+              "tokens": 27061,
+              "credits": 0.0142,
+              "usd": 0.0284
+            },
+            {
+              "run": "grok-4.7-fault_vs_robot_error",
+              "calls": 11,
+              "tokens": 54503,
+              "credits": 0.0316,
+              "usd": 0.0633
+            },
+            {
+              "run": "grok-4.7-false_alarm",
+              "calls": 9,
+              "tokens": 36640,
+              "credits": 0.0185,
+              "usd": 0.037
+            },
+            {
+              "run": "grok-4.7-bad_request",
+              "calls": 7,
+              "tokens": 25586,
+              "credits": 0.0128,
+              "usd": 0.0256
+            },
+            {
+              "run": "grok-4.7-safety_abort",
+              "calls": 10,
+              "tokens": 41691,
+              "credits": 0.0227,
+              "usd": 0.0455
+            },
+            {
+              "run": "grok-4.7-image_read",
+              "calls": 6,
+              "tokens": 18620,
+              "credits": 0.0142,
+              "usd": 0.0283
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "rules",
+          "runs": 7,
+          "score": 0.495,
+          "faults_found": 1,
+          "faults_planted": 2,
+          "false_findings": 1,
+          "coverage": null,
+          "recovered": 0,
+          "recovery_tries": 1,
+          "tokens": 0,
+          "turns": 0,
+          "median_turn_s": null,
+          "tool_errors": 0,
+          "crashes": 1,
+          "reasoning_chars": 0,
+          "missed": [
+            "bad_request: crashed",
+            "false_alarm: no false findings",
+            "false_alarm: not called broken",
+            "false_alarm: retested",
+            "fault_vs_robot_error: retested the fault",
+            "fault_vs_robot_error: retested the miss",
+            "image_read: read the number",
+            "plan_from_manual: did the whole procedure",
+            "procedure_fault: found every fault",
+            "procedure_fault: named the right control",
+            "safety_abort: finished",
+            "safety_abort: recovered",
+            "safety_abort: tested the rest"
+          ],
+          "credits": 0,
+          "usd": 0.0,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "rules-plan_from_manual",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "rules-procedure_fault",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "rules-fault_vs_robot_error",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "rules-false_alarm",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "rules-bad_request",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "rules-safety_abort",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "rules-image_read",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            }
+          ],
+          "baseline": true,
+          "reasoning": null
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "title": "Generated devices in the sim, 5% arm errors",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "eval",
+      "test_set": "Scored with the symptom rule (added 2026-11-07, applied to every model, the baseline and every earlier round): a finding counts for a fault when a failing check on it reads where the fault shows, on the step the device's own verify check fails at, and quotes the manual. The four models on two generated sim devices (seeds 7 and 13, depth route), one run each, with a random planted fault (fault seeds 7001 and 13001) and a 5% chance per action that the arm or the world misbehaves (error seed 1). The rule-based baseline ran on the same set. Every model got the same devices and faults. Errors were then drawn from a running count of actions, so models that planned differently met different errors: every model run drew one error, and both baseline runs drew a device move. Coverage tops out at 94% because device 7's knob needs a pinch grip, which the robot's turn skill doesn't take: every model reported it as untestable.",
+      "spend": "570,906 tokens across the four models.",
+      "takeaway": "All four models found both planted faults, against none for the rule baseline, which stopped at a device move it can't plan around. Grok re-explored after a real device move and finished the plan. The differences were in judgment: Haiku made up a 20 mm travel limit and reported a working slider as wrong feedback; GPT-5.4 made up a contact-offset bound and got the slider called intermittent; Haiku pushed a jammed door again at 12 N and hit the 15 N safety cap, then homed correctly. Grok took about 10 s a turn, against 2 to 5 s for the others.",
+      "cost": {
+        "tokens": 570906,
+        "credits": 0.2682,
+        "usd": 0.5364
+      },
+      "rows": [
+        {
+          "model": "claude-haiku-5-5",
+          "runs": 2,
+          "score": 0.665,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 1,
+          "coverage": 0.938,
+          "recovered": 2,
+          "recovery_tries": 2,
+          "tokens": 189016,
+          "turns": 18,
+          "median_turn_s": 4.55,
+          "tool_errors": 1,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 1,
+          "wall_s": 145.9,
+          "errors_drawn": [
+            "slow_arm (lcd_after_ok on display_1)",
+            "slow_arm (observe_after_b1 on display_1)"
+          ],
+          "missed": [
+            "003-claude-haiku-5-5-13-random-0.05-0: false finding on slider_1"
+          ],
+          "credits": 0.0073,
+          "usd": 0.0146,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-claude-haiku-5-5-7-random-0.05-0",
+              "calls": 8,
+              "tokens": 82563,
+              "credits": 0.0036,
+              "usd": 0.0072
+            },
+            {
+              "run": "003-claude-haiku-5-5-13-random-0.05-0",
+              "calls": 10,
+              "tokens": 106453,
+              "credits": 0.0037,
+              "usd": 0.0074
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "runs": 2,
+          "score": 0.765,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": 0.938,
+          "recovered": 2,
+          "recovery_tries": 2,
+          "tokens": 120702,
+          "turns": 15,
+          "median_turn_s": 2.11,
+          "tool_errors": 0,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 0,
+          "wall_s": 104.2,
+          "errors_drawn": [
+            "slow_arm (s3 on display_1)",
+            "slow_arm (s3 on display_1)"
+          ],
+          "missed": [],
+          "credits": 0.0631,
+          "usd": 0.1262,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-claude-sonnet-5-5-7-random-0.05-0",
+              "calls": 8,
+              "tokens": 64427,
+              "credits": 0.0398,
+              "usd": 0.0797
+            },
+            {
+              "run": "002-claude-sonnet-5-5-13-random-0.05-0",
+              "calls": 7,
+              "tokens": 56275,
+              "credits": 0.0233,
+              "usd": 0.0466
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "openai-gpt-5.4",
+          "runs": 2,
+          "score": 0.665,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": 0.938,
+          "recovered": 2,
+          "recovery_tries": 2,
+          "tokens": 83528,
+          "turns": 13,
+          "median_turn_s": 3.6,
+          "tool_errors": 0,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 1,
+          "recoveries": 0,
+          "wall_s": 108.0,
+          "errors_drawn": [
+            "slow_arm (observe_after_b1 on display_1)",
+            "slow_arm (observe_after_button_1 on display_1)"
+          ],
+          "missed": [],
+          "credits": 0.0804,
+          "usd": 0.1608,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-openai-gpt-5.4-7-random-0.05-0",
+              "calls": 6,
+              "tokens": 35363,
+              "credits": 0.0367,
+              "usd": 0.0735
+            },
+            {
+              "run": "002-openai-gpt-5.4-13-random-0.05-0",
+              "calls": 7,
+              "tokens": 48165,
+              "credits": 0.0437,
+              "usd": 0.0875
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "grok-4.7",
+          "runs": 2,
+          "score": 0.765,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": 0.938,
+          "recovered": 2,
+          "recovery_tries": 2,
+          "tokens": 177660,
+          "turns": 25,
+          "median_turn_s": 6.36,
+          "tool_errors": 0,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 3,
+          "wall_s": 598.7,
+          "errors_drawn": [
+            "device_moved (btn_b on button_2)",
+            "slow_arm (obs_after_b1 on display_1)"
+          ],
+          "missed": [],
+          "credits": 0.1174,
+          "usd": 0.2348,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-grok-4.7-7-random-0.05-0",
+              "calls": 12,
+              "tokens": 90849,
+              "credits": 0.0671,
+              "usd": 0.1343
+            },
+            {
+              "run": "002-grok-4.7-13-random-0.05-0",
+              "calls": 13,
+              "tokens": 86811,
+              "credits": 0.0503,
+              "usd": 0.1005
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "rules",
+          "runs": 2,
+          "score": 0.438,
+          "faults_found": 0,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": 0.438,
+          "recovered": 0,
+          "recovery_tries": 2,
+          "tokens": 0,
+          "turns": 0,
+          "median_turn_s": null,
+          "tool_errors": 0,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 0,
+          "wall_s": 26.5,
+          "errors_drawn": [
+            "device_moved (s3 on button_3)",
+            "device_moved (s3 on slider_1)"
+          ],
+          "missed": [
+            "002-rules-7-random-0.05-0: missed button_4",
+            "004-rules-13-random-0.05-0: missed door_1"
+          ],
+          "credits": 0,
+          "usd": 0.0,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "002-rules-7-random-0.05-0",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "004-rules-13-random-0.05-0",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            }
+          ],
+          "baseline": true,
+          "reasoning": null
+        }
+      ]
+    },
+    {
+      "id": "2b",
+      "title": "The same set, after fixes by class",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "eval",
+      "test_set": "Scored with the symptom rule (added 2026-11-07, applied to every model, the baseline and every earlier round): a finding counts for a fault when a failing check on it reads where the fault shows, on the step the device's own verify check fails at, and quotes the manual. Round 2's devices, faults and seeds, with three fixes made by class and the same prompts for every model: a check against a value needs a quoted manual line or a named spec, or the plan is refused before anything moves; a part that doesn't move at its normal force limit is the finding, so a retest keeps the same limit; and a skill called as a tool is pointed at plans. Errors are now drawn from the seed and what each action is (an explore stage, or a skill on a target, and which time it has run), so two models that run the same step meet the same error. This round ran from a frozen copy of the repo made at 2026-11-07 17:13:01 EST, because other work was changing System 1 at the time. With the new draw, 5% per action gave one error in eight model runs (a slow arm on a retest), so this round says little about recovery.",
+      "spend": "436,287 tokens across the four models, plus 61,000 for one confirming run after a fourth fix.",
+      "takeaway": "No false findings from any model, and every model found both faults. Each model had one plan turned down for a made-up limit, and fixed it before anything moved. One new class showed up in all four: calling finish_run while the routine still held at its last failed step. Now finish_run closes it when nothing is left to run, confirmed on a rerun with no refused call. One noise flag remains: Grok's dial missed once (stopped on travel at 2.9 N), then passed, so it settled as intermittent. Grok read it as a miss, but System 1's rule calls that miss failed, not inconclusive, so it's for System 1's rules rather than the harness.",
+      "cost": {
+        "tokens": 436287,
+        "credits": 0.2318,
+        "usd": 0.4636
+      },
+      "rows": [
+        {
+          "model": "claude-haiku-5-5",
+          "runs": 2,
+          "score": 0.765,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": 0.938,
+          "recovered": 0,
+          "recovery_tries": 0,
+          "tokens": 116579,
+          "turns": 13,
+          "median_turn_s": 3.9,
+          "tool_errors": 1,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 0,
+          "wall_s": 102.8,
+          "errors_drawn": [],
+          "missed": [],
+          "credits": 0.0041,
+          "usd": 0.0082,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-claude-haiku-5-5-7-random-0.05-0",
+              "calls": 6,
+              "tokens": 53513,
+              "credits": 0.0022,
+              "usd": 0.0044
+            },
+            {
+              "run": "002-claude-haiku-5-5-13-random-0.05-0",
+              "calls": 7,
+              "tokens": 63066,
+              "credits": 0.0019,
+              "usd": 0.0037
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "runs": 2,
+          "score": 0.765,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": 0.938,
+          "recovered": 1,
+          "recovery_tries": 1,
+          "tokens": 121803,
+          "turns": 15,
+          "median_turn_s": 2.58,
+          "tool_errors": 1,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 0,
+          "wall_s": 101.1,
+          "errors_drawn": [
+            "slow_arm (s8c on button_4)"
+          ],
+          "missed": [],
+          "credits": 0.0644,
+          "usd": 0.1288,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-claude-sonnet-5-5-7-random-0.05-0",
+              "calls": 7,
+              "tokens": 59578,
+              "credits": 0.0386,
+              "usd": 0.0773
+            },
+            {
+              "run": "002-claude-sonnet-5-5-13-random-0.05-0",
+              "calls": 8,
+              "tokens": 62225,
+              "credits": 0.0258,
+              "usd": 0.0516
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "openai-gpt-5.4",
+          "runs": 2,
+          "score": 0.765,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": 0.938,
+          "recovered": 0,
+          "recovery_tries": 0,
+          "tokens": 75116,
+          "turns": 13,
+          "median_turn_s": 3.92,
+          "tool_errors": 1,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 0,
+          "wall_s": 140.7,
+          "errors_drawn": [],
+          "missed": [],
+          "credits": 0.0643,
+          "usd": 0.1286,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-openai-gpt-5.4-7-random-0.05-0",
+              "calls": 6,
+              "tokens": 34585,
+              "credits": 0.0365,
+              "usd": 0.0729
+            },
+            {
+              "run": "002-openai-gpt-5.4-13-random-0.05-0",
+              "calls": 7,
+              "tokens": 40531,
+              "credits": 0.0278,
+              "usd": 0.0556
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "grok-4.7",
+          "runs": 2,
+          "score": 0.665,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": 0.938,
+          "recovered": 0,
+          "recovery_tries": 0,
+          "tokens": 122789,
+          "turns": 18,
+          "median_turn_s": 5.49,
+          "tool_errors": 1,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 1,
+          "recoveries": 0,
+          "wall_s": 268.1,
+          "errors_drawn": [],
+          "missed": [],
+          "credits": 0.099,
+          "usd": 0.198,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-grok-4.7-7-random-0.05-0",
+              "calls": 8,
+              "tokens": 51910,
+              "credits": 0.0428,
+              "usd": 0.0856
+            },
+            {
+              "run": "002-grok-4.7-13-random-0.05-0",
+              "calls": 10,
+              "tokens": 70879,
+              "credits": 0.0562,
+              "usd": 0.1123
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "rules",
+          "runs": 2,
+          "score": 0.765,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": 0.938,
+          "recovered": 0,
+          "recovery_tries": 0,
+          "tokens": 0,
+          "turns": 0,
+          "median_turn_s": null,
+          "tool_errors": 0,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 0,
+          "wall_s": 40.9,
+          "errors_drawn": [],
+          "missed": [],
+          "credits": 0,
+          "usd": 0.0,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-rules-7-random-0.05-0",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "002-rules-13-random-0.05-0",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            }
+          ],
+          "baseline": true,
+          "reasoning": null
+        }
+      ]
+    },
+    {
+      "id": "2c",
+      "title": "Forced recovery on generated devices",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "eval",
+      "test_set": "Devices 7 and 13 from round 2, with the same planted faults and 5% per-action errors, plus a forced schedule the same for every model: a dropped frame and a slow arm in the first scan, and a servo-bus fault on button_2's first press; device 13 also has a silent device move at button_1's first press. Coverage stops at 85%: device 7's knob needs a pinch grip, and the copy's probe skipped device 13's dial (fixed since). Ran from the frozen copy of 2026-11-07 17:46:57 EST.",
+      "spend": "893,298 tokens across the four models.",
+      "takeaway": "Every model recovered from every forced error and finished: each re-explored after the bus fault and after the silent move, and each found both planted faults with no false findings. The rule baseline aborted both runs at the bus fault. Recovery doesn't separate the models; cost does: GPT-5.4 used 151k tokens, Haiku 288k.",
+      "cost": {
+        "tokens": 893298,
+        "credits": 0.4173,
+        "usd": 0.8346
+      },
+      "rows": [
+        {
+          "model": "claude-haiku-5-5",
+          "runs": 2,
+          "score": 0.677,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": 0.854,
+          "recovered": 2,
+          "recovery_tries": 2,
+          "tokens": 287880,
+          "turns": 27,
+          "median_turn_s": 3.14,
+          "tool_errors": 1,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 5,
+          "wall_s": 189.9,
+          "errors_drawn": [
+            "device_moved_silent (press_button_1 on button_1)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "pipeline_fault (press_button_2 on button_2)",
+            "pipeline_fault (press_button_2 on button_2)",
+            "slow_arm (touch)",
+            "slow_arm (touch)"
+          ],
+          "missed": [],
+          "credits": 0.0104,
+          "usd": 0.0208,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-claude-haiku-5-5-7-random-0.05-0",
+              "calls": 11,
+              "tokens": 110300,
+              "credits": 0.0036,
+              "usd": 0.0072
+            },
+            {
+              "run": "001-claude-haiku-5-5-13-random-0.05-0",
+              "calls": 16,
+              "tokens": 177580,
+              "credits": 0.0068,
+              "usd": 0.0136
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "runs": 2,
+          "score": 0.677,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": 0.854,
+          "recovered": 2,
+          "recovery_tries": 2,
+          "tokens": 244248,
+          "turns": 26,
+          "median_turn_s": 2.34,
+          "tool_errors": 1,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 3,
+          "wall_s": 196.9,
+          "errors_drawn": [
+            "device_moved_silent (s2 on button_1)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "pipeline_fault (s4 on button_2)",
+            "pipeline_fault (s4 on button_2)",
+            "slow_arm (s8c on button_4)",
+            "slow_arm (touch)",
+            "slow_arm (touch)"
+          ],
+          "missed": [],
+          "credits": 0.1584,
+          "usd": 0.3168,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "002-claude-sonnet-5-5-7-random-0.05-0",
+              "calls": 11,
+              "tokens": 102148,
+              "credits": 0.06,
+              "usd": 0.12
+            },
+            {
+              "run": "002-claude-sonnet-5-5-13-random-0.05-0",
+              "calls": 15,
+              "tokens": 142100,
+              "credits": 0.0984,
+              "usd": 0.1968
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "openai-gpt-5.4",
+          "runs": 2,
+          "score": 0.677,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": 0.854,
+          "recovered": 2,
+          "recovery_tries": 2,
+          "tokens": 151181,
+          "turns": 23,
+          "median_turn_s": 2.92,
+          "tool_errors": 1,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 3,
+          "wall_s": 161.0,
+          "errors_drawn": [
+            "device_moved_silent (press_b1 on button_1)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "pipeline_fault (press_b2 on button_2)",
+            "pipeline_fault (press_b2 on button_2)",
+            "slow_arm (touch)",
+            "slow_arm (touch)"
+          ],
+          "missed": [],
+          "credits": 0.1115,
+          "usd": 0.223,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "003-openai-gpt-5.4-7-random-0.05-0",
+              "calls": 10,
+              "tokens": 65069,
+              "credits": 0.0439,
+              "usd": 0.0878
+            },
+            {
+              "run": "003-openai-gpt-5.4-13-random-0.05-0",
+              "calls": 13,
+              "tokens": 86112,
+              "credits": 0.0676,
+              "usd": 0.1352
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "grok-4.7",
+          "runs": 2,
+          "score": 0.677,
+          "faults_found": 2,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": 0.854,
+          "recovered": 2,
+          "recovery_tries": 2,
+          "tokens": 209989,
+          "turns": 29,
+          "median_turn_s": 3.06,
+          "tool_errors": 2,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 3,
+          "wall_s": 223.4,
+          "errors_drawn": [
+            "device_moved_silent (press_b1 on button_1)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "pipeline_fault (press_b on button_2)",
+            "pipeline_fault (press_b2 on button_2)",
+            "slow_arm (touch)",
+            "slow_arm (touch)"
+          ],
+          "missed": [],
+          "credits": 0.137,
+          "usd": 0.274,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "004-grok-4.7-7-random-0.05-0",
+              "calls": 12,
+              "tokens": 88074,
+              "credits": 0.0602,
+              "usd": 0.1204
+            },
+            {
+              "run": "004-grok-4.7-13-random-0.05-0",
+              "calls": 17,
+              "tokens": 121915,
+              "credits": 0.0768,
+              "usd": 0.1535
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "rules",
+          "runs": 2,
+          "score": 0.062,
+          "faults_found": 0,
+          "faults_planted": 2,
+          "false_findings": 0,
+          "coverage": 0.062,
+          "recovered": 0,
+          "recovery_tries": 2,
+          "tokens": 0,
+          "turns": 0,
+          "median_turn_s": null,
+          "tool_errors": 0,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 0,
+          "wall_s": 50.9,
+          "errors_drawn": [
+            "device_moved_silent (s1 on button_1)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "pipeline_fault (s2 on button_2)",
+            "pipeline_fault (s2 on button_2)",
+            "slow_arm (touch)",
+            "slow_arm (touch)"
+          ],
+          "missed": [
+            "005-rules-13-random-0.05-0: missed door_1",
+            "005-rules-7-random-0.05-0: missed button_4"
+          ],
+          "credits": 0,
+          "usd": 0.0,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "005-rules-7-random-0.05-0",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "005-rules-13-random-0.05-0",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            }
+          ],
+          "baseline": true,
+          "reasoning": null
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "title": "Manual-driven verification, Rev A",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "eval",
+      "test_set": "Scored with the symptom rule (added 2026-11-07, applied to every model, the baseline and every earlier round): a finding counts for a fault when a failing check on it reads where the fault shows, on the step the device's own verify check fails at, and quotes the manual. Five authored devices from the dev split (interval timer, label printer, wall thermostat, kettle base, tube sealer), Rev A, the fingertip probe, each device's manual given through read_manual, 5% per-action errors. Scored against each revision's observable faults from its build answer key, which only the scorer reads: a masked fault counts only if its part is called passed, and a fault that only shows with an object placed (the robot can't pick) counts as handled when its part isn't called passed. A fault reported as intermittent counts as found. Ran from the frozen copy of 2026-11-07 17:46:57 EST.",
+      "spend": "3.97M tokens across the four models (about 200k a run).",
+      "takeaway": "Every model beat the rule baseline (3 of 12), but none found more than 7 of 12. Single-press faults (a dead button, a wrong step size) were found; procedures that need a set state or many presses (a setpoint that wraps at its top, pause during a countdown) were mostly not reached, and the control was called passed. Kettle-base was hardest: its power-on default fault shows at the power switch, and the symptom rule credits Haiku and Sonnet for reporting it there. Grok was the only model to find interval-timer's pause fault.",
+      "cost": {
+        "tokens": 3974966,
+        "credits": 2.5041,
+        "usd": 5.0082
+      },
+      "rows": [
+        {
+          "model": "claude-haiku-5-5",
+          "runs": 5,
+          "score": 0.272,
+          "faults_found": 7,
+          "faults_planted": 12,
+          "false_findings": 1,
+          "coverage": 0.81,
+          "recovered": 4,
+          "recovery_tries": 4,
+          "tokens": 1052946,
+          "turns": 81,
+          "median_turn_s": 3.26,
+          "tool_errors": 5,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 6,
+          "wall_s": 476.7,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "pipeline_fault (s4b_mode_heat_to_cool on button_1)"
+          ],
+          "missed": [
+            "001-claude-haiku-5-5-interval-timer-A: missed F2",
+            "006-claude-haiku-5-5-label-printer-A: false finding on toggle_1",
+            "006-claude-haiku-5-5-label-printer-A: missed F3",
+            "011-claude-haiku-5-5-wall-thermostat-A: missed F2",
+            "016-claude-haiku-5-5-kettle-base-A: missed F2",
+            "016-claude-haiku-5-5-kettle-base-A: missed F3"
+          ],
+          "credits": 0.0462,
+          "usd": 0.0924,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-claude-haiku-5-5-interval-timer-A",
+              "calls": 14,
+              "tokens": 188673,
+              "credits": 0.0085,
+              "usd": 0.017
+            },
+            {
+              "run": "006-claude-haiku-5-5-label-printer-A",
+              "calls": 15,
+              "tokens": 196859,
+              "credits": 0.0087,
+              "usd": 0.0173
+            },
+            {
+              "run": "011-claude-haiku-5-5-wall-thermostat-A",
+              "calls": 14,
+              "tokens": 209893,
+              "credits": 0.0098,
+              "usd": 0.0196
+            },
+            {
+              "run": "016-claude-haiku-5-5-kettle-base-A",
+              "calls": 26,
+              "tokens": 323610,
+              "credits": 0.0146,
+              "usd": 0.0292
+            },
+            {
+              "run": "021-claude-haiku-5-5-tube-sealer-A",
+              "calls": 12,
+              "tokens": 133911,
+              "credits": 0.0046,
+              "usd": 0.0093
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "runs": 5,
+          "score": 0.422,
+          "faults_found": 7,
+          "faults_planted": 12,
+          "false_findings": 0,
+          "coverage": 0.917,
+          "recovered": 4,
+          "recovery_tries": 5,
+          "tokens": 1088687,
+          "turns": 93,
+          "median_turn_s": 3.17,
+          "tool_errors": 2,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 10,
+          "wall_s": 594.4,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "pipeline_fault (m2 on button_1)",
+            "pipeline_fault (t2 on button_1)",
+            "slow_arm (c11 on display_1)"
+          ],
+          "missed": [
+            "002-claude-sonnet-5-5-interval-timer-A: missed F1",
+            "002-claude-sonnet-5-5-interval-timer-A: missed F2",
+            "007-claude-sonnet-5-5-label-printer-A: missed F3",
+            "012-claude-sonnet-5-5-wall-thermostat-A: missed F2",
+            "017-claude-sonnet-5-5-kettle-base-A: missed F2"
+          ],
+          "credits": 0.9271,
+          "usd": 1.8542,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "002-claude-sonnet-5-5-interval-timer-A",
+              "calls": 14,
+              "tokens": 184933,
+              "credits": 0.1784,
+              "usd": 0.3569
+            },
+            {
+              "run": "007-claude-sonnet-5-5-label-printer-A",
+              "calls": 26,
+              "tokens": 304902,
+              "credits": 0.26,
+              "usd": 0.52
+            },
+            {
+              "run": "012-claude-sonnet-5-5-wall-thermostat-A",
+              "calls": 16,
+              "tokens": 164101,
+              "credits": 0.1271,
+              "usd": 0.2543
+            },
+            {
+              "run": "017-claude-sonnet-5-5-kettle-base-A",
+              "calls": 24,
+              "tokens": 310477,
+              "credits": 0.2814,
+              "usd": 0.5628
+            },
+            {
+              "run": "022-claude-sonnet-5-5-tube-sealer-A",
+              "calls": 13,
+              "tokens": 124274,
+              "credits": 0.0802,
+              "usd": 0.1604
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "openai-gpt-5.4",
+          "runs": 5,
+          "score": 0.228,
+          "faults_found": 6,
+          "faults_planted": 12,
+          "false_findings": 0,
+          "coverage": 0.76,
+          "recovered": 4,
+          "recovery_tries": 4,
+          "tokens": 605604,
+          "turns": 67,
+          "median_turn_s": 3.65,
+          "tool_errors": 5,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 1,
+          "recoveries": 6,
+          "wall_s": 521.4,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)"
+          ],
+          "missed": [
+            "003-openai-gpt-5.4-interval-timer-A: missed F2",
+            "008-openai-gpt-5.4-label-printer-A: missed F3",
+            "013-openai-gpt-5.4-wall-thermostat-A: missed F2",
+            "018-openai-gpt-5.4-kettle-base-A: missed F2",
+            "018-openai-gpt-5.4-kettle-base-A: missed F3",
+            "023-openai-gpt-5.4-tube-sealer-A: missed F3"
+          ],
+          "credits": 0.641,
+          "usd": 1.282,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "003-openai-gpt-5.4-interval-timer-A",
+              "calls": 14,
+              "tokens": 171650,
+              "credits": 0.2166,
+              "usd": 0.4332
+            },
+            {
+              "run": "008-openai-gpt-5.4-label-printer-A",
+              "calls": 20,
+              "tokens": 158681,
+              "credits": 0.1403,
+              "usd": 0.2805
+            },
+            {
+              "run": "013-openai-gpt-5.4-wall-thermostat-A",
+              "calls": 7,
+              "tokens": 75043,
+              "credits": 0.1092,
+              "usd": 0.2183
+            },
+            {
+              "run": "018-openai-gpt-5.4-kettle-base-A",
+              "calls": 14,
+              "tokens": 122213,
+              "credits": 0.1113,
+              "usd": 0.2225
+            },
+            {
+              "run": "023-openai-gpt-5.4-tube-sealer-A",
+              "calls": 12,
+              "tokens": 78017,
+              "credits": 0.0636,
+              "usd": 0.1272
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "grok-4.7",
+          "runs": 5,
+          "score": 0.508,
+          "faults_found": 6,
+          "faults_planted": 12,
+          "false_findings": 0,
+          "coverage": 0.883,
+          "recovered": 4,
+          "recovery_tries": 4,
+          "tokens": 1227729,
+          "turns": 139,
+          "median_turn_s": 4.85,
+          "tool_errors": 6,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 8,
+          "wall_s": 1120.6,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "pipeline_fault (mode_retry_cool on button_1)"
+          ],
+          "missed": [
+            "009-grok-4.7-label-printer-A: missed F3",
+            "014-grok-4.7-wall-thermostat-A: missed F2",
+            "014-grok-4.7-wall-thermostat-A: missed F3",
+            "019-grok-4.7-kettle-base-A: missed F1",
+            "019-grok-4.7-kettle-base-A: missed F2",
+            "019-grok-4.7-kettle-base-A: missed F3"
+          ],
+          "credits": 0.8898,
+          "usd": 1.7796,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "004-grok-4.7-interval-timer-A",
+              "calls": 31,
+              "tokens": 253299,
+              "credits": 0.1658,
+              "usd": 0.3317
+            },
+            {
+              "run": "009-grok-4.7-label-printer-A",
+              "calls": 32,
+              "tokens": 330939,
+              "credits": 0.2428,
+              "usd": 0.4855
+            },
+            {
+              "run": "014-grok-4.7-wall-thermostat-A",
+              "calls": 16,
+              "tokens": 149387,
+              "credits": 0.1424,
+              "usd": 0.2848
+            },
+            {
+              "run": "019-grok-4.7-kettle-base-A",
+              "calls": 40,
+              "tokens": 348130,
+              "credits": 0.2219,
+              "usd": 0.4438
+            },
+            {
+              "run": "024-grok-4.7-tube-sealer-A",
+              "calls": 20,
+              "tokens": 145974,
+              "credits": 0.1169,
+              "usd": 0.2338
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "rules",
+          "runs": 5,
+          "score": 0.617,
+          "faults_found": 3,
+          "faults_planted": 12,
+          "false_findings": 0,
+          "coverage": 0.767,
+          "recovered": 0,
+          "recovery_tries": 0,
+          "tokens": 0,
+          "turns": 0,
+          "median_turn_s": null,
+          "tool_errors": 0,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 0,
+          "wall_s": 99.2,
+          "errors_drawn": [],
+          "missed": [
+            "005-rules-interval-timer-A: missed F1",
+            "005-rules-interval-timer-A: missed F2",
+            "010-rules-label-printer-A: missed F3",
+            "015-rules-wall-thermostat-A: missed F2",
+            "015-rules-wall-thermostat-A: missed F3",
+            "020-rules-kettle-base-A: missed F1",
+            "020-rules-kettle-base-A: missed F2",
+            "020-rules-kettle-base-A: missed F3",
+            "025-rules-tube-sealer-A: missed F3"
+          ],
+          "credits": 0,
+          "usd": 0.0,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "005-rules-interval-timer-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "010-rules-label-printer-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "015-rules-wall-thermostat-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "020-rules-kettle-base-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "025-rules-tube-sealer-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            }
+          ],
+          "baseline": true,
+          "reasoning": null
+        }
+      ]
+    },
+    {
+      "id": "3b",
+      "title": "Rev A again, after fixes by class",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "eval",
+      "test_set": "Scored with the symptom rule (added 2026-11-07, applied to every model, the baseline and every earlier round): a finding counts for a fault when a failing check on it reads where the fault shows, on the step the device's own verify check fails at, and quotes the manual. Round 3's devices and seeds, with four fixes and the same prompt for every model: the symptom rule above; a new plan closes a routine held at a stop; a record_hypothesis tool turns the model's description of the device (its pieces, relations and procedures, docs/device-theory.md) into a checklist of properties to test, and finish_run points out untested ones once; and a device's refusal of a precondition is evidence about the device. Partial: the token cap stopped the round before Grok's kettle-base run and all four models' tube-sealer runs, so compare it with round 3 on the first four devices. Ran from the frozen copy of 2026-11-07 18:45:35 EST.",
+      "spend": "4.70M tokens across the four models.",
+      "takeaway": "On the four devices both rounds finished, faults found barely moved (Haiku 6 to 6 of 11, Sonnet 6 to 5, GPT-5.4 6 to 7; Grok 5 to 5 of 8), but faults called passed fell (Haiku 5 to 3, Sonnet 6 to 4) and false findings went to none. GPT-5.4 found the thermostat's wrap-around for the first time. The checklist made runs about 40% longer: six runs ran out of their 400k-token budget before finishing, and nearly every model's first hypothesis was turned down by the schema. Those are the next fixes.",
+      "cost": {
+        "tokens": 4699790,
+        "credits": 3.1515,
+        "usd": 6.303
+      },
+      "rows": [
+        {
+          "model": "claude-haiku-5-5",
+          "runs": 4,
+          "score": 0.299,
+          "faults_found": 6,
+          "faults_planted": 11,
+          "false_findings": 0,
+          "coverage": 0.729,
+          "recovered": 2,
+          "recovery_tries": 3,
+          "tokens": 1281374,
+          "turns": 75,
+          "median_turn_s": 3.79,
+          "tool_errors": 9,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 10,
+          "wall_s": 452.4,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "pipeline_fault (s4b_mode_cool_retest on button_1)"
+          ],
+          "missed": [
+            "001-claude-haiku-5-5-interval-timer-A: missed F2",
+            "006-claude-haiku-5-5-label-printer-A: missed F3",
+            "011-claude-haiku-5-5-wall-thermostat-A: missed F2",
+            "016-claude-haiku-5-5-kettle-base-A: missed F2",
+            "016-claude-haiku-5-5-kettle-base-A: missed F3"
+          ],
+          "credits": 0.063,
+          "usd": 0.126,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-claude-haiku-5-5-interval-timer-A",
+              "calls": 16,
+              "tokens": 253869,
+              "credits": 0.0124,
+              "usd": 0.0248
+            },
+            {
+              "run": "006-claude-haiku-5-5-label-printer-A",
+              "calls": 21,
+              "tokens": 347802,
+              "credits": 0.0168,
+              "usd": 0.0336
+            },
+            {
+              "run": "011-claude-haiku-5-5-wall-thermostat-A",
+              "calls": 17,
+              "tokens": 267505,
+              "credits": 0.0125,
+              "usd": 0.025
+            },
+            {
+              "run": "016-claude-haiku-5-5-kettle-base-A",
+              "calls": 21,
+              "tokens": 412198,
+              "credits": 0.0213,
+              "usd": 0.0426
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "runs": 4,
+          "score": 0.49,
+          "faults_found": 5,
+          "faults_planted": 11,
+          "false_findings": 0,
+          "coverage": 0.833,
+          "recovered": 2,
+          "recovery_tries": 4,
+          "tokens": 1391965,
+          "turns": 79,
+          "median_turn_s": 4.54,
+          "tool_errors": 9,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 8,
+          "wall_s": 614.3,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "pipeline_fault (m2 on button_1)"
+          ],
+          "missed": [
+            "002-claude-sonnet-5-5-interval-timer-A: missed F1",
+            "002-claude-sonnet-5-5-interval-timer-A: missed F2",
+            "007-claude-sonnet-5-5-label-printer-A: missed F3",
+            "012-claude-sonnet-5-5-wall-thermostat-A: missed F2",
+            "017-claude-sonnet-5-5-kettle-base-A: missed F2",
+            "017-claude-sonnet-5-5-kettle-base-A: missed F3"
+          ],
+          "credits": 1.3298,
+          "usd": 2.6596,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "002-claude-sonnet-5-5-interval-timer-A",
+              "calls": 20,
+              "tokens": 419309,
+              "credits": 0.4235,
+              "usd": 0.847
+            },
+            {
+              "run": "007-claude-sonnet-5-5-label-printer-A",
+              "calls": 23,
+              "tokens": 389558,
+              "credits": 0.3579,
+              "usd": 0.7158
+            },
+            {
+              "run": "012-claude-sonnet-5-5-wall-thermostat-A",
+              "calls": 13,
+              "tokens": 163448,
+              "credits": 0.1259,
+              "usd": 0.2518
+            },
+            {
+              "run": "017-claude-sonnet-5-5-kettle-base-A",
+              "calls": 23,
+              "tokens": 419650,
+              "credits": 0.4225,
+              "usd": 0.8451
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "openai-gpt-5.4",
+          "runs": 4,
+          "score": 0.203,
+          "faults_found": 7,
+          "faults_planted": 11,
+          "false_findings": 0,
+          "coverage": 0.783,
+          "recovered": 4,
+          "recovery_tries": 4,
+          "tokens": 927473,
+          "turns": 71,
+          "median_turn_s": 6.26,
+          "tool_errors": 13,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 1,
+          "recoveries": 6,
+          "wall_s": 597.6,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "missed_aim (u8_to_25_5 on button_3)",
+            "pipeline_fault (r2_mode_from_heat_expected_cool on button_1)",
+            "pipeline_fault (u15_to_29_0 on button_3)"
+          ],
+          "missed": [
+            "003-openai-gpt-5.4-interval-timer-A: missed F2",
+            "008-openai-gpt-5.4-label-printer-A: missed F3",
+            "018-openai-gpt-5.4-kettle-base-A: missed F2",
+            "018-openai-gpt-5.4-kettle-base-A: missed F3"
+          ],
+          "credits": 0.997,
+          "usd": 1.994,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "003-openai-gpt-5.4-interval-timer-A",
+              "calls": 19,
+              "tokens": 267665,
+              "credits": 0.2903,
+              "usd": 0.5806
+            },
+            {
+              "run": "008-openai-gpt-5.4-label-printer-A",
+              "calls": 15,
+              "tokens": 158246,
+              "credits": 0.1503,
+              "usd": 0.3006
+            },
+            {
+              "run": "013-openai-gpt-5.4-wall-thermostat-A",
+              "calls": 17,
+              "tokens": 232404,
+              "credits": 0.292,
+              "usd": 0.584
+            },
+            {
+              "run": "018-openai-gpt-5.4-kettle-base-A",
+              "calls": 20,
+              "tokens": 269158,
+              "credits": 0.2644,
+              "usd": 0.5288
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "grok-4.7",
+          "runs": 3,
+          "score": 0.486,
+          "faults_found": 5,
+          "faults_planted": 8,
+          "false_findings": 0,
+          "coverage": 0.944,
+          "recovered": 1,
+          "recovery_tries": 3,
+          "tokens": 1098978,
+          "turns": 90,
+          "median_turn_s": 3.89,
+          "tool_errors": 6,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 6,
+          "wall_s": 668.6,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "pipeline_fault (min_retest on button_1)",
+            "pipeline_fault (re_cool on button_1)"
+          ],
+          "missed": [
+            "004-grok-4.7-interval-timer-A: missed F2",
+            "009-grok-4.7-label-printer-A: missed F3",
+            "014-grok-4.7-wall-thermostat-A: missed F2"
+          ],
+          "credits": 0.7617,
+          "usd": 1.5234,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "004-grok-4.7-interval-timer-A",
+              "calls": 38,
+              "tokens": 411256,
+              "credits": 0.2331,
+              "usd": 0.4661
+            },
+            {
+              "run": "009-grok-4.7-label-printer-A",
+              "calls": 30,
+              "tokens": 411817,
+              "credits": 0.3102,
+              "usd": 0.6203
+            },
+            {
+              "run": "014-grok-4.7-wall-thermostat-A",
+              "calls": 22,
+              "tokens": 275905,
+              "credits": 0.2184,
+              "usd": 0.4368
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "rules",
+          "runs": 5,
+          "score": 0.617,
+          "faults_found": 3,
+          "faults_planted": 12,
+          "false_findings": 0,
+          "coverage": 0.767,
+          "recovered": 0,
+          "recovery_tries": 0,
+          "tokens": 0,
+          "turns": 0,
+          "median_turn_s": null,
+          "tool_errors": 0,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 0,
+          "wall_s": 94.0,
+          "errors_drawn": [],
+          "missed": [
+            "005-rules-interval-timer-A: missed F1",
+            "005-rules-interval-timer-A: missed F2",
+            "010-rules-label-printer-A: missed F3",
+            "015-rules-wall-thermostat-A: missed F2",
+            "015-rules-wall-thermostat-A: missed F3",
+            "019-rules-kettle-base-A: missed F1",
+            "019-rules-kettle-base-A: missed F2",
+            "019-rules-kettle-base-A: missed F3",
+            "020-rules-tube-sealer-A: missed F3"
+          ],
+          "credits": 0,
+          "usd": 0.0,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "005-rules-interval-timer-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "010-rules-label-printer-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "015-rules-wall-thermostat-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "019-rules-kettle-base-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "020-rules-tube-sealer-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            }
+          ],
+          "baseline": true,
+          "reasoning": null
+        }
+      ]
+    },
+    {
+      "id": "3m",
+      "title": "Manual-driven verification, mixed revision M1 (partial)",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "eval",
+      "test_set": "Scored with the symptom rule (added 2026-11-07, applied to every model, the baseline and every earlier round): a finding counts for a fault when a failing check on it reads where the fault shows, on the step the device's own verify check fails at, and quotes the manual. Partial: one run. M1 was stopped after Haiku's interval-timer run to spend the budget on recovery and on fixes to Rev A first; the other models and devices haven't run on M1 yet.",
+      "spend": "88,375 tokens.",
+      "takeaway": "Not a comparison: one model on one device.",
+      "cost": {
+        "tokens": 88375,
+        "credits": 0.0041,
+        "usd": 0.0082
+      },
+      "rows": [
+        {
+          "model": "claude-haiku-5-5",
+          "runs": 1,
+          "score": 0.75,
+          "faults_found": 1,
+          "faults_planted": 3,
+          "false_findings": 0,
+          "coverage": 1.0,
+          "recovered": 0,
+          "recovery_tries": 0,
+          "tokens": 88375,
+          "turns": 8,
+          "median_turn_s": 4.91,
+          "tool_errors": 1,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 0,
+          "wall_s": 53.1,
+          "errors_drawn": [],
+          "missed": [
+            "001-claude-haiku-5-5-interval-timer-M1: missed F2",
+            "001-claude-haiku-5-5-interval-timer-M1: missed F4"
+          ],
+          "credits": 0.0041,
+          "usd": 0.0082,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-claude-haiku-5-5-interval-timer-M1",
+              "calls": 8,
+              "tokens": 88375,
+              "credits": 0.0041,
+              "usd": 0.0082
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        }
+      ]
+    },
+    {
+      "id": "3c",
+      "title": "Rev A with check-back enforced",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "eval",
+      "test_set": "Scored with the symptom rule. Round 3's devices and seeds (Rev A, 5% robot errors, seed 1), the same prompt for every model, with three changes: check-back is enforced (every step that changes something checks the device's outputs, not only the part it moved; a group of changes is followed by an observe step that reads earlier results back; plans without this are refused with what's missing; the run ends with a closing look compared with the first, and the differences go in the report); record_hypothesis takes the full schema and repairs near misses, keeping its checklist out of the conversation; and the per-run token limit is 600k. Partial: the token cap stopped the models after tube-sealer, kettle-base and interval-timer, so label-printer and wall-thermostat have only the baseline. Ran from the frozen copy of 2026-11-07 19:53:38 EST.",
+      "spend": "5.36M tokens across the four models, 3.0 AI credits (about $6.01 at an assumed $2 per credit).",
+      "takeaway": "On the three devices it ran, faults found went from 15 to 16 of 28 against round 3 and faults called passed halved, 14 to 7, with no false findings. Sonnet found 6 of 7 (4 in round 3), including all three kettle-base faults; Haiku 4 of 7; GPT-5.4 and Grok 3 each, and Grok still called 4 passed. Check-back refused 18 plans, in 11 of 12 runs, before they moved anything; 31 output checks failed on steps where the part did move, and 7 of 60 read-backs failed. Most closing looks found the device left changed (left powered on, or holding a refusal message), and only one run put it back as it found it. The cost about doubled: 3.0 credits against 1.5 for the same runs in round 3, and four runs hit the 600k token limit. Every model's first record_hypothesis call was accepted, where in round 3b nearly all failed.",
+      "cost": {
+        "tokens": 5355925,
+        "credits": 3.0065,
+        "usd": 6.013
+      },
+      "rows": [
+        {
+          "model": "claude-haiku-5-5",
+          "runs": 3,
+          "score": 0.074,
+          "faults_found": 4,
+          "faults_planted": 7,
+          "false_findings": 0,
+          "coverage": 0.722,
+          "recovered": 2,
+          "recovery_tries": 3,
+          "tokens": 1478698,
+          "turns": 68,
+          "median_turn_s": 4.34,
+          "tool_errors": 18,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 1,
+          "recoveries": 1,
+          "wall_s": 416.6,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)"
+          ],
+          "missed": [
+            "001-claude-haiku-5-5-tube-sealer-A: missed F3",
+            "006-claude-haiku-5-5-kettle-base-A: missed F2",
+            "006-claude-haiku-5-5-kettle-base-A: missed F3"
+          ],
+          "credits": 0.0643,
+          "usd": 0.1286,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-claude-haiku-5-5-tube-sealer-A",
+              "calls": 19,
+              "tokens": 375390,
+              "credits": 0.0146,
+              "usd": 0.0292
+            },
+            {
+              "run": "006-claude-haiku-5-5-kettle-base-A",
+              "calls": 28,
+              "tokens": 619890,
+              "credits": 0.0274,
+              "usd": 0.0548
+            },
+            {
+              "run": "011-claude-haiku-5-5-interval-timer-A",
+              "calls": 21,
+              "tokens": 483418,
+              "credits": 0.0223,
+              "usd": 0.0445
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "runs": 3,
+          "score": 0.167,
+          "faults_found": 6,
+          "faults_planted": 7,
+          "false_findings": 0,
+          "coverage": 0.917,
+          "recovered": 2,
+          "recovery_tries": 2,
+          "tokens": 1064674,
+          "turns": 55,
+          "median_turn_s": 5.82,
+          "tool_errors": 12,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 3,
+          "wall_s": 406.5,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)"
+          ],
+          "missed": [
+            "012-claude-sonnet-5-5-interval-timer-A: missed F2"
+          ],
+          "credits": 0.8129,
+          "usd": 1.6258,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "002-claude-sonnet-5-5-tube-sealer-A",
+              "calls": 17,
+              "tokens": 297217,
+              "credits": 0.2048,
+              "usd": 0.4097
+            },
+            {
+              "run": "007-claude-sonnet-5-5-kettle-base-A",
+              "calls": 21,
+              "tokens": 432761,
+              "credits": 0.3508,
+              "usd": 0.7016
+            },
+            {
+              "run": "012-claude-sonnet-5-5-interval-timer-A",
+              "calls": 17,
+              "tokens": 334696,
+              "credits": 0.2573,
+              "usd": 0.5146
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "openai-gpt-5.4",
+          "runs": 3,
+          "score": 0.167,
+          "faults_found": 3,
+          "faults_planted": 7,
+          "false_findings": 0,
+          "coverage": 0.667,
+          "recovered": 2,
+          "recovery_tries": 3,
+          "tokens": 1335295,
+          "turns": 61,
+          "median_turn_s": 5.6,
+          "tool_errors": 16,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 7,
+          "wall_s": 654.5,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)"
+          ],
+          "missed": [
+            "003-openai-gpt-5.4-tube-sealer-A: missed F3",
+            "008-openai-gpt-5.4-kettle-base-A: missed F2",
+            "008-openai-gpt-5.4-kettle-base-A: missed F3",
+            "013-openai-gpt-5.4-interval-timer-A: missed F2"
+          ],
+          "credits": 1.2363,
+          "usd": 2.4726,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "003-openai-gpt-5.4-tube-sealer-A",
+              "calls": 15,
+              "tokens": 170236,
+              "credits": 0.153,
+              "usd": 0.3059
+            },
+            {
+              "run": "008-openai-gpt-5.4-kettle-base-A",
+              "calls": 23,
+              "tokens": 612033,
+              "credits": 0.6421,
+              "usd": 1.2841
+            },
+            {
+              "run": "013-openai-gpt-5.4-interval-timer-A",
+              "calls": 23,
+              "tokens": 553026,
+              "credits": 0.4412,
+              "usd": 0.8823
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "grok-4.7",
+          "runs": 3,
+          "score": 0.472,
+          "faults_found": 3,
+          "faults_planted": 7,
+          "false_findings": 0,
+          "coverage": 0.778,
+          "recovered": 1,
+          "recovery_tries": 3,
+          "tokens": 1477258,
+          "turns": 91,
+          "median_turn_s": 4.82,
+          "tool_errors": 11,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 9,
+          "wall_s": 1060.7,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "pipeline_fault (boil_retest on button_1)",
+            "slow_arm (see_off on display_1)"
+          ],
+          "missed": [
+            "004-grok-4.7-tube-sealer-A: missed F3",
+            "009-grok-4.7-kettle-base-A: missed F2",
+            "009-grok-4.7-kettle-base-A: missed F3",
+            "014-grok-4.7-interval-timer-A: missed F2"
+          ],
+          "credits": 0.893,
+          "usd": 1.786,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "004-grok-4.7-tube-sealer-A",
+              "calls": 20,
+              "tokens": 261843,
+              "credits": 0.1697,
+              "usd": 0.3395
+            },
+            {
+              "run": "009-grok-4.7-kettle-base-A",
+              "calls": 34,
+              "tokens": 606106,
+              "credits": 0.3712,
+              "usd": 0.7424
+            },
+            {
+              "run": "014-grok-4.7-interval-timer-A",
+              "calls": 37,
+              "tokens": 609309,
+              "credits": 0.3521,
+              "usd": 0.7043
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "rules",
+          "runs": 5,
+          "score": 0.617,
+          "faults_found": 3,
+          "faults_planted": 12,
+          "false_findings": 0,
+          "coverage": 0.767,
+          "recovered": 0,
+          "recovery_tries": 0,
+          "tokens": 0,
+          "turns": 0,
+          "median_turn_s": null,
+          "tool_errors": 0,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 0,
+          "wall_s": 83.0,
+          "errors_drawn": [],
+          "missed": [
+            "005-rules-tube-sealer-A: missed F3",
+            "010-rules-kettle-base-A: missed F1",
+            "010-rules-kettle-base-A: missed F2",
+            "010-rules-kettle-base-A: missed F3",
+            "015-rules-interval-timer-A: missed F1",
+            "015-rules-interval-timer-A: missed F2",
+            "016-rules-label-printer-A: missed F3",
+            "017-rules-wall-thermostat-A: missed F2",
+            "017-rules-wall-thermostat-A: missed F3"
+          ],
+          "credits": 0,
+          "usd": 0.0,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "005-rules-tube-sealer-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "010-rules-kettle-base-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "015-rules-interval-timer-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "016-rules-label-printer-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "017-rules-wall-thermostat-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            }
+          ],
+          "baseline": true,
+          "reasoning": null
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "title": "Rev A with the stock gripper",
+      "status": "planned",
+      "date": null,
+      "kind": "eval",
+      "test_set": "The team's arm has only the SO-101's own gripper, so every round before this one (all with the fingertip probe) is a sim reference, not evidence about the real arm. Rev A on the five dev devices with the stock gripper, the four models and the baseline, 5% robot errors, seed 1, the same prompt for every model, with check-back enforced. From this round on, the harness waits 1 s between model requests rather than 4.5 s, so time per turn isn't comparable with earlier rounds.",
+      "spend": "",
+      "takeaway": "",
+      "cost": null,
+      "rows": []
+    },
+    {
+      "id": "5",
+      "title": "The centrifuge, Rev A and Rev B",
+      "status": "planned",
+      "date": null,
+      "kind": "eval",
+      "test_set": "The top two models on the MC-6 centrifuge in the sim, three runs each: Rev B, which should pass its whole manual workflow, and Rev A, which has three built-in faults.",
+      "spend": "",
+      "takeaway": "",
+      "cost": null,
+      "rows": []
+    }
+  ]
+}

@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from pydantic import Field
-from rav_interface.models import (Check, Contract, Control, ControlKind, FailureLabel, Plan, SceneInventory, Skill, Status,
+from rav_interface.models import (DEVICE_CONTROL, Check, CheckResult, Frame, Contract, Control, ControlKind, FailureLabel, Plan, SceneInventory, Skill, Status,
                                   Step, StepTrace, StepVerdict)
 
 
@@ -135,10 +135,11 @@ class Coverage(Contract):
     observed: list[str]
     inconclusive: list[str]
     skipped: dict[str, str]  # control id -> reason
+    intermittent: list[str] = Field(default_factory=list)  # failed and passed: every attempt is in the log
 
     @property
     def covered(self) -> int:
-        return len(self.passed) + len(self.failed) + len(self.observed)
+        return len(self.passed) + len(self.failed) + len(self.observed) + len(self.intermittent)
 
 
 class Reward(Contract):

@@ -21,6 +21,7 @@ class RunLog:
         self.path = self.dir / "events.jsonl"
         self.path.write_text("")
         self.seq, self.t0, self.on_event = 0, time.monotonic(), on_event
+        self.wall0 = time.time()
         self._lock = threading.Lock()       # analysts may run in parallel and log to the same run
 
     def emit(self, type_: str, payload: BaseModel | dict) -> RunEvent:

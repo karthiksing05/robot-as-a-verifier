@@ -15,17 +15,30 @@ HARDWARE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hardw
 
 
 def make_rig(seed=None, placement="nominal", ideal=False, offsets=None, slop=False, stiffness=None, sensing="perfect",
-             depth=False, stereo=False, realtime=False, driver="sim"):
+             depth=False, stereo=False, realtime=False, device=None, rev="B", effector="stock", mounts=None, driver="sim"):
     """seed: a generated device (None: preset C), moved on the desk with placement="random". ideal: no sensor noise and
     no joint error. offsets: joint calibration error, uniform in +-offsets deg on all five joints (default N(0, 0.5 deg)
     on four). stiffness: robot.SERVO_NM_PER_RAD, for slop. sensing: "perfect", "current", "tactile" or "loadcell" (all
     but perfect need slop). depth: a D405 on the wrist and the phone for the survey, else the USB wrist camera alone.
+    device: a device file (cad_device.py) instead of a generated device, with rev: its revision or fault choices.
+    effector: "stock" (the SO-101's own gripper alone, as the real arm is) or "probe" (the fingertip probe and pad, kept
+    as a sim-only reference).
+    mounts: {root: "clamped" | "free"} over the device file's.
     driver="real": the rig's arm is real_arm.RealArm, torque on, over a simulated motor bus whose servos are the SimArm
     (see real_driver). The cameras and the device's readout stay the sim's."""
     rng = np.random.default_rng(seed or 0)  # the same placement and joint offsets every run
-    w = world.build_world(seed)
-    if placement == "random":
-        w = world.build_world(seed, placement=w.random_placement(rng))
+    if device:
+        import cad_device
+        import perceive
+
+        w = cad_device.build_cad_world(device, rev, mounts=mounts)
+        if placement == "random":
+            w = cad_device.build_cad_world(device, rev, placement=w.random_placement(rng), mounts=mounts)
+        perceive.set_table_z(w.table_z)
+    else:
+        w = world.build_world(seed)
+        if placement == "random":
+            w = world.build_world(seed, placement=w.random_placement(rng))
     if offsets is not None:
         joint_offsets = np.radians(rng.uniform(-offsets, offsets, 5))
     elif ideal:
@@ -35,7 +48,7 @@ def make_rig(seed=None, placement="nominal", ideal=False, offsets=None, slop=Fal
     if stiffness:
         robot.SERVO_NM_PER_RAD = stiffness  # read by the servo model at run time
     arm = robot.SimArm(world=w, joint_offsets=joint_offsets, realtime=realtime, slop=slop,
-                       sensing=None if sensing == "perfect" else sensing)
+                       sensing=None if sensing == "perfect" else sensing, effector=effector)
     seed = seed or 0
     phone = sensors.PhoneCamera(arm, ideal=ideal, seed=seed + 1) if depth else None
     wrist = sensors.WristCamera(arm, ideal=ideal, seed=seed + 2, stereo=stereo, usb=not depth)

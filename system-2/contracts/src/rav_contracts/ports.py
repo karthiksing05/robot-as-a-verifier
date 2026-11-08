@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-from rav_interface import (Checkpoint, Decision, EscalationPolicy, Plan, RoutineHandle, RoutineName, SceneReport, StepTrace,
+from rav_interface import (Checkpoint, Decision, EscalationPolicy, Frame, Plan, RoutineHandle, RoutineName, SceneReport, StepTrace,
                            SystemStatus)
 
 from .models import CADPatch
@@ -18,6 +18,8 @@ class System1(Protocol):
     def scene_get(self) -> SceneReport: ...
 
     def evidence_get(self, ref: str) -> StepTrace: ...
+
+    def evidence_frame(self, ref: str) -> Frame: ...
 
     def routine_start(self, routine: RoutineName, plan: Plan | None = None, policy: EscalationPolicy | None = None) -> RoutineHandle: ...
 

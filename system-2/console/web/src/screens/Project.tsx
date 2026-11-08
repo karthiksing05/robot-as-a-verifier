@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
+import { ProjectBar } from "../components/ProjectBar";
 import { Pill, Stat, stagger } from "../components/ui";
 import type { Route } from "../lib/route";
 import { useAppSession, useRuns } from "../lib/context";
+import { galleryOf, splitLabel } from "../lib/gallery";
 import { controlStatus, projectOf, reviewOf, useProjects, type Project as ProjectData, type Review } from "../lib/projects";
+import type { DeviceCard } from "../lib/wikidata";
 
 function Chapter({ n, title, children }: { n: number; title: string; children: ReactNode }) {
   return (
@@ -26,25 +29,24 @@ export function Project({ route }: { route: Route }) {
 
   if (!project) {
     if (!ready) return <div className="sweep" role="status" aria-label="Loading the project" />;
-    return <div className="page"><div className="empty"><h2>No project called {route.parts[1]}</h2><a className="btn ghost" href="#/projects">All projects</a></div></div>;
+    return <div className="page"><div className="empty"><h2>No project called {route.parts[1]}</h2><a className="btn ghost" href="#/studies">All studies</a></div></div>;
   }
   const own = runs.filter((r) => projectOf(r, projects)?.id === project.id);
   const review = reviewOf(own);
   const canRun = project.kind === "sim" && operator.role !== "judge";
+  const device = galleryOf(project.id);
+  const split = splitLabel(project.split ?? device?.split);
+  const about = device?.body.join(" ").trim();
 
   return (
     <div className="page projectpage">
-      <a className="note" href="#/projects">← Projects</a>
+      <ProjectBar project={project} tab="story" />
       <header className="projecthero rise">
-        <div className="row"><span className="tag">{project.kind === "sim" ? "Sim device" : "Physical product"}</span>{review.revisions.length > 0 && <span className="tag">Rev {review.revisions.at(-1)!.revision}</span>}</div>
+        <div className="row"><span className="tag">{project.kind === "sim" ? "Sim device" : "Physical product"}</span>{split && <span className="tag">{split}</span>}{review.revisions.length > 0 && <span className="tag">Rev {review.revisions.at(-1)!.revision}</span>}</div>
         <h1 className="title">{project.name}</h1>
-        {project.summary && <p className="wikilede">{project.summary}</p>}
+        {about ? <p className="wikilede">{about}</p> : project.summary && <p className="wikilede">{project.summary}</p>}
         <b className={`headline big ${review.open.length ? "bad" : review.latest ? "good" : ""}`}>{review.headline}</b>
-        <div className="row">
-          {canRun && <a className="btn accent" href={`#/live?project=${project.id}`}>{review.latest ? "Run it again" : "Start the first run"}</a>}
-          {project.kind === "physical" && <button className="btn ghost" type="button" disabled>The real arm isn't connected</button>}
-          {project.kind === "physical" && <a className="btn ghost" href="#/cad">Open the CAD</a>}
-        </div>
+        {canRun && <div className="row"><a className="btn accent" href={`#/live?project=${project.id}`}>{review.latest ? "Run it again" : "Start the first run"}</a></div>}
         {review.evidence && <p className={`evidence ${review.evidence}`}>{EVIDENCE[review.evidence]}</p>}
       </header>
       <Story project={project} review={review} />
@@ -52,8 +54,20 @@ export function Project({ route }: { route: Route }) {
   );
 }
 
+/** What the device is, from its gallery entry. A held-out device's entry has no faults in it. */
+function DeviceFacts({ device }: { device: DeviceCard }) {
+  return (
+    <dl className="facts devicefacts">
+      {device.controls.length > 0 && <div><dt>Controls</dt><dd><div className="chips">{device.controls.map((x) => <span key={x} className="chip">{x}</span>)}</div></dd></div>}
+      {device.theory.length > 0 && <div><dt>Theory pieces</dt><dd><ul className="plainlist">{device.theory.map((x) => <li key={x}>{x}</li>)}</ul></dd></div>}
+      {device.planted && <div><dt>Planted faults</dt><dd>{device.planted.replace(/`/g, "")}</dd></div>}
+    </dl>
+  );
+}
+
 function Story({ project, review }: { project: ProjectData; review: Review }) {
   const { latest } = review;
+  const device = galleryOf(project.id);
   const instruction = latest?.instruction;
   const kinds = new Map<string, number>();
   latest?.scene.controls.forEach((c) => kinds.set(c.kind, (kinds.get(c.kind) ?? 0) + 1));
@@ -63,10 +77,12 @@ function Story({ project, review }: { project: ProjectData; review: Review }) {
       <Chapter n={1} title="The brief">
         {instruction && <blockquote>{instruction}</blockquote>}
         <dl className="facts">
-          <div><dt>Manual</dt><dd>{latest?.manual ?? "None yet"}</dd></div>
+          <div><dt>Manual</dt><dd>{latest?.manual ?? project.manual?.split("/").at(-1) ?? "None yet"}</dd></div>
           <div><dt>Rules</dt><dd>{project.rules.length ? project.rules.join(", ") : "None yet"}</dd></div>
+          {project.sim?.revs && <div><dt>Revisions</dt><dd>{project.sim.revs.join(", ")}</dd></div>}
           {latest?.plan.steps.length ? <div><dt>Plan</dt><dd>{latest.plan.steps.length} steps, written by {latest.plan.source === "model" ? "the model" : latest.plan.source === "rules" ? "rules" : "a script"}</dd></div> : null}
         </dl>
+        {device && <DeviceFacts device={device} />}
       </Chapter>
       {!latest && <Chapter n={2} title="Nothing tested yet"><p>{project.kind === "sim" ? "Start a run to see what the robot finds on this device." : "This story starts once the arm can run it."}</p></Chapter>}
       {latest && <>

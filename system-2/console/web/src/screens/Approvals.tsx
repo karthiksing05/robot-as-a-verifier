@@ -11,7 +11,7 @@ export function Approvals() {
   return (
     <div className="page">
       <div className="stack">
-        <h1 className="title">Approvals</h1>
+        <h1 className="title">Change Review</h1>
       </div>
       {!pending.length && <div className="empty rise"><h2>Nothing is waiting for approval</h2></div>}
       {pending.map((e, i) => {

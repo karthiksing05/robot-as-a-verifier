@@ -94,7 +94,7 @@ export function Motivation() {
           <li><b>A planted fault:</b> a jammed button is caught as stuck in the sim. There's only one such fault so far.</li>
           <li><b>Not done yet:</b> the full pipeline on the real arm, the frontier model driving a run, reading the manual, and a real fix-and-retest cycle.</li>
         </ul>
-        <a className="btn accent" href="#/projects">See the projects</a>
+        <a className="btn accent" href="#/studies">See the studies</a>
       </section>
     </div>
   );

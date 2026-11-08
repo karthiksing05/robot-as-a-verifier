@@ -29,7 +29,7 @@
 
 /* Live: only what's happening now breathes, and it rests in a readable state. */
 .gnode.running rect { animation: breathe 1200ms ease-in-out infinite; }
-.livechip.on i { animation: breathe 1200ms ease-in-out infinite; }
+.livechip.on i, .livedot { animation: breathe 1200ms ease-in-out infinite; }
 @keyframes breathe { 50% { opacity: 0.45; } }
 
 /* GO: fly through the button, and the app settles into place as you arrive. */

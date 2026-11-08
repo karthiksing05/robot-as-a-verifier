@@ -1,0 +1,84 @@
+# How verify.py checks this device (docs/device-authoring.md). Sim truth, like device.yaml: no model reads it.
+# Probe for now: the stock gripper and the default calibration error are still being fixed (nothing here needs pick).
+effector: probe
+
+# verify.py checks reach on Rev B, where every control is on the front. Rev A's GRIND dial (on the back face) is the
+# reach fault: F1 checks it unreachable at the nominal placement, and F1r checks it reachable after the grinder is turned.
+reach:
+  reachable: [button_1, dial_1, dial_2, toggle_1, handle_1]
+
+# The manual's procedure on Rev B: power on, set the time and the grind, open the lid to fill it (START refuses while
+# it's open), close it, grind, and let the countdown finish.
+workflow:
+  rev: B
+  steps:
+    - {skill: flip, target: toggle_1, expect: {readings: {power: 1}, state: ready, lcd: "GRIND 1 5s"}}
+    - {skill: turn, target: dial_1, params: {angle: -60}, expect: {readings: {time: 10}, lcd: "GRIND 1 10s"}}
+    - {skill: turn, target: dial_2, params: {angle: -60}, expect: {changed: [grind], lcd: "GRIND \\d+ 10s"}}
+    - {skill: hook_pull, target: handle_1, expect: {readings: {lid: 0}}}
+    - {skill: press, target: button_1, expect: {state: refused, lcd: LID}}
+    - {skill: hook_pull, target: handle_1, params: {angle: 0}, expect: {readings: {lid: 1}}}
+    - {skill: press, target: button_1, expect: {state: running, lcd: "GRINDING \\d+s"}}
+    - {wait_s: 12, expect: {state: done, lcd: DONE}}
+
+# Each fault's steps test that fault alone. Switch and dial sensors read with the power off; where the firmware's
+# state matters, the operator throws the power lever by hand, so flip is not under test.
+faults:
+  F1:   # GRIND on the back face: from the nominal placement the arm can't reach it
+    steps:
+      - {reach: [dial_2], expect: {reach: {dial_2: true}}}
+    fails_at: 0
+  F1t:  # the same with the skill: turning GRIND misses on the back face
+    rev: "F1=A,F2=B,F3=B,F4=B"
+    steps:
+      - {skill: turn, target: dial_2, params: {angle: -60}, expect: {changed: [grind]}}
+    fails_at: 0
+  F1r:  # needs_reposition: after the operator turns the grinder half round, GRIND on the back face is reached and
+        # turns. The good run is the faulty dial; the control run is Rev B, whose front-face dial the same turn takes away
+    good_rev: "F1=A,F2=B,F3=B,F4=B"
+    rev: "B"
+    steps:
+      - {move_device: {yaw_deg: 180}}
+      - {skill: turn, target: dial_2, params: {angle: -60}, expect: {changed: [grind]}}
+    fails_at: 1
+  F2:   # with the lid open (the operator lifts it), START must refuse with LID
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, state: ready}}
+      - {set_joint: {name: lid, deg: 100}, expect: {readings: {lid: 0}}}
+      - {skill: press, target: button_1, expect: {state: refused, lcd: LID}}
+    fails_at: 2
+  F2s:  # opening the lid mid-grind must stop it
+    rev: "F1=B,F2=A,F3=B,F4=B"
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, state: ready}}
+      - {skill: press, target: button_1, expect: {state: running}}
+      - {set_joint: {name: lid, deg: 100}, expect: {readings: {lid: 0}, state: refused, lcd: LID}}
+    fails_at: 2
+  F2m:  # the masked fault on its mixed revision: M1 fixes only the lid switch
+    rev: "M1"
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, state: ready}}
+      - {set_joint: {name: lid, deg: 100}, expect: {readings: {lid: 0}}}
+      - {skill: press, target: button_1, expect: {state: refused, lcd: LID}}
+    fails_at: 2
+  F3:   # TIME's ends and a step: 5 s at rest, 30 s fully clockwise (the operator sets the dial by hand)
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1, time: 5}, lcd: "GRIND \\d+ 5s"}}
+      - {set_joint: {name: dial_time, deg: -270}, expect: {readings: {time: 30}, lcd: "GRIND \\d+ 30s"}}
+    fails_at: 0
+  F3t:  # the same mapping through the turn skill: 60 deg clockwise is one 5 s step
+    rev: "F1=B,F2=B,F3=A,F4=B"
+    steps:
+      - {skill: turn, target: dial_1, params: {angle: -60}, expect: {readings: {time: 10}}}
+    fails_at: 0
+  F4:   # with the lid shut, START must run
+    steps:
+      - {set_joint: {name: power_lever, deg: 30}, expect: {readings: {power: 1}, state: ready}}
+      - {skill: press, target: button_1, expect: {state: running, lcd: "GRINDING \\d+s"}}
+    fails_at: 1
+  F4h:  # the same through hook_pull: opening and closing the lid by its lip, the lid channel must follow
+    rev: "F1=B,F2=B,F3=B,F4=A"
+    steps:
+      - {skill: hook_pull, target: handle_1, expect: {readings: {lid: 0}}}
+      - {skill: hook_pull, target: handle_1, params: {angle: 0}, expect: {readings: {lid: 1}}}
+    fails_at: 1

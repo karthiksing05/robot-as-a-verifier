@@ -1,0 +1,12 @@
+{
+  "id": "kettle-base",
+  "name": "KB-1 temperature kettle",
+  "summary": "A temperature-controlled kettle on a power base: power switch, BOIL and WARM buttons, a temperature dial, a hinged lid with a lip, a display and a heater ring light.",
+  "kind": "sim",
+  "sim": { "path": "appliances/kettle-base/device.yaml", "rev": "A", "revs": ["A", "B", "M1"] },
+  "manual": "appliances/kettle-base/manual.md",
+  "products": ["KB-1 temperature kettle (sim)"],
+  "rules": ["Usable with no thumbs"],
+  "split": "dev",
+  "created": "2026-11-07"
+}

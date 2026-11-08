@@ -60,6 +60,14 @@ export function projectOf(run: Run, list: Project[]): Project | undefined {
   return list.find((p) => p.id === named) ?? list.find((p) => p.products.some((name) => namedBy(run.product, name)));
 }
 
+/** The project Live is about: what the link asked for, else the run on screen, else the first device the sim can run. */
+export function liveProject(asked: string | null, run: { project: Project | undefined } | null, list: Project[]): Project | undefined {
+  if (asked === "none") return undefined;
+  const named = list.find((p) => p.id === asked);
+  if (named) return named;
+  return run ? run.project : list.find((p) => p.kind === "sim");
+}
+
 export type Evidence = "mock" | "sim";
 export const evidenceOf = (run: Run): Evidence => (!run.recording && (run.product.includes("(mock)") || run.plan.source === "mock") ? "mock" : "sim");
 

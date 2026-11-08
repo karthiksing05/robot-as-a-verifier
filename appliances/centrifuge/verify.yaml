@@ -1,0 +1,54 @@
+# How verify.py checks this device (docs/device-authoring.md). Sim truth, like device.yaml: no model reads it.
+effector: stock   # the real arm's own gripper, and its only effector
+
+reach:
+  reachable: [button_1, button_2, button_3, dial_1, toggle_1, handle_1, handle_2]
+
+# The manual's procedure (Quick start and Operation) on Rev B: power on, open the rack cover and the lid, load a tube into
+# well A, close the lid, set speed and time, run to the end, and DONE's own return to READY.
+workflow:
+  rev: B
+  steps:
+    - {skill: flip, target: toggle_1, expect: {readings: {power: 1}, state: ready, ring: white, lcd: "1000rpm  0:30"}}
+    - {skill: hook_pull, target: handle_2}
+    - {skill: hook_pull, target: handle_1, expect: {readings: {lid: 0}}}
+    - {skill: pick, target: tube_1}
+    - {skill: place, target: tube_1, params: {into: well_1}, expect: {readings: {tube_raw_1: 1, tube: 1}}}
+    - {skill: hook_pull, target: handle_1, params: {angle: 0}, expect: {readings: {lid: 1}}}
+    - {skill: turn, target: dial_1, params: {angle: -60}, expect: {changed: [speed], readings: {speed: [2000, 2100, 2200, 2300, 2400]}}}
+    - {skill: press, target: button_3, expect: {readings: {time: 40}, lcd: "\\d+rpm  0:40"}}
+    - {skill: press, target: button_1, expect: {state: running, ring: blue, readings: {run: start}}}
+    - {wait_s: 42, expect: {state: done, lcd: DONE, ring: green, readings: {run: done}}}
+    - {wait_s: 61, expect: {state: ready, ring: white}}
+
+# Each fault's steps test that fault alone. Every check is on the stock gripper.
+faults:
+  F2:   # the lid's handle is a pinch fin: hook_pull refuses it (Rev A) and lifts Rev B's hook lip
+    steps:
+      - {skill: hook_pull, target: handle_1, expect: {readings: {lid: 0}}}
+    fails_at: 0
+  F3:   # the tube stops high in well A, so the tube light isn't shaded. The operator opens the lid and drops the tube in from
+        # 10 mm up (from less, Rev A's Ø16 body starts inside the Ø15.6 bore and sticks there):
+        # F2 and the pick skill are not under test. Variant F3p does it with pick and place, F3s through START
+    steps:
+      - {set_joint: {name: lid, deg: 105}, expect: {readings: {lid: 0}}}
+      - {drop_object: {name: tube_1, into: well_1, lift_mm: 10}, expect: {readings: {tube_raw_1: 1}}}
+    fails_at: 1
+  F3p:  # M1: the lid opens with the gripper now, and the placed tube sits high
+    rev: M1
+    steps:
+      - {set_joint: {name: rack_cover, deg: 105}}
+      - {skill: hook_pull, target: handle_1, expect: {readings: {lid: 0}}}
+      - {skill: pick, target: tube_1}
+      - {skill: place, target: tube_1, params: {into: well_1}, expect: {readings: {tube_raw_1: 1}}}
+    fails_at: 3
+  F3s:  # M1, as the manual's user sees it: the tube is in, the lid is down, and START says TUBE
+    rev: M1
+    steps:
+      - {skill: flip, target: toggle_1, expect: {readings: {power: 1}, state: ready}}
+      - {set_joint: {name: lid, deg: 105}}
+      - {drop_object: {name: tube_1, into: well_1, lift_mm: 10}}
+      - {set_joint: {name: lid, deg: 0}, expect: {readings: {lid: 1}}}
+      - {wait_s: 0.5}
+      - {skill: press, target: button_1, expect: {state: running, readings: {run: start}}}
+    fails_at: 5

@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
-from rav_contracts import (CADPatch, CadBackend, Checkpoint, Decision, EscalationPolicy, Finding, Plan, Report, RootCause,
+from rav_contracts import (DEVICE_CONTROL, CADPatch, CadBackend, Checkpoint, Decision, EscalationPolicy, Finding, Plan, Report, RootCause,
                            SceneInventory, SteerCommand, Step, StepOutcome, StepVerdict, System1, TestRequest, TETHERED)
 
 from .amendments import APPROVE, classify
@@ -20,6 +20,7 @@ from .commands import Responder, explore, log_crossing, rule_responder, wait_for
 from .reward import coverage, reward
 from .runlog import RunLog, read_events
 from .trace import Tracer
+from .verdicts import findings_from
 
 MAX_UNSIGNED_AMENDMENTS = 5  # per run; a guess until runs show what's normal
 Planner = Callable[[TestRequest, SceneInventory, Plan], Plan]
@@ -78,12 +79,6 @@ def _apply_steering(steering: Steering, queue: deque[Step], log: RunLog) -> str:
     return state
 
 
-def _finding(n: int, verdict: StepVerdict, seq: int) -> Finding:
-    return Finding(id=f"F{n}", severity="high" if verdict.label in ("stuck", "no_actuation", "unsafe") else "medium",
-                   target=verdict.target, label=verdict.label or "anomalous", what_happened=verdict.reason,
-                   step_ids=[verdict.step], event_seqs=[seq], evidence=verdict.evidence)
-
-
 def _steer_at_boundary(steering: Steering, queue: deque[Step], log: RunLog, wait: Callable[[], None] | None) -> str:
     """Applies steering while System 1 is holding. Returns "run" or "stop". Without `wait`, a pause ends the run."""
     state = _apply_steering(steering, queue, log)
@@ -121,7 +116,7 @@ def run_test(system1: System1, request: TestRequest, log: RunLog, planner: Plann
     steering = steering or Steering()
     log.emit("run_started", request)
     scene, fallback = explore(system1, log, policy, respond)
-    log.emit("scene_ready", scene)
+    log.emit("scene_ready", scene.model_copy(update={"controls": [c for c in scene.controls if c.id != DEVICE_CONTROL]}))
     plan = planner(request, scene, fallback)
     log.emit("plan_ready", plan)
     log.emit("approval_needed", {"kind": "plan", "ref": plan.plan_id})
@@ -130,18 +125,21 @@ def run_test(system1: System1, request: TestRequest, log: RunLog, planner: Plann
         raise PermissionError(f"plan {plan.plan_id} was not approved, so the arm did not move")
     log.emit("approved", {"kind": "plan", "ref": plan.plan_id, "by": by})
 
-    queue, verdicts, findings, status = deque(plan.steps), [], [], "completed"
+    queue, verdicts, seqs, status = deque(plan.steps), [], {}, "completed"
     if _steer_at_boundary(steering, queue, log, wait) == "stop":
         status = "stopped"
     elif queue:
-        status = _test(system1, plan, queue, log, policy, respond, approve, steering, wait, verdicts, findings)
+        status = _test(system1, plan, queue, log, policy, respond, approve, steering, wait, verdicts, seqs)
 
+    findings = findings_from(verdicts, seqs)
+    for finding in findings:
+        log.emit("finding", finding)
     cov = coverage(scene.controls, verdicts)
     score = reward(cov)
     report = Report(run_id=log.run_id, product=request.product, revision=request.revision, findings=findings,
                     coverage=cov, reward=score,
                     summary=(f"{len(cov.passed)} of {cov.detected} controls passed, {len(cov.failed)} failed, "
-                             f"{len(cov.inconclusive)} inconclusive, {len(cov.skipped)} skipped. "
+                             f"{len(cov.intermittent)} intermittent, {len(cov.inconclusive)} inconclusive, {len(cov.skipped)} skipped. "
                              f"Reward {score.value:.2f}."))
     log.emit("report_ready", report)
     log.write_report(report)
@@ -149,7 +147,7 @@ def run_test(system1: System1, request: TestRequest, log: RunLog, planner: Plann
     return report
 
 
-def _test(system1, plan, queue, log, policy, respond, approve, steering, wait, verdicts, findings) -> str:
+def _test(system1, plan, queue, log, policy, respond, approve, steering, wait, verdicts, seqs) -> str:
     """/test: hands the plan to System 1, and records and answers each stop until the routine ends."""
     by_id, amendments = {s.id: s for s in plan.steps}, 0
     to_run = Plan(plan_id=plan.plan_id, steps=list(queue), source=plan.source)
@@ -161,10 +159,14 @@ def _test(system1, plan, queue, log, policy, respond, approve, steering, wait, v
     while True:
         stop = wait_for_stop(system1, handle, stop_asked)
         log_crossing(log, handle, stop, policy)
-        _record(system1, stop, by_id, queue, log, verdicts, findings)
+        _record(system1, stop, by_id, queue, log, verdicts, seqs)
         if stop.status != "paused":
             return {"completed": "completed", "stopped": "stopped"}.get(stop.status, "aborted")
         decision = respond(stop)
+        if stop.escalation and stop.escalation.measured.get("pattern") == "device_moved":  # the robot takes nothing else here, and this plan can't re-plan
+            log.emit("message", {"role": "harness", "text": "the device moved, so the remaining steps would run on old poses. Stopping this plan"})
+            system1.routine_resume(handle.routine_id, Decision(kind="abort", note="the device moved"))
+            continue
         before = list(queue)
         if _steer_at_boundary(steering, queue, log, wait) == "stop":
             decision = Decision(kind="abort", note="stopped by an operator")
@@ -187,7 +189,7 @@ def _test(system1, plan, queue, log, policy, respond, approve, steering, wait, v
         system1.routine_resume(handle.routine_id, decision)
 
 
-def _record(system1, stop: Checkpoint, by_id, queue, log, verdicts, findings) -> None:
+def _record(system1, stop: Checkpoint, by_id, queue, log, verdicts, seqs) -> None:
     """Logs each finished step in full. The stop itself stays small, so the harness fetches the traces: this is
     bookkeeping for the record, and none of it goes to the model unless it asks."""
     for summary in stop.verdicts:
@@ -199,10 +201,7 @@ def _record(system1, stop: Checkpoint, by_id, queue, log, verdicts, findings) ->
         trace = system1.evidence_get(summary.trace_ref)
         event = log.emit("step_finished", StepOutcome(trace=trace, verdict=verdict))
         verdicts.append(verdict)
-        if verdict.status == "failed":
-            finding = _finding(len(findings) + 1, verdict, event.seq)
-            findings.append(finding)
-            log.emit("finding", finding)
+        seqs[id(verdict)] = event.seq
 
 
 @dataclass

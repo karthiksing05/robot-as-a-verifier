@@ -1,0 +1,48 @@
+body,part,kind,material,moves,group,volume_mm3,mass_g_est
+front_panel,front_panel,laser,plywood,,centrifuge,18172.3,10.9
+control_face,control_face,laser,plywood,,centrifuge,19347.8,11.6
+top_panel,top_panel,laser,plywood,,centrifuge,20106.3,12.1
+rotor_plate,rotor_plate,laser,acrylic_clear,,centrifuge,24127.8,28.7
+side_panel_L,side_panel_L,laser,plywood,,centrifuge,30441.6,18.3
+side_panel_R,side_panel_R,laser,plywood,,centrifuge,30441.6,18.3
+base_plate,base_plate,laser,plywood,,centrifuge,56152.1,33.7
+button_start,button_start,bought,bought,,centrifuge,5015.2,
+cap_start,cap_start,bought,bought,button cap,centrifuge,398.2,
+button_stop,button_stop,bought,bought,,centrifuge,5015.2,
+cap_stop,cap_stop,bought,bought,button cap,centrifuge,398.2,
+button_time,button_time,bought,bought,,centrifuge,5015.2,
+cap_time,cap_time,bought,bought,button cap,centrifuge,398.2,
+dial_knob,dial_knob,laser_stack,plywood,dial,centrifuge,804.8,0.5
+well_insert_A_revA,well_insert_A,print,PLA,,centrifuge,1184.8,1.5
+lid_hinge_base,lid_hinge_base,print,PLA,,centrifuge,3233.6,4.0
+lid_hinge_pin,lid_hinge_pin,stock,filament,,centrifuge,56.5,0.1
+lid,lid,laser,acrylic_clear,lid (hinge),centrifuge,24213.8,28.8
+lid_hinge_leaf,lid_hinge_leaf,print,PLA,lid (hinge),centrifuge,1350.7,1.7
+lid_handle_revA,lid_handle,laser_stack,plywood,lid (hinge),centrifuge,1169.7,0.7
+lid_sensor_fin,lid_sensor_fin,laser,plywood,lid (hinge),centrifuge,87.7,0.1
+tube_sensor_riser_1,tube_sensor_riser_1,laser,plywood,,centrifuge,631.7,0.4
+gusset_L,gusset_L,laser,plywood,,centrifuge,4175.5,2.5
+gusset_R,gusset_R,laser,plywood,,centrifuge,4175.5,2.5
+tube_1_revA,tube_1,print,PLA,loose object,centrifuge,4233.2,5.2
+tube_2,tube_2,print,PLA,loose object,rack,4233.2,5.2
+rack_base,rack_base,laser,plywood,,rack,16272.0,9.8
+rack_middle,rack_middle,laser,plywood,,rack,12869.7,7.7
+rack_top,rack_top,laser,plywood,,rack,14836.0,8.9
+rack_back_strip,rack_back_strip,laser,plywood,,rack,2322.0,1.4
+rack_end_L,rack_end_L,laser,plywood,,rack,11571.6,6.9
+rack_end_R,rack_end_R,laser,plywood,,rack,11571.6,6.9
+rack_cover,rack_cover,laser,acrylic_clear,rack cover (hinge),rack,15066.0,17.9
+rack_hinge_base,rack_hinge_base,print,PLA,,rack,3233.6,4.0
+rack_hinge_leaf,rack_hinge_leaf,print,PLA,rack cover (hinge),rack,1350.7,1.7
+rack_hinge_pin,rack_hinge_pin,stock,filament,,rack,56.5,0.1
+rack_cover_lip,rack_cover_lip,laser,plywood,rack cover (hinge),rack,1296.0,0.8
+ref_toggle,toggle,electronics placeholder,,,centrifuge,1915.0,
+ref_toggle_lever,toggle_lever,electronics placeholder,,toggle lever,centrifuge,70.7,
+ref_pot,pot,electronics placeholder,,,centrifuge,3000.9,
+ref_oled,oled,electronics placeholder,,,centrifuge,2035.8,
+ref_ring,ring,electronics placeholder,,,centrifuge,4541.2,
+ref_light_lid,light_lid,electronics placeholder,,,centrifuge,1049.1,
+ref_light_tube,light_tube,electronics placeholder,,,centrifuge,1049.1,
+well_insert_A_revB,well_insert_A,print,PLA,,centrifuge,920.3,1.1
+lid_handle_revB,lid_handle,laser_stack,plywood,lid (hinge),centrifuge,1321.2,0.8
+tube_1_revB,tube_1,print,PLA,loose object,centrifuge,4233.2,5.2

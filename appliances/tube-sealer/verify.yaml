@@ -1,0 +1,56 @@
+# How verify.py checks this device (docs/device-authoring.md). Sim truth, like device.yaml: no model reads it.
+# Default effector: probe (press and flip). pick and place need the stock gripper, so the steps that use them say so.
+effector: probe
+
+reach:
+  reachable: [button_1, toggle_1]
+
+# The manual's procedure on Rev B: lift the tube from the stand into the slot, close the clamp, seal, wait for DONE,
+# open the clamp. pick and place need the stock gripper.
+workflow:
+  rev: B
+  effector: stock
+  steps:
+    - {skill: pick, target: tube_1}
+    - {skill: place, target: tube_1, params: {into: well_1}, expect: {readings: {tube: 1}, state: ready, lcd: READY}}
+    - {skill: flip, target: toggle_1, expect: {readings: {clamp: 1}, state: ready, lcd: READY, ring: white}}
+    - {skill: press, target: button_1, expect: {state: running, lcd: "SEALING [1-5]", ring: amber}}
+    - {wait_s: 6, expect: {state: done, lcd: DONE, ring: green}}
+    - {skill: flip, target: toggle_1, expect: {readings: {clamp: 0}, state: ready, lcd: READY}}
+
+# Each fault's steps test that fault alone. The default fault revision is that fault A and every other B.
+faults:
+  F1:   # no tube, the clamp closed by hand: SEAL must refuse with NO TUBE; with the guard missing it seals
+    steps:
+      - {set_joint: {name: clamp_lever, deg: 30}, expect: {readings: {clamp: 1, tube: 0}}}
+      - {skill: press, target: button_1, expect: {state: no_tube, lcd: "NO TUBE", ring: red}}
+    fails_at: 1
+  F1a:  # full Rev A, no tube, clamp open: Rev B checks the tube first and says NO TUBE, Rev A says CLAMP. The manual
+        # doesn't promise which check comes first, so this only pins Rev B's order: it is not evidence a tester could
+        # use. On Rev A the clamp can't close (F3), so F1 is masked there by F3 (device.yaml)
+    rev: A
+    steps:
+      - {skill: press, target: button_1, expect: {state: no_tube, lcd: "NO TUBE"}}
+    fails_at: 0
+  F1m:  # M1 fixes only F3: the clamp closes, and SEAL on an empty slot then seals instead of refusing. The unmasked F1
+    rev: M1
+    steps:
+      - {set_joint: {name: clamp_lever, deg: 30}, expect: {readings: {clamp: 1, tube: 0}}}
+      - {skill: press, target: button_1, expect: {state: no_tube, lcd: "NO TUBE", ring: red}}
+    fails_at: 1
+  F2:   # the operator lowers the tube over the slot and lets go: the bore decides where it stops. Variant F2p uses
+        # pick and place
+    steps:
+      - {drop_object: {name: tube_1, into: well_1}, expect: {readings: {tube: 1}}}
+    fails_at: 0
+  F2p:
+    rev: "F1=B,F2=A,F3=B"
+    effector: stock
+    steps:
+      - {skill: pick, target: tube_1}
+      - {skill: place, target: tube_1, params: {into: well_1}, expect: {readings: {tube: 1}}}
+    fails_at: 1
+  F3:   # a fingertip push across the lever must throw it past centre, and the clamp switch close
+    steps:
+      - {skill: flip, target: toggle_1, expect: {readings: {clamp: 1}}}
+    fails_at: 0

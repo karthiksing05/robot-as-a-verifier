@@ -1,0 +1,12 @@
+{
+  "id": "hotplate-stirrer",
+  "name": "HPS-300 hotplate stirrer",
+  "summary": "A benchtop hotplate stirrer with a beaker rest: power switch, HEAT and STIR dials, a sensed cradle in the plate, one beaker, a display and a HOT light.",
+  "kind": "sim",
+  "sim": { "path": "appliances/hotplate-stirrer/device.yaml", "rev": "A", "revs": ["A", "B", "M1"] },
+  "manual": "appliances/hotplate-stirrer/manual.md",
+  "products": ["HPS-300 hotplate stirrer (sim)"],
+  "rules": ["Usable with no thumbs"],
+  "split": "held_out",
+  "created": "2026-11-07"
+}

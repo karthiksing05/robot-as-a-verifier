@@ -3,7 +3,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export interface SimDevice { seed: number | null; fault: string | null }
+// path: a device file instead of a seed, with its revisions (A, B and mixed ones like M1) and the one a run starts on
+export interface SimDevice { seed: number | null; fault: string | null; path?: string; rev?: string; revs?: string[] }
 
 export interface Project {
   id: string;
@@ -11,8 +12,11 @@ export interface Project {
   summary: string;
   kind: "physical" | "sim";
   sim?: SimDevice;
+  cad?: boolean; // it has a model on the CAD bench
   products: string[]; // runs logged under these product names belong here, for runs that don't name their project
   rules: string[];
+  manual?: string; // the model reads it, as it would a real product's
+  split?: "dev" | "validation" | "held_out"; // a sim device's place in the evals: a held-out one's faults are never shown
   created: string;
 }
 

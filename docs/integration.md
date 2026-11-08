@@ -22,7 +22,7 @@ System 1's code is flat modules in `core/`, `sim/` and `hardware/`. [`sim_backen
 
 **Steering** needs no sim changes: `run_step` is one step, and the engine holds between steps at each stop, where the harness applies commands.
 
-**Displays have no test yet.** `plan_tests` doesn't test a display, so it counts as skipped and lowers the reward: preset C passes 10 of 10 steps, but scores 0.88 because 7 of its 8 controls are covered. The planner should add an `observe` step, which needs camera reading or the Pico.
+**Displays are observed, not judged.** The server's plan adds an `observe` step, which reports what the display shows and counts it as covered. Whether that text is right is for a `Step.check` on `lcd`. `plan_tests` itself, which the film uses, still doesn't test a display, so there it counts as skipped and lowers the reward: preset C passes 10 of 10 steps, but scores 0.88 because 7 of its 8 controls are covered. The planner should add an `observe` step, which needs camera reading or the Pico.
 
 **Tested so far (Nov 6, Apple Silicon):** the D405 route, through the harness, on preset C. The RGB route has not yet run through the adapter. On a Mac, NumPy prints `RuntimeWarning`s from `matmul` during this run, and the results are still correct.
 

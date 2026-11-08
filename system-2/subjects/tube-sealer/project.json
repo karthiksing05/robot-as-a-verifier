@@ -1,0 +1,12 @@
+{
+  "id": "tube-sealer",
+  "name": "HS-20 tube heat sealer",
+  "summary": "A benchtop tube heat sealer with a one-tube stand: a sealing slot, a clamp lever, a seal button, a display and a status light.",
+  "kind": "sim",
+  "sim": { "path": "appliances/tube-sealer/device.yaml", "rev": "A", "revs": ["A", "B", "M1", "M2"] },
+  "manual": "appliances/tube-sealer/manual.md",
+  "products": ["HS-20 tube heat sealer (sim)"],
+  "rules": ["Usable with no thumbs"],
+  "split": "dev",
+  "created": "2026-11-07"
+}

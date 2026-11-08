@@ -1,0 +1,12 @@
+{
+  "id": "label-printer",
+  "name": "LP-40 thermal label printer",
+  "summary": "A desktop thermal label printer for 40 mm rolls: power switch, FEED and PRINT buttons, a darkness dial, a hinged roll cover with a lip, a display and a status light.",
+  "kind": "sim",
+  "sim": { "path": "appliances/label-printer/device.yaml", "rev": "A", "revs": ["A", "B", "M1"] },
+  "manual": "appliances/label-printer/manual.md",
+  "products": ["LP-40 thermal label printer (sim)"],
+  "rules": ["Usable with no thumbs"],
+  "split": "dev",
+  "created": "2026-11-07"
+}

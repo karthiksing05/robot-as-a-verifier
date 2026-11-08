@@ -1,0 +1,195 @@
+# MW-1 mock microwave, v4 (docs/device-authoring.md). Sim truth: the loader, the answer key and evaluation read this file,
+# and no model ever does. Lengths mm, angles deg, in the product frame, which is the STEPs' own: origin at the centre of
+# the base's bottom face, +X toward the arm (the door and control panel), +Y to the right seen from the front, +Z up.
+# The box stands on an 80 mm riser block (cad/model.py), so every z here is the STEP's plus 80: the origin is the riser's
+# bottom face, under the base's centre. Numbers come from source/motion.md, source/step (cad_to_meshes.py's bounding boxes), source/electronics and the
+# firmware, firmware/MW1_firmware/MW1_firmware.ino, which wins wherever they differ (wiring.md lists where).
+name: mw1
+meta: {title: "MW-1 mock microwave", split: dev, project: microwave}
+
+# logistics.md's proposal: front toward the arm, clamped (a 0.53 kg box would slide under the latch's 4 N). The distance
+# and the stand come from the reach check (PLACEMENT below in this comment is filled in by the reach scan).
+placement: {x: 440.0, y: 0.0, yaw: 180.0}
+stand_mm: 82
+mounts: {microwave: clamped}
+
+meshes: build/meshes_rev{rev}
+
+# One fault (source/faults.md). The hinge leaves and pins are the revision's own meshes; the hinge's behaviour is the
+# door joint's friction and range.
+faults:
+  F1: {what: "door hinge is seized: 0.025 mm printed clearances fuse, so the door won't swing open (or shut) at the handle",
+       class: mechanical, piece: handle_1, property: mechanism_range,
+       A: {parts: {hinge1_wall: hinge1_wall_leaf_revA, hinge1_door: hinge1_door_leaf_revA, hinge1_pin: hinge1_pin_revA,
+                   hinge2_wall: hinge2_wall_leaf_revA, hinge2_door: hinge2_door_leaf_revA, hinge2_pin: hinge2_pin_revA},
+           # fused PLA: 2.5 N.m of static friction is 20 N at the handle's bar (127 mm from the axis), over the arm's 15 N
+           # hard cap, so no force a skill may ask for (14 N at most) turns it. The leaves meet at 130 deg (motion.md)
+           params: {door_friction: 2.5, door_open: 130}},
+       B: {parts: {hinge1_wall: hinge1_wall_leaf_revB, hinge1_door: hinge1_door_leaf_revB, hinge1_pin: hinge1_pin_revB,
+                   hinge2_wall: hinge2_wall_leaf_revB, hinge2_door: hinge2_door_leaf_revB, hinge2_pin: hinge2_pin_revB},
+           # 0.25 mm clearances: free, a little PLA-on-PLA friction (0.08 N at the handle), to about 145 deg
+           params: {door_friction: 0.01, door_open: 145}}}
+revs:
+  A: {F1: A}
+  B: {F1: B}
+
+roots:
+  microwave:
+    mass_kg: 0.53
+    parts: [fixture_riser, base, top, side_L, side_R, back, divider, control_panel,
+            ref_button_TIME, ref_button_POWER, ref_button_STOP, ref_button_+30s, ref_button_START,
+            $hinge1_wall, $hinge1_pin, $hinge2_wall, $hinge2_pin]
+    # inside the box or behind the panel: nothing the arm reaches
+    visual_only: [lcd_shelf, sensor_shelf, catch_shelf, door_catch, ref_lcd_grove, ref_light_door, ref_arduino, ref_buzzer,
+                  ref_nut_TIME, ref_nut_POWER, ref_nut_STOP, ref_nut_+30s, ref_nut_START]
+
+bodies:
+  # 16 mm panel buttons: a 13 mm cap 7 mm proud of the panel, pressed along -X. Travel 1.5 mm, the switch closes at 1.0 mm
+  # (motion.md). ~3 N (assumed): 1.5 N preload and 1 N/mm, so 2.5 N at the click and 3 N at the bottom
+  - {name: cap_time, root: microwave, parts: [ref_cap_TIME], joint: {type: slide, axis: [-1, 0, 0], anchor: [72.0, 48.3, 152.0], range: [0, 1.5], stiffness: 1000, preload_n: 1.5, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - {name: cap_power, root: microwave, parts: [ref_cap_POWER], joint: {type: slide, axis: [-1, 0, 0], anchor: [72.0, 48.3, 127.0], range: [0, 1.5], stiffness: 1000, preload_n: 1.5, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - {name: cap_stop, root: microwave, parts: [ref_cap_STOP], joint: {type: slide, axis: [-1, 0, 0], anchor: [72.0, 48.3, 102.0], range: [0, 1.5], stiffness: 1000, preload_n: 1.5, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - {name: cap_30s, root: microwave, parts: [ref_cap_+30s], joint: {type: slide, axis: [-1, 0, 0], anchor: [72.0, 92.8, 152.0], range: [0, 1.5], stiffness: 1000, preload_n: 1.5, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - {name: cap_start, root: microwave, parts: [ref_cap_START], joint: {type: slide, axis: [-1, 0, 0], anchor: [72.0, 92.8, 127.0], range: [0, 1.5], stiffness: 1000, preload_n: 1.5, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  # The door: hinge axis vertical through (66.9, -119.9), positive about (0, 0, -1) opens it toward +X, to the left seen
+  # from the front. No spring: it stays where it's left. The snap latch (a printed spring arm, 4.33 N/mm, bump lift
+  # 1.0 mm) is a detent over the last 2 deg: 0.55 N.m holding it shut is 4.3 N at the handle's bar, and pushed inside
+  # 2 deg it pulls the door shut (the click)
+  - name: door
+    root: microwave
+    parts: [door, door_window, door_strike, handle, $hinge1_door, $hinge2_door]
+    joint: {type: hinge, axis: [0, 0, -1], anchor: [66.9, -119.9, 151.0], range: [0, $door_open], damping: 0.02, frictionloss: $door_friction, armature: 0.002, mass: 0.072}
+    snap: {nm: 0.55, centre_deg: 2.0, until_deg: 2.0}
+
+# The Grove LCD behind its 71 x 24 mm window, drawn on the panel's front face. Its RGB backlight is the state's `ring`
+# and the `backlight` channel (the firmware's heartbeat reports it): the sim draws the text, not the colour.
+display: {root: microwave, centre: [65.2, 70.6, 188.0], normal: [1, 0, 0], up: [0, 0, 1], size: [71.0, 24.0]}
+
+controls:
+  - {id: button_1, kind: button, body: cap_time, top: [72.0, 48.3, 152.0], normal: [1, 0, 0], x: [0, 1, 0], size: [13, 13, 7], radius: 6.5, travel: 1.5, switch_at: 0.67}
+  - {id: button_2, kind: button, body: cap_power, top: [72.0, 48.3, 127.0], normal: [1, 0, 0], x: [0, 1, 0], size: [13, 13, 7], radius: 6.5, travel: 1.5, switch_at: 0.67}
+  - {id: button_3, kind: button, body: cap_stop, top: [72.0, 48.3, 102.0], normal: [1, 0, 0], x: [0, 1, 0], size: [13, 13, 7], radius: 6.5, travel: 1.5, switch_at: 0.67}
+  - {id: button_4, kind: button, body: cap_30s, top: [72.0, 92.8, 152.0], normal: [1, 0, 0], x: [0, 1, 0], size: [13, 13, 7], radius: 6.5, travel: 1.5, switch_at: 0.67}
+  - {id: button_5, kind: button, body: cap_start, top: [72.0, 92.8, 127.0], normal: [1, 0, 0], x: [0, 1, 0], size: [13, 13, 7], radius: 6.5, travel: 1.5, switch_at: 0.67}
+  # The D-handle: pos is the middle of its round grip bar (12.7 mm across, standing 12 mm off the door, straight from z
+  # 55 to 88). size: along the hinge axis, across the bar, and out from the door. A vertical hinge: swing opens it
+  - {id: handle_1, kind: handle, body: door, reads: true, pos: [84.0, 5.45, 151.0], normal: [1, 0, 0], grip: tip, pull: [1, 0, 0],
+     under: [-1, 0, 0], clear: 12, hinge: [66.9, -119.9, 151.0], axis: [0, 0, -1], open_deg: $door_open, size: [33, 12.7, 13]}
+  - {id: display_1, root: microwave, kind: display, pos: [65.2, 70.6, 188.0], normal: [1, 0, 0], x: [0, 1, 0], size: [71, 24, 0.5]}
+
+# Faces the arm touches to find where the box really is: the control panel's front, either side of the buttons, below
+# the display window. Both look along +X: they pin x and yaw; y is left to the scanned parts.
+registration:
+  microwave:
+    touches:
+      - {at: [65.0, 33.0, 168.0], normal: [1, 0, 0]}
+      - {at: [65.0, 108.0, 168.0], normal: [1, 0, 0]}
+
+# The Uno's firmware (MW1_firmware.ino v1.0), as data. Channel names are its serial events (wiring.md); `buzzer` and
+# `beeps` stand for the Grove buzzer on D8 (the sim has no sound), and `backlight` is the heartbeat's backlight field.
+# left is the cook time in seconds (cookTime): only `running` counts it down, so the countdown and `time` are its
+# ceiling, as the firmware's whole-second count is.
+firmware:
+  channels: {btn_start: 0, btn_stop: 0, btn_time: 0, btn_power: 0, btn_30s: 0, door: 1, time: 0, power_level: HI, cook: "",
+             buzzer: key, beeps: 1, backlight: white}
+  sensors:
+    - {channel: btn_time, joint: cap_time, when: "q >= 0.001"}     # the switch closes 1.0 mm in
+    - {channel: btn_power, joint: cap_power, when: "q >= 0.001"}
+    - {channel: btn_stop, joint: cap_stop, when: "q >= 0.001"}
+    - {channel: btn_30s, joint: cap_30s, when: "q >= 0.001"}
+    - {channel: btn_start, joint: cap_start, when: "q >= 0.001"}
+    # the light sensor behind the door's free end is shaded within a few degrees of shut (calibrated open at power-up)
+    - {channel: door, joint: door, when: "q < radians(3)"}
+  states:
+    ready:
+      show: {lcd: "READY", ring: white}
+    set:
+      show: {lcd: "COOK {round(-(-left//1))//60}:{round(-(-left//1))%60:02d}  POWER {power_level}", ring: white}
+    running:
+      show: {lcd: "{round(-(-left//1))//60}:{round(-(-left//1))%60:02d}  POWER {power_level}", ring: amber}
+    paused:
+      show: {lcd: "PAUSED  {round(-(-left//1))//60}:{round(-(-left//1))%60:02d}  POWER {power_level}", ring: amber}
+    door_open:
+      show: {lcd: "DOOR OPEN  {round(-(-left//1))//60}:{round(-(-left//1))%60:02d}", ring: red}
+    done:
+      show: {lcd: "DONE", ring: green}
+    msg_settime:
+      show: {lcd: "SET TIME", ring: white}
+    msg_closedoor:
+      show: {lcd: "CLOSE DOOR", ring: red}
+  start: ready
+  # Every press beeps once (keyBeep), except a refused START or +30s, whose two low beeps replace it. A 2 s message
+  # remembers the state under it in `back` (0 ready, 1 set, 3 paused, 4 door_open, 5 done) and `held`, the buttons down
+  # when it began. As in the firmware, buttons act on the state under a message: a new press ends the message and the
+  # state's own rule takes the same press.
+  transitions:
+    # --- READY: TIME sets 0:10; POWER cycles; +30s starts 0:30 on HI (door shut) or is refused; START is refused
+    - {from: ready, event: btn_time, when: "btn_time == 1", to: set, do: {left: 10, time: 10, buzzer: key, beeps: "beeps + 1"}}
+    - {from: ready, event: btn_power, when: "btn_power == 1", to: ready, do: {power_level: "(power_level == 'HI') and 'MED' or (power_level == 'MED') and 'LO' or 'HI'", buzzer: key, beeps: "beeps + 1"}}
+    - {from: ready, event: btn_30s, when: "btn_30s == 1 and door == 1", to: running, do: {power_level: HI, left: 30, time: 30, cook: start, buzzer: key, beeps: "beeps + 1"}}
+    - {from: ready, event: btn_30s, when: "btn_30s == 1", to: msg_closedoor, do: {cook: "refused:DOOR", buzzer: refused, beeps: "beeps + 1", back: 0, held: "btn_start + btn_stop + btn_time + btn_power + btn_30s"}}
+    - {from: ready, event: btn_start, when: "btn_start == 1 and door == 0", to: msg_closedoor, do: {cook: "refused:DOOR", buzzer: refused, beeps: "beeps + 1", back: 0, held: "btn_start + btn_stop + btn_time + btn_power + btn_30s"}}
+    - {from: ready, event: btn_start, when: "btn_start == 1", to: msg_settime, do: {cook: "refused:TIME", buzzer: refused, beeps: "beeps + 1", back: 0, held: "btn_start + btn_stop + btn_time + btn_power + btn_30s"}}
+    - {from: ready, event: btn_stop, when: "btn_stop == 1", to: ready, do: {buzzer: key, beeps: "beeps + 1"}}
+    # --- DONE: green for 10 s, then READY. The buttons as in READY
+    - {from: done, after: 10, to: ready}
+    - {from: done, event: btn_time, when: "btn_time == 1", to: set, do: {left: 10, time: 10, buzzer: key, beeps: "beeps + 1"}}
+    - {from: done, event: btn_power, when: "btn_power == 1", to: done, do: {power_level: "(power_level == 'HI') and 'MED' or (power_level == 'MED') and 'LO' or 'HI'", buzzer: key, beeps: "beeps + 1"}}
+    - {from: done, event: btn_30s, when: "btn_30s == 1 and door == 1", to: running, do: {power_level: HI, left: 30, time: 30, cook: start, buzzer: key, beeps: "beeps + 1"}}
+    - {from: done, event: btn_30s, when: "btn_30s == 1", to: msg_closedoor, do: {cook: "refused:DOOR", buzzer: refused, beeps: "beeps + 1", back: 5, held: "btn_start + btn_stop + btn_time + btn_power + btn_30s"}}
+    - {from: done, event: btn_start, when: "btn_start == 1 and door == 0", to: msg_closedoor, do: {cook: "refused:DOOR", buzzer: refused, beeps: "beeps + 1", back: 5, held: "btn_start + btn_stop + btn_time + btn_power + btn_30s"}}
+    - {from: done, event: btn_start, when: "btn_start == 1", to: msg_settime, do: {cook: "refused:TIME", buzzer: refused, beeps: "beeps + 1", back: 5, held: "btn_start + btn_stop + btn_time + btn_power + btn_30s"}}
+    - {from: done, event: btn_stop, when: "btn_stop == 1", to: done, do: {buzzer: key, beeps: "beeps + 1"}}
+    # --- SET: TIME +10 s to 1:00, then +1 min, to 30:00; POWER cycles; +30s adds; START cooks (door shut); STOP clears
+    - {from: set, event: btn_time, when: "btn_time == 1", to: set, do: {left: "min(1800, left + 10 + 50 * (left >= 60))", time: "round(left)", buzzer: key, beeps: "beeps + 1"}}
+    - {from: set, event: btn_power, when: "btn_power == 1", to: set, do: {power_level: "(power_level == 'HI') and 'MED' or (power_level == 'MED') and 'LO' or 'HI'", buzzer: key, beeps: "beeps + 1"}}
+    - {from: set, event: btn_30s, when: "btn_30s == 1", to: set, do: {left: "min(1800, left + 30)", time: "round(left)", buzzer: key, beeps: "beeps + 1"}}
+    - {from: set, event: btn_start, when: "btn_start == 1 and door == 1", to: running, do: {cook: start, buzzer: key, beeps: "beeps + 1"}}
+    - {from: set, event: btn_start, when: "btn_start == 1", to: msg_closedoor, do: {cook: "refused:DOOR", buzzer: refused, beeps: "beeps + 1", back: 1, held: "btn_start + btn_stop + btn_time + btn_power + btn_30s"}}
+    - {from: set, event: btn_stop, when: "btn_stop == 1", to: ready, do: {left: 0, time: 0, cook: clear, buzzer: key, beeps: "beeps + 1"}}
+    # --- COOKING: counts down, amber. At 0 it's DONE with three beeps. The door opening pauses it (DOOR OPEN), STOP
+    # pauses it, +30s adds, TIME POWER and START are ignored (but beep). Paused, the count keeps its whole second
+    - {from: running, when: "left <= 0", to: done, do: {left: 0, time: 0, cook: done, buzzer: done, beeps: "beeps + 1"}}
+    - {from: running, event: door, when: "door == 0", to: door_open, do: {left: "round(-(-left // 1))", time: "round(left)", cook: "pause:DOOR"}}
+    - {from: running, event: btn_stop, when: "btn_stop == 1", to: paused, do: {left: "round(-(-left // 1))", time: "round(left)", cook: pause, buzzer: key, beeps: "beeps + 1"}}
+    - {from: running, event: btn_30s, when: "btn_30s == 1", to: running, do: {left: "min(1800, left + 30)", time: "round(-(-left // 1))", buzzer: key, beeps: "beeps + 1"}}
+    - {from: running, event: btn_time, when: "btn_time == 1", to: running, do: {buzzer: key, beeps: "beeps + 1"}}
+    - {from: running, event: btn_power, when: "btn_power == 1", to: running, do: {buzzer: key, beeps: "beeps + 1"}}
+    - {from: running, event: btn_start, when: "btn_start == 1", to: running, do: {buzzer: key, beeps: "beeps + 1"}}
+    # --- PAUSED (STOP) and DOOR OPEN: TIME and +30s add, POWER cycles, START resumes (door shut), STOP clears. Closing
+    # the door never resumes by itself
+    - {from: paused, event: btn_time, when: "btn_time == 1", to: paused, do: {left: "min(1800, left + 10 + 50 * (left >= 60))", time: "round(left)", buzzer: key, beeps: "beeps + 1"}}
+    - {from: paused, event: btn_power, when: "btn_power == 1", to: paused, do: {power_level: "(power_level == 'HI') and 'MED' or (power_level == 'MED') and 'LO' or 'HI'", buzzer: key, beeps: "beeps + 1"}}
+    - {from: paused, event: btn_30s, when: "btn_30s == 1", to: paused, do: {left: "min(1800, left + 30)", time: "round(left)", buzzer: key, beeps: "beeps + 1"}}
+    - {from: paused, event: btn_start, when: "btn_start == 1 and door == 1", to: running, do: {cook: resume, buzzer: key, beeps: "beeps + 1"}}
+    - {from: paused, event: btn_start, when: "btn_start == 1", to: msg_closedoor, do: {cook: "refused:DOOR", buzzer: refused, beeps: "beeps + 1", back: 3, held: "btn_start + btn_stop + btn_time + btn_power + btn_30s"}}
+    - {from: paused, event: btn_stop, when: "btn_stop == 1", to: ready, do: {left: 0, time: 0, cook: clear, buzzer: key, beeps: "beeps + 1"}}
+    - {from: door_open, event: btn_time, when: "btn_time == 1", to: door_open, do: {left: "min(1800, left + 10 + 50 * (left >= 60))", time: "round(left)", buzzer: key, beeps: "beeps + 1"}}
+    - {from: door_open, event: btn_power, when: "btn_power == 1", to: door_open, do: {power_level: "(power_level == 'HI') and 'MED' or (power_level == 'MED') and 'LO' or 'HI'", buzzer: key, beeps: "beeps + 1"}}
+    - {from: door_open, event: btn_30s, when: "btn_30s == 1", to: door_open, do: {left: "min(1800, left + 30)", time: "round(left)", buzzer: key, beeps: "beeps + 1"}}
+    - {from: door_open, event: btn_start, when: "btn_start == 1 and door == 1", to: running, do: {cook: resume, buzzer: key, beeps: "beeps + 1"}}
+    - {from: door_open, event: btn_start, when: "btn_start == 1", to: msg_closedoor, do: {cook: "refused:DOOR", buzzer: refused, beeps: "beeps + 1", back: 4, held: "btn_start + btn_stop + btn_time + btn_power + btn_30s"}}
+    - {from: door_open, event: btn_stop, when: "btn_stop == 1", to: ready, do: {left: 0, time: 0, cook: clear, buzzer: key, beeps: "beeps + 1"}}
+    # --- the 2 s messages. A button let go is forgotten; a new press ends the message, and the state under it takes it
+    - {from: msg_settime, when: "btn_start + btn_stop + btn_time + btn_power + btn_30s < held", to: msg_settime, do: {held: "btn_start + btn_stop + btn_time + btn_power + btn_30s"}}
+    - {from: msg_closedoor, when: "btn_start + btn_stop + btn_time + btn_power + btn_30s < held", to: msg_closedoor, do: {held: "btn_start + btn_stop + btn_time + btn_power + btn_30s"}}
+    - {from: [msg_settime, msg_closedoor], when: "back == 0 and btn_start + btn_stop + btn_time + btn_power + btn_30s > held", to: ready}
+    - {from: [msg_settime, msg_closedoor], when: "back == 5 and btn_start + btn_stop + btn_time + btn_power + btn_30s > held", to: done}
+    - {from: msg_closedoor, when: "back == 1 and btn_start + btn_stop + btn_time + btn_power + btn_30s > held", to: set}
+    - {from: msg_closedoor, when: "back == 3 and btn_start + btn_stop + btn_time + btn_power + btn_30s > held", to: paused}
+    - {from: msg_closedoor, when: "back == 4 and btn_start + btn_stop + btn_time + btn_power + btn_30s > held", to: door_open}
+    - {from: [msg_settime, msg_closedoor], after: 2, when: "back == 0", to: ready}
+    - {from: [msg_settime, msg_closedoor], after: 2, when: "back == 5", to: done}
+    - {from: msg_closedoor, after: 2, when: "back == 1", to: set}
+    - {from: msg_closedoor, after: 2, when: "back == 3", to: paused}
+    - {from: msg_closedoor, after: 2, when: "back == 4", to: door_open}
+    # --- bookkeeping: the countdown's whole seconds on `time`, once a second, and the backlight to the state's colour
+    - {from: running, when: "time != round(-(-left // 1))", to: running, do: {time: "round(-(-left // 1))"}}
+    - {from: ready, when: "backlight != 'white'", to: ready, do: {backlight: white}}
+    - {from: set, when: "backlight != 'white'", to: set, do: {backlight: white}}
+    - {from: msg_settime, when: "backlight != 'white'", to: msg_settime, do: {backlight: white}}
+    - {from: running, when: "backlight != 'amber'", to: running, do: {backlight: amber}}
+    - {from: paused, when: "backlight != 'amber'", to: paused, do: {backlight: amber}}
+    - {from: door_open, when: "backlight != 'red'", to: door_open, do: {backlight: red}}
+    - {from: msg_closedoor, when: "backlight != 'red'", to: msg_closedoor, do: {backlight: red}}
+    - {from: done, when: "backlight != 'green'", to: done, do: {backlight: green}}

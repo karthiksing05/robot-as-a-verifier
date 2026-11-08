@@ -41,5 +41,5 @@ rav-server = { workspace = true }
 rav-arm = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "hardware/tests"]
+testpaths = ["tests", "sim/tests", "hardware/tests"]
 markers = ["sim: needs the sim extra (MuJoCo)"]

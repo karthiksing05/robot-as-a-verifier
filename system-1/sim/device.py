@@ -734,6 +734,8 @@ class DeviceMCU:
         ids = _part_ids(model.joint(j).name for j in range(model.njnt))
         self.joints = {i: (model.joint(i).qposadr[0], model.joint(i).dofadr[0], model.joint(i).id) for i in ids}
         self.readings, self.events = {}, []
+        self.dead = set()  # channels wired to nothing: faults.py's dead_ faults. They keep their first reading
+        self.slider_end = {i: model.jnt_range[j][1] for i, (_, _, j) in self.joints.items()}  # a jam mustn't rescale the reading
         self.latched, self.armed = True, False
         self._flash, self._flash_until = "", -1.0
         for pid, (qa, _, j) in self.joints.items():
@@ -763,8 +765,10 @@ class DeviceMCU:
     def _read(self, pid, q, j, t):
         kind, k = pid.rsplit("_", 1)
         ch = channel_of(pid)
+        if ch in self.dead and ch in self.readings:
+            return
         if kind == "slider":
-            self.readings[ch] = round(float(np.clip(q / self.m.jnt_range[j][1], 0, 1)), 3)
+            self.readings[ch] = round(float(np.clip(q / self.slider_end[pid], 0, 1)), 3)
             return
         if kind == "button":
             val = int(q > SWITCH_AT * TRAVEL)

@@ -4,7 +4,7 @@ from __future__ import annotations
 import anyio
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
-from rav_interface import (Checkpoint, Decision, EscalationPolicy, Plan, RoutineHandle, RoutineName, SceneReport, StepTrace,
+from rav_interface import (Checkpoint, Decision, EscalationPolicy, Frame, Plan, RoutineHandle, RoutineName, SceneReport, StepTrace,
                            SystemStatus)
 
 from .engine import RoutineEngine, RoutineError
@@ -15,25 +15,25 @@ MAX_WAIT_S = 60.0
 def build_server(engine: RoutineEngine) -> MCPServer:
     mcp = MCPServer("rav-system-1", instructions="Starts routines on the robot and reports when they stop. Never moves a joint directly.")
 
-    @mcp.tool(description="State, health, the skills on offer, and the active routine.")
+    @mcp.tool(description="State, the skills on offer with what each acts on and takes, the force limit, and the active routine.")
     def system_status() -> SystemStatus:
         return engine.status()
 
-    @mcp.tool(description="The latest SceneInventory from explore, and a rule-based fallback plan.")
+    @mcp.tool(description="The current SceneInventory from explore, updated as steps move parts, and a rule-based fallback plan.")
     def scene_get() -> SceneReport:
         return engine.report
 
-    @mcp.tool(description="One step's full trace by the reference a Checkpoint gave. Ask only when the summary isn't enough.")
-    def evidence_get(ref: str) -> StepTrace:
+    @mcp.tool(description="One step's full trace, or one camera frame, by the reference a Checkpoint, trace or scene gave. Ask only when the summary isn't enough.")
+    def evidence_get(ref: str) -> StepTrace | Frame:
         try:
             return engine.evidence(ref)
         except RoutineError as e:
             raise ToolError(str(e)) from e
 
-    @mcp.tool(description="Starts explore, run_plan or home with an escalation policy. Returns at once with a handle.")
-    def routine_start(routine: RoutineName, plan: Plan | None = None, policy: EscalationPolicy | None = None) -> RoutineHandle:
+    @mcp.tool(description="Starts explore, run_plan or home with an escalation policy. Returns at once with a handle. A bad plan fails here, naming every problem, before anything moves.")
+    async def routine_start(routine: RoutineName, plan: Plan | None = None, policy: EscalationPolicy | None = None) -> RoutineHandle:
         try:
-            return engine.start(routine, plan, policy)
+            return await anyio.to_thread.run_sync(engine.start, routine, plan, policy)
         except RoutineError as e:
             raise ToolError(str(e)) from e
 
@@ -44,10 +44,10 @@ def build_server(engine: RoutineEngine) -> MCPServer:
         except RoutineError as e:
             raise ToolError(str(e)) from e
 
-    @mcp.tool(description="Answers a stop: continue, amend the remaining steps, skip targets, or abort.")
-    def routine_resume(routine_id: str, decision: Decision) -> Checkpoint:
+    @mcp.tool(description="Answers a stop: continue, amend the remaining steps, skip targets, or abort. A bad amendment fails here, and the routine keeps holding.")
+    async def routine_resume(routine_id: str, decision: Decision) -> Checkpoint:
         try:
-            engine.resume(routine_id, decision)
+            await anyio.to_thread.run_sync(engine.resume, routine_id, decision)
         except RoutineError as e:
             raise ToolError(str(e)) from e
         return Checkpoint(routine_id=routine_id)

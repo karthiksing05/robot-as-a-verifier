@@ -1,0 +1,111 @@
+# MI-45 mini incubator (docs/device-authoring.md). Sim truth: the loader, the answer key and evaluation read this file,
+# and no model ever does. Lengths mm, angles deg, in the product frame: origin on the base's bottom face, +X toward the
+# arm, +Z up. Numbers come from cad/model.py and wiring.md.
+#
+# The chamber door is a flap hinged along the top of the back panel, not a side-hinged door: hook_pull can't swing a
+# vertical-hinge door (the arm keeps its tool in the plane through its pan axis, so the pad can't point along a
+# sideways lip; see the build report). Its pivot is 15 mm below the flat door on a drop leaf, so the door's weight is
+# behind the pivot well before 90 deg: opened to 90 it rests on its stop.
+name: mi45
+meta: {title: "MI-45 mini incubator", split: validation, project: incubator}
+
+placement: {x: 313.3, y: 0.0, yaw: 180.0}
+stand_mm: 82
+mounts: {incubator: clamped}
+
+meshes: build/meshes_rev{rev}
+faults:
+  F1: {what: "the door stops at about 40 deg on its hinge check, where the manual says it opens to 90 deg and rests open",
+       class: mechanical, piece: handle_1, property: mechanism_range, masked_by: [F4],
+       A: {parts: {hinge_check: hinge_check_revA}, params: {door_open_max: 40}},
+       B: {parts: {hinge_check: hinge_check_revB}, params: {door_open_max: 90}}}
+  F2: {what: "the door alarm never fires: with the door held open 5 s the display keeps the set temperature and the light stays green, never DOOR and red",
+       class: firmware, piece: display_1, property: message_documented, masked_by: [F4, F1],
+       A: {params: {alarm_when: "door == 1"}},
+       B: {params: {alarm_when: "door == 0"}}}
+  F3: {what: "TEMP+ and TEMP- change the set temperature in steps of 1.0 C, where the manual says 0.5 C",
+       class: manual, piece: button_2, property: mapping_matches,
+       A: {params: {temp_step: 10}},
+       B: {params: {temp_step: 5}}}
+  F4: {what: "the door's pull lip is on its hinge edge, overhanging the back, so the door can't be hooked and lifted open",
+       class: ergonomic, piece: handle_1, property: operable_under_rules,
+       A: {parts: {door_lip: door_lip_revA},
+           params: {lip_pos: [-46.3, 0, 108.5], lip_normal: [-1, 0, 0], lip_under: [1, 0, 0], lip_pull: [0, 0, 1]}},
+       B: {parts: {door_lip: door_lip_revB},
+           params: {lip_pos: [38.7, 0, 103.0], lip_normal: [1, 0, 0], lip_under: [-1, 0, 0], lip_pull: [-0.160, 0, 0.987]}}}
+revs:
+  A: {F1: A, F2: A, F3: A, F4: A}
+  B: {F1: B, F2: B, F3: B, F4: B}
+  M1: {F1: A, F2: A, F3: A, F4: B}   # the lip fixed alone: the door now opens, which unmasks the short hinge check
+  M2: {F1: B, F2: A, F3: A, F4: B}   # lip and check fixed: the door now rests open, which unmasks the silent alarm
+  # (on M1 the door falls shut from its 40 deg stop, so it can't stay open the 5 s the alarm needs: F1 masks F2 too)
+
+roots:
+  incubator:
+    mass_kg: 0.7
+    parts: [base_plate, back_panel, front_panel, control_face, brow, side_panel_L, side_panel_R, top_rear, hinge_base, $hinge_check]
+    visual_only: [shelf, ref_toggle, ref_switch_temp_down, ref_switch_temp_up, ref_oled, ref_led, ref_heater, ref_pico, ref_door_switch]
+
+bodies:
+  # TEMP- and TEMP+: printed caps on tactile switches, 0.3 mm of travel along -normal
+  - {name: cap_temp_down, root: incubator, parts: [cap_temp_down], joint: {type: slide, axis: [-0.7071, 0, -0.7071], anchor: [52.77, 12.0, 76.77], range: [0, 0.3], stiffness: 2000, preload_n: 2.0, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - {name: cap_temp_up, root: incubator, parts: [cap_temp_up], joint: {type: slide, axis: [-0.7071, 0, -0.7071], anchor: [52.77, 36.0, 76.77], range: [0, 0.3], stiffness: 2000, preload_n: 2.0, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - name: power_lever
+    root: incubator
+    # 10 mm lever from a pivot 6 mm above the fascia, leaning 15 deg to its bottom edge (off) at q 0, 30 deg on
+    geoms:
+      - {type: capsule, fromto: [55.24, -38.0, 79.24, 63.9, -38.0, 84.24], radius: 1.5, rgba: [0.75, 0.75, 0.78, 1], mass: 0.002}
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [55.24, -38.0, 79.24], range: [0, 30], damping: 0.002, armature: 0.0002}
+    snap: {nm: 0.012, centre_deg: 15}
+  - name: door
+    root: incubator
+    parts: [door_frame, door_window, door_skirt, door_leaf, $door_lip]
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [-41.3, 0, 90.0], range: [0, $door_open_max], damping: 0.02, frictionloss: 0.0005, armature: 0.001, mass: 0.08}
+
+display: {root: incubator, centre: [62.3, 0, 38.0], normal: [1, 0, 0], up: [0, 0, 1], size: [24.0, 12.0]}
+light: {root: incubator, centre: [35.0, -40.0, 86.4], radius: 3, colours: {"off": [0.1, 0.1, 0.1, 1], green: [0.1, 0.85, 0.2, 1], red: [0.9, 0.1, 0.1, 1]}}
+
+controls:
+  - {id: button_1, kind: button, body: cap_temp_down, top: [52.77, 12.0, 76.77], normal: [0.7071, 0, 0.7071], x: [0, 1, 0], size: [10, 10, 2.5], radius: 5.0, travel: 0.3, switch_at: 0.67}
+  - {id: button_2, kind: button, body: cap_temp_up, top: [52.77, 36.0, 76.77], normal: [0.7071, 0, 0.7071], x: [0, 1, 0], size: [10, 10, 2.5], radius: 5.0, travel: 0.3, switch_at: 0.67}
+  - {id: toggle_1, kind: toggle, body: power_lever, hinge: [55.24, -38.0, 79.24], normal: [0.7071, 0, 0.7071], lean: [0.7071, 0, -0.7071], tip: [63.9, -38.0, 84.24], size: [10, 10, 11.5], lever_len: 11.5, lever_radius: 1.5, base_size: [10, 10, 6]}
+  - {id: handle_1, kind: handle, body: door, reads: true, pos: $lip_pos, normal: $lip_normal, grip: tip, pull: $lip_pull, under: $lip_under, clear: 10, hinge: [-41.3, 0, 90.0], axis: [0, -1, 0], open_deg: 90, size: [16, 9, 5]}
+  - {id: display_1, root: incubator, kind: display, pos: [62.3, 0, 38.0], normal: [1, 0, 0], x: [0, 1, 0], size: [24, 12, 0.5]}
+
+registration:
+  incubator:
+    touches:
+      - {at: [62.0, -45.0, 30.0], normal: [1, 0, 0]}     # front panel, beside the display
+      - {at: [62.0, 45.0, 30.0], normal: [1, 0, 0]}
+
+# The Pico's firmware, as data. Channel names are its serial events (wiring.md). The set temperature is in tenths of a
+# degree, so the display can show the half degrees.
+firmware:
+  channels: {power: 0, btn_down: 0, btn_up: 0, door: 1, setpoint: 370}
+  sensors:
+    - {channel: btn_down, joint: cap_temp_down, when: "q >= 0.0002"}
+    - {channel: btn_up, joint: cap_temp_up, when: "q >= 0.0002"}
+    - {channel: power, joint: power_lever, when: "q > radians(15)", hysteresis: 0.05}
+    - {channel: door, joint: door, when: "q < radians(2)"}
+  states:
+    dark:
+      show: {lcd: "", ring: "off"}
+    ready:
+      show: {lcd: "SET {setpoint//10}.{setpoint%10}C", ring: green}
+    open:
+      show: {lcd: "SET {setpoint//10}.{setpoint%10}C", ring: green}
+    alarm:
+      show: {lcd: "DOOR", ring: red}
+  start: dark
+  transitions:
+    - {any: true, when: "power == 0", to: dark}
+    - {from: dark, when: "power == 1", to: ready, do: {setpoint: 370}}
+    - {from: ready, event: btn_up, when: "btn_up == 1", to: ready, do: {setpoint: "min(450, setpoint + $temp_step)"}}
+    - {from: ready, event: btn_down, when: "btn_down == 1", to: ready, do: {setpoint: "max(250, setpoint - $temp_step)"}}
+    - {from: open, event: btn_up, when: "btn_up == 1", to: open, do: {setpoint: "min(450, setpoint + $temp_step)"}}
+    - {from: open, event: btn_down, when: "btn_down == 1", to: open, do: {setpoint: "max(250, setpoint - $temp_step)"}}
+    - {from: alarm, event: btn_up, when: "btn_up == 1", to: alarm, do: {setpoint: "min(450, setpoint + $temp_step)"}}
+    - {from: alarm, event: btn_down, when: "btn_down == 1", to: alarm, do: {setpoint: "max(250, setpoint - $temp_step)"}}
+    - {from: ready, when: "door == 0", to: open}
+    - {from: [open, alarm], when: "door == 1", to: ready}
+    - {from: open, after: "5", when: "$alarm_when", to: alarm}

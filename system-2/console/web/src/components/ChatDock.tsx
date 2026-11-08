@@ -34,7 +34,7 @@ export function ChatDock({ runId }: { runId: string | null }) {
     const edit = addEdit(env, { runId: run.id, nodeId: step?.step.id ?? null, target: parsed.target, action: parsed.action, reason: parsed.reason, params: { skill: step?.step.skill ?? "press" }, by: operator.name });
     const reply = parsed.action === "note"
       ? `Saved as note ${edit.id}. No model is connected in this build, so nothing will answer yet. Try "retry button_2 because the cap may rub".`
-      : `${edit.id} added: ${ACTION_LABEL[parsed.action]} on ${parsed.target}. It's on the graph and in the edit log.`;
+      : `${edit.id} added: ${ACTION_LABEL[parsed.action]} on ${parsed.target}. It's on the graph and in the revision history.`;
     sessions.set(env, [...lines, { role: operator.name, text: value }, { role: "console", text: reply }]);
     refresh((n) => n + 1);
     setText("");

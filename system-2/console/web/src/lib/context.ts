@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
-import { fixtureRuns, parseEvents, toRun, type Run } from "./runs";
+import { eventTimes, fixtureRuns, parseEvents, toRun, type Run } from "./runs";
 import { ENVIRONMENTS, type EnvName, type Session } from "./session";
 
 const FIXTURES = fixtureRuns();
@@ -15,10 +15,10 @@ export async function refreshRecorded() {
   try {
     const res = await fetch("/api/runs");
     const list = res.ok ? await res.json() : [];
-    recorded = list.map((r: { id: string; events: string; report: Run["report"]; timeline: NonNullable<Run["recording"]>["timeline"]; video?: string; base?: string }) => ({
-      ...toRun(parseEvents(r.events), r.report),
-      recording: { video: r.video, timeline: r.timeline, assets: r.base ? (path: string) => r.base + path : undefined },
-    }));
+    recorded = list.map((r: { id: string; events: string; report: Run["report"]; timeline: NonNullable<Run["recording"]>["timeline"]; video?: string; base?: string }) => {
+      const run = toRun(parseEvents(r.events), r.report);
+      return { ...run, recording: { video: r.video, timeline: { ...r.timeline, events: eventTimes(run.events, r.timeline) }, assets: r.base ? (path: string) => r.base + path : undefined } };
+    });
   } catch {
     recorded = [];
   }

@@ -1,4 +1,5 @@
 """The sim's words and units against the contracts. The mapping tests need no MuJoCo."""
+import math
 from types import SimpleNamespace
 
 import pytest
@@ -35,6 +36,25 @@ def test_metres_become_millimetres():
                            motion="translation", grip="tip", score=0.9)
     control = part_to_control(part)
     assert control.pos_mm == pytest.approx((250, -20, 60)) and control.size_mm == pytest.approx((10, 10, 5))
+
+
+def test_a_control_carries_what_a_plan_needs():
+    base = dict(pos=[0, 0, 0], normal=[0, 0, 1], size=[0, 0, 0], motion="", grip="tip", score=1.0)
+    slider = part_to_control(SimpleNamespace(id="s", kind="slider", state=0.25, range=(-0.01, 0.03), meta={"travel": 0.04}, **base))
+    assert (slider.position, slider.travel_mm) == (0.25, 40.0)
+    dial = part_to_control(SimpleNamespace(id="d", kind="dial", state=0.0, range=(math.radians(-90), math.radians(60)), meta={"detent_step": math.radians(30)}, **base))
+    assert dial.turn_range_deg == (-90.0, 60.0) and dial.detent_deg == 30.0
+    unknown = part_to_control(SimpleNamespace(id="d", kind="dial", state=0.0, range=(0.0, 0.0), meta={}, **base))
+    assert unknown.turn_range_deg is None
+    assert part_to_control(SimpleNamespace(id="t", kind="toggle", state=1.0, range=(0, 0), meta={"on": True}, **base)).on is True
+    assert part_to_control(SimpleNamespace(id="o", kind="door", state=0.0, range=(0, 0), meta={"latched": True}, **base)).latched is True
+
+
+def test_measurements_reach_the_trace_and_an_observation_counts():
+    trace, _ = map_verdict(STEP, {"verdict": "MISSED", "reason": "", "contact_offset_mm": 4.2, "refined": True, "refine_shift_mm": 1.1, "landing_n": 1.3, "collisions": [], "lcd": "READY"})
+    assert trace.measures == {"contact_offset_mm": 4.2, "refined": True, "refine_shift_mm": 1.1, "landing_n": 1.3, "collisions": [], "lcd": "READY"}
+    _, verdict = map_verdict(Step(id="s", skill="observe", target="display_1"), {"verdict": "OBSERVED", "reason": 'shows "READY"', "channel": "LCD"})
+    assert verdict.status == "observed"
 
 
 def test_folders_are_where_the_adapter_looks():

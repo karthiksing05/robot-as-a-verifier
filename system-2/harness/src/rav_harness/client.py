@@ -10,7 +10,7 @@ import httpx2
 from anyio.from_thread import start_blocking_portal
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
-from rav_interface import (Checkpoint, Decision, EscalationPolicy, Plan, RoutineHandle, RoutineName, SceneReport, StepTrace,
+from rav_interface import (Checkpoint, Decision, EscalationPolicy, Frame, Plan, RoutineHandle, RoutineName, SceneReport, StepTrace,
                            SystemStatus)
 
 DEFAULT_URL = "http://127.0.0.1:8780/mcp"
@@ -60,7 +60,15 @@ class McpSystem1:
         return SceneReport(**self._call("scene_get"))
 
     def evidence_get(self, ref: str) -> StepTrace:
-        return StepTrace(**self._call("evidence_get", ref=ref))
+        return StepTrace(**self._evidence(ref))
+
+    def evidence_frame(self, ref: str) -> Frame:
+        """A camera frame by its reference, from a scene's or a trace's frames."""
+        return Frame(**self._evidence(ref))
+
+    def _evidence(self, ref: str) -> dict:
+        body = self._call("evidence_get", ref=ref)
+        return body.get("result", body)  # the SDK wraps a union in {"result": ...}
 
     def routine_start(self, routine: RoutineName, plan: Plan | None = None, policy: EscalationPolicy | None = None) -> RoutineHandle:
         return RoutineHandle(**self._call("routine_start", routine=routine, plan=plan.model_dump(mode="json") if plan else None,

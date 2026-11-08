@@ -1,7 +1,10 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type MouseEvent } from "react";
 import { Field } from "../components/Field";
 import { stagger } from "../components/ui";
 import { useAppSession, useRuns } from "../lib/context";
+import { galleryOf, splitLabel } from "../lib/gallery";
+import { useLiveNow } from "../lib/live";
+import { pieceName } from "../lib/wikidata";
 import { controlStatus, createProject, projectOf, reviewOf, useProjects, type Project } from "../lib/projects";
 import { go } from "../lib/route";
 import { ENVIRONMENTS } from "../lib/session";
@@ -13,7 +16,7 @@ export function Projects() {
   const [adding, setAdding] = useState(false);
 
   if (!ENVIRONMENTS[env].connected) {
-    return <div className="page"><h1 className="title">Projects</h1><div className="empty rise"><h2>Real arm and real CAD: not connected yet</h2></div></div>;
+    return <div className="page"><h1 className="title">Studies</h1><div className="empty rise"><h2>Real arm and real CAD: not connected yet</h2></div></div>;
   }
   const unfiled = runs.filter((r) => !projectOf(r, projects)).length;
 
@@ -21,10 +24,10 @@ export function Projects() {
     <div className="page">
       <section className="hero rise">
         <Field baseX={0.82} reach={0.5} />
-        <h1 className="title">Projects</h1>
+        <h1 className="title">Studies</h1>
         <div className="row">
           <button className="btn accent" type="button" disabled={operator.role === "judge"} onClick={() => setAdding(!adding)}>{adding ? "Close" : "New project"}</button>
-          <a className="btn ghost" href="#/motivation">Why this exists</a>
+          <a className="btn ghost" href="#/background">Background</a>
         </div>
       </section>
       {adding && <NewProjectForm />}
@@ -38,16 +41,25 @@ export function Projects() {
 
 function ProjectCard({ project, runs, i }: { project: Project; runs: Parameters<typeof reviewOf>[0]; i: number }) {
   const review = reviewOf(runs);
-  const open = () => go(`project/${project.id}`);
+  const now = useLiveNow();
+  const stay = (e: MouseEvent) => e.stopPropagation(); // these links go somewhere other than the card does
+  const device = galleryOf(project.id);
+  const split = splitLabel(project.split ?? device?.split);
+  const about = device?.body.join(" ").trim();
   return (
-    <article className="panel projectcard rise" style={stagger(i)} tabIndex={0} role="link" aria-label={project.name} onClick={open} onKeyDown={(e) => { if (e.key === "Enter") open(); }}>
-      <div className="row"><span className="tag">{project.kind === "sim" ? "Sim device" : "Physical product"}</span>{review.evidence === "mock" && <span className="tag mock">Mock data</span>}</div>
-      <h2>{project.name}</h2>
-      {project.summary && <p>{project.summary}</p>}
+    <article className="panel projectcard rise" style={stagger(i)} onClick={() => go(`project/${project.id}`)}>
+      <div className="row"><span className="tag">{project.kind === "sim" ? "Sim device" : "Physical product"}</span>{split && <span className="tag">{split}</span>}{review.evidence === "mock" && <span className="tag mock">Mock data</span>}</div>
+      <h2><a href={`#/project/${project.id}`}>{project.name}</a></h2>
+      {about ? <p>{about}</p> : project.summary && <p>{project.summary}</p>}
+      {device && device.theory.length > 0 && <div className="chips" aria-label="Theory pieces">{device.theory.map((x) => <span key={x} className="chip accent" title={x}>{pieceName(x)}</span>)}</div>}
       <span className="spacer" />
       <b className={`headline ${review.open.length ? "bad" : review.latest ? "good" : ""}`}>{review.headline}</b>
       {review.latest && <div className="dots" aria-hidden="true">{review.controls.map((id) => <i key={id} className={controlStatus(review.latest!, id)} />)}</div>}
       <span className="note">{review.revisions.length ? `Rev ${review.revisions.map((r) => r.revision).join(", ")} / ${runs.length} run${runs.length === 1 ? "" : "s"}` : "No runs"}</span>
+      <div className="row">
+        <a className="btn ghost" href={`#/live?project=${project.id}`} onClick={stay}>{now.running && now.project === project.id ? <>Live now<i className="livedot" aria-hidden="true" /></> : "Live"}</a>
+        {project.cad && <a className="btn ghost" href="#/cad" onClick={stay}>CAD</a>}
+      </div>
     </article>
   );
 }

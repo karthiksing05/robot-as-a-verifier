@@ -1,0 +1,132 @@
+# BG-12 burr coffee grinder: a held-out RAAV test device (docs/device-authoring.md). Sim truth: the loader, the answer
+# key and evaluation read this file, and no model ever does. Lengths mm, angles deg, in the product frame: origin on the
+# base's bottom face, +X toward the arm, +Z up. Numbers come from cad/model.py and wiring.md.
+name: bg12
+meta: {title: "BG-12 burr coffee grinder", split: held_out, project: coffee-grinder}
+
+# The reference device's placement: the arm's pan axis at product (274.5, 0, 58).
+placement: {x: 313.3, y: 0.0, yaw: 180.0}
+stand_mm: 82
+mounts: {grinder: clamped}
+
+meshes: build/meshes_rev{rev}
+
+# Each fault is one broken property on one piece (docs/device-theory.md). A choice picks its parts' meshes and parameters.
+faults:
+  F1: {what: "GRIND dial is on the back face, out of the arm's reach until the grinder is turned around", class: ergonomic,
+       piece: dial_2, property: needs_reposition,
+       A: {parts: {grind_knob: knob_grind_revA},
+           params: {grind_top: [-46.04, 45, 80.04], grind_normal: [-0.7071, 0, 0.7071], grind_x: [-0.5, -0.7071, -0.5],
+                    grind_geoms: [{type: cylinder, fromto: [-46.04, 45, 80.04, -53.81, 45, 87.81], radius: 5.0, mass: 0.003},
+                                  {type: box, pos: [-52.17, 41.82, 81.67], half: [4.5, 1.5, 5.5], x: [-0.5, -0.7071, -0.5], z: [-0.7071, 0, 0.7071], mass: 0.001}],
+                    grind_joint: {type: hinge, axis: [-0.7071, 0, 0.7071], anchor: [-49.92, 45, 83.92], range: [-270, 0], damping: 0.002, frictionloss: 0.004, armature: 0.0005}}},
+       B: {parts: {grind_knob: knob_grind_revB},
+           params: {grind_top: [46.04, -45, 80.04], grind_normal: [0.7071, 0, 0.7071], grind_x: [0.5, 0.7071, -0.5],
+                    grind_geoms: [{type: cylinder, fromto: [46.04, -45, 80.04, 53.81, -45, 87.81], radius: 5.0, mass: 0.003},
+                                  {type: box, pos: [52.17, -41.82, 81.67], half: [4.5, 1.5, 5.5], x: [0.5, 0.7071, -0.5], z: [0.7071, 0, 0.7071], mass: 0.001}],
+                    grind_joint: {type: hinge, axis: [0.7071, 0, 0.7071], anchor: [49.92, -45, 83.92], range: [-270, 0], damping: 0.002, frictionloss: 0.004, armature: 0.0005}}}}
+  F2: {what: "START grinds with the hopper lid open, and opening the lid doesn't stop a grind", class: firmware,
+       piece: button_1, property: interlock_holds, masked_by: [F4],
+       A: {params: {lid_guard: "False", lid_stop: "False"}},
+       B: {params: {lid_guard: "lid == 0", lid_stop: "lid == 0"}}}
+  F3: {what: "TIME dial sets 10 to 60 s in 10 s steps, where the manual says 5 to 30 s in 5 s steps", class: manual,
+       piece: dial_1, property: mapping_matches,
+       A: {params: {time_map: "10 + 10 * round(-q / radians(270) * 5)"}},
+       B: {params: {time_map: "5 + 5 * round(-q / radians(270) * 5)"}}}
+  # the lid's switch is read through its fin. With the fin on the wrong side the switch lever rests open on its spring
+  # whatever the lid does: the firmware's lid channel then reads that lever, not the lid
+  F4: {what: "lid switch never closes (the lid's sensor fin is on the wrong side and misses it), so START always shows LID with the lid shut", class: electrical,
+       piece: handle_1, property: interlock_releases,
+       A: {parts: {lid_fin: lid_sensor_fin_revA}, params: {lid_body: hopper_lid, switch_body: lid}},
+       B: {parts: {lid_fin: lid_sensor_fin_revB}, params: {lid_body: lid, switch_body: lid_switch}}}
+revs:
+  A: {F1: A, F2: A, F3: A, F4: A}
+  B: {F1: B, F2: B, F3: B, F4: B}
+  M1: {F1: A, F2: A, F3: A, F4: B}   # the lid switch fixed alone: START now runs, which unmasks the missing lid guard
+
+roots:
+  grinder:
+    mass_kg: 0.8
+    parts: [base_plate, front_panel, back_panel, side_panel_L, side_panel_R, control_face, rear_face, top_panel, hopper,
+            lid_hinge_base]
+    visual_only: [bin_front, bezel_start, ref_oled, ref_toggle, ref_motor, ref_lid_switch]
+
+bodies:
+  - {name: cap_start, root: grinder, parts: [cap_start], joint: {type: slide, axis: [-0.7071, 0, -0.7071], anchor: [44.27, 0, 78.27], range: [0, 0.3], stiffness: 2000, preload_n: 2.0, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - name: dial_time
+    root: grinder
+    parts: [knob_time]
+    collide_geoms_only: true
+    geoms:   # a 10 mm knob and its 3 mm fin, as primitives: 5 to 16 mm above the face
+      - {type: cylinder, fromto: [46.04, 50.0, 80.04, 53.81, 50.0, 87.81], radius: 5.0, mass: 0.003}
+      - {type: box, pos: [52.17, 46.82, 81.67], half: [4.5, 1.5, 5.5], x: [0.5, -0.7071, -0.5], z: [0.7071, 0, 0.7071], mass: 0.001}
+    # a stepped selector with a firm feel (six settings over 270 deg), clockwise from outside (negative about +normal) for longer
+    joint: {type: hinge, axis: [0.7071, 0, 0.7071], anchor: [49.93, 50.0, 83.93], range: [-270, 0], damping: 0.002, frictionloss: 0.01, armature: 0.0005}
+  - {name: dial_grind, root: grinder, parts: [$grind_knob], collide_geoms_only: true, geoms: $grind_geoms, joint: $grind_joint}
+  - name: power_lever
+    root: grinder
+    # 11.5 mm lever from a pivot 6 mm above the face, leaning 15 deg to the bottom edge (off) at q = 0, 30 deg is on
+    geoms:
+      - {type: capsule, fromto: [46.74, 30, 80.74, 55.4, 30, 85.74], radius: 1.5, rgba: [0.75, 0.75, 0.78, 1], mass: 0.002}
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [46.74, 30, 80.74], range: [0, 30], damping: 0.002, armature: 0.0002}
+    snap: {nm: 0.012, centre_deg: 15}
+  - name: $lid_body
+    root: grinder
+    # its weight goes over centre just past upright: it rests open at its stop, and falls shut once pushed back past about 97 deg
+    parts: [lid, lid_hinge_leaf, lid_handle, $lid_fin]
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [-51.0, 0, 103.0], range: [0, 110], damping: 0.02, frictionloss: 0.002, armature: 0.001, mass: 0.08}
+  - name: $switch_body
+    root: grinder
+    # the lid switch's lever, under the top panel. Its spring holds it open; the lid's fin is what shuts it
+    geoms:
+      - {type: box, pos: [-35.0, 13.0, 76.0], half: [5.0, 1.5, 1.0], x: [1, 0, 0], z: [0, 0, 1], mass: 0.001}
+    joint: {type: hinge, axis: [0, 1, 0], anchor: [-39.0, 13.0, 76.0], range: [0, 25], stiffness: 0.01, preload_n: -0.02, damping: 0.0005, armature: 0.0001}
+
+display: {root: grinder, centre: [63.3, 0, 32.0], normal: [1, 0, 0], up: [0, 0, 1], size: [22.0, 11.0]}
+
+controls:
+  - {id: button_1, kind: button, body: cap_start, top: [44.27, 0, 78.27], normal: [0.7071, 0, 0.7071], x: [0, 1, 0], size: [10, 10, 2.5], radius: 5.0, travel: 0.3, switch_at: 0.67}
+  - {id: dial_1, kind: dial, body: dial_time, top: [46.04, 50.0, 80.04], normal: [0.7071, 0, 0.7071], x: [0.5, -0.7071, -0.5], size: [18, 18, 11], knob_radius: 5.0, knob_height: 11, fin_length: 18, fin_width: 3, fin_height: 11, floor_gap: 5, one_sided: true, range_deg: [-270, 0]}
+  - {id: dial_2, kind: dial, body: dial_grind, top: $grind_top, normal: $grind_normal, x: $grind_x, size: [18, 18, 11], knob_radius: 5.0, knob_height: 11, fin_length: 18, fin_width: 3, fin_height: 11, floor_gap: 5, one_sided: true, range_deg: [-270, 0]}
+  - {id: toggle_1, kind: toggle, body: power_lever, hinge: [46.74, 30, 80.74], normal: [0.7071, 0, 0.7071], lean: [0.7071, 0, -0.7071], tip: [55.4, 30, 85.74], size: [10, 10, 11.5], lever_len: 11.5, lever_radius: 1.5, base_size: [10, 10, 3]}
+  - {id: handle_1, kind: handle, body: $lid_body, reads: true, pos: [26.0, 0, 98.0], normal: [1, 0, 0], grip: tip, pull: [0.065, 0, 1], under: [-1, 0, 0], clear: 10, hinge: [-51.0, 0, 103.0], axis: [0, -1, 0], open_deg: 110, size: [16, 9, 10]}
+  - {id: display_1, root: grinder, kind: display, pos: [63.3, 0, 32.0], normal: [1, 0, 0], x: [0, 1, 0], size: [22, 11, 0.5]}
+
+# Faces the probe touches to find where the grinder is: the front panel, either side of the display and above the bin.
+registration:
+  grinder:
+    touches:
+      - {at: [62.0, -45.0, 45.0], normal: [1, 0, 0]}
+      - {at: [62.0, 45.0, 45.0], normal: [1, 0, 0]}
+
+# The Pico's firmware, as data. Channel names are its serial events (wiring.md).
+firmware:
+  channels: {power: 0, btn_start: 0, grind: 1, time: 5, lid: 1, run: idle}
+  sensors:
+    - {channel: btn_start, joint: cap_start, when: "q >= 0.0002"}
+    - {channel: power, joint: power_lever, when: "q > radians(15)", hysteresis: 0.05}
+    - {channel: grind, joint: dial_grind, value: "1 + round(-q / radians(270) * 11)"}
+    - {channel: time, joint: dial_time, value: "$time_map"}
+    - {channel: lid, joint: lid, when: "q < radians(2)"}
+  states:
+    dark:
+      show: {lcd: "", ring: "off"}
+    ready:
+      show: {lcd: "GRIND {grind} {time}s", ring: "off"}
+    running:
+      show: {lcd: "GRINDING {left}s", ring: "off"}
+    done:
+      show: {lcd: "DONE", ring: "off"}
+    refused:
+      show: {lcd: "{reason}", ring: "off"}
+  start: dark
+  transitions:
+    - {any: true, when: "power == 0", to: dark, do: {run: idle}}
+    - {from: dark, when: "power == 1", to: ready}
+    - {from: running, event: btn_start, when: "btn_start == 1", to: ready, do: {run: stop}}
+    - {from: running, when: "$lid_stop", to: refused, do: {reason: LID, run: "refused:LID"}}
+    - {from: running, when: "left <= 0", to: done, do: {run: done}}
+    - {from: [ready, done, refused], event: btn_start, when: "btn_start == 1 and ($lid_guard)", to: refused, do: {reason: LID, run: "refused:LID"}}
+    - {from: [ready, done, refused], event: btn_start, when: "btn_start == 1", to: running, do: {left: "time", run: start}}
+    - {from: [done, refused], event: time, to: ready}
+    - {from: [done, refused], event: grind, to: ready}

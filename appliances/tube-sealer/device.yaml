@@ -1,0 +1,115 @@
+# HS-20 tube heat sealer and its one-tube stand: a RAAV test device (docs/device-authoring.md). Sim truth: the loader,
+# the answer key and evaluation read this file, and no model ever does. Lengths mm, angles deg, in the product frame:
+# origin on the base's bottom face, +X toward the arm, +Z up. Numbers come from cad/model.py and wiring.md.
+name: hs20
+meta: {title: "HS-20 tube heat sealer", split: dev, project: tube-sealer}
+
+# The MC-6's placement: the arm's pan axis at product (274.5, 0, 58), the controls in the same 45 deg plane as its.
+placement: {x: 313.3, y: 0.0, yaw: 180.0}
+stand_mm: 82
+mounts: {sealer: clamped, tube_stand: clamped}
+
+meshes: build/meshes_rev{rev}
+# Each fault is one broken property on one piece (docs/device-theory.md). A choice picks its parts' meshes and parameters.
+faults:
+  F1: {what: "SEAL starts a seal with no tube in the slot: the firmware never checks the tube sensor", class: firmware,
+       piece: button_1, property: requirement_holds, masked_by: [F3],
+       A: {params: {tube_guard: "0 == 1"}}, B: {params: {tube_guard: "tube == 0"}}}
+  F2: {what: "the sealing slot's bezel bore is too tight, so a tube stops high and is never sensed", class: mechanical,
+       piece: well_1, property: accepts_object,
+       A: {parts: {slot_bezel: slot_bezel_revA}, params: {slot_id: 15.6}}, B: {parts: {slot_bezel: slot_bezel_revB}, params: {slot_id: 16.8}}}
+  F3: {what: "the CLAMP lever's over-centre spring is too stiff for a fingertip push to throw it", class: ergonomic,
+       piece: toggle_1, property: actuates,
+       A: {params: {clamp_snap_nm: 0.15}}, B: {params: {clamp_snap_nm: 0.012}}}
+revs:
+  A: {F1: A, F2: A, F3: A}
+  B: {F1: B, F2: B, F3: B}
+  M1: {F1: A, F2: A, F3: B}   # the clamp fixed alone: it now closes, so SEAL on an empty slot seals instead of saying NO TUBE
+  M2: {F1: A, F2: B, F3: B}   # the firmware fault alone
+
+roots:
+  sealer:
+    mass_kg: 0.6
+    parts: [base_plate, front_panel, back_panel, side_panel_L, side_panel_R, control_face, top_deck, $slot_bezel]
+    visual_only: [lamp_bezel, ref_clamp_switch, ref_seal_switch, ref_oled, ref_pico, ref_jaws, ref_tube_sensor]
+    arm_only: [top_deck, slot_bezel_revA, slot_bezel_revB]
+    rings:
+      - {centre: [-10, 0], id: $slot_id, z: [87.6, 95.6]}
+  tube_stand:
+    mass_kg: 0.08
+    parts: [stand_base, stand_column]
+    arm_only: [stand_column]
+    rings:
+      - {centre: [84.57, 175.03], id: 16.8, z: [49.4, 52.4]}
+
+bodies:
+  - {name: cap_seal, root: sealer, parts: [cap_seal], joint: {type: slide, axis: [-0.7071, 0, -0.7071], anchor: [44.27, 25.0, 78.27], range: [0, 0.3], stiffness: 2000, preload_n: 2.0, damping: 2, frictionloss: 0.05, armature: 0.2}}
+  - name: clamp_lever
+    root: sealer
+    # the lever is drawn here: 10 mm from a pivot 6 mm above the face, leaning 15 deg to the bottom edge (jaws open).
+    # q is 0 there and 30 deg against the top edge (jaws closed). Its over-centre spring is the snap
+    geoms:
+      - {type: capsule, fromto: [46.74, -30.0, 80.74, 55.4, -30.0, 85.74], radius: 1.5, rgba: [0.75, 0.75, 0.78, 1], mass: 0.002}
+    joint: {type: hinge, axis: [0, -1, 0], anchor: [46.74, -30.0, 80.74], range: [0, 30], damping: 0.002, armature: 0.0002}
+    snap: {nm: $clamp_snap_nm, centre_deg: 15}
+
+objects:
+  - name: tube_1
+    part: tube
+    root: tube_stand
+    mass_kg: 0.008
+    rgba: [0.92, 0.92, 0.9, 1]
+    collar: [84.57, 175.03, 58.0]
+    collar_top: [84.57, 175.03, 61.0]
+    # the tube's profile, from its top of collar down: [radius, from, to]. The long taper is what lets a tight bore stop it high
+    stack: [[9.5, -6, -8.6], [8.0, -8.6, -17.0], [7.2, -17.0, -22.0], [6.0, -22.0, -28.0], [5.0, -28.0, -34.0], [4.0, -34.0, -40.0], [3.0, -40.0, -46.5], [2.0, -46.5, -55.0]]
+    boxes:
+      - {x: [0.77, -0.64, 0], at: [0, 0, -3.0], half: [9.0, 11.0, 3.0]}    # collar, 18 mm across its flats
+      - {x: [0.77, -0.64, 0], at: [0, 0, 8.6], half: [1.5, 7.0, 7.0]}      # lifting loop
+
+display: {root: sealer, centre: [58.7, 0, 30.0], normal: [1, 0, 0], up: [0, 0, 1], size: [22.0, 11.0]}
+light: {root: sealer, centre: [-30.0, 28.0, 94.6], radius: 4, colours: {"off": [0.1, 0.1, 0.1, 1], white: [0.95, 0.95, 0.95, 1], amber: [0.95, 0.6, 0.1, 1], green: [0.1, 0.85, 0.2, 1], red: [0.9, 0.1, 0.1, 1]}}
+
+controls:
+  - {id: button_1, kind: button, body: cap_seal, top: [44.27, 25.0, 78.27], normal: [0.7071, 0, 0.7071], x: [0, 1, 0], size: [10, 10, 2.5], radius: 5.0, travel: 0.3, switch_at: 0.67}
+  - {id: toggle_1, kind: toggle, body: clamp_lever, hinge: [46.74, -30.0, 80.74], normal: [0.7071, 0, 0.7071], lean: [0.7071, 0, -0.7071], tip: [55.4, -30.0, 85.74], size: [10, 10, 11.5], lever_len: 11.5, lever_radius: 1.5, base_size: [10, 10, 3]}
+  - {id: display_1, root: sealer, kind: display, pos: [58.7, 0, 30.0], normal: [1, 0, 0], x: [0, 1, 0], size: [22, 11, 0.5]}
+  - {id: well_1, root: sealer, kind: well, reads: true, pos: [-10, 0, 95.6], normal: [0, 0, 1], x: [1, 0, 0], size: [16.8, 16.8, 1], collar: [-10, 0, 101.2]}
+  - {id: well_2, root: tube_stand, kind: well, pos: [84.57, 175.03, 52.4], normal: [0, 0, 1], x: [0.77, -0.64, 0], size: [16.8, 16.8, 1], collar: [84.57, 175.03, 58.0]}
+  - {id: tube_1, kind: object, object: tube_1, collar_top: 0.0, jaw_axis: [0.77, -0.64, 0], flats: 18, grips: [{at: [84.57, 175.03, 69.6], axis: [0.64, 0.77, 0], width: 14, depth: 6.0}, {at: [84.57, 175.03, 69.6], axis: [0.77, -0.64, 0], width: 3, depth: 6.0}, {axis: [0.64, 0.77, 0], width: 22, depth: 1.0}, {axis: [0.77, -0.64, 0], width: 18}]}
+
+# Faces the probe touches to find where each root really is (inventory.py): faces toward the arm only.
+registration:
+  sealer:
+    touches:
+      - {at: [60.0, -40.0, 48.0], normal: [1, 0, 0]}     # front panel, beside the display window
+      - {at: [60.0, 40.0, 48.0], normal: [1, 0, 0]}
+  tube_stand:
+    follows: sealer   # until touched, assume it moved with the sealer
+    touches:
+      - {at: [94.58, 166.71, 30.0], normal: [0.77, -0.64, 0]}   # the column's side facing the arm
+
+# The Pico's firmware, as data. Channel names are its serial events (wiring.md). Always on: USB powered, no switch.
+firmware:
+  channels: {btn_seal: 0, clamp: 0, tube: 0, run: idle}
+  sensors:
+    - {channel: btn_seal, joint: cap_seal, when: "q >= 0.0002"}
+    - {channel: clamp, joint: clamp_lever, when: "q > radians(15)", hysteresis: 0.05}
+    # the tube's nub breaks a beam under the slot: seated means the collar is within this box of the slot's seat
+    - {channel: tube, object: tube_1, root: sealer, near: [-10, 0, 101.2], radius_mm: 3, height_mm: 2.5}
+  states:
+    ready:      {show: {lcd: "READY", ring: white}}
+    no_tube:    {show: {lcd: "NO TUBE", ring: red}}
+    clamp_open: {show: {lcd: "CLAMP", ring: red}}
+    running:    {show: {lcd: "SEALING {left}", ring: amber}}
+    done:       {show: {lcd: "DONE", ring: green}}
+  start: ready
+  transitions:
+    - {from: [ready, done, no_tube, clamp_open], event: btn_seal, when: "btn_seal == 1 and ($tube_guard)", to: no_tube, do: {run: "refused:NO_TUBE"}}
+    - {from: [ready, done, no_tube, clamp_open], event: btn_seal, when: "btn_seal == 1 and clamp == 0", to: clamp_open, do: {run: "refused:CLAMP"}}
+    - {from: [ready, done, no_tube, clamp_open], event: btn_seal, when: "btn_seal == 1", to: running, do: {left: 5, run: start}}
+    - {from: running, event: clamp, when: "clamp == 0", to: clamp_open, do: {run: stop}}
+    - {from: running, when: "left <= 0", to: done, do: {run: done}}
+    - {from: done, event: clamp, when: "clamp == 0", to: ready}
+    - {from: [no_tube, clamp_open], event: tube, to: ready}
+    - {from: [no_tube, clamp_open], event: clamp, to: ready}

@@ -1,0 +1,68 @@
+{
+  "run_id": "sample-agent",
+  "product": "Scripted model run (mock)",
+  "revision": "A",
+  "summary": "4 of 7 controls passed, 1 failed, 1 intermittent, 1 observed. Scripted, not a real run.",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "high",
+      "target": "dial_1",
+      "label": "stuck",
+      "what_happened": "Failed twice in a row: held at 5.0 N with about 0.3 mm of travel and no reading change.",
+      "manual_says": null,
+      "user_impact": null,
+      "step_ids": [
+        "s4"
+      ],
+      "event_seqs": [
+        60
+      ],
+      "evidence": [],
+      "confirmed": true
+    },
+    {
+      "id": "F2",
+      "severity": "medium",
+      "target": "toggle_1",
+      "label": "intermittent",
+      "what_happened": "Failed and also passed (failed, passed). First failure: pushed it through its motion but no reading changed",
+      "manual_says": null,
+      "user_impact": null,
+      "step_ids": [
+        "s5"
+      ],
+      "event_seqs": [
+        81
+      ],
+      "evidence": [],
+      "confirmed": true
+    }
+  ],
+  "coverage": {
+    "detected": 7,
+    "passed": [
+      "button_1",
+      "button_2",
+      "slider_1",
+      "door_1"
+    ],
+    "failed": [
+      "dial_1"
+    ],
+    "intermittent": [
+      "toggle_1"
+    ],
+    "observed": [
+      "display_1"
+    ],
+    "inconclusive": [],
+    "skipped": {}
+  },
+  "reward": {
+    "value": 0.6667,
+    "control_coverage": 1.0,
+    "pass_rate": 0.6667,
+    "formula": "R = control coverage x pass rate"
+  }
+}
