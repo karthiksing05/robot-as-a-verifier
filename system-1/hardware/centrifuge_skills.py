@@ -310,7 +310,7 @@ def run(arm, skill, p, plane_T, params, wrist=None):
     nudge = [float(params.get(k, 0.0)) for k in ("dx_mm", "dy_mm", "dz_mm")]
     if skill in ("tube_find", "tube_pick") and wrist is not None:
         import tube_find
-        top, how = tube_find.find(arm, wrist, "red" if float(params.get("tube", 1)) >= 2 else "green")
+        top, how = tube_find.find(arm, wrist, "red" if float(params.get("tube", 2)) >= 2 else "green")
         if top is None:
             raise RuntimeError(how)
         r = np.r_[top[:2] - PAN_XY, 0.0]  # the search's point sits past the collar's centre: pull it toward the arm

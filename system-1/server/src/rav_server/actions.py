@@ -39,7 +39,7 @@ def centrifuge_actions() -> list[ActionSpec]:
              for a, way in (("x", "toward the arm"), ("y", "to the right, seen from the arm"), ("z", "up"))]
     angle = ParamSpec(name="angle", min=10.0, max=105.0, default=100.0, unit="deg",
                       about="how far to swing it. Past 90 it falls onto its stop; short of that it falls shut when let go")
-    tube = ParamSpec(name="tube", min=1.0, max=2.0, default=1.0, about="1 the tube with the green collar (nearer the arm), 2 the red one")
+    tube = ParamSpec(name="tube", min=1.0, max=2.0, default=2.0, about="2 (the default) the tube with the red collar, 1 the green one")
     stop = ["button", "knob"]  # scans have read STOP as either
     covers = [*stop, "handle"]
     return [

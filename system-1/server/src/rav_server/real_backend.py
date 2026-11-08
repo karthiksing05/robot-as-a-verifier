@@ -216,6 +216,33 @@ class RealBackend(PipelineRobot):
             trace.measures["display_frame"] = ref
         return trace, verdict
 
+    # the MC-6 demo, in Joseph's order (Nov 8): load the tube, close the lid, switch on, add time, set the speed, start, stop
+    DEMO = [("tube_pick", "STOP", {"tube": 2.0}), ("tube_place", "STOP", {}), ("lid_close", "STOP", {}),
+            ("flip", "POWER", {"toward": 1.0}), ("press", "TIME+", {}), ("turn", "SPEED", {"angle": -60.0}),
+            ("press", "START", {}), ("press", "STOP", {})]
+
+    def _demo_ids(self) -> dict:
+        """The scan's part for each of the panel's controls: by the name System 2 gave it, else by kind and place (the
+        buttons run START, STOP, TIME+ from the arm's left, +y)."""
+        named = {str(p.meta.get("name") or p.id).upper().split("_")[0]: p.id for p in self.parts}
+        buttons = [p.id for p in sorted((p for p in self.parts if p.kind == "button"), key=lambda p: -p.pos[1])]
+        guess = dict(zip(("START", "STOP", "TIME+"), buttons))
+        guess["POWER"] = next((p.id for p in self.parts if p.kind == "toggle"), None)
+        guess["SPEED"] = next((p.id for p in self.parts if p.kind in ("dial", "knob")), None)
+        return {k: named.get(k) or guess.get(k) for k in ("START", "STOP", "TIME+", "POWER", "SPEED")}
+
+    def default_plan(self, scene):
+        """DEMO on this scan's parts. A control the scan didn't find is left out (the run says which)."""
+        from rav_interface import Plan, Step
+
+        ids = self._demo_ids()
+        steps = [Step(id=f"s{n + 1}", skill=skill, target=ids[t], params=params)
+                 for n, (skill, t, params) in enumerate((d for d in self.DEMO if ids.get(d[1])))]
+        missing = sorted({t for _, t, _ in self.DEMO if not ids.get(t)})
+        if missing:
+            self.notes.append(f"the demo plan leaves out {', '.join(missing)}: the scan didn't find it")
+        return Plan(plan_id=self.plan_id, steps=steps, source="rules")
+
     def extra_actions(self) -> list:
         from .actions import centrifuge_actions
 
