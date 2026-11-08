@@ -190,9 +190,9 @@ class PipelineRobot:
     def frame(self, ref: str) -> Frame | None:
         return self.frames.get(ref)
 
-    def _panel_map(self) -> str | None:
+    def _panel_map(self, unconfirmed=()) -> str | None:
         """The scan's straight-on picture of the panel with each control's id on it, so a caller can match what a manual
-        names to what the scan found."""
+        names to what the scan found; unconfirmed parts (scene.rejected) in magenta."""
         try:
             import cv2
             import numpy as np
@@ -204,13 +204,13 @@ class PipelineRobot:
                 img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
             scale = max(1, round(FRAME_WIDTH / max(img.shape[1], 1)))
             img = cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
-            for p in self.parts:
+            for p, col in [(p, (0, 255, 255)) for p in self.parts] + [(p, (255, 0, 255)) for p in unconfirmed]:
                 v = np.asarray(p.pos) - T[:3, 3]
                 r, c = (v @ T[:3, 0] - origin[0]) / cell * scale, (v @ T[:3, 1] - origin[1]) / cell * scale
                 at = (int(c), int(r))
-                cv2.circle(img, at, 3, (0, 255, 255), -1)
+                cv2.circle(img, at, 3, col, -1)
                 cv2.putText(img, p.id, (at[0] + 5, at[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 3, cv2.LINE_AA)
-                cv2.putText(img, p.id, (at[0] + 5, at[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1, cv2.LINE_AA)
+                cv2.putText(img, p.id, (at[0] + 5, at[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.45, col, 1, cv2.LINE_AA)
             return self._store(img, "the panel, straight on, from the scan, with each control's id")
         except Exception:
             return None
@@ -308,23 +308,40 @@ class PipelineRobot:
         """Holds at a scan_review stop with the panel map, then names and re-kinds each part as System 2 says (the manual's
         names, read off the panel's print, become the part ids), and drops what it says isn't a control. On the real
         centrifuge the shape rules called START and STOP knobs one scan and buttons the next; the panel's print doesn't
-        change."""
+        change. Candidates no kind fit (scene.rejected, ids cand_k) are offered too, and join the parts only if named:
+        in some scans SPEED fit no rule."""
         from dataclasses import replace
 
-        ref = self._panel_map()
-        decision = self.review_scan({"parts": [{"id": p.id, "kind": p.kind} for p in self.parts], "frames": [ref] if ref else []})
+        unconfirmed = list(getattr(self.scene, "rejected", None) or [])
+        ref = self._panel_map(unconfirmed)
+        decision = self.review_scan({"parts": [{"id": p.id, "kind": p.kind} for p in self.parts]
+                                     + [{"id": p.id, "kind": "unconfirmed"} for p in unconfirmed], "frames": [ref] if ref else []})
         if decision.kind == "abort":
             raise PipelineFailure(f"stopped after the scan: {decision.note or 'System 2 aborted'}")
         if not decision.labels:
             return
         kept, dropped, renamed = [], [], []
-        for p in self.parts:
+        maybe = {p.id for p in unconfirmed}  # by id: Parts hold arrays, so == between them is ambiguous
+        for p in self.parts + unconfirmed:
             if p.id not in decision.labels:
-                kept.append(p)
+                if p.id not in maybe:
+                    kept.append(p)
                 continue
             label = decision.labels[p.id]
             if label is None or label.kind not in CONTROL_KINDS:
-                dropped.append(p.id)
+                if p.id not in maybe:
+                    dropped.append(p.id)
+                continue
+            if p.id in maybe:  # an unconfirmed candidate joins as the build of the kind it was named
+                cid, builds = p.id, p.meta.get("as", {})
+                p = builds.get("toggle") if label.kind == "toggle" else builds.get("knob") or p
+                p = p and replace(p, id=cid, meta={k: v for k, v in p.meta.items() if k != "as"})
+            if p is not None and label.kind == "toggle" and "tip" not in p.meta:  # read as a knob: its lever from its points
+                import perceive
+
+                p = perceive.lever_from_points(p, self.plane_T if self.plane_T is not None else self.scene.plane[0])
+            if p is None or (label.kind == "toggle" and "tip" not in p.meta):  # a flip reads the lever's tip and length:
+                dropped.append(f"{label.name} (no lever measured)")  # left out rather than crash the flip
                 continue
             new_id = re.sub(r"[^A-Za-z0-9+]+", "_", label.name).strip("_") or p.id
             while new_id in {q.id for q in kept}:

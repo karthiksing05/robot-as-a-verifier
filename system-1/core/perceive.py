@@ -97,6 +97,8 @@ class Scene:
     timings: dict = field(default_factory=dict)     # stage -> seconds
     views: list = field(default_factory=list)       # planned wrist views: dicts q, T (believed camera pose),
                                                     # look (point), tilt (deg), ok, why (if unreachable)
+    rejected: list = field(default_factory=list)    # with rgbperceive.KEEP_REJECTED: Parts (ids cand_k) for candidates
+                                                    # no kind fit, for a review to name; never in parts
 
 
 def perceive(arm, phone, wrist, on_stage=None, on_frame=None):
@@ -234,6 +236,31 @@ PANEL_NZ = (0.3, 0.95)  # the panel's normal's up component: tilted between abou
 PANEL_PLANES, PANEL_MIN_PTS = 4, 100  # planes tried, and the points that must be left to try another
 PANEL_GROUP = None  # m: when set, the panel's extent comes from its plane's largest group of points this close on a grid
 VERTICAL_NZ = -0.1  # an upright panel may lean back this far (its normal's z)
+
+
+LEVER_MIN_H, LEVER_R = 0.014, 0.002  # a lever's tip stands this far up at least; its radius (the toggle readings: 1.5-2.7 mm)
+
+
+def lever_from_points(p, plane):
+    """A switch the scan read as something else (a knob) and the model named a switch, as a toggle flip() can plan: the
+    lever's tip is its highest measured point, its lean (x) the way that tip leans from the hinge (the part's origin).
+    On the real POWER switch that came within 4-6 mm of the toggle readings' tips, leaning the same way. None when the
+    highest point is under LEVER_MIN_H: one reading's was 6.8 mm, the base alone, and leaned the wrong way."""
+    n, o = plane[:3, 2], plane[:3, 3]
+    pts = np.asarray(p.points if p.points is not None else np.zeros((0, 3)))
+    if not len(pts) or ((pts - o) @ n).max() < LEVER_MIN_H:
+        return None
+    tip = pts[np.argmax((pts - o) @ n)]
+    lean = (tip - p.pos) - ((tip - p.pos) @ n) * n
+    if np.linalg.norm(lean) < 1e-3:
+        return None
+    x = lean / np.linalg.norm(lean)
+    q = replace(p, meta=dict(p.meta))
+    q.T = q.T.copy()
+    q.T[:3, :3] = np.c_[x, np.cross(n, x), n]
+    q.kind = "toggle"
+    q.meta = {**p.meta, "tip": tip, "lever_radius": LEVER_R, "lever_len": float(np.linalg.norm(tip - p.pos)) + LEVER_R}
+    return q
 
 
 def panel_candidates(pts, cam_pos):

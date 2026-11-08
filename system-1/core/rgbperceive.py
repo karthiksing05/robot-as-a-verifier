@@ -59,6 +59,8 @@ FK_TOL_PX = 135         # a pair whose panel matches land this far from where th
 EXTRA_VIEWS = True      # a second pass of views on candidates fewer than two views saw (hw_rig turns it off: one pass)
 SAM_AUTO = True         # SAM's automatic masks as candidates' sub-parts (hw_rig turns it off: the real centrifuge's
                         # scan found the same parts without it, in 9 s instead of 43)
+KEEP_REJECTED = False   # a candidate no kind fits is kept as a round part in scene.rejected, for a review (hw_rig)
+REJECTED_MIN_H, REJECTED_MAX_W = 0.003, 0.040  # ... when it stands at least this proud, and is no wider than this
 FLAT_BUTTONS = False    # real-rig rules (hw_rig sets it): round button-sized outlines are buttons even when their height
                         # reads flat (dark glossy tops give the sweep little texture) or knob-tall, and extra views
                         # chase only candidates on the panel
@@ -190,6 +192,9 @@ def fill(scene, cands, caps, poses, Tg, img, best, how):
     shape = img.shape[:2]
     img = orthophoto(caps, poses, Tg, shape, np.nan_to_num(hm))[0]  # every cell seen at its own height
     scene.parts, scene.blobs, masks = build(cands, picks, hm, img, grid)
+    scene.rejected = [p for p in (b.pop("rejected", None) for b in scene.blobs) if p is not None]
+    for k, p in enumerate(scene.rejected):
+        p.id = f"cand_{k + 1}"
     scene.parts = [_limits(p, grid, caps, poses) if p.kind in ("dial", "knob") else p for p in scene.parts]
     scene.frames += [c.frame for c in caps]
     m = ORTHO_MARGIN
@@ -1071,7 +1076,35 @@ def build(cands, picks, hm, img, grid):
         outline = perceive.region(mask, hm, CELL)["outline"]
         records.append(dict(kind=kind, score=round(score, 3), part=pid, why=why,
                             outline=grid.point(outline, np.full(len(outline), 0.0003))))
+        if KEEP_REJECTED and kind not in features.KINDS and kind != "door":
+            records[-1]["rejected"] = _rejected(cands[i], hm, img, grid)
     return parts, records, masks
+
+
+def _rejected(cand, hm, img, grid):
+    """A candidate no kind fits as a round part (perceive._knob) and, from a reading with a lever, a toggle
+    (perceive._toggle), whichever its readings allow, for a review to name: the real SPEED knob (12 mm across, 15 tall)
+    and POWER switch (its outline stretched over the lever and round it) fit no rule in some scans. Returns the knob
+    build, else the toggle build, with both in meta["as"]; None when it is wider than a control or neither builds."""
+    if perceive.region(cand["mask"], hm, CELL)["width"] > REJECTED_MAX_W:
+        return None
+    builds = {}
+    for r in sorted(cand["readings"], key=lambda r: r["upper"] is None):
+        hp = _paint(hm, cand, r)  # its cells at this reading's height: an unknown pick leaves them at the panel's
+        tries = {"knob": lambda: perceive._knob(_blob(r["mask"], hp, img, r["plateau"], r["upper"]), hp, img, grid)}
+        if r["upper"] is not None:
+            tries["toggle"] = lambda: perceive._toggle(_blob(_base(r["mask"]), hp, img, r["plateau"], r["upper"]), hp, img, grid)
+        for kind, make in tries.items():
+            if kind in builds or (kind == "knob" and r["plateau"] < REJECTED_MIN_H):
+                continue
+            try:
+                builds[kind] = make()
+            except Exception:  # noqa: BLE001 - a reading that doesn't build is skipped
+                pass
+    p = builds.get("knob") or builds.get("toggle")
+    if p is not None:
+        p.meta = {**p.meta, "as": builds}
+    return p
 
 
 def _on_panel(cand, Tg, survey, margin=0.01):

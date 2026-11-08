@@ -32,7 +32,8 @@ ASK = ("The photo shows surfaces {surfaces}. The dots show which points belong t
 
 
 NAME_SYSTEM = ("A robot arm scanned an appliance's control panel. The photo is the panel straight on, with a yellow dot and an "
-               "id on each thing the scan thinks may be a control.")
+               "id on each thing the scan thinks may be a control. Magenta ids (cand_1, ...) are things it saw but couldn't "
+               "classify: name one only if it clearly is one of the manual's controls.")
 NAME_ASK = ("{manual}The ids in the photo: {ids}. For each id, say which control from the manual it is, reading the printed "
             "labels beside the controls, or that it isn't a control (a cable, a latch, the lid, the desk). Answer with JSON "
             'only: {{"<id>": {{"control": "<the manual\'s name, or null>", '
