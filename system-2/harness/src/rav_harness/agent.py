@@ -14,6 +14,7 @@ from typing import Any
 from rav_contracts import EscalationPolicy, Report, SteerCommand, TestRequest
 
 from . import prompts
+from .commands import Responder
 from .loop import Approver, Steering, robot_may_auto_approve
 from .manual import Manual
 from .model import Image, Message, ModelClient, ModelError, ModelReply, ToolResult, Unavailable
@@ -127,7 +128,9 @@ def _drain(steering: Steering, belt: ToolBelt, log: RunLog, wait: Callable[[], N
 
 def run_agent(system1, request: TestRequest, log: RunLog, client: ModelClient, approve: Approver = sim_auto_approve, steering: Steering | None = None,
               wait: Callable[[], None] | None = None, config: AgentConfig | None = None, manual: Manual | None = None, ask: Ask | None = None,
-              on_delta: Delta | None = None) -> Report:
+              on_delta: Delta | None = None, review: Responder | None = None, reuse_scan: bool = False) -> Report:
+    """review names each scan's parts from the manual (survey.survey_reviewer). reuse_scan starts from the scene System 1
+    already holds, when it holds one."""
     config, steering = config or AgentConfig(), steering or Steering()
     tracer = Tracer(log, caller="model")
     tracer.stage = "MAP"
@@ -136,16 +139,18 @@ def run_agent(system1, request: TestRequest, log: RunLog, client: ModelClient, a
     def state(name: str, detail: str = "") -> None:
         log.emit("agent_state", {"state": name, "detail": detail})
 
-    belt = ToolBelt(system1, request, log, tracer, approve, steering, config.policy, manual, ask, state)
+    belt = ToolBelt(system1, request, log, tracer, approve, steering, config.policy, manual, ask, state, review=review)
     belt.check_back = config.check_back
     if approve is sim_auto_approve and not robot_may_auto_approve(belt.status.robot):
         raise PermissionError(f"plans on {belt.status.robot} must be approved by a person")
     if approve is sim_auto_approve:
         log.emit("message", {"role": "harness", "text": "plans on this run are auto-approved: sim only"})
+    held = reuse_scan and belt.adopt_held_scene()
 
     # The brief holds the product's name and the instruction, and nothing from request.spec: that's for the record.
     brief = prompts.BRIEF.format(product=request.product, instruction=request.instruction,
-                                 manual=prompts.MANUAL_YES.format(pages=len(manual.pages)) if manual else prompts.MANUAL_NO)
+                                 manual=(prompts.MANUAL_YES.format(pages=len(manual.pages)) if manual else prompts.MANUAL_NO)
+                                 + (f"\n{prompts.SCAN_HELD}" if held else ""))
     messages = [Message("user", brief)]
     tools = belt.specs()
     start, tokens, turns, repeats, nudges = time.monotonic(), 0, 0, {}, 0

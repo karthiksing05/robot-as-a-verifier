@@ -40,7 +40,7 @@ ACTIONS = [
         ParamSpec(name="to", required=True, min=0.0, max=1.0, about="where to leave the knob along its travel. It refuses at run time if the knob is already there"),
         _force(5.0)], about="push the knob along its slot"),
     ActionSpec(skill="turn", kinds=["dial", "knob"], params=[
-        ParamSpec(name="angle", required=True, min=-360.0, max=360.0, nonzero=True, unit="deg", about="about the part's axis, right-handed. It refuses at run time past a stop: see Control.turn_range_deg"),
+        ParamSpec(name="angle", required=True, min=-360.0, max=360.0, nonzero=True, unit="deg", about="about the part's axis, right-handed: + is counter-clockwise seen from the front, - clockwise. It refuses at run time past a stop: see Control.turn_range_deg"),
         _force(5.0)], about="push a fin around its axis. A part that needs a pinch grip is refused"),
     ActionSpec(skill="push_latch", kinds=["door"], params=[_force(6.0)], about="push the pad on a latched door and let go, so it pops open"),
     ActionSpec(skill="observe", kinds=["display"], about="no motion: report what the display shows"),

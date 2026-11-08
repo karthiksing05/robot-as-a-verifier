@@ -232,26 +232,36 @@ def _survey_review(args, system1, log):
 
 
 def up(args) -> None:
-    from .service import Service
+    from .service import Attached, Service
 
-    service = Service(args.runs, args.port)
+    service = Service(args.runs, args.port, attach=Attached(args.system1, args.telemetry, args.reuse_scan) if args.system1 else None)
     print(f"rav-agent on http://127.0.0.1:{service.port}. Open Live in the Console.")
     service.serve()
 
 
+def _ask_here(question: str) -> str | None:
+    return input(f"The model asks: {question}\n> ").strip() or None
+
+
 def agent(args) -> None:
-    """One model run on a running server, with plans auto-approved on the sim and approved at this terminal on a real arm."""
-    from .agent import run_agent, sim_auto_approve
+    """One model run on a running server, with plans auto-approved on the sim and approved at this terminal on a real arm.
+    On a real arm, each scan's parts are named from the manual, and check-back is off: the operator's answers are the
+    only readout, so there's no display or second channel to check."""
+    from .agent import AgentConfig, run_agent, sim_auto_approve
     from .manual import Manual
     from .model import make_client
+    from .survey import part_namer
 
     run_id = args.id or f"agent-{int(time.time())}"
     system1 = _connect(args)
     try:
         real = not robot_may_auto_approve(system1.system_status().robot)
         log = RunLog(run_id, args.runs, on_event=_show_steps if real else None)
+        manual = Manual(args.manual) if args.manual else None
         report = run_agent(system1, TestRequest(request_id=run_id, product=args.product), log, make_client(args.model, args.fallback, effort=args.effort, run=run_id),
-                           approve=_person_here if real else sim_auto_approve, manual=Manual(args.manual) if args.manual else None)
+                           approve=_person_here if real else sim_auto_approve, manual=manual, config=AgentConfig(check_back=not real),
+                           ask=_ask_here if real else None, review=part_namer(system1, log, manual) if real and manual else None,
+                           reuse_scan=args.reuse_scan)
     finally:
         system1.close()
     _print(report)
@@ -442,9 +452,14 @@ def main(argv=None) -> None:
     a.add_argument("--effort", default=None, choices=["low", "medium", "high"], help="ask Claude models for reasoning text, at this effort")
     a.add_argument("--fallback", default=None)
     a.add_argument("--manual", default=None, help="a PDF or text file")
+    a.add_argument("--reuse-scan", action="store_true", help="start from the scene System 1 holds from its last scan")
     a.set_defaults(fn=agent)
     u = sub.add_parser("up", help="rav-agent: start, watch and steer runs from the Console")
     u.add_argument("--port", type=int, default=8790)
+    u.add_argument("--system1", default=None, metavar="URL", help="run on this running System 1, such as the real arm's "
+                   "http://127.0.0.1:8780/mcp, instead of starting a sim per run")
+    u.add_argument("--telemetry", default="http://127.0.0.1:8781", help="that System 1's telemetry, for Live (with --system1)")
+    u.add_argument("--reuse-scan", action="store_true", help="with --system1: start each run from the scene it holds")
     u.set_defaults(fn=up)
     e = sub.add_parser("eval", help="a matrix of runs, each on a fresh server, scored from the answer key")
     e.add_argument("--devices", default="C", help="comma-separated: C or a seed")
