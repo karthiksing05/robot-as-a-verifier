@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Contract(BaseModel):
@@ -79,11 +79,19 @@ class SceneInventory(Contract):
 
 # --- the plan -----------------------------------------------------------------------------------
 
+TEXT_OPS = {"contains", "shows", "show", "displays", "display", "reads", "includes", "has", "in"}
+
 class Check(Contract):
     metric: str
-    op: Literal["<=", ">=", "==", "changed"]
+    op: Literal["<=", ">=", "==", "changed", "contains"]  # contains: the reading, as text, includes value (an LCD's)
     value: float | str | bool | None = None
     source: str | None = None  # e.g. "cobweb: push_button (n=46), mean + 2 sd"
+
+    @field_validator("op", mode="before")
+    @classmethod
+    def _text_op(cls, v: Any) -> Any:
+        """The words a model writes for a display's text (it sent "shows", and the plan was refused) mean contains."""
+        return "contains" if isinstance(v, str) and v.strip().lower() in TEXT_OPS else v
 
 
 class Step(Contract):

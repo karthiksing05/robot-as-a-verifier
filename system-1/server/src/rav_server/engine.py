@@ -91,6 +91,8 @@ def evaluate_checks(step: Step, trace: StepTrace, verdict: StepVerdict) -> list[
                         passed = bool(actual)
                 elif c.op == "==":
                     passed = actual == c.value
+                elif c.op == "contains":
+                    passed = actual is not None and str(c.value).strip().lower() in str(actual).lower()
                 elif actual is not None:
                     passed = actual <= c.value if c.op == "<=" else actual >= c.value
             except TypeError:

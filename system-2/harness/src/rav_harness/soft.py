@@ -69,6 +69,8 @@ def _evaluate(check: Check, readings: dict, trace: StepTrace) -> CheckResult:
             passed = str(actual) == str(check.value) or actual == check.value
         elif check.op == "changed":
             passed = True
+        elif check.op == "contains":
+            passed = str(check.value).strip().lower() in str(actual).lower()
         elif isinstance(actual, (int, float)) and isinstance(check.value, (int, float)):
             passed = actual <= check.value if check.op == "<=" else actual >= check.value
     return CheckResult(metric=check.metric, op=check.op, value=check.value, actual=actual, passed=passed)

@@ -146,7 +146,8 @@ class ToolBelt:
     def specs(self) -> list[ToolSpec]:
         names = {p.name: p for a in self.status.actions for p in a.params}
         check = {"type": "object", "properties": {"metric": {"type": "string", "description": f"One of {', '.join(self.status.check_metrics)}"},
-                                                  "op": {"type": "string", "enum": ["<=", ">=", "==", "changed"]},
+                                                  "op": {"type": "string", "enum": ["<=", ">=", "==", "changed", "contains"],
+                                                         "description": "contains: the reading, as text (an LCD's), includes value"},
                                                   "value": {"type": "string", "description": "Number or text, written as text"}},
                  "required": ["metric", "op"]}
         step = {"type": "object", "properties": {
