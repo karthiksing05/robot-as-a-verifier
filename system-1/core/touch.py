@@ -33,7 +33,6 @@ import math
 from dataclasses import replace
 
 import cv2
-import mujoco
 import numpy as np
 from scipy import ndimage
 
@@ -90,8 +89,6 @@ SEARCH_M = 0.006        # SAM's box grows this much all round when its first out
                         # from where it was scanned)
 FIT_TRIM = 0.0015       # outline points further than this from the fitted circle are something else
 MIN_EDGE = 30           # outline points needed for a fit
-PROBE_PX = 9            # outline pixels this near the probe are its occlusion edge, not the part's
-RED_SEARCH_PX = 22      # the pad's red pixels are looked for this far around where kinematics puts it
 
 
 # --- touch ---
@@ -380,59 +377,6 @@ def _project(K, T, X):
     return c[:, :2] / c[:, 2:] * [K[0, 0], K[1, 1]] + K[:2, 2]
 
 
-def _hull(px, shape):
-    """Filled convex hull of pixel points (Nx2, u v) as a bool mask."""
-    mask = np.zeros(shape, np.uint8)
-    cv2.fillConvexPoly(mask, cv2.convexHull(np.round(px).astype(np.int32)), 1)
-    return mask.astype(bool)
-
-
-def _probe(arm, f):
-    """Where forward kinematics puts the probe in frame f: (pad mask, rod mask, pad depth in m), the masks bool
-    HxW and the rod in front of the pad, from the joint readings and the frame's believed camera pose."""
-    m, fk = arm.m, mujoco.MjData(arm.m)
-    fk.qpos[arm.qadr] = arm.read_q()
-    mujoco.mj_kinematics(m, fk)
-    th = np.linspace(0, 2 * math.pi, 36, endpoint=False)
-
-    def ring(rho, z):
-        return np.c_[rho * np.cos(th), rho * np.sin(th), np.full(len(th), z)]
-
-    out = []
-    for name in ("probe_pad", "probe_rod"):
-        g = m.geom(name).id
-        r, h = m.geom_size[g][:2]
-        R, c = fk.geom_xmat[g].reshape(3, 3), fk.geom_xpos[g]
-        local = [ring(r, z) for z in (-h, h)]
-        if name == "probe_rod":  # a capsule: a ball on each end
-            local += [ring(r * math.sin(a), z + r * math.cos(a)) for z in (-h, h) for a in np.linspace(0, math.pi, 7)]
-        out.append(_hull(_project(f.K, f.T_base_cam, c + np.vstack(local) @ R.T), f.rgb.shape[:2]))
-    pad = fk.geom_xpos[m.geom("probe_pad").id]
-    return out[0] & ~out[1], out[1], float((pad - f.T_base_cam[:3, 3]) @ f.T_base_cam[:3, 2])
-
-
-def _mount_error(f, pad, depth, other):
-    """Camera position error (arm frame, m) that puts the probe's red pad where forward kinematics does, or None
-    if the pad doesn't show as it should. Red pixels in `other` (a red part under the probe) don't count, nor
-    do red patches not touching where the pad should be. Both pads are compared by their convex hulls, which
-    keep their place under defocus blur and shading; the offset in pixels is taken as a camera translation, as
-    perceive.refine does: of the mount's 0.7 mm and 0.3 deg, that leaves about 0.2 mm at the part."""
-    near = cv2.dilate(pad.astype(np.uint8), np.ones((2 * RED_SEARCH_PX + 1,) * 2, np.uint8)).astype(bool)
-    hsv = cv2.cvtColor(f.rgb, cv2.COLOR_BGR2HSV)
-    red = near & ~other & ((hsv[..., 0] <= 10) | (hsv[..., 0] >= 170)) & (hsv[..., 1] >= 100) & (hsv[..., 2] >= 40)
-    blobs = ndimage.label(red)[0]
-    red = np.isin(blobs, np.unique(blobs[pad & red]))
-    border = np.zeros_like(near)
-    border[[0, -1], :] = border[:, [0, -1]] = True
-    if red.sum() < 0.3 * pad.sum() or (near & border).any():
-        return None
-    seen, want = _hull(np.argwhere(red)[:, ::-1], red.shape), _hull(np.argwhere(pad)[:, ::-1], red.shape)
-    if not 0.8 < seen.sum() / want.sum() < 1.25:  # something else red is in the window, or the pad is hidden
-        return None
-    du = np.argwhere(seen).mean(0)[::-1] - np.argwhere(want).mean(0)[::-1]
-    return -f.T_base_cam[:3, :2] @ (du * depth / np.diag(f.K)[:2])
-
-
 def _round(p):
     """(radius, top height above the panel) of a round part's top: a button's cap, a door's push pad, a dial's or
     knob's body. None for other kinds."""
@@ -467,15 +411,14 @@ def _fit(q, toward, r):
     return c, rr, None
 
 
-def locate(f, probe, p, plane, sam):
-    """Where part p's origin is, seen in RGB frame f: (point, mount correction (m) or None, None), or (None,
-    None, why). probe is _probe(arm, f). The part's round outline as believed, at its top and at the panel, is
+def locate(f, p, plane, sam):
+    """Where part p's origin is, seen in RGB frame f: (point, None), or (None, why). The part's round outline as believed, at its top and at the panel, is
     projected into the frame; their bounding box is SAM's prompt. The mask's outline is cast onto the plane at
     the part's top height and a circle fitted to it (_fit); the point is its centre at that height. A mask whose
     area is far from the fitted circle's silhouette is another object, or cut by the box: then the box grows
     SEARCH_M all round for one more try. Only kinds in REFINED."""
     if p.kind not in REFINED:
-        return None, None, f"a {p.kind} isn't refined from RGB (see touch.REFINED)"
+        return None, f"a {p.kind} isn't refined from RGB (see touch.REFINED)"
     r, top = _round(p)
     n, P0 = plane[:3, 2], plane[:3, 3]
     u = p.x - (p.x @ n) * n
@@ -484,10 +427,8 @@ def locate(f, probe, p, plane, sam):
     th = np.linspace(0, 2 * math.pi, 48, endpoint=False)
     ring = np.c_[np.cos(th), np.sin(th)] @ uv.T
     H, W = f.rgb.shape[:2]
-    pad, rod, depth = probe
-    near = cv2.dilate((pad | rod).astype(np.uint8), np.ones((2 * PROBE_PX + 1,) * 2, np.uint8)).astype(bool)
+    T = f.T_base_cam
     for grow in (0.0, SEARCH_M):
-        T = f.T_base_cam.copy()
 
         def silhouette(c, rad):  # pixels of a circle round c at the part's top and at the panel
             return _project(f.K, T, np.vstack([c + rad * ring + h * n for h in (top, 0.0)]))
@@ -495,13 +436,10 @@ def locate(f, probe, p, plane, sam):
         px = silhouette(c0, r + grow)
         box = np.r_[px.min(0), px.max(0)].clip(0, [W - 1, H - 1, W - 1, H - 1])
         mask = sam(f.rgb, box[None])[0][0].astype(np.uint8)
-        e = _mount_error(f, pad, depth, cv2.dilate(mask, np.ones((7, 7), np.uint8)).astype(bool))
-        if e is not None:
-            T[:3, 3] += e
         edge = mask.astype(bool) & ~cv2.erode(mask, np.ones((3, 3), np.uint8)).astype(bool)
         x0, y0, x1, y1 = np.round(box).astype(int)
         edge[:, :x0 + 2] = edge[:, x1 - 1:] = edge[:y0 + 2] = edge[y1 - 1:] = False  # SAM's cut at the box
-        vy, ux = np.nonzero(edge & ~near)
+        vy, ux = np.nonzero(edge)
         ray = np.c_[(ux - f.K[0, 2]) / f.K[0, 0], (vy - f.K[1, 2]) / f.K[1, 1], np.ones(len(ux))] @ T[:3, :3].T
         X = T[:3, 3] + ray * (((c0 + top * n - T[:3, 3]) @ n) / (ray @ n))[:, None]  # on the plane at the top
         away = (c0 - T[:3, 3]) @ uv
@@ -511,14 +449,14 @@ def locate(f, probe, p, plane, sam):
             continue
         area = mask.sum() / cv2.contourArea(cv2.convexHull(silhouette(c0 + uv @ c, rr).astype(np.float32)))
         if AREA[0] < area < AREA[1]:
-            return c0 + uv @ c + top * n, e, None
+            return c0 + uv @ c + top * n, None
         why = f"SAM's outline is {area:.1f} times the area of the circle fitted to it"
-    return None, None, f"{p.id}: {why}"
+    return None, f"{p.id}: {why}"
 
 
 def make_refine(wrist, plane, sam=None):
     """refine(arm, p) -> part for affordances.run_plan, with perceive.refine's contract (meta refined,
-    refine_shift, refine_probe and, on failure, refine_why with the part unchanged; never moves the arm), from
+    refine_shift and, on failure, refine_why with the part unchanged; never moves the arm), from
     one frame of an RGB wrist camera (sensors.WristCamera(arm, usb=True)) and the touched plane (touch_plane).
     The part moves to where locate() sees it, at its height over the plane, keeping its normal. Only kinds in
     REFINED. sam(bgr, boxes) -> (masks, scores) defaults to segmodels.sam_boxes(), imported here so that
@@ -529,14 +467,14 @@ def make_refine(wrist, plane, sam=None):
 
     def refine(arm, p):
         f = wrist.capture()
-        pos, e, why = locate(f, _probe(arm, f), p, plane, sam)
+        pos, why = locate(f, p, plane, sam)
         shift = 0.0 if pos is None else float(np.linalg.norm(pos - p.pos))
         if shift > SEARCH_M:
             why = f"the outline SAM found is {shift * 1000:.1f} mm from where {p.id} should be: a neighbour"
         if why:
             return replace(p, meta={**p.meta, "refined": False, "refine_shift": 0.0, "refine_why": why})
         q = _moved(p, features.frame(pos, p.normal, p.x))
-        q.meta.update(refined=True, refine_shift=shift, refine_probe=None if e is None else float(np.linalg.norm(e)))
+        q.meta.update(refined=True, refine_shift=shift)
         q.meta.pop("refine_why", None)
         return q
 

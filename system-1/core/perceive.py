@@ -50,7 +50,7 @@ STANDOFF = 0.12         # camera to panel (m): the probe tip then clears the pan
 VIEW_TILTS = np.radians([10, 20, 30])
 MIN_TIP_CLEAR = 0.03
 SETTLE_TICKS = 15
-PROBE_CROP = 0.09       # wrist points nearer the camera than this are the probe (8 to 8.4 cm)
+ARM_CROP = 0.07         # wrist points nearer the camera than this are the arm (the jaw tip is 5.8 cm away)
 BOX_MARGIN = 0.03       # the LiDAR box can be a few cm short on the side the phone can't see
 ICP_POINTS = 20000
 ICP_HUBER = 0.0003
@@ -312,7 +312,7 @@ def wrist_points(f, box):
     pts, rgb, px = rig.backproject(f)
     z = f.depth[px[:, 1], px[:, 0]]
     nrm = rig.normals(f)[px[:, 1], px[:, 0]]
-    keep = (z > PROBE_CROP) & _in_box(pts, box, BOX_MARGIN) & np.any(nrm != 0, axis=1)
+    keep = (z > ARM_CROP) & _in_box(pts, box, BOX_MARGIN) & np.any(nrm != 0, axis=1)
     return pts[keep], rgb[keep], nrm[keep]
 
 
@@ -909,16 +909,15 @@ def _door(pad, door, hm, g):
 
 def refine(arm, wrist, part):
     """The part re-measured from one wrist frame taken where the arm is now, at a skill's approach
-    pose. Camera and probe share the gripper, so a part measured from here sits right relative to
-    the fingertip in this same arm configuration, and joint calibration errors mostly cancel. The
-    probe itself shows in the frame, so the frame is first shifted to put it where forward
-    kinematics does, which takes out the camera mount's calibration error too.
+    pose. Camera and fingertip share the gripper, so a part measured from here sits right relative to
+    the fingertip in this same arm configuration, and joint calibration errors mostly cancel. The camera
+    mount's own calibration error stays in.
 
     Runs the full pipeline's rules on a window around the believed part (plane fit, height map,
     blobs, the size rules its outline doesn't set, the per-kind builder; a door is found by its
     push pad), takes the nearest blob of the same kind and moves the part onto it: its origin and
     the panel normal change, its sizes, state and the rest stay as perceived. meta gets refined,
-    refine_shift (m, how far the part moved), refine_probe (m, the mount correction) and, if no
+    refine_shift (m, how far the part moved) and, if no
     such blob is near, refine_why, with the part otherwise unchanged. Never moves the arm."""
     def fail(why):
         return replace(part, meta={**part.meta, "refined": False, "refine_shift": 0.0, "refine_why": why})
@@ -932,9 +931,6 @@ def refine(arm, wrist, part):
     f = wrist.capture()
     pts, rgb, px = rig.backproject(f)
     z = f.depth[px[:, 1], px[:, 0]]
-    probe = _probe_shift(arm, pts[z < PROBE_CROP])
-    if probe is not None:  # place what the frame sees relative to the probe, not to the camera mount
-        pts += probe
     nrm = rig.normals(f)[px[:, 1], px[:, 0]]
     lift = part.size[2]  # the origin's height above the panel: most parts' origin is on their top
     if part.kind == "dial":
@@ -943,7 +939,7 @@ def refine(arm, wrist, part):
         lift = part.meta["base_size"][2]
     T0 = features.frame(centre - lift * part.normal, part.normal, part.x)  # the panel under the part
     a, b, h = ((pts - T0[:3, 3]) @ T0[:3, :3]).T
-    keep = ((z > PROBE_CROP) & (np.abs(a) < half) & (np.abs(b) < half) & (h > -0.01) & (h < 0.05)
+    keep = ((z > ARM_CROP) & (np.abs(a) < half) & (np.abs(b) < half) & (h > -0.01) & (h < 0.05)
             & np.any(nrm != 0, axis=1))
     if keep.sum() < MIN_POINTS:
         return fail(f"only {keep.sum()} points around {part.id} in the frame")
@@ -990,54 +986,10 @@ def refine(arm, wrist, part):
         return None if X is None else np.asarray(X) @ D[:3, :3].T + D[:3, 3]
 
     meta = {k: move(v) if k in ("slot_ends", "tip", "corners", "hinge") else v for k, v in part.meta.items()}
-    meta.update(refined=True, refine_shift=shift, refine_probe=None if probe is None else float(np.linalg.norm(probe)))
+    meta.update(refined=True, refine_shift=shift)
     meta.pop("refine_why", None)
     return replace(part, T=Tp, axis=None if part.axis is None else D[:3, :3] @ part.axis, origin=move(part.origin),
                    points=move(part.points), meta=meta)
-
-
-def _probe_model(arm):
-    """Surface points and unit normals of the probe's pad and lower rod, where forward kinematics of
-    the joint readings puts them (arm frame): the part of the probe the wrist camera sees."""
-    m, fk = arm.m, mujoco.MjData(arm.m)
-    fk.qpos[arm.qadr] = arm.read_q()
-    mujoco.mj_kinematics(m, fk)
-    th = np.radians(np.arange(0, 360, 5))
-    ring = np.c_[np.cos(th), np.sin(th), np.zeros(len(th))]
-    rod, pad = m.geom("probe_rod").id, m.geom("probe_pad").id
-    (r_rod, h_rod), (r_pad, h_pad) = m.geom_size[rod][:2], m.geom_size[pad][:2]
-    R, c = fk.geom_xmat[pad].reshape(3, 3), fk.geom_xpos[pad]
-    back = np.sign((fk.geom_xpos[rod] - c) @ R[:, 2])  # the pad's face toward the rod and the camera
-    P, N = [], []
-    for z in np.linspace(-h_pad, h_pad, 4):  # pad rim
-        P.append(c + (r_pad * ring + [0, 0, z]) @ R.T)
-        N.append(ring @ R.T)
-    for rho in np.arange(r_rod, r_pad, 0.0005):  # pad back face, around the rod
-        P.append(c + (rho * ring + [0, 0, back * h_pad]) @ R.T)
-        N.append(np.tile(back * R[:, 2], (len(th), 1)))
-    R, c = fk.geom_xmat[rod].reshape(3, 3), fk.geom_xpos[rod]
-    for z in np.arange(-h_rod, h_rod, 0.001):  # rod side
-        P.append(c + (r_rod * ring + [0, 0, z]) @ R.T)
-        N.append(ring @ R.T)
-    P, N = np.vstack(P), np.vstack(N)
-    near = np.linalg.norm(P - fk.geom_xpos[pad], axis=1) < 0.016  # not the rod's top, where the jaw is
-    return P[near], N[near]
-
-
-def _probe_shift(arm, pts):
-    """The translation that moves the probe as a wrist frame sees it (pts: the frame's points nearer
-    than PROBE_CROP) onto where forward kinematics puts it: the wrist camera's calibration error at
-    the probe, by point-to-plane fitting. None if too little of the probe shows."""
-    M, Mn = _probe_model(arm)
-    tree, t = cKDTree(M), np.zeros(3)
-    for _ in range(10):
-        d, j = tree.query(pts + t, distance_upper_bound=0.003)
-        ok = np.isfinite(d)
-        if ok.sum() < 500:
-            return None
-        n = Mn[j[ok]]
-        t -= np.linalg.lstsq(n, np.einsum("ij,ij->i", pts[ok] + t - M[j[ok]], n), rcond=None)[0]
-    return t
 
 
 # --- evaluation (sim truth; perceive() never calls this) ---

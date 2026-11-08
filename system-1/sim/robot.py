@@ -26,6 +26,8 @@ ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "so1
 SERVO_NM_PER_RAD = 36.0
 DEADBAND_RAD = np.radians(5 * 360 / 4096)  # a loose RobiServo-01 at P=160 stops about 5 steps short (arm bring-up results)
 BACKLASH_DEG = 0.75
+FINGER_M = 0.025  # the jaws' last 25 mm, as long as the old probe, are the fingertip: contacts further up are collisions
+NUB_R = 0.002     # the fixed jaw's end, a 4.4 x 3.3 mm nub, as a disc: what a pad there could cover
 # Servo-only sensing, SimArm(slop=True, sensing="current"): no force sensor, so tip_force() and tip_force_vec() become
 # what a rig can estimate from the servos' own feedback, read over the bus at SENSE_HZ. The register is Goal minus
 # Present_Position in encoder ticks, the finest effort signal an STS3215 gives (it is a P controller: Present_Load and
@@ -159,7 +161,8 @@ class SimArm(ArmBase):
         self.substeps = round(1 / (CONTROL_HZ * self.m.opt.timestep))
         self.qadr = self.ik.qadr
         self.tip = self.m.site("tip").id
-        self.probe_body = self.m.body("probe").id
+        self.jaws = {self.m.geom("fixed_jaw").id, self.m.geom("moving_jaw").id}
+        self.closed = self.m.jnt_range[self.m.joint("gripper").id][0]
         self.arm_bodies = arm_bodies(self.m)
         self.force_log = []  # (t, newtons)
         self.status = "idle"
@@ -169,7 +172,7 @@ class SimArm(ArmBase):
         self.target = self.home_q - self.q_off  # true joint angles the servos aim for
         self.d.qpos[self.qadr] = self.home_q - self.q_off
         self.d.ctrl[:5] = self.home_q - self.q_off
-        self.d.ctrl[5] = 0.0
+        self.d.qpos[self.m.jnt_qposadr[self.m.joint("gripper").id]] = self.d.ctrl[5] = self.closed  # held closed
         self.cmd = self.home_q.copy()
         mujoco.mj_forward(self.m, self.d)
         self._wall = time.perf_counter()
@@ -201,7 +204,7 @@ class SimArm(ArmBase):
         g = np.linspace(-PAD_SPREAD_M, PAD_SPREAD_M, 9)
         g = np.stack(np.meshgrid(g, g), -1).reshape(-1, 2)
         self.spread = g[np.linalg.norm(g, axis=1) <= PAD_SPREAD_M]
-        self.pad_r = self.m.geom("probe_pad").size[0]
+        self.pad_r = NUB_R
 
     # --- the five calls a hardware backend would implement ---
     def read_q(self):
@@ -288,15 +291,15 @@ class SimArm(ArmBase):
         load, f6 = np.zeros(PAD_CELLS), np.zeros(6)
         for i in range(self.d.ncon):
             c = self.d.contact[i]
-            b1, b2 = self.m.geom_bodyid[c.geom1], self.m.geom_bodyid[c.geom2]
-            if self.probe_body not in (b1, b2):
+            sign = self._finger(c)
+            if not sign:
                 continue
             x, y, z = (c.pos - o) @ R  # the tip site's frame: the face is z = 0, the pad behind it z > 0
             if z > PAD_FACE_M:
                 continue
             mujoco.mj_contactForce(self.m, self.d, i, f6)
             world = c.frame.reshape(3, 3).T @ f6[:3]
-            push = max(float((world if b2 == self.probe_body else -world) @ R[:, 2]), 0.0)
+            push = max(float(sign * world @ R[:, 2]), 0.0)
             pts = np.array([x, y]) + self.spread
             pts = pts[np.linalg.norm(pts, axis=1) <= self.pad_r]  # the part of the disc on the pad
             if push and len(pts):
@@ -401,18 +404,24 @@ class SimArm(ArmBase):
         whole vector; on the rig it would come from servo load or the soft wrist."""
         return super().tip_force_vec() if self.sensing else self.contact_force_vec()
 
+    def _finger(self, c):
+        """+1 or -1 if contact c is the scene touching a jaw within FINGER_M of the tip, the sign turning MuJoCo's force
+        (geom1 on geom2) into the force on the jaw; 0 for any other contact."""
+        for jaw, other, sign in ((c.geom2, c.geom1, 1), (c.geom1, c.geom2, -1)):
+            if jaw in self.jaws and self.m.geom_bodyid[other] not in self.arm_bodies:
+                up = self.d.site_xmat[self.tip].reshape(3, 3)[:, 2]
+                return sign if (c.pos - self.d.site_xpos[self.tip]) @ up <= FINGER_M else 0
+        return 0
+
     def contact_force_vec(self):
-        """Sim truth: MuJoCo's contact force on the probe, arm frame (N)."""
+        """Sim truth: MuJoCo's contact force on the fingertip, arm frame (N)."""
         total = np.zeros(3)
         f6 = np.zeros(6)
         for i in range(self.d.ncon):
-            c = self.d.contact[i]
-            b1, b2 = self.m.geom_bodyid[c.geom1], self.m.geom_bodyid[c.geom2]
-            if self.probe_body not in (b1, b2):
-                continue
-            mujoco.mj_contactForce(self.m, self.d, i, f6)
-            world = c.frame.reshape(3, 3).T @ f6[:3]  # force from geom1 on geom2
-            total += world if b2 == self.probe_body else -world
+            sign = self._finger(self.d.contact[i])
+            if sign:
+                mujoco.mj_contactForce(self.m, self.d, i, f6)
+                total += sign * (self.d.contact[i].frame.reshape(3, 3).T @ f6[:3])
         return total
 
     def tip_pose(self):
@@ -424,13 +433,13 @@ class SimArm(ArmBase):
         return appliance.moved(appliance.controls(self.params), appliance.fixture_pose(self.placement))
 
     def collisions(self):
-        """Arm parts other than the probe touching the scene."""
+        """Arm parts touching the scene anywhere but the fingertip (the jaws' last FINGER_M)."""
         hits = set()
         for i in range(self.d.ncon):
             c = self.d.contact[i]
             b1, b2 = self.m.geom_bodyid[c.geom1], self.m.geom_bodyid[c.geom2]
             for arm_b, other in ((b1, b2), (b2, b1)):
-                if arm_b in self.arm_bodies and other not in self.arm_bodies and arm_b != self.probe_body:
+                if arm_b in self.arm_bodies and other not in self.arm_bodies and not self._finger(c):
                     g = c.geom2 if other == b2 else c.geom1
                     hits.add(f"{self.m.body(arm_b).name}->{self.m.geom(g).name or self.m.body(other).name}")
         return sorted(hits)

@@ -114,7 +114,7 @@ class PipelineRobot:
 class SimBackend(PipelineRobot):
     """The team's setup by default: USB wrist camera, soft servos at 18 N.m/rad, SensX pad."""
 
-    def __init__(self, seed: int | None = None, sensing: str = "tactile", slop: bool = True, stiffness: float = 18.0,
+    def __init__(self, seed: int | None = None, sensing: str = "current", slop: bool = True, stiffness: float = 18.0,
                  depth: bool = False, refine: bool = True):
         on_path(CORE_DIR, SIM_DIR)
         import sim_rig
