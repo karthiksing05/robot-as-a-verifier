@@ -51,7 +51,7 @@ TUBE_TILTS = (90, 75, 60, 50)
 PAN_XY = np.array([0.0388, 0.0])      # the pan axis, arm frame (manipulate.PAN_XY)
 ABOVE = 0.05                          # a pick starts this far over its grip
 LIFT = 0.12                           # and lifts this far: at 70 mm the 55 mm tube hit the rack going home (Nov 8)
-PLACE_ABOVE = 0.12                    # a place starts this far over the seat, and lowers until the arm stalls: at 60 mm the hanging tube hit the well's rim
+PLACE_ABOVE = 0.09                    # a place starts this far over the seat (tube bottom ~40 mm over the rim), and lowers until the arm stalls; 120 was out of reach
 SPEED, ARC_SPEED, GUARD_SPEED = 0.03, 0.02, 0.015  # m/s
 GUARD_N = 5.0                         # with no stall sensing (the sim bus), a guarded move stops at this
 STEP_M, STEP_DEG = 0.005, 3.0         # poses checked for reach every this far
@@ -245,13 +245,15 @@ def _jaws_at(arm, centre, offset, tilt):
     return tip, a, q
 
 
-def _tube_legs(arm, label, build):
-    """build(tilt) -> (legs, q) at the steepest of TUBE_TILTS whose poses are all in reach, else the steepest's refusal."""
+def _tube_legs(arm, label, build, tilts=TUBE_TILTS):
+    """build(tilt) -> (legs, q) at the steepest of tilts whose poses are all in reach, else the steepest's refusal. The
+    tilt chosen is kept in arm.tube_tilt: a place at the pick's tilt holds the tube as upright as it stood in the rack."""
     first = None
-    for tilt in TUBE_TILTS:
+    for tilt in tilts:
         legs, q = build(tilt)
         try:
             _check(arm, label, legs, q)
+            arm.tube_tilt = tilt
             return legs, q
         except RuntimeError as e:
             first = first or e
@@ -283,7 +285,8 @@ def place_tube(arm, seat):
                 ("let go", TUBE_OPEN),
                 _line("up", tip, tip + ABOVE * up, a),
                 ("shut the jaws", 0.0)], q
-    _, met = _run(arm, label, *_tube_legs(arm, label, build))
+    held = getattr(arm, "tube_tilt", None)  # the pick's tilt, so the tube goes in as upright as it came out
+    _, met = _run(arm, label, *_tube_legs(arm, label, build, (held,) if held else TUBE_TILTS))
     short = PLACE_ABOVE - met["lower"] if "lower" in met else 0.0
     return {"verdict": "done", "reason": f"let go {short * 1000:.1f} mm above the seat" if short > 0.001
             else "let go at the seat", "short_mm": round(short * 1000, 1)}
