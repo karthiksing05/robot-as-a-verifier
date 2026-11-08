@@ -40,7 +40,7 @@ Word counts are spoken words. Hyphenated words count once per part ("foot-and-mo
 
 ## 2. Verification works, in software · 0:06–0:31
 
-> Models now write proofs that machines verify. This October, Lean checked two claimed refutations of the Exponential Time Hypothesis, a bet that some problems stay exponentially hard, which whole shelves of lower bounds rest on. Verification already guards real systems: CompCert, a proven C compiler, is qualified for avionics, and seL4 kept a red team from taking over a helicopter in flight.
+> Models now write proofs that machines verify. This October, Lean checked two AI-claimed refutations of the Exponential Time Hypothesis, an age-old and seemingly impossible problem. Verification also already guards real systems: CompCert, a proven C compiler, is qualified for avionics, and seL4 kept a red team from taking over a helicopter in flight.
 
 *The chalk arm draws as it talks: `ETH: 2^εn ?` with a Lean ✓, then two plaques, CompCert and seL4, each with where it's used. A ledger of the other tools and results runs along the bottom edge.*
 
@@ -50,9 +50,9 @@ Word counts are spoken words. Hyphenated words count once per part ("foot-and-mo
 
 ## 3. Where verification stops · 0:31–1:01
 
-> But verification ends where software ends: no proof says whether a CAD lid will open.
+> But verification ends where software ends.
 >
-> In biosafety and biosecurity, foot-and-mouth virus most likely escaped England's Pirbright labs through long-damaged drains.
+> In biosafety and biosecurity, foot-and-mouth virus most likely escaped England's labs through long-damaged drains.
 >
 > In aerospace engineering, an acoustic test shook loose fasteners on Webb's sunshield, part of a twenty-nine-month delay.
 >
@@ -76,9 +76,9 @@ Word counts are spoken words. Hyphenated words count once per part ("foot-and-mo
 
 > Vision-language-action models like SmolVLA and NVIDIA's GR00T N1 learn new tasks from demonstrations and grade themselves.
 >
-> RAAV splits the work. System 1 handles what must be exact, fast and safe: perception, inverse kinematics, control, force limits, and verdicts from sensor readings by fixed rules. System 2, a frontier model, handles what needs context and judgment: reading the manual and spec, choosing what to test and in what order, recovering from failed steps, and diagnosing causes and proposing CAD fixes.
+> RAAV splits the work. System 1 handles what must be exact, fast and safe: perception, inverse kinematics, control, force limits, and verdicts from sensor readings by fixed rules. System 2, a frontier model, handles what needs context and judgment: reading the manual and spec, reasoning over plans of testing, recovering from failed steps, and diagnosing causes and proposing CAD fixes.
 >
-> Each does what it's good at. The model never sends a motor command or grades its own work, so it can be swapped or upgraded, and whatever it says, System 1's guarantees hold. A new device needs a manual, not new demonstrations.
+> Each does what it's good at, and both benefit from long lines of existing work and are immune to the classical failures of VLAs.
 
 *A brief motion graphic of one box, `perception + reasoning + control`, fed by demo reels, splits into `SYSTEM 1 · exact, fast, safe` and `SYSTEM 2 · context and judgment`. Each half fills with its jobs, with seven tool lines between them. One freeze frame shows a plan crossing the line. Then the model's name swaps between four frontier models while System 1's limits stay fixed.*
 
@@ -111,9 +111,7 @@ Word counts are spoken words. Hyphenated words count once per part ("foot-and-mo
 
 ## 7. What it shows, and where it scales · 3:07–3:39
 
-> Nothing in this run was written for the centrifuge, and each piece extends. Another arm could sit behind the same seven tools, plans come from any manual, approval levels set how much a person reviews, the CAD checks take any STEP assembly, and better models drop in as they arrive.
->
-> Next comes the real arm, then lab instruments and assistive devices.
+> Our model has NEVER seen this centrifuge before, and this is just the start. Another arm could sit behind the same setup, plans can come from any manual, and we take extra care to maintain a thoughtful human in the loop.
 >
 > As AI starts designing hardware, we think every design should be measured this way before anyone relies on it.
 
