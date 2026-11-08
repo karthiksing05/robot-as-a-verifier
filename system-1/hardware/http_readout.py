@@ -67,7 +67,13 @@ class HttpReadout(SnapshotReadout):
     def _alive(self):
         super()._alive()
         if not self._readings:
-            raise SafetyStop(f"no readings yet from device '{self.device}': is it on the WiFi and posting to {self.url}?")
+            why = f"no readings yet from device '{self.device}': is it on the WiFi and posting to {self.url}?"
+            if self.stop_when_stale:
+                raise SafetyStop(why)
+            if not getattr(self, "_warned", False):
+                self._warned = True
+                print(f"WARNING {why} Going on without it", flush=True)
+            return
         if self.closed:
             raise SafetyStop(f"device readout closed: {self.source}")
         self._stale()
