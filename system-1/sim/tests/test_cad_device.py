@@ -26,6 +26,11 @@ def mods():
     return sim_rig, cad_device, inventory, affordances
 
 
+@pytest.fixture(autouse=True)
+def _stiffness(mods, monkeypatch):  # _rig's stiffness is process-wide: later tests' RealArm assumes the default
+    monkeypatch.setattr(mods[0].robot, "SERVO_NM_PER_RAD", mods[0].robot.SERVO_NM_PER_RAD)
+
+
 def _rig(sim_rig, rev="B", **kw):
     kw.setdefault("effector", "probe")  # the pad's tactile sensing: the stock gripper has no pad
     return sim_rig.make_rig(0, slop=True, offsets=0, stiffness=18.0, sensing="tactile", device=str(DEVICE), rev=rev, **kw)
