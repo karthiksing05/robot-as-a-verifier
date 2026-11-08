@@ -227,6 +227,12 @@ uint16_t average(uint8_t pin) {
 uint16_t readPot() {
   return average(PIN_SPEED);
 }
+uint16_t dialPosition() {
+  return INVERT_POT ? 1023 - potRaw : potRaw;
+}
+uint16_t dialSpeed() {
+  return DEFAULT_RPM + ((uint32_t(dialPosition()) * 50 + 511) / 1023) * RPM_STEP;
+}
 void defaults() {
   setSpeed(DEFAULT_RPM); setSeconds(DEFAULT_TIME);
   potRaw = potAnchor = readPot(); potActive = false;
@@ -573,26 +579,27 @@ void pollButtons(uint32_t now) {
   }
 }
 void pollSensors(uint32_t now) {
-  if (calibrating || uint32_t(now - sensorLast) < SENSOR_MS) return;
+  if (uint32_t(now - sensorLast) < SENSOR_MS) return;
   sensorLast = now;
+  potRaw = readPot();
+  if (calibrating) return;
   sampleLight(lid, F("lid"));
   // Animation, darkness, and colour settling cannot produce a valid tube check.
   tubeValid = requireTubePresent && (!calSaved || tubeCalSaved) && colour != BLACK && colour != BLUE && uint32_t(now - colourSince) >= LIGHT_SETTLE_MS;
   if (tubeValid) sampleLight(tube, F("tube"));
-  potRaw = readPot();
-  uint16_t position = INVERT_POT ? 1023 - potRaw : potRaw;
+  uint16_t position = dialPosition();
   if (state == OFF || state == RUNNING || buttonTest) return;
   if (!potActive) {
     if (abs(int(potRaw) - int(potAnchor)) <= POT_HYSTERESIS) return;
     potActive = true;
-    setSpeed(DEFAULT_RPM + ((uint32_t(position) * 50 + 511) / 1023) * RPM_STEP);
+    setSpeed(dialSpeed());
     return;
   }
   uint8_t step = (rpm - DEFAULT_RPM) / RPM_STEP;
   int upper = (uint32_t(2 * step + 1) * 1023) / 100 + POT_HYSTERESIS;
   int lower = (int32_t(2 * step - 1) * 1023) / 100 - POT_HYSTERESIS;
   if ((step < 50 && int(position) > upper) || (step > 0 && int(position) < lower))
-    setSpeed(DEFAULT_RPM + ((uint32_t(position) * 50 + 511) / 1023) * RPM_STEP);
+    setSpeed(dialSpeed());
 }
 void stateMachine(uint32_t now) {
   if (calibrating || buttonTest || state == OFF) return;
@@ -647,6 +654,7 @@ void heartbeat() {
   Serial.print(F(",\"tube_valid\":")); Serial.print(tubeValid);
   Serial.print(F(",\"tube_required\":")); Serial.print(requireTubePresent);
   Serial.print(F(",\"rpm\":")); Serial.print(rpm);
+  Serial.print(F(",\"dial_speed\":")); Serial.print(dialSpeed());
   Serial.print(F(",\"time\":")); Serial.print(setTime);
   Serial.print(F(",\"remaining\":")); Serial.print(remaining);
   Serial.print(F(",\"state\":\"")); Serial.print(stateName());
@@ -732,11 +740,11 @@ static void publishSnapshot() {
   char body[rav::SNAPSHOT_MAX];
 
   snprintf(body, sizeof(body),
-           "{\"power\":%u,\"btn_start\":%u,\"btn_stop\":%u,\"btn_time\":%u,\"speed\":%u,"
+           "{\"power\":%u,\"btn_start\":%u,\"btn_stop\":%u,\"btn_time\":%u,\"speed\":%u,\"dial_speed\":%u,"
            "\"lid\":%u,\"tube\":%u,\"tube_valid\":%u,\"time\":%u,\"run\":\"%s\","
            "\"state\":\"%s\",\"ring\":\"%s\",\"LCD\":\"%s  %s\"}",
            unsigned(powerSwitch.held), unsigned(startButton.held), unsigned(stopButton.held),
-           unsigned(timeButton.held), unsigned(rpm), unsigned(lid.shaded), unsigned(tube.shaded),
+           unsigned(timeButton.held), unsigned(rpm), unsigned(dialSpeed()), unsigned(lid.shaded), unsigned(tube.shaded),
            unsigned(tubeValid), unsigned(state == RUNNING ? remaining : setTime),
            reinterpret_cast<const char *>(lastAction), reinterpret_cast<const char *>(stateName()),
            reinterpret_cast<const char *>(colourName()), display1, display2);

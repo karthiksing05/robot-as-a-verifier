@@ -16,6 +16,11 @@ int main() {
   assert(!calibrating && lid.level == 700 && tube.level == 700 && state == OFF);
   step(300); assert(oledPresent && oled.getU8x8()->address == (0x3D << 1));
   assert(oled.flip == 1 && PIN_LID == A2 && PIN_TUBE == A1);
+  const auto originalDial = analogs[PIN_SPEED];
+  analogs[PIN_SPEED] = 1023; step(20);
+  assert(state == OFF && rpm == 1000 && dialSpeed() == 6000);
+  heartbeat(); contains("\"dial_speed\":6000");
+  analogs[PIN_SPEED] = originalDial; step(20);
   assert(pinModes[PIN_LID] == INPUT && pinModes[PIN_TUBE] == INPUT);
   for (uint8_t pin : BUTTON_SCAN_PINS) assert(pin != PIN_LID && pin != PIN_TUBE);
   for (int i = 0; i < 180; ++i) oledPoll();
@@ -58,6 +63,7 @@ int main() {
   bool savedTube = tube.shaded; uint16_t savedRaw = tube.raw;
   analogs[PIN_TUBE] = 700; analogs[PIN_SPEED] = 0; step(1000);
   assert(remaining == 29 && rpm == 3600 && tube.shaded == savedTube && tube.raw == savedRaw && !tubeValid);
+  heartbeat(); contains("\"dial_speed\":1000");
   analogs[PIN_LID] = 700; step(20); assert(state == REFUSED && reason == LID);
   contains("abort:LID");
   analogs[PIN_LID] = 100; analogs[PIN_TUBE] = 100; step(120); step(120);
