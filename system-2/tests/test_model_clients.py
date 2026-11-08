@@ -288,3 +288,10 @@ def test_the_same_run_label_in_two_rounds_is_two_runs_to_the_budget(tmp_path):
     path.write_text("".join(json.dumps(r) + "\n" for r in rows))
     budget = Budget(None, Ledger(path), PRICES, token_cap=10_000_000)
     assert budget._worst_run("m")[1] == 1_000_000  # not 1.5M: the third call is a later round's run with the same label
+
+
+def test_the_request_gap_defaults_to_a_second_and_can_be_set(monkeypatch):
+    monkeypatch.delenv("RAV_MODEL_MIN_INTERVAL_S", raising=False)
+    assert Http().min_interval_s == 1.0
+    monkeypatch.setenv("RAV_MODEL_MIN_INTERVAL_S", "3")
+    assert Http().min_interval_s == 3.0 and Http(min_interval_s=0).min_interval_s == 0

@@ -23,6 +23,7 @@ from typing import Any, Protocol
 DEFAULT_MODEL = "claude-haiku-5-5"
 MODELS = ("claude-haiku-5-5", "claude-sonnet-5-5", "openai-gpt-5.4", "grok-4.7")  # all on Snowflake Cortex
 REPO = pathlib.Path(__file__).resolve().parents[4]
+MIN_INTERVAL_S = 1.0  # between requests: Cortex has no free-tier limit, and 429s still back off
 MAX_WAIT_S = 90.0  # a quota that resets later than this isn't worth waiting for: try the next model
 
 Delta = Callable[[str, str], None]  # (kind: "thought" | "text", text)
@@ -120,11 +121,12 @@ def _retry_after(headers) -> float | None:
 
 
 class Http:
-    """Pacing and backoff, shared by the providers. RAV_MODEL_MIN_INTERVAL_S sets the gap between requests."""
+    """Pacing and backoff, shared by the providers. RAV_MODEL_MIN_INTERVAL_S sets the gap between requests (default 1 s; it
+    was 4.5 s through round 3c)."""
 
     def __init__(self, min_interval_s: float | None = None, retries: int = 5, sleep: Callable[[float], None] = time.sleep,
                  timeout_s: float = 180.0):
-        self.min_interval_s = float(read_env("RAV_MODEL_MIN_INTERVAL_S") or 4.5) if min_interval_s is None else min_interval_s
+        self.min_interval_s = float(read_env("RAV_MODEL_MIN_INTERVAL_S") or MIN_INTERVAL_S) if min_interval_s is None else min_interval_s
         self.retries, self.sleep, self.timeout_s = retries, sleep, timeout_s
         self.last = 0.0
 

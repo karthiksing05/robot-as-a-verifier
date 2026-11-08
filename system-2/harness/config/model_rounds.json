@@ -145,7 +145,7 @@
       "status": "planned",
       "kind": "eval",
       "folders": [],
-      "test_set": "The team's arm has only the SO-101's own gripper, so every round before this one (all with the fingertip probe) is a sim reference, not evidence about the real arm. Rev A on the five dev devices with the stock gripper, the four models and the baseline, 5% robot errors, seed 1, the same prompt for every model, with check-back enforced.",
+      "test_set": "The team's arm has only the SO-101's own gripper, so every round before this one (all with the fingertip probe) is a sim reference, not evidence about the real arm. Rev A on the five dev devices with the stock gripper, the four models and the baseline, 5% robot errors, seed 1, the same prompt for every model, with check-back enforced. From this round on, the harness waits 1 s between model requests rather than 4.5 s, so time per turn isn't comparable with earlier rounds.",
       "fault_scenarios": [],
       "spend": "",
       "takeaway": ""
