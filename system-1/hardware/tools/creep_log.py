@@ -37,18 +37,21 @@ def main(argv=None, bus=None, ask=input):
         ask("Rest the fixed jaw's tip on the surface, jaws closed. Hold still and press Enter: ")
         surf = place_check.tip_now(arm)
         ask("Lift the arm about 10 cm and tip the gripper forward a little. Hold it and press Enter: ")
-        points = []
+        rows = []
+        print("Planned poses (tip mm; joints deg):")
         for k, (dx, dy) in enumerate(SPOTS_M):
             low = surf + [dx, dy, 0] + CLEAR_M / N[2] * N
-            points += [(f"creep {k + 1} top", low + CREEP_M * N), (f"creep {k + 1} bottom", low)]
-        rows, why = place_check.plan(arm, points)
-        print("Planned poses (tip mm; joints deg):")
-        for label, p, q, _ in rows:
-            print(f"  {label:16s} tip {np.round(p * 1000)}  joints {np.round(np.degrees(q))}")
-        if why:
-            print(f"Not moving: {why}.")
+            pair, why = place_check.plan(arm, [(f"creep {k + 1} top", low + CREEP_M * N), (f"creep {k + 1} bottom", low)])
+            if why:
+                print(f"  creep {k + 1}: skipped, {why}")
+                continue
+            rows += pair
+            for label, p, q, _ in pair:
+                print(f"  {label:16s} tip {np.round(p * 1000)}  joints {np.round(np.degrees(q))}")
+        if len(rows) < 6:
+            print("Not moving: fewer than 3 creeps are in reach. Put the surface 20-28 cm in front of the base.")
             return
-        if ask("The arm will creep 5 times through empty air, at least 5 cm over the surface. Do the joint angles look "
+        if ask(f"The arm will creep {len(rows) // 2} times through empty air, at least 5 cm over the surface. Do the joint angles look "
                "sane, and is it clear? Type yes to go: ").strip() != "yes":
             print("Not moved.")
             return
