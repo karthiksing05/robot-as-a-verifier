@@ -4,7 +4,8 @@ any downward move, but in free air this lag grew at most 2 mm at 20 mm/s (creep_
 solid it grows at the full commanded speed. Presses five spots on a flat surface, then the first again, so the stall
 heights also show placement accuracy and repeatability.
 
-    python tools/press_check.py COM11 CAL.json
+    python tools/press_check.py COM11 CAL.json              # 5 spots 4 cm apart on a flat surface, then the first again
+    python tools/press_check.py COM11 CAL.json --repeat 5   # the spot you rest the jaw on, 5 times (a button)
 
 You rest the fixed jaw's tip on the surface (torque off), then lift the arm about 10 cm; after yes it does the rest.
 """
@@ -69,7 +70,10 @@ def main(argv=None, bus=None, ask=input):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("port")
     ap.add_argument("calibration")
+    ap.add_argument("--repeat", type=int, default=0,
+                    help="press only the spot you rest the jaw on, this many times (a button), instead of the 5-spot pattern")
     args = ap.parse_args(argv)
+    spots = [(0, 0)] * args.repeat if args.repeat > 0 else SPOTS_M
     ask("Connecting turns torque off on every motor, and the arm goes limp. Support it, then press Enter: ")
     with real_arm.RealArm(bus or real_arm.make_bus(args.port, args.calibration)) as arm:
         ask("Rest the fixed jaw's tip on the middle of the surface, jaws closed. Hold still and press Enter: ")
@@ -81,7 +85,7 @@ def main(argv=None, bus=None, ask=input):
         # surface (stalls at 30-31 mm over a 26 mm reading): room for the 4 mm stall, a missed one stops ~6 N in; never below the floor
         rows, now = [], arm.read_q()
         print("Planned presses (tip mm; lean from vertical; joints deg):")
-        for k, (dx, dy) in enumerate(SPOTS_M):
+        for k, (dx, dy) in enumerate(spots):
             top = mid + [dx, dy, 0] + START_M * UP
             q0, q1, lean = least_lean(arm, top, top - depth * UP, now)
             if q0 is None:
@@ -94,7 +98,7 @@ def main(argv=None, bus=None, ask=input):
         if turn > place_check.MAX_TURN_DEG:
             print(f"Not moving: a joint would turn {turn:.0f} deg from here (limit {place_check.MAX_TURN_DEG}).")
             return
-        if ask(f"The arm will press the surface {len(SPOTS_M)} times straight down at {SPEED * 1000:.0f} mm/s, stopping "
+        if ask(f"The arm will press the surface {len(spots)} times straight down at {SPEED * 1000:.0f} mm/s, stopping "
                f"when it stalls. Do the joint angles look sane, and is it clear? Type yes to go: ").strip() != "yes":
             print("Not moved.")
             return
@@ -119,9 +123,9 @@ def main(argv=None, bus=None, ask=input):
             print(f"Stopped: {str(e) or 'Ctrl+C'}")
         z = np.array([h[2] for h in hits if h is not None]) * 1000
         if len(z) > 1:
-            print(f"Stalls {len(z)}/{len(SPOTS_M)}: heights spread {np.ptp(z):.1f} mm, mean {np.mean(z):.1f} mm"
+            print(f"Stalls {len(z)}/{len(spots)}: heights spread {np.ptp(z):.1f} mm, mean {np.mean(z):.1f} mm"
                   + (f", repeat at the middle {abs(hits[-1][2] - hits[0][2]) * 1000:.1f} mm"
-                     if hits[0] is not None and hits[-1] is not None and len(hits) == len(SPOTS_M) else ""))
+                     if hits[0] is not None and hits[-1] is not None and len(hits) == len(spots) else ""))
         ask("Hold the arm, then press Enter: torque goes off. ")
 
 
