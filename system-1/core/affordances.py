@@ -854,8 +854,9 @@ def _tilt(arm, plan):
     return max(math.acos(float(np.clip(-arm.ik.fk(q)[1] @ plan.n, -1, 1))) for q in plan.qs[1:])
 
 
-def _flip_plan(arm, p, parts):
-    """Push the lever across, 3/4 of the way up, from the side it leans to."""
+def _flip_plan(arm, p, parts, shut_ok=False):
+    """Push the lever across, 3/4 of the way up, from the side it leans to. shut_ok: plan it even when the gripper
+    can't open (hardware/real_skills.flip's four straight moves flipped the real POWER switch that way)."""
     n, x = p.normal, p.x
     v, r = p.meta["tip"] - p.pos, p.meta["lever_radius"]
     lean = math.atan2(v @ x, v @ n)
@@ -865,7 +866,7 @@ def _flip_plan(arm, p, parts):
     # armed them before centre on 1654 and the lever pushed the pad back from 4 deg short of it, so wait until half
     # of FLIP_PAST beyond. Applies to the probe's pad and the stock gripper's jaw alike
     until = side(lean) - side(-FLIP_PAST)
-    if _shut(arm):
+    if _shut(arm) and not shut_ok:
         return SHUT_WHY
     if not _jaws(arm):
         plan = _sideways(arm, p.pos + side(lean) * x, n, -x, 0.0, h, v @ n + r, until, "lever",
