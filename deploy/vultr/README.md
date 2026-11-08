@@ -1,13 +1,63 @@
-# System 2 on Vultr
+# System 1 on a hotspot and System 2 on Vultr
 
 System 1 and the appliances share a private hotspot. The appliances post snapshots directly to System 1 on port 8782. System 1 opens one outbound WSS connection to Vultr, where Caddy terminates TLS on 443 and exposes `/tunnel`. The relay forwards Vultr's `127.0.0.1:8780` to System 1's `127.0.0.1:8780` for the harness's existing Streamable HTTP MCP client.
 
+```mermaid
+flowchart LR
+    subgraph Bench["Private hotspot"]
+        Board["MC-6 and MW-1 boards"]
+        Readout["System 1 readout :8782"]
+        MCP["System 1 MCP 127.0.0.1:8780"]
+        Client["System 1 tunnel client"]
+        Board -->|"HTTP POST /readout/device-id"| Readout
+        MCP -->|"Read latest snapshot"| Readout
+        Client <-->|"Loopback TCP"| MCP
+    end
+    subgraph VPS["Vultr"]
+        Caddy["Caddy :443"]
+        Relay["Relay 127.0.0.1:7000 and :8780"]
+        Harness["System 2 rav CLI"]
+        Browser["Hosted demo files"]
+        Caddy <-->|"WebSocket upgrade"| Relay
+        Harness <-->|"MCP over HTTP"| Relay
+        Caddy -->|"HTTPS /"| Browser
+    end
+    Client -->|"Opens WSS /tunnel"| Caddy
+```
+
+The WebSocket carries MCP requests and responses once System 1 connects. Appliance publishing continues if the tunnel or VPS goes down. The hosted browser console replays bundled runs. For current robot status or appliance data, use the harness on Vultr.
+
+| Credential | Where it belongs | What it permits |
+|---|---|---|
+| Tunnel token | Relay and System 1 tunnel client | Register the outbound WebSocket |
+| `RAV_TOKEN` | System 1 server and System 2 harness | Call the MCP tools, including robot routines |
+| `RAV_DEVICE_KEYS` | System 1 server | Map board IDs to their individual readout credentials |
+| `DEVICE_KEY` | One Arduino's ignored `arduino_secrets.h` | Access only that board's local readout route |
+
+Keep the three types of credentials distinct. Keep the hotspot private and password-protected. The board-to-System-1 hop uses plain HTTP, while the VPS hop uses certificate-verified TLS.
+
+- [Firmware publisher](../../firmware/firmware/rav_wifi.h) sends snapshots with the board ID in the URL.
+- [System 1 readout API](../../system-1/server/src/rav_server/device_api.py) validates the credential, ingests the snapshot and reports its age.
+- [Tunnel client and relay](tunnel.py) carry the existing MCP HTTP traffic over one WebSocket. They forward TCP streams without interpreting MCP messages.
+- [System 2 MCP client](../../system-2/harness/src/rav_harness/client.py) calls System 1 through the relay's loopback port.
+
 ## Vultr
 
-1. Point a DNS hostname at the VPS. Allow TCP 80 and 443 for Caddy and certificate issuance. Install Caddy 2.11.9 and Python 3.12 or 3.13. Run System 2 directly on the VPS host so it can reach the loopback listener.
+1. Install Caddy 2.11 and Python 3.12 or 3.13. Allow inbound TCP 443 in the host and cloud firewalls. Open TCP 80 if you want the bare address to redirect to HTTPS or need the ACME HTTP challenge. Run System 2 on the VPS host so it can reach the relay's loopback listener.
 2. Create a venv at `/opt/rav-tunnel` with `python3 -m venv /opt/rav-tunnel`. Copy `tunnel.py` into it and install `requirements.txt` with `/opt/rav-tunnel/bin/python -m pip install -r requirements.txt`. Put a generated random tunnel token (at least 32 URL-safe characters) in `/etc/rav/tunnel-token`, readable only by root. Install `rav-tunnel.service` under `/etc/systemd/system` and run `sudo systemctl daemon-reload` followed by `sudo systemctl enable --now rav-tunnel`.
-3. Install the Caddyfile or add its site block to the existing configuration. Set `RAV_PUBLIC_HOST` to the DNS hostname in Caddy's service environment, validate the config with that variable set, then start or reload Caddy. Both relay listeners bind to loopback.
-4. Set `RAV_TOKEN` in the System 2 harness environment. It must match the token on System 1. Use a separate secret from the frp token and all device credentials.
+3. Install the Caddyfile or add its site block to the existing configuration. Set `RAV_PUBLIC_HOST` in Caddy's service environment, validate the config with that variable set, then start or reload Caddy. Both relay listeners bind to loopback.
+4. From `system-2`, run `uv sync --locked --no-dev`. The deployment checkout also needs `system-1/interface`, which System 2 uses for the wire contracts. Set `RAV_TOKEN` in the harness environment to the same value as on System 1.
+
+For a DNS hostname, point its record at the VPS and let Caddy manage HTTPS. For a public IP, set `RAV_PUBLIC_HOST` to the IP and put this TLS block inside the Caddy site block. Caddy handles certificate renewal. The TLS-ALPN challenge needs TCP 443 to reach Caddy. [Let's Encrypt IP certificates](https://letsencrypt.org/2026/01/15/6day-and-ip-general-availability)
+
+```caddyfile
+tls {
+    issuer acme {
+        profile shortlived
+        disable_http_challenge
+    }
+}
+```
 
 ### Browser console
 
@@ -39,6 +89,8 @@ For each board, copy [the secrets example](../../firmware/firmware/arduino_secre
 
 The firmware sends complete, flat JSON snapshots on changes and periodically. Short transitions can fall between sends. Joining Wi-Fi or opening a connection can block the firmware loop, especially during outages. Bench-check button and sensor timing with Wi-Fi enabled before using it in a run.
 
+Use the top-level `firmware/` PlatformIO project for both boards. On the MC-6, wire the tube sensor to **A1** and the lid sensor to **A2**. The current bench configuration uses the lid sensor and leaves the tube requirement disabled. Recalibrate after swapping the sensor pins, since saved thresholds are tied to the pin assignment.
+
 ## Smoke test
 
 From `system-2` on Vultr, with System 1 running in mock mode and the tunnel connected:
@@ -58,3 +110,11 @@ curl -fsS "http://${SYSTEM1_HOTSPOT_IP}:8782/readout/mc6-01" \
 ```
 
 Run `uv run rav readout mc6-01` on Vultr. Expect `fresh: true` while a board is posting, and `false` after two seconds without updates. For a single manual POST, verify the sample values even if the CLI starts after the freshness window. The same key should receive 401 on a different device's POST route. Public `/mcp` and `/readout/mc6-01` should return 404. Stop the tunnel and confirm the board still gets 204. Reconnect and run `rav status` again.
+
+| Symptom | Check |
+|---|---|
+| Browser shows the demo but live controls are unavailable | This is the static console. Use `rav status` and `rav readout` on Vultr for the live connection. |
+| `rav status` cannot connect | Check `journalctl -u rav-tunnel -u caddy` on Vultr and the System 1 tunnel log. Verify the certificate, tunnel token, MCP token, and System 1's loopback listener. |
+| Arduino gets no response | Check its hotspot connection, System 1's hotspot IP, TCP 8782, and whether the hotspot isolates its clients. |
+| Arduino gets 401 | Verify the ID in the URL and its matching `RAV_DEVICE_KEYS` entry. |
+| System 2 sees an old snapshot | Check `age_s` and `fresh`. System 1 retains the last sample for inspection and refuses stale Wi-Fi readings for real-arm verdicts. |
