@@ -32,9 +32,11 @@ Choose **Demo** or **Prod**, then press **GO**. There's no login. To change envi
 | Environment | Shows |
 |---|---|
 | Demo | The MuJoCo sim, its recorded runs and the sample fixtures, with a placeholder CAD model |
-| Prod | Where we'll do real interfacing: the real arm and the real CAD (Onshape). Neither is connected yet, so it's empty |
+| Prod | The real SO-101 on the MC-6: the projects marked `real`, the runs saved with no sim recording, and Live through `rav up --system1`. The CAD bench says Onshape isn't connected, because it isn't |
 
-Each environment is described once, in `ENVIRONMENTS` in [`session.ts`](web/src/lib/session.ts): what runs tests, which CAD it uses, whether it's connected. Screens read those properties rather than checking a name, so connecting Prod means filling in its interfaces and flipping `connected`.
+Each environment is described once, in `ENVIRONMENTS` in [`session.ts`](web/src/lib/session.ts): what runs tests, which CAD it uses, whether it's connected. Screens read those properties rather than checking a name.
+
+Prod's Live talks only to `rav-agent`, never the sim bridge, and expects it started on the arm's running System 1: `uv run rav up --system1 http://127.0.0.1:8780/mcp --reuse-scan`. Its start form asks only for the model and turn limit, and plans always wait for a person.
 
 Judges can steer but can't approve or enter Prod. A CAD patch has to be approved by someone other than its author.
 
@@ -48,7 +50,7 @@ Live talks to `rav-agent` on 8790 (macOS uses 8770 for AirDrop) and to System 1'
 
 Every screen of a project (its story, Live, its CAD, its runs) has the same bar on top, for moving between them or changing project. Live starts and shows runs for the project selected there, and the bridge's `/health` says which project is running. A physical project can't run until the arm is connected, so its Live tab says so and points to the sim.
 
-A run belongs to the project it names in `TestRequest.project`. Older runs are matched by their product name. Runs that match nothing are listed under All runs.
+A run belongs to the project it names in `TestRequest.project`. A real run that names none, as `rav run` writes them, belongs to the project whose `real.runs` prefixes its id (the MC-6 claims `real-`). Older runs are matched by their product name. Runs that match nothing are listed under All runs.
 
 **Moving to a database:** screens use `ProjectStore` in [`lib/projects.ts`](web/src/lib/projects.ts), which only calls `/api/projects`. That API uses a `ProjectBackend` from [`server/projects.ts`](web/server/projects.ts), passed in from [`vite.config.ts`](web/vite.config.ts). A database needs another `ProjectBackend` and a copy of the files, with no screen changes. Kanban: *Move projects from repo files to a database*.
 

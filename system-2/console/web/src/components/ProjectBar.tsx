@@ -1,5 +1,6 @@
+import { useAppSession } from "../lib/context";
 import { useLiveNow } from "../lib/live";
-import { useProjects, type Project } from "../lib/projects";
+import { projectsIn, useProjects, type Project } from "../lib/projects";
 import { go } from "../lib/route";
 
 type Tab = "story" | "live" | "cad";
@@ -8,7 +9,7 @@ const pathFor = (tab: Tab, id: string) => (tab === "story" ? `project/${id}` : `
 
 /** One project's screens, one click apart, on every screen that belongs to a project. `locked` holds it on a running run. */
 export function ProjectBar({ project, tab, locked = false }: { project?: Project; tab?: Tab; locked?: boolean }) {
-  const projects = useProjects();
+  const projects = projectsIn(useAppSession().env, useProjects());
   const now = useLiveNow();
   const switchTo = (id: string) => {
     if (id === "none") return go("live?project=none");

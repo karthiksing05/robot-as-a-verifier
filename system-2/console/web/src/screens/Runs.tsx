@@ -47,7 +47,7 @@ export function Runs() {
               </tbody>
             </table>
           </div>
-          <p className="note">▶ MuJoCo recording. Others: mock data.</p>
+          <p className="note">{ENVIRONMENTS[env].runner === "sim" ? "▶ MuJoCo recording. Others: mock data." : "Runs on the real arm, from runs/. Scans with no test aren't listed."}</p>
         </div>
       </div>
     </div>

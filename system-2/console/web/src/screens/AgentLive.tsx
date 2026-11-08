@@ -4,16 +4,16 @@ import { ProjectBar } from "../components/ProjectBar";
 import { MAX_TURNS, revisionsOf, startBody, useAgentStream, useReplay, type AgentHealth, type AgentState } from "../lib/agent";
 import { useAppSession, useRuns } from "../lib/context";
 import { liveRun } from "../lib/live";
-import { liveProject, projectOf, useProjects, type Project } from "../lib/projects";
+import { liveProject, projectOf, projectsIn, useProjects, type Project } from "../lib/projects";
 import type { Route } from "../lib/route";
 
 const DEFAULT_MODEL = "claude-haiku-5-5";
 
 
-/** The model's run, through rav-agent: start it, watch it and steer it. */
-export function AgentLive({ route, health }: { route: Route; health: AgentHealth }) {
-  const { operator } = useAppSession();
-  const projects = useProjects();
+/** The model's run, through rav-agent: start it, watch it and steer it. real: rav-agent is on the arm's System 1. */
+export function AgentLive({ route, health, real = false }: { route: Route; health: AgentHealth; real?: boolean }) {
+  const { env, operator } = useAppSession();
+  const projects = projectsIn(env, useProjects());
   const state = useAgentStream(true);
   const [error, setError] = useState<string | null>(null);
   const post = useMemo(() => postAgent(setError), []);
@@ -28,16 +28,17 @@ export function AgentLive({ route, health }: { route: Route; health: AgentHealth
   const going = starting || (!!state.meta && !finished && health.running);
   const runProject = useMemo(() => (state.meta ? projects.find((p) => p.id === state.meta?.project) ?? projectOf(liveRun(state), projects) : undefined), [state.meta, state.events, projects]); // eslint-disable-line react-hooks/exhaustive-deps
   const selected = liveProject(route.query.get("project"), state.meta ? { project: runProject } : null, projects);
-  const runnable = !selected || selected.kind === "sim" || !!selected.sim;
+  const runnable = real ? !!selected : !selected || selected.kind === "sim" || !!selected.sim;
+  const Form = real ? RealStartForm : StartForm;
   return (
     <div className="livepage">
       <ProjectBar project={going ? runProject : selected} tab="live" locked={going} />
       {!going && !runnable && <NoSim sim={projects.find((p) => p.kind === "sim")} />}
-      {!going && runnable && !finished && <StartForm key={selected?.id ?? "none"} project={selected} health={health} again={false} judge={operator.role === "judge"} send={send} />}
+      {!going && runnable && !finished && <Form key={selected?.id ?? "none"} project={selected} health={health} again={false} judge={operator.role === "judge"} send={send} />}
       {!going && runnable && finished && (
         <details className="runagain">
           <summary className="btn ghost">Run again</summary>
-          <StartForm key={selected?.id ?? "none"} project={selected} health={health} again judge={operator.role === "judge"} send={send} />
+          <Form key={selected?.id ?? "none"} project={selected} health={health} again judge={operator.role === "judge"} send={send} />
         </details>
       )}
       {error && <p className="error" role="alert">{error}</p>}
@@ -118,6 +119,32 @@ function StartForm({ project, health, again, judge, send }: { project?: Project;
         <select id="a-speed" value={speed} onChange={(e) => setSpeed(e.target.value)}><option value="1">1x</option><option value="4">4x</option><option value="8">8x</option><option value="0">As fast as it goes</option></select>
       </div>
       <label className="agentcheck"><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto-approve plans</label>
+      <div className="row">
+        <button className="btn accent" type="submit" disabled={judge} title={judge ? "Judges can steer but can't start a run" : undefined}>Start run</button>
+      </div>
+    </form>
+  );
+}
+
+/** The real arm: the device is the one in front of it and plans wait for a person, so only the model is chosen here. */
+function RealStartForm({ project, health, again, judge, send }: { project?: Project; health: AgentHealth; again: boolean; judge: boolean; send: Send }) {
+  const [model, setModel] = useState(health.models.includes(DEFAULT_MODEL) ? DEFAULT_MODEL : health.models[0] ?? "");
+  const [maxTurns, setMaxTurns] = useState(String(MAX_TURNS));
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    send("/start", { project: project?.id ?? null, model: model || null, max_turns: Number(maxTurns), auto_approve: false });
+  };
+  return (
+    <form className="panel rise startpanel" onSubmit={submit}>
+      <h2>{again ? "Run again" : "Start a run"} on the real arm</h2>
+      <div className="field">
+        <label className="label" htmlFor="r-model">Model</label>
+        <select id="r-model" value={model} onChange={(e) => setModel(e.target.value)}>{health.models.map((m) => <option key={m} value={m}>{m}</option>)}</select>
+      </div>
+      <div className="field">
+        <label className="label" htmlFor="r-turns">Turn limit</label>
+        <input id="r-turns" className="tech" type="number" min="1" max={MAX_TURNS} step="1" required value={maxTurns} onChange={(e) => setMaxTurns(e.target.value)} />
+      </div>
       <div className="row">
         <button className="btn accent" type="submit" disabled={judge} title={judge ? "Judges can steer but can't start a run" : undefined}>Start run</button>
       </div>

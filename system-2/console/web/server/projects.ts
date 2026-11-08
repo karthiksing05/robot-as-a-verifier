@@ -14,6 +14,8 @@ export interface Project {
   sim?: SimDevice;
   cad?: boolean; // it has a model on the CAD bench
   products: string[]; // runs logged under these product names belong here, for runs that don't name their project
+  // On the real arm, so Prod shows it. runs: id prefixes of its real runs that name no project, such as rav run's
+  real?: { runs: string[] };
   rules: string[];
   manual?: string; // the model reads it, as it would a real product's
   split?: "dev" | "validation" | "held_out"; // a sim device's place in the evals: a held-out one's faults are never shown

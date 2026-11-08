@@ -11,7 +11,6 @@ import { addEdits, buildGraph, type GraphNode, recordOfNode, stepNodeId } from "
 import { markAt, recordedNodes, videoMarks } from "../lib/live";
 import { projectOf, useProjects } from "../lib/projects";
 import type { Route } from "../lib/route";
-import { ENVIRONMENTS } from "../lib/session";
 import { ReplayClock, ReplaySource } from "../lib/simsource";
 import type { SimFocus } from "../components/Sim3D";
 import { coverageOf, describeEvent, nextRevision, statusOfControl, type Run, type StepRecord } from "../lib/runs";
@@ -28,7 +27,7 @@ export function RunView({ route }: { route: Route }) {
   const allEdits = useEdits(env);
 
   if (!run) {
-    if (!ready && ENVIRONMENTS[env].sampleRuns) return <div className="sweep" role="status" aria-label="Loading the run" />;
+    if (!ready) return <div className="sweep" role="status" aria-label="Loading the run" />;
     return <div className="page"><div className="empty"><h2>This run isn't available in {env}</h2><a className="btn ghost" style={{ alignSelf: "flex-start" }} href="#/runs">Back to runs</a></div></div>;
   }
   return <RunPage key={run.id} run={run} runs={runs} edits={allEdits.filter((e) => e.runId === run.id)} route={route} />;

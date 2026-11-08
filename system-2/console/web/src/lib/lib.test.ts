@@ -323,6 +323,14 @@ describe("project review", () => {
     expect(projectOf({ ...all[0], events }, projects)?.id).toBe("sim-14");
   });
 
+  it("files a real run that names no project by its id, and calls it real", () => {
+    const withRig = [...projects, { ...projects[1], id: "mc6", real: { runs: ["real-"] } }];
+    const run = { ...all[0], id: "real-panel-47", product: "Device under test", events: [] };
+    expect(projectOf({ ...run, real: true }, withRig)?.id).toBe("mc6");
+    expect(projectOf(run, withRig)).toBeUndefined(); // only a run with no sim recording counts
+    expect(evidenceOf({ ...run, real: true })).toBe("real");
+  });
+
   it("shows each revision once, and tracks faults across them", () => {
     const review = reviewOf(own("appliance"));
     expect(review.revisions.map((r) => r.revision)).toEqual(["A", "B"]);
