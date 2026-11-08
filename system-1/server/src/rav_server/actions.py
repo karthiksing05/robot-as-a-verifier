@@ -39,6 +39,7 @@ def centrifuge_actions() -> list[ActionSpec]:
              for a, way in (("x", "toward the arm"), ("y", "to the right, seen from the arm"), ("z", "up"))]
     angle = ParamSpec(name="angle", min=10.0, max=105.0, default=100.0, unit="deg",
                       about="how far to swing it. Past 90 it falls onto its stop; short of that it falls shut when let go")
+    tube = ParamSpec(name="tube", min=1.0, max=2.0, default=1.0, about="1 the tube with the green collar (nearer the arm), 2 the red one")
     stop = ["button", "knob"]  # scans have read STOP as either
     covers = [*stop, "handle"]
     return [
@@ -46,7 +47,8 @@ def centrifuge_actions() -> list[ActionSpec]:
         ActionSpec(skill="lid_close", kinds=covers, params=nudge, about="over the open lid's top edge, drawn back past vertical, let fall shut"),
         ActionSpec(skill="rack_open", kinds=covers, params=[angle, *nudge], about="as lid_open, on the rack cover's lip"),
         ActionSpec(skill="rack_close", kinds=covers, params=nudge, about="as lid_close, on the rack cover"),
-        ActionSpec(skill="tube_pick", kinds=stop, params=nudge, about="jaws open down round tube 1's collar in the rack, shut, lift it clear. Target STOP"),
+        ActionSpec(skill="tube_find", kinds=stop, params=[tube], about="pan right over the tube rack with the wrist camera and say where the tube's collar is, by its colour. No grip. Target STOP"),
+        ActionSpec(skill="tube_pick", kinds=stop, params=[tube, *nudge], about="find the tube as tube_find, then jaws open down round its collar, shut, lift it clear. Target STOP"),
         ActionSpec(skill="tube_place", kinds=[*stop, "well"], params=nudge, about="the held tube lowered into well A until it stops or seats, let go, lifted out. Says how far above the seat it let go"),
     ]
 

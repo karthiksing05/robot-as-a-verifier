@@ -291,16 +291,32 @@ SKILLS = {  # skill: (offset from STOP, what runs it)
     "lid_close": (LID_LIP, lambda arm, at, R, angle: close_cover(arm, "lid", at, R)),
     "rack_open": (RACK_LIP, lambda arm, at, R, angle: open_cover(arm, "rack", at, R, angle)),
     "rack_close": (RACK_LIP, lambda arm, at, R, angle: close_cover(arm, "rack", at, R)),
-    "tube_pick": (TUBE, lambda arm, at, R, angle: pick_tube(arm, at)),
+    "tube_find": (TUBE, None),  # the camera's, in run
+    "tube_pick": (TUBE, lambda arm, at, R, angle: pick_tube(arm, at)),  # STOP + TUBE only with no camera
     "tube_place": (WELL_A, lambda arm, at, R, angle: place_tube(arm, at)),
 }
 
 
-def run(arm, skill, p, plane_T, params):
-    """One skill on part p (STOP, or the thing itself), with the step's params: angle, dx_mm, dy_mm, dz_mm."""
+def run(arm, skill, p, plane_T, params, wrist=None):
+    """One skill on part p (STOP, or the thing itself), with the step's params: angle, dx_mm, dy_mm, dz_mm, and for
+    tube_find and tube_pick which tube (1 the green collar, 2 the red). Those two find the tube with the wrist camera
+    (tube_find.find): tube_find only reports where, tube_pick then picks it there."""
+    nudge = [float(params.get(k, 0.0)) for k in ("dx_mm", "dy_mm", "dz_mm")]
+    if skill in ("tube_find", "tube_pick") and wrist is not None:
+        import tube_find
+        top, how = tube_find.find(arm, wrist, "red" if float(params.get("tube", 1)) >= 2 else "green")
+        if top is None:
+            raise RuntimeError(how)
+        top = top + (device_frame(plane_T) if plane_T is not None else np.eye(3)) @ np.asarray(nudge) / 1000
+        if skill == "tube_find":
+            return {"verdict": "done", "reason": how}
+        done = pick_tube(arm, top)
+        return {**done, "reason": f"{how}; {done['reason']}"}
+    if skill == "tube_find":
+        raise RuntimeError("no wrist camera to look with")
     if plane_T is None:
         raise RuntimeError("no scanned panel to aim from: run explore first")
     offset, fn = SKILLS[skill]
     R = device_frame(plane_T)
-    at = anchor(p, offset, R, [float(params.get(k, 0.0)) for k in ("dx_mm", "dy_mm", "dz_mm")])
+    at = anchor(p, offset, R, nudge)
     return fn(arm, at, R, float(params.get("angle", OPEN_DEG)))

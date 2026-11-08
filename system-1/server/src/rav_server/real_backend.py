@@ -136,7 +136,7 @@ class RealBackend(PipelineRobot):
         done = None
         try:
             if step.skill in centrifuge_skills.SKILLS:
-                done = centrifuge_skills.run(self.arm, step.skill, p, self.plane_T, step.params)
+                done = centrifuge_skills.run(self.arm, step.skill, p, self.plane_T, step.params, self.rig.wrist)
             elif step.skill == "flip" and "tip" not in p.meta:  # the review derives a lever for a switch read as a knob
                 raise RuntimeError("the scan didn't measure its lever (no tip), so there's no push to plan")
             elif step.skill == "flip":
