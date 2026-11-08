@@ -118,6 +118,8 @@ def gripper(arm, frac, hold_s=0.6):
     """Gripper to frac of its calibrated range (0 closed, 1 open), holding the arm still while it moves. Below 0 drives
     past closed, so jaws shut on something keep squeezing it."""
     cal = arm.bus.calibration["gripper"]
+    if frac < 0:  # closed first: if the servo's limit wasn't lowered (RealArm.enable), it ignores a goal past it
+        arm.bus.sync_write("Goal_Position", {"gripper": cal.range_min}, normalize=False)
     arm.bus.sync_write("Goal_Position", {"gripper": max(0, int(cal.range_min + frac * (cal.range_max - cal.range_min)))},
                        normalize=False)
     for _ in range(int(hold_s * CONTROL_HZ)):
