@@ -53,6 +53,14 @@ python tools/calibrate_mc6_sensors.py COM7 --tube-only
 
 Replace `COM7` with the centrifuge port. With the lid closed, press START to capture the empty well. Insert the tube, close the lid, and press START again. The script checks the board's EEPROM confirmation and writes the result to `.pio/mc6-tube-calibration.json`. This preserves the saved lid thresholds and leaves the tube interlock setting as configured.
 
+To recalibrate only the A2 lid sensor while preserving any saved tube calibration, upload the current MC-6 firmware and run from `firmware/` with the serial monitor closed:
+
+```powershell
+python tools/calibrate_mc6_lid.py COM7
+```
+
+Press START once with the lid fully open and once with it fully closed. Wait for each measurement to finish before moving the lid. The result is written to `.pio/mc6-lid-calibration.json` after the board confirms its EEPROM save.
+
 Until a valid saved calibration exists, boot retains the original open-lid/empty-well baseline with 55%/70% fallback thresholds. Recalibrate after changing illumination or sensor alignment. Threshold calibration cannot distinguish positions whose readings overlap or repair a hinge.
 
 ## Requirement switches

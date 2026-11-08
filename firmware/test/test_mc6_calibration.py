@@ -53,3 +53,8 @@ class Mc6CalibrationTests(unittest.TestCase):
         event["tube_saved"] = 0
         with self.assertRaises(ValueError):
             validate_result(event, tube_only=True)
+
+    def test_explicit_lid_only_validates_lid_even_when_tube_is_required(self):
+        event = {"saved": 1, "tube_required": 1,
+                 "lid": {"clear": 700, "shaded": 650, "lo": 670, "hi": 680}}
+        validate_result(event, lid_only=True)

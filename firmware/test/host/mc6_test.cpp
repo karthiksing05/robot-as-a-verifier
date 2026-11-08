@@ -155,6 +155,18 @@ int main() {
   assert(!calibrating && !requireTubePresent && !tubeValid && tubeCalSaved);
   assert(loadCalibration() && lid.level == lidOnly.lidOpen && lid.shadedLevel == lidOnly.lidClosed);
   assert(tube.level == 700 && tube.shadedLevel == 640);
+  requireTubePresent = true;
+  analogs[PIN_LID] = 720;
+  send("callid\n"); assert(calStage == WAIT_OPEN);
+  press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(calStage == WAIT_CLOSED);
+  analogs[PIN_LID] = 665; press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(!calibrating && requireTubePresent && loadCalibration());
+  assert(lid.level == 720 && lid.shadedLevel == 665);
+  assert(tubeCalSaved && tube.level == 700 && tube.shadedLevel == 640);
+  requireTubePresent = false;
   heartbeat(); contains("\"tube_required\":0");
   finish("MC-6");
 }
