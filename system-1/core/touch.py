@@ -40,7 +40,7 @@ import affordances
 import features
 import perceive
 import skills
-from rig import CONTACT_N, SafetyStop
+from rig import CONTACT_N, SafetyStop, tip_shape
 
 PAD_R = affordances.PAD_R
 CREEP_M = 0.005         # creep from this far above where a part's top should be, and give up this far past it
@@ -57,6 +57,7 @@ RETRY_M = 0.015         # after a touch-off, the next spot is at least this far 
 TILT_DEG = (8.0, 12.0)  # spots the probe can point at within the first of these come first, then the second
 FIN_CLEAR = 0.002       # the pad's rim this far from a dial's fin (scan positions are ~1 mm off at the probe)
 LEVER_CLEAR = 0.0015    # and from a toggle lever's root
+FACE_M = 0.003          # a tip's face: its hull points this near the front (the stock nub, and the jaws 1.7 mm behind it)
 ROUND3_D = 0.020        # a finless round part wider than this gets three touches
 BESIDE_M = 0.001        # one of those reading under this landed on the panel beside it (1 of 3 knobs on RGB scans)
 TRUST_M = 0.0015        # a touch further than this from the scan's height landed on something else: a fin or
@@ -122,7 +123,7 @@ def touch(arm, at, n, top, bottom=-CREEP_M, label="touch", on=None):
         arm.tare(False)  # with servo sensing, the zero is dropped only once the pad is clear, as the skills do
     except SafetyStop as e:
         return None, f"safety stop: {e}"
-    s = tip - _depth(tip, a, n, on) * n
+    s = tip - _depth(tip, a, n, on, arm.ik.fk_R(arm.read_q()), tip_shape(arm)) * n
     if fast:
         return None, f"touched something {(s - at) @ n * 1000:.1f} mm above where the surface should be"
     if g["stop"] in ("end", "max_lead"):
@@ -135,19 +136,38 @@ _DISC = [(rho * math.cos(t), rho * math.sin(t)) for rho in np.linspace(0, PAD_R,
          for t in np.linspace(0, 2 * math.pi, 48, endpoint=False)]
 
 
-def _depth(tip, a, n, on=None):
-    """How far below the tip, along -n, the pad met the surface: at its lowest rim (affordances._lowest), or,
-    given on(points) -> bool, the footprint of the part touched, at the pad's lowest point over it. A probe a
-    few degrees off square whose pad hangs past a part's edge meets the edge first, not its own lowest rim:
-    0.85 mm low on a toggle's base."""
+def _face(shape, k=9):
+    """k x k grids over each layer of a tip shape's hull points within FACE_M of its front, in the tip's frame."""
+    z, out, g = shape.pts[:, 2], [], np.linspace(0, 1, k)
+    for zl in np.unique(z[z <= z.min() + FACE_M]):
+        f = shape.pts[z == zl]
+        (x0, y0), (x1, y1) = f[:, :2].min(0), f[:, :2].max(0)
+        out += [(x0 + u * (x1 - x0), y0 + v * (y1 - y0), zl) for u in g for v in g]
+    return np.array(out)
+
+
+def _reach(arm):
+    """How far the tip's face reaches from the tip across its axis, whatever the wrist roll."""
+    shape = tip_shape(arm)
+    return PAD_R if shape.round else float(np.max(np.linalg.norm(_face(shape)[:, :2], axis=1)))
+
+
+def _depth(tip, a, n, on=None, R=None, shape=None):
+    """How far below the tip, along -n, the tip met the surface: at its lowest point (affordances._lowest, with R the
+    tip's rotation and shape its rig.TipShape), or, given on(points) -> bool, the footprint of the part touched, at the
+    tip's lowest point over it. A probe a few degrees off square whose pad hangs past a part's edge meets the edge
+    first, not its own lowest rim: 0.85 mm low on a toggle's base."""
     if on is not None:
-        e1 = np.cross(a, n if abs(a @ n) < 0.999 else np.eye(3)[np.argmin(np.abs(a))])
-        e1 /= np.linalg.norm(e1)
-        P = tip + np.asarray(_DISC) @ np.vstack([e1, np.cross(a, e1)])
+        if shape is None or shape.round:
+            e1 = np.cross(a, n if abs(a @ n) < 0.999 else np.eye(3)[np.argmin(np.abs(a))])
+            e1 /= np.linalg.norm(e1)
+            P = tip + np.asarray(_DISC) @ np.vstack([e1, np.cross(a, e1)])
+        else:
+            P = tip + _face(shape) @ np.asarray(R).T
         over = on(P)
         if over.any():
             return float(-((P[over] - tip) @ n).min())
-    return affordances._lowest(a, n)
+    return affordances._lowest(a, n, R, shape)
 
 
 def _footprints(scene, parts):
@@ -166,9 +186,9 @@ def _footprints(scene, parts):
     return out
 
 
-def _clear_spots(scene, parts):
-    """Points on the scanned panel plane where the whole pad lands on clear panel: EDGE_M inside its extent and
-    PAD_R + CLEAR_M from the convex hull of every footprint."""
+def _clear_spots(scene, parts, reach=PAD_R):
+    """Points on the scanned panel plane where the whole tip lands on clear panel: EDGE_M inside its extent and
+    reach (the tip's, _reach) + CLEAR_M from the convex hull of every footprint."""
     T, (u0, u1, v0, v1) = scene.plane
     us, vs = np.arange(u0 + EDGE_M, u1 - EDGE_M, GRID_M), np.arange(v0 + EDGE_M, v1 - EDGE_M, GRID_M)
     busy = np.zeros((len(us), len(vs)), np.uint8)
@@ -176,7 +196,7 @@ def _clear_spots(scene, parts):
         uv = (np.asarray(pts) - T[:3, 3]) @ T[:3, :2]
         ij = np.round((uv - [us[0], vs[0]]) / GRID_M)[:, ::-1].astype(np.int32)  # (col, row) for OpenCV
         cv2.fillConvexPoly(busy, cv2.convexHull(ij), 1)
-    free = ndimage.distance_transform_edt(busy == 0) * GRID_M >= PAD_R + CLEAR_M
+    free = ndimage.distance_transform_edt(busy == 0) * GRID_M >= reach + CLEAR_M
     i, j = np.nonzero(free)
     return T[:3, 3] + np.outer(us[i], T[:3, 0]) + np.outer(vs[j], T[:3, 1])
 
@@ -205,7 +225,7 @@ def touch_plane(arm, scene, parts=None):
     parts = scene.parts if parts is None else parts
     T = scene.plane[0]
     n = T[:3, 2]
-    spots = _clear_spots(scene, parts)
+    spots = _clear_spots(scene, parts, _reach(arm))
     tilt = np.array([arm.ik.solve(at + skills.APPROACH_M * n, -n, arm.cmd)[3] for at in spots])
     free, got = np.ones(len(spots), bool), []
     for limit in TILT_DEG:

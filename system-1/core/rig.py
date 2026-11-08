@@ -160,10 +160,11 @@ def _rect(x0, x1, y0, y1, z):
 # The probe's 12 mm pad, 3 mm thick; the tip site is the centre of its face.
 PROBE_TIP = TipShape("probe", _ring(0.006, 0.0) + _ring(0.006, 0.003))
 # The SO-101's own gripper, shut: the two fingertips together, measured off the jaws' collision pieces (the model file
-# puts the tip site at the fixed jaw's tip, so the block is off centre along +x, toward the moving jaw). A wedge,
-# not a block: 13.6 x 7 mm at the face, 24 x 12.6 mm 10 mm back, 39 x 16 mm at 30 mm.
+# puts the tip site at the fixed jaw's tip, so the block is off centre along +x, toward the moving jaw). A wedge:
+# the face is the fixed jaw's nub, 4.4 x 3.3 mm, with the moving jaw's tip 1.7 mm behind it (13.7 x 7 mm across both),
+# then 24 x 12.6 mm 10 mm back and 39 x 16 mm at 30 mm. Flat at 13.6 x 7 mm, touches read 0.3-0.6 mm low.
 STOCK_TIP = TipShape("stock", sum((_rect(*[v * 1e-3 for v in r]) for r in (
-    (-2.9, 10.7, -3.7, 3.3, 0.0), (-4.5, 14.1, -5.4, 5.1, 5.0), (-6.3, 17.5, -6.5, 6.1, 10.0),
+    (-1.5, 2.9, -1.9, 1.4, 0.0), (-2.9, 10.8, -3.7, 3.3, 1.7), (-4.5, 14.1, -5.4, 5.1, 5.0), (-6.3, 17.5, -6.5, 6.1, 10.0),
     (-9.3, 24.9, -7.4, 7.1, 20.0), (-12.6, 26.7, -8.1, 7.7, 30.0))), []))
 
 
