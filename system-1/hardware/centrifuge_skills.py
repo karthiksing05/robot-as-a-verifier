@@ -43,7 +43,7 @@ FALL_S = 1.5
 # the tube: jaws open around its 18 mm collar, down straight, shut, lift clear of the rack
 TUBE_GRIP_DOWN = -0.002               # the grip centre below the collar top found: at 3 mm it went too far down
 TUBE_OPEN = 0.2                       # 0.3 opened far wider than the red collar on the real arm (Nov 8)
-TUBE_SQUEEZE = -0.25                  # shut drives ~380 ticks past closed (RealArm lowers the servo's limit for it)
+TUBE_SQUEEZE = -0.3                   # shut drives ~450 ticks past closed (RealArm lowers the servo's limit 500 for it)
 TUBE_CENTRE = 0.015                   # the collar's centre this far from the fixed jaw: half the real gap, not the model's
 TUBE_PULL = 0.006                     # m toward the arm: picks landed past the red tube; 6 mm held it (Nov 8)
 TUBE_HELD_X = TUBE_CENTRE             # held, the tube's axis this far from the fixed jaw's tip: where the pick centres it
@@ -54,6 +54,7 @@ PAN_XY = np.array([0.0388, 0.0])      # the pan axis, arm frame (manipulate.PAN_
 ABOVE = 0.05                          # a pick starts this far over its grip
 LIFT = 0.12                           # and lifts this far: at 70 mm the 55 mm tube hit the rack going home (Nov 8)
 PLACE_ABOVE = 0.10                    # a place starts this far over the seat, and lowers until the arm stalls: at 80 the tube clipped the well's rim (Nov 8)
+PLACE_DROP = 0.015                    # let go this far over the seat: lowered all the way, it went in too far (Nov 8)
 PLACE_IN_BACK, PLACE_IN_UP = 0.05, 0.03  # and comes in to that start from this far nearer the arm and higher, clear of the rim
 SPEED, ARC_SPEED, GUARD_SPEED = 0.06, 0.04, 0.025  # m/s: twice the first guesses, which were slow for the demo
 GUARD_N = 5.0                         # with no stall sensing (the sim bus), a guarded move stops at this
@@ -276,7 +277,12 @@ def pick_tube(arm, collar_top):
                 ("shut", TUBE_SQUEEZE),
                 _line("lift", tip, tip + LIFT * up, a)], q
     why, _ = _run(arm, label, *_tube_legs(arm, label, build))
-    return {"verdict": "FAIL" if why else "done", "reason": why or f"shut on the collar and lifted {LIFT * 1000:.0f} mm"}
+    try:  # where the jaws stopped and the limit they had, to tell a weak grip from a refused overdrive
+        jaws = (f"; gripper at {arm.bus.read('Present_Position', 'gripper', normalize=False)}, limit "
+                f"{arm.bus.read('Min_Position_Limit', 'gripper', normalize=False)}, closed {arm.bus.calibration['gripper'].range_min}")
+    except Exception:  # noqa: BLE001 - the sim bus has no such registers
+        jaws = ""
+    return {"verdict": "FAIL" if why else "done", "reason": (why or f"shut on the collar and lifted {LIFT * 1000:.0f} mm") + jaws}
 
 
 PLACE_UP, PLACE_BACK = PLACE_ABOVE, 0.06  # out of the well (as high as the place started, which reached), then toward the arm: the arm went home past the open lid (Nov 8)
@@ -295,16 +301,16 @@ def place_tube(arm, seat):
 
     def build(tilt):
         tip, a, q = _jaws_at(arm, seat - TUBE_GRIP_DOWN * up, TUBE_HELD_X, tilt)
-        start = tip + PLACE_ABOVE * up
+        start, drop = tip + PLACE_ABOVE * up, tip + PLACE_DROP * up
         return [_line("in", start - PLACE_IN_BACK * _toward(tip) + PLACE_IN_UP * up, start, a),
-                _line("lower", start, tip, a, guard="until"),
+                _line("lower", start, drop, a, guard="until"),
                 ("let go", TUBE_OPEN),
                 _line("up", tip, tip + PLACE_UP * up, a),  # clear of the lid, then back toward the arm
                 _line("back", tip + PLACE_UP * up, tip + PLACE_UP * up - PLACE_BACK * _toward(tip), a),
                 ("shut the jaws", 0.0)], q
     held = getattr(arm, "tube_tilt", None)  # the pick's tilt, so the tube goes in as upright as it came out
     _, met = _run(arm, label, *_tube_legs(arm, label, build, (held, *(t for t in TUBE_TILTS if t != held)) if held else TUBE_TILTS))
-    short = PLACE_ABOVE - met["lower"] if "lower" in met else 0.0
+    short = (PLACE_ABOVE - met["lower"] if "lower" in met else PLACE_DROP)
     return {"verdict": "done", "reason": f"let go {short * 1000:.1f} mm above the seat" if short > 0.001
             else "let go at the seat", "short_mm": round(short * 1000, 1)}
 
