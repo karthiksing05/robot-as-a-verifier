@@ -1,4 +1,5 @@
 """rav-server's /readout/<device>: the boards POST snapshots over WiFi with their own key, which can't reach the MCP tools."""
+import asyncio
 import sys
 
 import pytest
@@ -11,10 +12,26 @@ sys.path[:0] = [str(HARDWARE_DIR), str(CORE_DIR)]
 import http_readout  # noqa: E402
 from rav_server.engine import RoutineEngine  # noqa: E402
 from rav_server.main import build_app  # noqa: E402
+from rav_server.mcp_server import build_server  # noqa: E402
 from rav_server.mock_robot import MockRobot  # noqa: E402
+from rav_server.device_api import DeviceApi  # noqa: E402
+from mcp import Client  # noqa: E402
 from starlette.testclient import TestClient  # noqa: E402
 
 TOKEN, KEY = "arm-token", "board-key"
+
+
+def test_system_status_reports_appliance_tool_only_when_registered():
+    async def check():
+        engine = RoutineEngine(MockRobot, "mock")
+        devices = DeviceApi({"mw1": http_readout.HttpReadout("mw1")}, {"mw1": KEY})
+        for config in (None, devices):
+            async with Client(build_server(engine, config)) as mcp:
+                result = await mcp.call_tool("system_status", {})
+                assert not result.is_error
+                assert ("appliance_readout" in result.structured_content["tools"]) == (config is not None)
+
+    asyncio.run(check())
 
 
 def client(host="0.0.0.0", token=TOKEN, key=KEY):

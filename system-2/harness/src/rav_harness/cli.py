@@ -282,6 +282,12 @@ def inspect_system1(args) -> None:
     except KeyboardInterrupt:
         pass
     except ToolFailed as error:
+        if args.command == "readout" and "Unknown tool: appliance_readout" in str(error):
+            raise SystemExit(
+                "System 1 answered MCP but did not register appliance_readout. "
+                "On the System 1 computer, check which server owns the tunnel's target port, "
+                "then start the current rav-server with RAV_DEVICE_KEYS in its environment."
+            ) from error
         raise SystemExit(str(error)) from error
     finally:
         client.close()

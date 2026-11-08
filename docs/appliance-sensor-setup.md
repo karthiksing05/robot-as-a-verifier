@@ -117,6 +117,19 @@ uv run rav readout mw1-01       # one board's latest snapshot as JSON
 
 Open and close the microwave door, or the centrifuge lid, and watch the values change. That proves the whole path without moving the arm.
 
+### Tunnel connects but `appliance_readout` is unknown
+
+The tunnel client can connect even when its target port belongs to another System 1 process. On the computer running System 1, check the listener and the code loaded by that worktree. Run these from its `system-1` directory:
+
+```powershell
+uv run python -c "import rav_server.main; print(rav_server.main.__file__)"
+Get-NetTCPConnection -LocalPort 8780 -State Listen |
+    Select-Object LocalAddress, OwningProcess
+"Device keys configured: $([bool]$env:RAV_DEVICE_KEYS)"
+```
+
+The module path should be inside that worktree. Check the process owning the listener before restarting it. Start the server with `RAV_DEVICE_KEYS` set in the same terminal. For an HTTP readout on the real arm, include `--readout http --readout-device mc6-01` or the selected board's ID. The current server prints its source path and registered appliance IDs before the torque prompt. Once it is listening, `rav status` on Vultr should list `appliance_readout` under `tools`. The tunnel can stay up during a System 1 restart.
+
 On the board's serial monitor, the `wifi` event value is the HTTP status of its last post:
 
 | Value | Fix |
@@ -129,5 +142,5 @@ On the board's serial monitor, the `wifi` event value is the HTTP status of its 
 ## Notes
 
 - USB serial isn't a substitute here. These boards print event lines (`{"t":…,"ev":"door","v":1}`), not the flat snapshots `--readout serial` expects. Use WiFi.
-- Short presses can fall between two snapshots. The firmware sends on every change, but a press shorter than one post round trip may be missed.
+- The current firmware queues short press and release snapshots. The watcher prints received edges separately from the current readings.
 - On Route B, a tunnel drop can cut off an MCP call mid-step. Run `rav status` after it reconnects, before repeating anything.
