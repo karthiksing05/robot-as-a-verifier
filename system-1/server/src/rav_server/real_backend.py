@@ -114,12 +114,16 @@ class RealBackend(PipelineRobot):
 
     def execute(self, step):
         """Flips and knob turns as the hardware session ran them on the real centrifuge (real_skills), which
-        affordances' own can't do on this arm (its jaws don't open for them); observe as _observe; everything else as
-        PipelineRobot. The operator says whether the device changed, which gives the verdict."""
+        affordances' own can't do on this arm (its jaws don't open for them), and the centrifuge's lid, rack cover and
+        tube skills (centrifuge_skills); observe as _observe; everything else as PipelineRobot. The operator says whether
+        the device changed, which gives the verdict. A lid, cover or tube skill that changed nothing is OBSERVED: the
+        photo says."""
+        import centrifuge_skills
+
         p = next((q for q in self.parts if q.id == step.target), None)
         if step.skill == "observe" and p is not None and p.kind == "display":
             return self._observe(step, p)
-        if step.skill not in ("flip", "turn") or p is None:
+        if step.skill not in ("flip", "turn", *centrifuge_skills.SKILLS) or p is None:
             return self._press_with_photo(step)
         import real_skills
         import skills
@@ -129,10 +133,13 @@ class RealBackend(PipelineRobot):
         self.arm.status = "between steps"  # reading the device here sets its baseline, with nothing to ask
         before, n_ev, t0 = dict(self.arm.app.readings), len(self.arm.app.events), time.monotonic()
         angle = float(step.params.get("angle", 60.0))  # degrees, + counter-clockwise seen from the front
+        done = None
         try:
-            if step.skill == "flip" and "tip" not in p.meta:  # the review derives a lever for a switch read as a knob
+            if step.skill in centrifuge_skills.SKILLS:
+                done = centrifuge_skills.run(self.arm, step.skill, p, self.plane_T, step.params)
+            elif step.skill == "flip" and "tip" not in p.meta:  # the review derives a lever for a switch read as a knob
                 raise RuntimeError("the scan didn't measure its lever (no tip), so there's no push to plan")
-            if step.skill == "flip":
+            elif step.skill == "flip":
                 toward = step.params.get("toward")  # +1 up the slope, -1 down: the operator's word over the scan's lean
                 if toward and (p.x[2] > 0) != (toward < 0):  # the plan pushes against p.x
                     p = self._mirrored(p)
@@ -152,6 +159,9 @@ class RealBackend(PipelineRobot):
             what = f"{p.id} switches {ch}" if step.skill == "flip" else f"turning {p.id} {angle:+g} deg changes {ch}"
             r = {"verdict": "PASS" if ch else "FAIL", "reason": what if ch else "nothing changed on the device",
                  "channel": ch, "stop": "done", "duration_s": round(time.monotonic() - t0, 1)}
+            if done is not None:
+                r.update(verdict="FAIL" if done["verdict"] == "FAIL" else "PASS" if ch else "OBSERVED",
+                         reason=f"{done['reason']}; " + (f"{ch} changed" if ch else "no reading changed"))
         trace, verdict = map_verdict(step, r)
         ref = self._snap(f"{step.id}, at {step.target}, after the step")
         trace.frames = [ref] if ref else []
@@ -191,6 +201,11 @@ class RealBackend(PipelineRobot):
         if ref:
             trace.measures["display_frame"] = ref
         return trace, verdict
+
+    def extra_actions(self) -> list:
+        from .actions import centrifuge_actions
+
+        return centrifuge_actions()
 
     @staticmethod
     def _mirrored(p):
