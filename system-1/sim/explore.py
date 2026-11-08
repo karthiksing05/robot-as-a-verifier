@@ -1270,6 +1270,8 @@ def main(argv=None):
     ap.add_argument("--sensing", choices=["perfect", "current", "tactile", "loadcell"], default="perfect",
                     help="contact from a force sensor behind the pad; with --slop, estimated from the servos (current) "
                          "or from a pressure pad on the probe's face (tactile) or a load cell behind it (loadcell), plus the servos")
+    ap.add_argument("--effector", choices=["stock", "probe"], default="stock",
+                    help="the SO-101's own gripper, as the real arm has, or the fingertip probe, a sim-only reference")
     ap.add_argument("--no-refine", action="store_true", help="act on the scanned parts without refine()")
     ap.add_argument("--depth", action="store_true", help="the earlier pipeline: a D405 depth camera on the wrist, "
                     "perceive.perceive and perceive.refine")
@@ -1290,7 +1292,7 @@ def main(argv=None):
         ap.error("--real-driver needs --slop --sensing current or tactile: RealArm senses with the servos and the pad")
     live = not args.headless
     rig = sim_rig.make_rig(args.seed, args.placement, args.ideal, args.offsets, args.slop, args.stiffness, args.sensing,
-                           args.depth, args.stereo, realtime=live and not args.record,
+                           args.depth, args.stereo, realtime=live and not args.record, effector=args.effector,
                            driver="real" if args.real_driver else "sim")
     arm, phone, wrist = rig.arm, rig.phone, rig.wrist
     sim = arm.bus.fake.sim if args.real_driver else arm  # the film draws the sim's truth, whichever arm it drives

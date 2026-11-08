@@ -25,8 +25,8 @@ root, a fin or the panel, so a touch that disagrees with the scan's height by mo
 
 refine follows perceive.refine's contract with one RGB frame: from the step's approach pose it projects the
 believed part into the frame, outlines it with SAM from that box, casts the outline onto the touched plane at the
-part's height, and moves the part there. Camera and probe share the gripper, so joint calibration errors mostly
-cancel; the probe's red pad in the frame, against where forward kinematics puts it, takes out the camera mount's.
+part's height, and moves the part there. Camera and fingertip share the gripper, so joint calibration errors mostly
+cancel; the camera mount's error stays in.
 Only buttons and door pads are refined (see REFINED).
 """
 import math

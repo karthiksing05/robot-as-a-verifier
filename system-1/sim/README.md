@@ -40,7 +40,7 @@ There are four outcomes:
 - **MISSED:** the arm couldn't carry out the test properly. That's the robot's fault, not the device's.
 - **REFUSED:** the planner wouldn't try. Knobs are always refused, because turning one needs a pinch grip and the fingertip can only push.
 
-**How well it works.** These results are on the team's setup (the USB camera, servos as soft as the team's, and the SensX pad), end to end on 16 devices. That's preset C, a hand-designed demo device, plus 15 procedurally generated ones whose seeds (the numbers that generate them) were set aside and never used for tuning:
+**How well it works.** These results are on the team's earlier setup (the USB camera, servos as soft as the team's, and the old probe with its SensX pad), end to end on 16 devices. That's preset C, a hand-designed demo device, plus 15 procedurally generated ones whose seeds (the numbers that generate them) were set aside and never used for tuning:
 
 | Setup | Tests passed | Devices where every test passed |
 |---|---|---|
@@ -94,9 +94,9 @@ uv pip install --python .venv torch==2.10.0 torchvision==0.25.0 --index-url http
 Then run it. On Windows, `PYTHONUTF8=1` stops the console choking on symbols like ° and σ. On macOS and Linux, use `.venv/bin/python` instead.
 
 ```bash
-PYTHONUTF8=1 .venv/Scripts/python explore.py --slop --stiffness 18 --sensing tactile               # the team's setup, live viewer
+PYTHONUTF8=1 .venv/Scripts/python explore.py --slop --stiffness 18 --sensing current               # the real arm's setup, live viewer
 PYTHONUTF8=1 .venv/Scripts/python explore.py --headless --record runs/explore.mp4                  # a film, no window
-PYTHONUTF8=1 .venv/Scripts/python tools/bench.py runs/bench.jsonl slop18 1650 --sensing tactile    # one benchmark run
+PYTHONUTF8=1 .venv/Scripts/python tools/bench.py runs/bench.jsonl slop18 1650 --sensing current    # one benchmark run
 ```
 
 `tools/bench.py` takes an output file, an arm setup (`slop18` means soft servos at 18 N·m/rad; the others are listed in the script) and a device: a seed number, or `C` for preset C.
