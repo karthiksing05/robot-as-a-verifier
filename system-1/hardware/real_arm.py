@@ -50,6 +50,9 @@ SERVO_P = 160  # 140 and 120 still jittered on the scan (Nov 8)
 # and D: LeRobot writes D 32 (P 16) on every connect; with P 160 the arm oscillated holding its views (Nov 8), so
 # damped harder (130 P alone was the fallback)
 SERVO_D = 16  # half the servos' default 32, with P back at 160
+# the gripper's limits, over LeRobot's 500 / 250 / 25 (so_follower.configure), so jaws shut on a tube keep squeezing it
+GRIPPER_LIMITS = (("Max_Torque_Limit", 800), ("Protection_Current", 400), ("Overload_Torque", 80))
+GRIPPER_OVERDRIVE = 500  # ticks past the calibrated closed end the gripper may be driven
 # Servo stiffness the force estimate assumes (N.m/rad). The sim's 36 is fitted to a bench test at an unstated P gain,
 # and the stiffness at SERVO_P is unmeasured. On softer servos the estimate reads high and drifts with the pose (slides
 # miss, the cap trips with nothing touching); on stiffer ones it reads low and the cap trips late (sim/docs/real-arm.md,
@@ -209,6 +212,15 @@ class RealArm(rig.ArmBase):
             have = self.bus.sync_read(reg, ARM_JOINTS, normalize=False)
             if any(have[j] != want for j in ARM_JOINTS):  # torque is still off, as an EEPROM write needs
                 self.bus.sync_write(reg, dict.fromkeys(ARM_JOINTS, want), normalize=False)
+        # calibration put range_min in the gripper's own Min_Position_Limit, so it stopped at closed and a tube slipped
+        # out: the limit goes GRIPPER_OVERDRIVE past it, for a shut that keeps squeezing (real_skills.gripper below 0)
+        under = ("Min_Position_Limit", max(0, self.bus.calibration["gripper"].range_min - GRIPPER_OVERDRIVE))
+        for reg, want in (under, *GRIPPER_LIMITS):
+            try:
+                if self.bus.read(reg, "gripper", normalize=False) != want:
+                    self.bus.write(reg, "gripper", want, normalize=False)
+            except Exception as e:  # noqa: BLE001 - a grip a bit weak is no reason not to start
+                print(f"gripper {reg} not set: {type(e).__name__}: {e}", flush=True)
         self.goal = self.pos.copy()
         self.bus.sync_write("Goal_Position", dict(zip(ARM_JOINTS, self.goal.tolist())), normalize=False)
         self.bus.enable_torque(ARM_JOINTS)  # after the goal: a servo turned on runs to whatever goal it last had

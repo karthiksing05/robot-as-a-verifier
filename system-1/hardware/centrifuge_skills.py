@@ -39,9 +39,9 @@ OVER_FRONT, OVER_BEHIND, OVER_CLEAR, OVER_DOWN = 0.05, 0.012, 0.025, 0.006
 CLOSE_TO = 78.0                       # deg: drawn back to here, past vertical (manipulate.OVER_TO), then let go
 FALL_S = 3.0
 # the tube: jaws open around its 18 mm collar, down straight, shut, lift clear of the rack
-TUBE_GRIP_DOWN = 0.003                # the grip centre below the collar top: the middle of its 6 mm
+TUBE_GRIP_DOWN = -0.002               # the grip centre below the collar top found: at 3 mm it went too far down
 TUBE_OPEN = 0.2                       # 0.3 opened far wider than the red collar on the real arm (Nov 8)
-TUBE_SQUEEZE = -0.25                  # shut drives this far past closed, so the servo keeps squeezing through the lift
+TUBE_SQUEEZE = -0.25                  # shut drives ~380 ticks past closed (RealArm lowers the servo's limit for it)
 TUBE_CENTRE = 0.015                   # the collar's centre this far from the fixed jaw: half the real gap, not the model's
 TUBE_HELD_X = 0.012                   # held, the tube's axis this far from the fixed jaw's tip (3 mm to its face + 9)
 # the tool this far below level (deg), steepest first that reaches (manipulate.GRIP_TILTS): straight down only
