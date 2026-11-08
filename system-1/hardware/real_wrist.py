@@ -37,7 +37,7 @@ NOT_IT = ("integrated", "pixel", "obs", "virtual")  # the laptop's own camera, a
 SIZE = (1920, 1080)
 TIMEOUT_S = 8.0
 STILL_DIFF = 2.0  # grey levels, mean over a frame at 1/8 size: two frames in a row this close, and the camera has stopped
-STILL_S = 1.0     # waiting that long for it
+STILL_S = 2.0     # waiting that long for it: at 1 s about one photo a scan was taken still shaking, by 2.1-8
 
 
 class CameraError(RuntimeError):
