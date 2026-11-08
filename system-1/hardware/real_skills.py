@@ -17,7 +17,9 @@ GRIP_OPEN, GRIP_ABOVE = 0.2, 0.025  # 0.45 opened far wider than the 12 mm dial
 # the fixed jaw's tip: midway to the open moving jaw, about on the roll axis
 GRIP_FLOOR, GRIP_MID = 0.003, 0.010
 # the camera over the SPEED dial saw it this far uphill of the scan's position (the scan read it as a toggle's base)
-GRIP_UPHILL = 0.0067  # 10.7 came in high; the look's two corrections had come to about 4 mm
+# today's scans read SPEED 0.6-2.4 mm down the slope of the buttons' row it sits in (6.7, on the hardware session's,
+# came in 4.3 mm high and the grip landed above the knob)
+GRIP_UPHILL = 0.002
 GRIP_LOOKS = 4  # looks from above the knob before going down  # a knob grip: opening, jaw tips this far down its side, start above
 KNOB_GAP, KNOB_IN = 0.004, 0.001  # a knob turn comes down this far off its side, then presses this far into it
 FLIP_HOVER = 0.015  # above the push's start: 30 mm along the tilted axis was out of reach

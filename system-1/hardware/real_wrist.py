@@ -36,6 +36,8 @@ FFMPEG = os.environ.get("FFMPEG") or shutil.which("ffmpeg") or r"C:\ffmpeg\bin\f
 NOT_IT = ("integrated", "pixel", "obs", "virtual")  # the laptop's own camera, a phone's, virtual ones
 SIZE = (1920, 1080)
 TIMEOUT_S = 8.0
+STILL_DIFF = 2.0  # grey levels, mean over a frame at 1/8 size: two frames in a row this close, and the camera has stopped
+STILL_S = 1.0     # waiting that long for it
 
 
 class CameraError(RuntimeError):
@@ -154,18 +156,30 @@ class WristCamera:
         return _cv_pose(self.fk, self.cam) @ self.T_hand_eye
 
     def capture(self):
-        """The first frame that started after this call, undistorted, with the pose read at the call."""
-        T = self.believed_pose()
+        """The first frame that started after this call and matches the one before it (the arm has stopped shaking: it
+        shook on arriving at the scan's views), undistorted, with the pose read then. After STILL_S it takes the newest
+        frame and says so."""
         _, n0 = self.grab.read()
-        t0 = time.monotonic()
+        t0, seen, before = time.monotonic(), n0, None
         while True:  # the frame arriving next may have started before the call, so wait for the one after it
             bgr, n = self.grab.read()
-            if n >= n0 + 2:
-                break
+            if n != seen and n >= n0 + 2:
+                seen = n
+                small = cv2.cvtColor(cv2.resize(bgr, None, fx=0.125, fy=0.125), cv2.COLOR_BGR2GRAY).astype(np.float32)
+                diff = None if before is None else float(np.abs(small - before).mean())
+                if diff is not None and diff < STILL_DIFF:
+                    break
+                if diff is not None and time.monotonic() - t0 > STILL_S:
+                    print(f"WristCamera: still moving after {STILL_S:.0f} s (frames differ by {diff:.1f}): using the newest")
+                    break
+                before = small
             if time.monotonic() - t0 > TIMEOUT_S:
                 raise CameraError(f"'{self.grab.name}' stopped sending frames")
             time.sleep(0.002)
-        return Frame(cv2.remap(bgr, *self.maps, cv2.INTER_LINEAR), None, self.K, T, time.monotonic(), "wrist")
+        if hasattr(self.arm, "_read"):  # RealArm: the joints now, so the pose is the frame's
+            self.arm._read()
+        return Frame(cv2.remap(bgr, *self.maps, cv2.INTER_LINEAR), None, self.K, self.believed_pose(), time.monotonic(),
+                     "wrist")
 
     def close(self):
         self.grab.close()
