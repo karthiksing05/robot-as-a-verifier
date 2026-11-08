@@ -18,7 +18,8 @@ from .runlog import RunLog
 SYSTEM = ("You help a robot arm find the controls of an appliance on a desk in front of it, before it scans. The photo is "
           "from the arm's wrist camera. Coloured dots are 3D points the robot measured, grouped into flat surfaces, each "
           "outlined and numbered. The robot will next photograph one surface up close to find the controls.")
-ASK = ("Surfaces the robot measured (tilt from flat, points): {surfaces}. It would scan surface {picked}.\n\n{manual}"
+ASK = ("Surfaces the robot measured (tilt from flat, points): {surfaces}. The dots show which points belong to which "
+       "surface; outlines can overlap.\n\n{manual}"  # not System 1's pick: told it, the model agreed with it
        "Answer with JSON only:\n"
        '{{"panel": <the numbered surface that holds the controls, or null if none does>, '
        '"expect": [{{"name": "<each control, as the manual names it>", '
