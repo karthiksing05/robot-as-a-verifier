@@ -13,7 +13,8 @@ from pydantic import ValidationError
 from rav_contracts import Checkpoint, Decision, ExpectedControl, SurveyAnswer, System1
 
 from .commands import Responder, rule_responder
-from .model import Image, Message, ModelClient
+from .manual import Manual
+from .model import DEFAULT_MODEL, Image, Message, ModelClient, make_client
 from .runlog import RunLog
 
 SYSTEM = ("You help a robot arm find the controls of an appliance on a desk in front of it, before it scans. The photo is "
@@ -41,6 +42,11 @@ NAME_ASK = ("{manual}The ids in the photo: {ids}. For each id, say which control
             "that switch. Or say it isn't a control (a cable, a latch, the lid, the desk). Answer with JSON "
             'only: {{"<id>": {{"control": "<the manual\'s name, or null>", '
             '"kind": "<button|dial|knob|toggle|slider|display|none>", "why": "<a few words>"}}}}')
+
+
+def part_namer(system1: System1, log: RunLog, manual: Manual) -> Responder:
+    """The scan review as rav explore --review runs it, for a model run on the real arm: the default model names the parts."""
+    return survey_reviewer(system1, make_client(DEFAULT_MODEL, run=log.run_id), log, "\n\n".join(manual.pages))
 
 
 def survey_reviewer(system1: System1, client: ModelClient, log: RunLog, manual: str | None = None,

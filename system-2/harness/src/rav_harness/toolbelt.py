@@ -19,7 +19,7 @@ from rav_contracts import (DEVICE_CONTROL, Check, Checkpoint, Control, Decision,
 from . import checkback as cb
 from .amendments import APPROVE, classify
 from .client import ToolFailed
-from .commands import log_crossing, wait_for_stop
+from .commands import Responder, log_crossing, wait_for_stop
 from .loop import MAX_UNSIGNED_AMENDMENTS, Approver, Steering
 from .manual import Manual
 from .model import Image, ToolRequest, ToolSpec
@@ -87,9 +87,10 @@ def _control_view(c: Control) -> dict:
 class ToolBelt:
     def __init__(self, system1, request: TestRequest, log: RunLog, tracer: Tracer, approve: Approver, steering: Steering,
                  policy: EscalationPolicy, manual: Manual | None = None, ask: Ask | None = None, on_state: Callable[[str, str], None] | None = None,
-                 wake_on_checkpoint: bool = False):
+                 wake_on_checkpoint: bool = False, review: Responder | None = None):
         self.system1, self.request, self.log, self.tracer, self.approve, self.steering = system1, request, log, tracer, approve, steering
         self.policy, self.manual, self.ask, self.wake_on_checkpoint = policy, manual, ask, wake_on_checkpoint
+        self.review = review  # survey.survey_reviewer: with it, each look holds after its scan for the parts to be named from the manual
         self.on_state = on_state or (lambda state, detail: None)
         self.status: SystemStatus = system1.system_status()
         self.scene: SceneInventory | None = None
@@ -316,7 +317,8 @@ class ToolBelt:
         if self.changes_since_look and self.first_state is not None:
             self.closing_tried = True
             self.checkback["closing_looks"] += 1
-        self.handle = self._inner("routine_start", {"routine": "explore"}, lambda: self.system1.routine_start("explore", policy=self.policy))
+        policy = self.policy.model_copy(update={"review_scan": True}) if self.review else self.policy
+        self.handle = self._inner("routine_start", {"routine": "explore"}, lambda: self.system1.routine_start("explore", policy=policy))
         view = self._wait()
         if view["status"] == "completed":
             report = self.system1.scene_get()
@@ -355,6 +357,15 @@ class ToolBelt:
             return (f"The device isn't as the first look found it: {'; '.join(diffs[:12])}. Return it to its starting state with a plan "
                     "(and check it back), then look again; or call finish_run again and say in the summary why it stays this way.")
         return None
+
+    def adopt_held_scene(self) -> bool:
+        """The scene System 1 holds from its last scan, as this run's first look, so a real arm needn't scan again."""
+        held = self.system1.scene_get()
+        if held.scene is None or not held.scene.controls:
+            return False
+        self._adopt_scene(held.scene, held.fallback_plan)
+        self.first_state = self._scene_state()
+        return True
 
     def tool_look_at_device(self) -> dict:
         self._guard_idle("looking again")
@@ -458,7 +469,7 @@ class ToolBelt:
             self.log.emit("plan_amended", {"level": level, "by": None, "steps": [s.id for s in parsed], "why": why})
         self._accept(parsed, requires)
         self.ready = plan
-        self.close_ready = bool(close_with_look or restore)
+        self.close_ready = bool(close_with_look or restore) and self.check_back  # off, a closing look is only another scan
         if restore:  # one call: the steps run now, and the closing look follows them
             view = self.tool_run_plan()
             return {"approved": True, "plan_id": plan.plan_id, **view}
@@ -637,6 +648,9 @@ class ToolBelt:
             if stop.status != "paused":
                 self.handle, self.holding = None, False
                 break
+            if self.review and stop.escalation and stop.escalation.code in ("survey_review", "scan_review"):
+                self.system1.routine_resume(self.handle.routine_id, self.review(stop))
+                continue
             self.holding = True
             newly_suspect = self.suspect and not was_suspect
             judged_failure = any(r["status"] == "failed" for r in results)

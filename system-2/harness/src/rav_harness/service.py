@@ -29,11 +29,13 @@ from pydantic import ValidationError
 from rav_contracts import RunEvent, SteerCommand, TestRequest
 
 from .agent import AgentConfig, run_agent, sim_auto_approve
+from .client import McpSystem1
 from .launch import Device, System1Process, reap_stale_servers, stop_servers_on_exit
-from .loop import Steering, run_test, auto_approve
+from .loop import Steering, run_test, auto_approve, robot_may_auto_approve
 from .manual import Manual
 from .model import DEFAULT_MODEL, MODELS, LedgeredClient, REPO, ModelError, default_fallback, make_client
 from .runlog import RunLog, read_events
+from .survey import part_namer
 
 SYSTEM_2 = REPO / "system-2"
 ORIGINS = {"http://127.0.0.1:5173", "http://localhost:5173"}
@@ -193,7 +195,15 @@ class Hub:
         return None
 
 
-def run_once(hub: Hub, body: dict, runs_root: pathlib.Path, make=make_client, config: AgentConfig | None = None) -> None:
+@dataclasses.dataclass
+class Attached:
+    """A System 1 someone already started, such as the real arm's. Runs use it as it is and never stop it."""
+    url: str
+    telemetry: str | None = None
+    reuse_scan: bool = False  # start each run from the scene it holds
+
+
+def run_once(hub: Hub, body: dict, runs_root: pathlib.Path, make=make_client, config: AgentConfig | None = None, attach: Attached | None = None) -> None:
     project = project_of(body.get("project"))
     device_body = {**(project.get("sim") or {}), **(body.get("device") or {})}
     device = Device.from_request({**body, "device": device_body})
@@ -204,17 +214,20 @@ def run_once(hub: Hub, body: dict, runs_root: pathlib.Path, make=make_client, co
     run_id = f"agent-{name}-{time.strftime('%H%M%S')}".translate(RUN_ID_SAFE)
     hub.run_id, hub.model = run_id, model
     log = RunLog(run_id, runs_root, on_event=lambda e: hub.publish("run", e.model_dump(mode="json")))
-    process = System1Process(device, log.dir, run_id, record=device.robot != "mock")
-    product = project.get("products", [None])[0] or project.get("name") or "Device under test"
+    process = None if attach else System1Process(device, log.dir, run_id, record=device.robot != "mock")
+    product = (project.get("name") if attach else None) or project.get("products", [None])[0] or project.get("name") or "Device under test"
     hub.publish("meta", {"run_id": run_id, "product": product, "stages": STAGES, "route": device.route, "model": model, "project": project.get("id"),
-                         "telemetry": process.telemetry_url})
+                         "telemetry": attach.telemetry if attach else process.telemetry_url})
     # The request holds what the record needs. Anything planted stays in the answer key, so it can't reach a prompt.
     request = TestRequest(request_id=run_id, product=product, project=project.get("id"), instruction=project.get("instruction") or TestRequest.model_fields["instruction"].default,
                           revision=device.rev or "A")
     system1 = None
     try:
-        system1 = process.start()
+        system1 = McpSystem1(attach.url) if attach else process.start()
         hub.system1 = system1
+        real = not robot_may_auto_approve(system1.system_status().robot)
+        if real:  # as rav agent on a real arm: the operator's answers are the readout, so there's nothing to check back on
+            config = dataclasses.replace(config, check_back=False)
         auto = bool(body.get("auto_approve"))
         if model == "rules":
             run_test(system1, request, log, approve=auto_approve if auto else hub.person_approves, steering=hub.steering, wait=lambda: time.sleep(0.2))
@@ -227,8 +240,10 @@ def run_once(hub: Hub, body: dict, runs_root: pathlib.Path, make=make_client, co
             hub.publish("delta", delta, keep=False)
         client = LedgeredClient(make(model, fallback=fallback, **({"effort": body["effort"]} if body.get("effort") else {}),
                                      on_switch=lambda gone, why: log.emit("message", {"role": "harness", "text": f"switching model: {gone}: {why}"})), None, run_id)
+        manual = manual_of(project)
         run_agent(system1, request, log, client, approve=sim_auto_approve if auto else hub.person_approves, steering=hub.steering,
-                  wait=lambda: time.sleep(0.2), config=config, manual=manual_of(project), ask=None if auto else hub.operator_answers, on_delta=on_delta)
+                  wait=lambda: time.sleep(0.2), config=config, manual=manual, ask=None if auto else hub.operator_answers, on_delta=on_delta,
+                  review=part_namer(system1, log, manual) if real and manual else None, reuse_scan=bool(attach and attach.reuse_scan))
     except Exception as e:  # noqa: BLE001 - shown on the run, whatever it was
         traceback.print_exc()
         log.emit("message", {"role": "harness", "text": f"the run failed: {type(e).__name__}: {e}"})
@@ -240,7 +255,8 @@ def run_once(hub: Hub, body: dict, runs_root: pathlib.Path, make=make_client, co
                 system1.close()
             except Exception:  # noqa: BLE001, S110 - it's on its way down anyway
                 pass
-        process.stop()  # SIGTERM, so the recorder finishes cameras.mp4 and timeline.json
+        if process:
+            process.stop()  # SIGTERM, so the recorder finishes cameras.mp4 and timeline.json
         merge_timeline(log, product)
 
 
@@ -346,8 +362,9 @@ def build_handler(hub: Hub, start: Callable[[dict], str | None]):
 
 
 class Service:
-    def __init__(self, runs_root: str | pathlib.Path = SYSTEM_2 / "runs", port: int = 8790, make=make_client, config: AgentConfig | None = None):
-        self.hub, self.runs_root, self.make, self.config = Hub(), pathlib.Path(runs_root), make, config
+    def __init__(self, runs_root: str | pathlib.Path = SYSTEM_2 / "runs", port: int = 8790, make=make_client, config: AgentConfig | None = None,
+                 attach: Attached | None = None):
+        self.hub, self.runs_root, self.make, self.config, self.attach = Hub(), pathlib.Path(runs_root), make, config, attach
         self.server = ThreadingHTTPServer(("127.0.0.1", port), build_handler(self.hub, self.start))
         self.server.daemon_threads = True
         self.port = self.server.server_address[1]
@@ -364,7 +381,7 @@ class Service:
 
         def work() -> None:
             try:
-                run_once(hub, body, self.runs_root, self.make, self.config)
+                run_once(hub, body, self.runs_root, self.make, self.config, self.attach)
             except (ValueError, ModelError) as e:
                 hub.publish("run", RunEvent(seq=0, t=0, run_id=hub.run_id or "", type="message",
                                             payload={"role": "harness", "text": str(e)}).model_dump(mode="json"))
