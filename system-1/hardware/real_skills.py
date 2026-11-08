@@ -30,7 +30,7 @@ FLIP_HOVER = 0.015  # above the push's start: 30 mm along the tilted axis was ou
 FLIP_BEHIND, FLIP_ON = 0.015, 0.003  # 6 mm back still came down on the lever tip (held 11 mm up)
 # pushing up the slope (OFF to ON): 3 mm on, then 10, left the real POWER lever short of going over, and the jaw came
 # down low enough to catch on the lip below the switch: the push runs FLIP_UP_LIFT higher off the panel
-FLIP_ON_UP, FLIP_UP_LIFT = 0.015, 0.004
+FLIP_ON_UP, FLIP_UP_LIFT = 0.025, 0.004  # 15 mm on still left POWER short of going over in the demo run (Nov 8)
 # the push starts this high over the panel (up, down), whatever height the scan put the switch's base at: from a base
 # read 14.9 mm up, 21 and 17 mm flipped 4 of 4; from one read 0.8 mm up the push ran 7 mm up and caught the lips
 FLIP_PUSH_H = (0.021, 0.017)
@@ -118,9 +118,17 @@ def gripper(arm, frac, hold_s=0.6):
     """Gripper to frac of its calibrated range (0 closed, 1 open), holding the arm still while it moves. Below 0 drives
     past closed, so jaws shut on something keep squeezing it."""
     cal = arm.bus.calibration["gripper"]
-    if frac < 0:  # closed first: if the servo's limit wasn't lowered (RealArm.enable), it ignores a goal past it
-        arm.bus.sync_write("Goal_Position", {"gripper": cal.range_min}, normalize=False)
-    arm.bus.sync_write("Goal_Position", {"gripper": max(0, int(cal.range_min + frac * (cal.range_max - cal.range_min)))},
+    goal = max(0, int(cal.range_min + frac * (cal.range_max - cal.range_min)))
+    if frac < 0:  # never past the limit the servo holds: a goal outside it was ignored and the jaws stayed open (Nov 8)
+        try:
+            goal = max(goal, arm.bus.read("Min_Position_Limit", "gripper", normalize=False))
+        except Exception:  # noqa: BLE001
+            goal = cal.range_min
+    try:  # torque back on, in case an overload switched it off
+        arm.bus.enable_torque(["gripper"])
+    except Exception:  # noqa: BLE001
+        pass
+    arm.bus.sync_write("Goal_Position", {"gripper": goal},
                        normalize=False)
     for _ in range(int(hold_s * CONTROL_HZ)):
         arm.send(arm.cmd)

@@ -110,7 +110,7 @@ def find(arm, wrist, colour="green"):
         q = np.clip(arm.home_q + dq, arm.ik.lo, arm.ik.hi)
         views.append(dict(q=q, T=perceive._camera_pose(arm, fk, cam, q), ok=True, why=""))
     skills.go_home(arm)
-    caps = rgbperceive.scan(arm, wrist, views)  # ends at home
+    caps = rgbperceive.scan(arm, wrist, views, home=False)  # stays at the last view: the pick goes on from there
     frames = [c.frame for c in caps]
     x, spread, why = locate(frames, colour)
     _save(frames, colour, x)

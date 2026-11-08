@@ -276,7 +276,7 @@ def _settle(arm, q, site):
         arm.tick()
 
 
-def scan(arm, wrist, views, on_frame=None, first=0):
+def scan(arm, wrist, views, on_frame=None, first=0, home=True):
     """Visit each reachable view from views[first], settle, capture, then capture again PARTNER_SHIFT along the
     camera's y. Returns the captures."""
     site = arm.m.site("wrist_cam").id
@@ -298,7 +298,8 @@ def scan(arm, wrist, views, on_frame=None, first=0):
             _progress("capture", frame=caps[-1].frame, view=k, views=len(views))
             if on_frame:
                 on_frame(caps[-1].frame, None)
-    skills.go_home(arm)
+    if home:
+        skills.go_home(arm)
     return caps
 
 

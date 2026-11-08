@@ -38,8 +38,8 @@ OVER_TILT = math.radians(20)  # manipulate's 45 put the tool over the real lid's
 # the real lid's first close stopped 10 mm short above its edge (Nov 8): deeper, and a little further behind it
 OVER_FRONT, OVER_BEHIND, OVER_CLEAR, OVER_DOWN = 0.05, 0.018, 0.025, 0.016
 SAFE_BACK, SAFE_UP = 0.06, 0.03  # a close starts from here, nearer the arm and higher, clear of the open lid
-CLOSE_TO = 78.0                       # deg: drawn back to here, past vertical (manipulate.OVER_TO), then let go
-FALL_S = 3.0
+CLOSE_TO = 50.0                       # deg: drawn back to here, then let go: at 78 the real lid didn't fall shut (Nov 8)
+FALL_S = 1.5
 # the tube: jaws open around its 18 mm collar, down straight, shut, lift clear of the rack
 TUBE_GRIP_DOWN = -0.002               # the grip centre below the collar top found: at 3 mm it went too far down
 TUBE_OPEN = 0.2                       # 0.3 opened far wider than the red collar on the real arm (Nov 8)
@@ -54,7 +54,7 @@ PAN_XY = np.array([0.0388, 0.0])      # the pan axis, arm frame (manipulate.PAN_
 ABOVE = 0.05                          # a pick starts this far over its grip
 LIFT = 0.12                           # and lifts this far: at 70 mm the 55 mm tube hit the rack going home (Nov 8)
 PLACE_ABOVE = 0.09                    # a place starts this far over the seat (tube bottom ~40 mm over the rim), and lowers until the arm stalls; 120 was out of reach
-SPEED, ARC_SPEED, GUARD_SPEED = 0.03, 0.02, 0.015  # m/s
+SPEED, ARC_SPEED, GUARD_SPEED = 0.06, 0.04, 0.025  # m/s: twice the first guesses, which were slow for the demo
 GUARD_N = 5.0                         # with no stall sensing (the sim bus), a guarded move stops at this
 STEP_M, STEP_DEG = 0.005, 3.0         # poses checked for reach every this far
 AXIS_TOL = 15.0                       # deg: the IK may point the tool this far off what a pose asks
