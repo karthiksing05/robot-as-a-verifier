@@ -303,6 +303,11 @@ class RealArm(rig.ArmBase):
             self._io()
 
 
+# motions a step makes before its test motion: the device can't have changed yet, so OperatorReadout doesn't ask (it
+# asked after the last look, before the press, and the step waited on the answer)
+BEFORE_TEST = (": approach", ": refine", ": roll the wrist", ": open the jaws")
+
+
 class OperatorReadout:
     """The device's readout from a person watching it, until a camera or a wire can read the device. It has what verdicts
     read on device.DeviceMCU: readings ({channel: value}), events ([(time, channel, value)]) and lcd (None here).
@@ -325,7 +330,8 @@ class OperatorReadout:
 
     @property
     def events(self):
-        if self._seen is not None and not np.array_equal(self._seen, self.arm.cmd) and ":" in self.arm.status:
+        if (self._seen is not None and not np.array_equal(self._seen, self.arm.cmd) and ":" in self.arm.status
+                and not self.arm.status.endswith(BEFORE_TEST)):
             self._question()
         self._seen = self.arm.cmd.copy()
         return self._events
