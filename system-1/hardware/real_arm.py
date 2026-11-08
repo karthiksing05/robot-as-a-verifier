@@ -105,9 +105,11 @@ class RealArm(rig.ArmBase):
     # each photo's pose comes from the joint readings, so a view needn't be met to 0.5 mm: re-commanding to that took
     # ~3 s a photo on this stick-slip arm
     view_tol = 0.01
-    # the middle row only: one 14 cm view nearly covers a panel. Five views 25 mm apart in one pass put the centrifuge's
-    # buttons 10 mm high (z 91 against 82 from these views, and 80 in its CAD), and the 9 mm press stopped short
-    view_looks = [(0.0, -0.05), (0.0, 0.0), (0.0, 0.05)]
+    # the middle row, five views 25 mm apart: a view sees the panel clear of the gripper from 30 mm to one side of its
+    # middle to 56 mm to the other, so with three 50 mm apart only one of the end controls (POWER, SPEED at +-50 mm) had
+    # two views, which a height needs, and scans found one or the other. Five once put the buttons 10 mm high, but that
+    # scan's panel was stretched 36 mm off its middle (perceive.PANEL_GROUP fixed that since)
+    view_looks = [(0.0, d) for d in (-0.05, -0.025, 0.0, 0.025, 0.05)]
     tip_clear = 0.02  # the jaw tip may come this close to the panel in a scan view: at 30 mm the views at one end failed by 1-3 mm
     # wrist_roll at home, so views and presses start from it: -90 deg puts the camera on top of the gripper, centred,
     # instead of 7 cm to its side (same views in reach); the gripper then sits along the bottom of the picture
