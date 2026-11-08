@@ -29,6 +29,9 @@ COLOURS = {"green": [((70, 90, 50), (100, 255, 255))],
            # the red collar reads hue 170-175; the rack flap's orange tape 2-4 at lower saturation, and hue 0-8 took it
            "red": [((160, 110, 50), (180, 255, 255))]}
 MIN_PX = 400               # at 1920 wide: a collar from 20 cm is 2000+
+# the red collar's top on the rack read 52-57 mm up in every good search; with the rack at the photos' edge the rays met
+# at a shallow angle and put it 36 mm up and 25 mm too far out (Nov 8): the rays only say where across the table
+COLLAR_Z = 0.055
 Z_RANGE = (0.02, 0.15)   # m above the arm's base: where a collar on a rack on the table can be
 INLIER = 0.006           # m: a photo agrees with a point when its blob's ray passes this close
 MAX_SPREAD = 0.006         # m: the rays must pass this close to the point they give, on average
@@ -95,6 +98,10 @@ def locate(frames, colour):
     if best is None or len(best) < 3:
         return None, None, f"no point {Z_RANGE[0] * 1000:.0f}-{Z_RANGE[1] * 1000:.0f} mm up that 3 photos' {colour} blobs agree on"
     x, spread = nearest([r[:2] for r in best])
+    if COLLAR_Z is not None:  # depth along the rays is the weak part: put the point on the collar's known height
+        pts = [o + (COLLAR_Z - o[2]) / d[2] * d for o, d, _ in best if abs(d[2]) > 0.2]
+        if pts:
+            x = np.r_[np.mean([q[:2] for q in pts], axis=0), COLLAR_Z]
     if spread > MAX_SPREAD:
         return None, None, f"the {colour} collar's rays spread {spread * 1000:.0f} mm over {len(best)} photos"
     return x, spread, ""

@@ -53,7 +53,7 @@ TUBE_TILTS = (90, 75, 60, 50)
 PAN_XY = np.array([0.0388, 0.0])      # the pan axis, arm frame (manipulate.PAN_XY)
 ABOVE = 0.05                          # a pick starts this far over its grip
 LIFT = 0.12                           # and lifts this far: at 70 mm the 55 mm tube hit the rack going home (Nov 8)
-PLACE_ABOVE = 0.09                    # a place starts this far over the seat (tube bottom ~40 mm over the rim), and lowers until the arm stalls; 120 was out of reach
+PLACE_ABOVE = 0.08                    # a place starts this far over the seat (tube bottom ~30 mm over the rim), and lowers until the arm stalls; 90 was 8 mm out of reach (Nov 8)
 SPEED, ARC_SPEED, GUARD_SPEED = 0.06, 0.04, 0.025  # m/s: twice the first guesses, which were slow for the demo
 GUARD_N = 5.0                         # with no stall sensing (the sim bus), a guarded move stops at this
 STEP_M, STEP_DEG = 0.005, 3.0         # poses checked for reach every this far
@@ -300,7 +300,7 @@ def place_tube(arm, seat):
                 _line("back", tip + PLACE_UP * up, tip + PLACE_UP * up - PLACE_BACK * _toward(tip), a),
                 ("shut the jaws", 0.0)], q
     held = getattr(arm, "tube_tilt", None)  # the pick's tilt, so the tube goes in as upright as it came out
-    _, met = _run(arm, label, *_tube_legs(arm, label, build, (held,) if held else TUBE_TILTS))
+    _, met = _run(arm, label, *_tube_legs(arm, label, build, (held, *(t for t in TUBE_TILTS if t != held)) if held else TUBE_TILTS))
     short = PLACE_ABOVE - met["lower"] if "lower" in met else 0.0
     return {"verdict": "done", "reason": f"let go {short * 1000:.1f} mm above the seat" if short > 0.001
             else "let go at the seat", "short_mm": round(short * 1000, 1)}
