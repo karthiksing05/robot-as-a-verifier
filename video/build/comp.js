@@ -15,7 +15,10 @@ function el(tag, cls, html, parent, style = "") { const n = document.createEleme
 const show = (n, o, dy = 0) => { n.style.opacity = o; n.style.transform = `translateY(${(1 - o) * dy}px)`; };
 
 let WORDS = [], CAPS = [], LAY = null, CLIPS = {}, DUR = 165;
-const CUT = 12.6; // the hard cut from the real board to the drawn one
+// The take ends on its own push-in to RAAV (untransformed by then). The drawn slate fades in under it while his
+// handwritten RAAV, cut out of that very frame (raav_hand.png, footage.py RAAV_AT), stays put; then RAAV rises.
+const FADE = [14.1, 15.0], RISE = [15.1, 16.4];
+const HAND = { x: 475, y: 275, w: 1040, h: 440 };
 const norm = (w) => w.replace(/[^\w-]/g, "").toLowerCase();
 function T(word, after = 0) {
   const w = WORDS.find((x) => x.s >= after - 0.01 && norm(x.w).startsWith(word.toLowerCase()));
@@ -64,8 +67,8 @@ function buildChalk() {
 
   const s2 = T("this");
   // RAAV, where the take left it
-  X("RAAV", 990, 300, 11.0, 0.01, { size: 210, head: true, anchor: "middle" });
-  SC.raav = svg("g", {}, $("ink")); SC.raav.appendChild(EL[EL.length - 1].node);
+  SC.raav = svg("g", {}, $("board"));
+  svg("image", { href: "raav_hand.png", x: HAND.x, y: HAND.y, width: HAND.w, height: HAND.h }, SC.raav);
   // a prototype (the centrifuge, roughly)
   const pr = T("prototype");
   P(rectP(170, 520, 300, 190), pr - 0.1, 0.35); P(poly([170, 520], [240, 460], [540, 460], [470, 520]), pr + 0.2, 0.25); P(poly([540, 460], [540, 650], [470, 710]), pr + 0.4, 0.2);
@@ -147,6 +150,9 @@ function seekChalk(t, turn) {
   const lift = ramp(t, turn, turn + 1.4);
   $("ink").setAttribute("opacity", 1 - lift * 0.95);
   $("ink").setAttribute("transform", `translate(0 ${-lift * 40})`);
+  const k = eio(ramp(t, RISE[0], RISE[1])), cx = HAND.x + HAND.w / 2, cy = HAND.y + HAND.h / 2;
+  SC.raav.setAttribute("opacity", 1 - lift * 0.95);
+  SC.raav.setAttribute("transform", `translate(${lerp(cx, 990, k)} ${lerp(cy, 215, k) - lift * 40}) scale(${lerp(1, 0.55, k)}) translate(${-cx} ${-cy})`);
   const tip = pointAt(t);
   const armIn = ramp(t, T("this") - 0.2, T("this") + 0.6);
   armShape($("armchalk"), tip, "chalk", armIn * (1 - ramp(t, turn + 0.3, turn + 0.9)));
@@ -357,17 +363,17 @@ window.seek = async function (t) {
     if (clip.startsWith("tour/")) cam = camAt(t);
     if (clip === "intro") {
       // centered on the question mark, then following the take's own push-in to RAAV
-      const k = eio(ramp(t, 10.25, 13.0));
+      const k = eio(ramp(t, 11.6, 13.8)); // identity by the hold, so the cutout lines up
       z = [lerp(1.45, 1.0, k), lerp(1130, 980, k), lerp(430, 480, k)];
     }
     const f = frozen ? 1 : 0;
     await setFrame(frameOf(clip, sec), `saturate(${1 - 0.6 * f}) brightness(${(1 - 0.3 * f) * popDim(t)})`, z, cam);
     if (cam) drawCursor(t, cam);
   } else await setFrame(null);
-  if (seg?.[2] === "intro" && t >= CUT) await setFrame(null);
+  $("footage").style.opacity = seg?.[2] === "intro" ? 1 - ramp(t, FADE[0], FADE[1]) : 1;
   $("tag").style.display = seg && /^clean_3d|^wrist/.test(seg[2]) ? "block" : "none";
   // chalk, from the take's end until the turn
-  const chalkO = (t >= CUT ? 1 : 0) * (1 - ramp(t, turn + 0.6, turn + 1.6));
+  const chalkO = (t >= FADE[0] ? 1 : 0) * (1 - ramp(t, turn + 0.6, turn + 1.6));
   $("chalklayer").style.opacity = chalkO;
   if (chalkO > 0) seekChalk(t, turn);
   $("tech").style.opacity = ramp(t, turn + 0.4, turn + 1.4);

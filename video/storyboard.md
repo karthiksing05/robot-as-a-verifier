@@ -15,10 +15,11 @@
 |---|---|---|---|---|
 | 1 | 0:00–0:06 | The take, cropped to center the board's question mark: Karthik erases the buzzwords | — | `intro.MOV` 0–10.5 s at 1.75× |
 | 2 | 0:06–0:10 | Same crop: he writes RAAV over the question mark | — | `intro.MOV` 10.5–19 s at 2× |
-| 3 | 0:10–0:12 | The camera's own push-in on RAAV, held, then a dissolve into the drawn chalkboard with RAAV in the same place | — | `intro.MOV` 21–25 s at 2× |
-| 4 | 0:12–0:24 | Chalkboard: RAAV at the top. A prototype box, a manual, the chalk arm, a report, joined by arrows. The arm points at each as it's named | `MC-6 centrifuge · Rev A`, `manual.md`, `SO-101 · $19 wrist camera`, `findings · coverage · reward` | Drawn |
-| 5 | 0:24–0:29 | On "never seen": the board's lines lift as dust and the slate darkens into the Console's grid; the chalk arm becomes the rendered arm, which becomes the first footage | `no device names in prompts or harness code` | Transition |
-| 6 | 0:29–0:45 | Footage: survey, scan, segment, map, touch, with the step rail lit along the top. Freeze on the wrist camera at the failed scan, then on the rerun | Rail: `survey · scan · segment · map · touch · plan · test · verdicts · report · CAD fix · Rev B` | Rev A run, `clean_3d`, `wrist` |
+| 3 | 0:10–0:12 | Same crop: he walks out of frame | — | `intro.MOV` 19–21 s |
+| 4 | 0:12–0:15 | The camera's own push-in on RAAV, the crop easing out to the full frame, then held. The real board fades to the drawn slate while his handwritten RAAV stays exactly where it is (a cutout from that frame, `build/raav_hand.png`), then rises to the top | — | `intro.MOV` 21–25.2 s, held |
+| 4b | 0:15–0:28 | Chalkboard: his RAAV at the top. A prototype box, a manual, the chalk arm, a report, joined by arrows. The arm points at each as it's named | `MC-6 centrifuge · Rev A`, `manual.md`, `SO-101 · $19 wrist camera`, `findings · coverage · reward` | Drawn |
+| 5 | 0:28–0:31 | On "never seen": the board's lines lift as dust and the slate darkens into the Console's grid; the chalk arm becomes the rendered arm, which becomes the first footage | `no device names in prompts or harness code` | Transition |
+| 6 | 0:31–0:45 | Footage: survey, scan, segment, map, touch, with the step rail lit along the top. Freeze on the wrist camera at the failed scan, then on the rerun | Rail: `survey · scan · segment · map · touch · plan · test · verdicts · report · CAD fix · Rev B` | Rev A run, `clean_3d`, `wrist` |
 | 7 | 0:45–0:52 | The Console's approval card, zoomed; Karthik clicks Approve | `plan check refused plan-0 · model fixed it` | `ui_plan_approval` |
 | 8 | 0:52–1:00 | The test at 1x: presses, flips, the dial | `cap 15 N · steps ask ≤ 14 N`, `retries: 0 / 2 / 4` | `clean_3d_test_1x` |
 | 9 | 1:00–1:07 | Freeze at step s1 | S1: `lcd “1000rpm  0:30” ≠ “1000 RPM 0:30”`; S2: `plan amended · level 0, set by code` | Rev A run, step s1 |
