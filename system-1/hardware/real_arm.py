@@ -76,7 +76,7 @@ def make_bus(port, calibration):
 
 class RealArm(rig.ArmBase):
     """Connects with torque off on every motor, after checking the motors hold the calibration in the file (homing
-    offsets and limits). enable(confirm=True) turns torque on for the five arm joints; the gripper is never driven.
+    offsets and limits). enable(confirm=True) turns torque on for the five arm joints, and holds the gripper where it is.
 
     tick() writes the goal for cmd, waits for the tick's end, then reads every joint once (so read_q() and tip_pose()
     between ticks give the last reading, as on the sim). d.time counts ticks, 1 / CONTROL_HZ each. With pace=False
@@ -159,6 +159,11 @@ class RealArm(rig.ArmBase):
         self.goal = self.pos.copy()
         self.bus.sync_write("Goal_Position", dict(zip(ARM_JOINTS, self.goal.tolist())), normalize=False)
         self.bus.enable_torque(ARM_JOINTS)  # after the goal: a servo turned on runs to whatever goal it last had
+        # The gripper holds where it is (closed by hand before), at LeRobot's soft gripper gain and torque limit, so the
+        # loose jaw can't hang below the fingertip
+        self.bus.write("Goal_Position", "gripper", self.bus.read("Present_Position", "gripper", normalize=False),
+                       normalize=False)
+        self.bus.enable_torque("gripper")
         self.torque = True
         self._io()
 
