@@ -50,6 +50,9 @@ def make_rig(arm_port, calibration, app=None, pad=None, readout_port=None):
         # panel's: the views missed half the panel and the extra pass photographed the laptop beside it
         perceive.PANEL_GROUP = 0.01
         perceive.RULES["toggle"].update(plateau=(0.006, 0.016), area=(50e-6, 400e-6))
+        # the real SPEED knob's top reads 12 mm across and 15 mm tall, under the sim knob's 18 mm; and a 34 mm "knob"
+        # 13 mm tall was the lid's latch
+        perceive.RULES["knob"].update(diam=(0.010, 0.020))
     except BaseException:
         arm.close()  # no readout or no camera: let the serial ports go
         raise
