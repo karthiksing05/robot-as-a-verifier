@@ -58,3 +58,12 @@ class Mc6CalibrationTests(unittest.TestCase):
         event = {"saved": 1, "tube_required": 1,
                  "lid": {"clear": 700, "shaded": 650, "lo": 670, "hi": 680}}
         validate_result(event, lid_only=True)
+
+    def test_explicit_both_requires_valid_tube_even_when_interlock_is_disabled(self):
+        event = {"saved": 1, "tube_required": 0, "tube_saved": 1,
+                 "lid": {"clear": 730, "shaded": 670, "lo": 694, "hi": 706},
+                 "tube": {"clear": 710, "shaded": 650, "lo": 674, "hi": 686}}
+        validate_result(event, both=True)
+        event["tube"]["lo"] = 650
+        with self.assertRaises(ValueError):
+            validate_result(event, both=True)

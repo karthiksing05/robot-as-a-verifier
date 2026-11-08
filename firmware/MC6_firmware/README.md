@@ -45,6 +45,14 @@ The saved hardware calibration measured **open 763 / closed 561**, with cutoffs 
 
 To use A1 later, set `requireTubePresent = true`, rebuild/upload and rerun the tool. It will then request OPEN/EMPTY, CLOSED/EMPTY and TUBE INSERTED/LID CLOSED. The empty and loaded tube readings are compared with the lid shut under steady white light. Both sensors must pass contrast/noise checks; a lid-only saved record cannot satisfy the re-enabled tube requirement.
 
+To calibrate both sensors in one pass, upload the current MC-6 firmware and run this from `firmware/` with the serial monitor closed:
+
+```powershell
+python tools/calibrate_mc6_sensors.py COM7 --both
+```
+
+Replace `COM7` with the centrifuge port. Press START at each prompt with the lid open and well empty, then with the lid closed and well empty, then with the lid closed and tube inserted. Wait for each measurement to finish. The script verifies the EEPROM save and records both thresholds in `.pio/mc6-both-calibration.json`. The interlock settings stay as configured.
+
 To calibrate A1 on its own, first complete lid calibration, then run this from `firmware/` with the serial monitor closed:
 
 ```powershell

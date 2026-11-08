@@ -73,8 +73,12 @@ struct Light {
 };
 
 enum CalStage : uint8_t { CAL_IDLE, CAL_BOOT, WAIT_OPEN, READ_OPEN, WAIT_CLOSED, READ_CLOSED, WAIT_TUBE, READ_TUBE };
-enum CalibrationMode : uint8_t { CAL_DEFAULT, CAL_LID_ONLY, CAL_TUBE_ONLY };
+enum CalibrationMode : uint8_t { CAL_DEFAULT, CAL_LID_ONLY, CAL_TUBE_ONLY, CAL_BOTH };
 CalibrationMode calibrationMode = CAL_DEFAULT;
+bool calibrationMeasuresTube() {
+  return calibrationMode == CAL_BOTH || calibrationMode == CAL_TUBE_ONLY ||
+      (calibrationMode == CAL_DEFAULT && requireTubePresent);
+}
 struct CalRecord {
   uint16_t magic;
   uint8_t version, flags;
@@ -328,7 +332,7 @@ void render(uint32_t now) {
   char first[17] = {}, second[17] = {};
   if (buttonTest) { copyText(first, F("BUTTON TEST")); copyText(second, F("FOLLOW PC PROMPT")); }
   else if (calibrating) {
-    const bool measureTube = calibrationMode == CAL_TUBE_ONLY || (calibrationMode == CAL_DEFAULT && requireTubePresent);
+    const bool measureTube = calibrationMeasuresTube();
     copyText(first, calFailed ? F("CAL FAILED") : calStage == WAIT_CLOSED ? (measureTube ? F("CLOSE LID/EMPTY") : F("CLOSE LID")) :
         calStage == WAIT_TUBE ? F("TUBE IN/LID SHUT") : calStage == WAIT_OPEN || calStage == CAL_BOOT ? (measureTube ? F("OPEN LID/EMPTY") : F("OPEN LID")) : F("MEASURING"));
     if (calStage == WAIT_OPEN || calStage == WAIT_CLOSED || calStage == WAIT_TUBE) copyText(second, F("THEN PRESS START"));
@@ -482,7 +486,7 @@ void calibrationPoll(uint32_t now) {
   bool capturing = calStage == CAL_BOOT || calStage == READ_OPEN || calStage == READ_CLOSED || calStage == READ_TUBE;
   if (!capturing || uint32_t(now - calStarted) < LIGHT_SETTLE_MS || uint32_t(now - calLast) < CAL_SAMPLE_MS) return;
   calLast = now;
-  const bool measureTube = calibrationMode == CAL_TUBE_ONLY || (calibrationMode == CAL_DEFAULT && requireTubePresent);
+  const bool measureTube = calibrationMeasuresTube();
   lid.raw = average(lid.pin); tube.raw = measureTube ? average(tube.pin) : 0;
   lidSum += lid.raw; tubeSum += tube.raw;
   lidMin = min(lidMin, lid.raw); tubeMin = min(tubeMin, tube.raw);
@@ -685,6 +689,9 @@ void executeCommand(uint32_t now) {
   else if (!commandOverflow && !strcmp_P(command, reinterpret_cast<PGM_P>(F("cal")))) {
     if (calibrating) { prefix(F("error")); Serial.println(F(",\"msg\":\"calibration busy\"}")); }
     else guidedCalibrationStart(now);
+  } else if (!commandOverflow && !strcmp_P(command, reinterpret_cast<PGM_P>(F("calboth")))) {
+    if (calibrating) { prefix(F("error")); Serial.println(F(",\"msg\":\"calibration busy\"}")); }
+    else guidedCalibrationStart(now, CAL_BOTH);
   } else if (!commandOverflow && !strcmp_P(command, reinterpret_cast<PGM_P>(F("callid")))) {
     if (calibrating) { prefix(F("error")); Serial.println(F(",\"msg\":\"calibration busy\"}")); }
     else guidedCalibrationStart(now, CAL_LID_ONLY);

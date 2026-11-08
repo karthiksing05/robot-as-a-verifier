@@ -173,6 +173,19 @@ int main() {
   assert(lid.level == 720 && lid.shadedLevel == 665);
   assert(tubeCalSaved && tube.level == 700 && tube.shadedLevel == 640);
   requireTubePresent = false;
+  analogs[PIN_LID] = 730; analogs[PIN_TUBE] = 710;
+  send("calboth\n"); assert(calStage == WAIT_OPEN);
+  press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(calStage == WAIT_CLOSED);
+  analogs[PIN_LID] = 670; press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(calStage == WAIT_TUBE);
+  analogs[PIN_TUBE] = 650; press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(!calibrating && !requireTubePresent && !tubeValid && loadCalibration());
+  assert(lid.level == 730 && lid.shadedLevel == 670);
+  assert(tubeCalSaved && tube.level == 710 && tube.shadedLevel == 650);
   heartbeat(); contains("\"tube_required\":0");
   finish("MC-6");
 }

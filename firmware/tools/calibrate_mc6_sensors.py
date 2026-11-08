@@ -26,12 +26,16 @@ PROMPTS = {
 }
 
 
-def validate_result(event, *, tube_only=False, lid_only=False):
+def validate_result(event, *, tube_only=False, lid_only=False, both=False):
     if event.get("saved") != 1:
         raise ValueError("Firmware did not confirm saved calibration")
-    if tube_only and event.get("tube_saved") != 1:
+    if (tube_only or both) and event.get("tube_saved") != 1:
         raise ValueError("Firmware did not confirm saved tube calibration")
-    names = ("tube",) if tube_only else ("lid",) if lid_only or event.get("tube_required", 1) == 0 else ("lid", "tube")
+    names = ("lid", "tube")
+    if tube_only:
+        names = ("tube",)
+    elif lid_only or (not both and event.get("tube_required", 1) == 0):
+        names = ("lid",)
     for name in names:
         sensor = event.get(name, {})
         if not all(isinstance(sensor.get(key), int) and 0 <= sensor[key] <= 1023 for key in ("clear", "shaded", "lo", "hi")):
@@ -46,8 +50,10 @@ def main(*, lid_only_mode=False):
     parser.add_argument("--timeout", type=float, default=600)
     parser.add_argument("--keep-open", action="store_true")
     if not lid_only_mode:
-        parser.add_argument("--tube-only", action="store_true", help="calibrate A1 with the existing saved lid thresholds")
-    parser.set_defaults(tube_only=False)
+        mode = parser.add_mutually_exclusive_group()
+        mode.add_argument("--tube-only", action="store_true", help="calibrate A1 with the existing saved lid thresholds")
+        mode.add_argument("--both", action="store_true", help="calibrate both light sensors, regardless of interlock settings")
+    parser.set_defaults(tube_only=False, both=False)
     args = parser.parse_args()
     if args.timeout <= 0:
         parser.error("--timeout must be positive")
@@ -69,7 +75,7 @@ def main(*, lid_only_mode=False):
                     event = reader.read()
                     if event and event.get("ev") == "lightcal" and "lid" in event and "tube" in event:
                         identified = True
-                        lid_only = lid_only_mode or (not args.tube_only and event.get("tube_required", 1) == 0)
+                        lid_only = lid_only_mode or (not args.both and not args.tube_only and event.get("tube_required", 1) == 0)
                         if args.tube_only and event.get("saved") != 1:
                             raise ValueError("Run lid calibration first, then retry with --tube-only")
                         if lid_only_mode:
@@ -79,7 +85,7 @@ def main(*, lid_only_mode=False):
                         break
                 else:
                     raise TimeoutError("No MC-6 calibration handshake; upload current MC-6 firmware and check the port")
-                command = b"callid" if lid_only_mode else b"caltube" if args.tube_only else b"cal"
+                command = b"callid" if lid_only_mode else b"caltube" if args.tube_only else b"calboth" if args.both else b"cal"
                 port.write(b"normal\ncalstop\n" + command + b"\n")
                 deadline, heartbeat, started, previous = time.monotonic() + args.timeout, time.monotonic(), False, None
                 while time.monotonic() < deadline:
@@ -93,8 +99,8 @@ def main(*, lid_only_mode=False):
                     if event.get("ev") == "hb":
                         heartbeat = time.monotonic()
                     if event.get("ev") == "error":
-                        if lid_only_mode and event.get("msg") == "unknown command":
-                            raise ValueError("Upload the current MC-6 firmware for lid-only calibration")
+                        if (lid_only_mode or args.both) and event.get("msg") == "unknown command":
+                            raise ValueError("Upload the current MC-6 firmware for this calibration mode")
                         raise ValueError(event.get("msg", "Firmware command failed"))
                     if event.get("ev") == "cal_error":
                         retry = "with the well empty and lid closed" if args.tube_only else "with the lid OPEN" if lid_only else "from OPEN/EMPTY"
@@ -119,9 +125,10 @@ def main(*, lid_only_mode=False):
                         print(prompt, flush=True)
                     previous = stage
                     if stage == "saved":
-                        validate_result(event, tube_only=args.tube_only, lid_only=lid_only_mode)
+                        validate_result(event, tube_only=args.tube_only, lid_only=lid_only_mode, both=args.both)
                         output = ROOT / (".pio/mc6-lid-calibration.json" if lid_only_mode else
-                                         ".pio/mc6-tube-calibration.json" if args.tube_only else "config/mc6_sensors.json")
+                                         ".pio/mc6-tube-calibration.json" if args.tube_only else
+                                         ".pio/mc6-both-calibration.json" if args.both else "config/mc6_sensors.json")
                         record = {"device": "MC-6", "port": args.port, "pins": {"lid": "A2"} if lid_only else {"lid": "A2", "tube": "A1"},
                                   "scope": "lid_only" if lid_only else "lid_and_tube", "ignored_pins": ["A1"] if lid_only else [],
                                   "result": event, "storage": "board EEPROM", "trace": str(trace), "complete": True}
