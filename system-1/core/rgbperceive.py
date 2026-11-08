@@ -62,6 +62,8 @@ SAM_AUTO = True         # SAM's automatic masks as candidates' sub-parts (hw_rig
                         # scan found the same parts without it, in 9 s instead of 43)
 KEEP_REJECTED = False   # a candidate no kind fits is kept as a round part in scene.rejected, for a review (hw_rig)
 REJECTED_MIN_H, REJECTED_MAX_W = 0.003, 0.040  # ... when it stands at least this proud, and is no wider than this
+ROW_MAX = None          # m: parts and rejected candidates further than this along the slope from the parts' median are
+                        # dropped, for a panel whose controls sit in one row (hw_rig)
 SAVE_CAPS = None        # a file the survey and captures go to before the vision stages, to replay with analyse (hw_rig)
 FLAT_BUTTONS = False    # real-rig rules (hw_rig sets it): round button-sized outlines are buttons even when their height
                         # reads flat (dark glossy tops give the sweep little texture) or knob-tall, and extra views
@@ -198,6 +200,14 @@ def fill(scene, cands, caps, poses, Tg, img, best, how):
     img = orthophoto(caps, poses, Tg, shape, np.nan_to_num(hm))[0]  # every cell seen at its own height
     scene.parts, scene.blobs, masks = build(cands, picks, hm, img, grid)
     scene.rejected = [p for p in (b.pop("rejected", None) for b in scene.blobs) if p is not None]
+    if ROW_MAX and len(scene.parts) >= 3:
+        along = lambda p: (p.pos - Tg[:3, 3]) @ Tg[:3, 0]
+        row = np.median([along(p) for p in scene.parts])
+        off = [p.id for p in scene.parts if abs(along(p) - row) > ROW_MAX]
+        scene.parts = [p for p in scene.parts if abs(along(p) - row) <= ROW_MAX]
+        scene.rejected = [p for p in scene.rejected if abs(along(p) - row) <= ROW_MAX]
+        if off:
+            print(f"  off the controls' row: {', '.join(off)}")
     for k, p in enumerate(scene.rejected):
         p.id = f"cand_{k + 1}"
     scene.parts = [_limits(p, grid, caps, poses) if p.kind in ("dial", "knob") else p for p in scene.parts]

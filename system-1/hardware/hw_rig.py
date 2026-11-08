@@ -43,6 +43,9 @@ def make_rig(arm_port, calibration, app=None, pad=None, readout_port=None):
         # place and height as with the extra pass, whose 10 views (22 s, and a trip home) went to the lid and the laptop
         rgbperceive.EXTRA_VIEWS = rgbperceive.SAM_AUTO = False
         rgbperceive.KEEP_REJECTED = True  # for the review to name: SPEED and POWER fit no rule in some scans
+        # the centrifuge's controls sit in one row; a wooden block at the lid hinge, 43-48 mm up the slope from it, read
+        # as a dial or toggle and the review named it POWER or SPEED. The real POWER read 21 mm off the row at most
+        rgbperceive.ROW_MAX = 0.03
         rgbperceive.SAVE_CAPS = "last_caps.pkl"  # in the folder rav-server runs in
         # the arm's own poses and the survey's plane, always: three views never had enough features to fit poses and
         # their presses landed; five did, and fitted a plane 10 mm off under SPEED (4 of 49 features on it)
