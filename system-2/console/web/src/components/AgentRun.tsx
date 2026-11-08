@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEven
 import { AGENT_URL, liveCommand } from "../lib/live";
 import { isPaused, pendingApproval, planRows, runOf, stateLine, telemetryOf, timelineOf, type AgentState, type PlanRow, type TimelineItem } from "../lib/agent";
 import type { StepTrace, StepVerdict } from "../lib/contracts";
+import { duration } from "../lib/trace";
 import { useAppSession } from "../lib/context";
 import { coverageOf, rewardOf, statusOfControl, type Run } from "../lib/runs";
 import { Feeds } from "./Feeds";
 import { ForceChart } from "./ForceChart";
 import { Markdown } from "./Markdown";
-import { TraceSummary } from "./ModelTrace";
+import { ErrorText, TraceSummary } from "./ModelTrace";
 import { Checklist, StepsTable, Tool } from "./ToolView";
 import { CountUp, Pill } from "./ui";
 
@@ -59,8 +60,7 @@ export function AgentRun({ state, send, bar, sim = true, over = false, real = fa
           <PlanPanel run={run} send={finished ? undefined : send} onOpen={openStep} finished={finished} />
           <div className="panel">
             <span className="label">This run</span>
-            <TraceSummary run={run} nodes={run.steps.map((s) => s.step.id)} onPick={openStep} />
-            <p className="mono muted">Stops from System 1: {run.events.filter((e) => e.type === "crossing").length}</p>
+            <TraceSummary run={run} nodes={run.steps.map((s) => s.step.id)} onPick={openStep} stops={run.events.filter((e) => e.type === "crossing").length} />
           </div>
         </aside>
       </div>
@@ -121,7 +121,7 @@ function Turn({ item }: { item: Extract<TimelineItem, { kind: "turn" }> }) {
       )}
       {item.text && <Markdown text={item.text} />}
       {item.streaming && item.text && <i className="tlcaret" />}
-      {t?.error && <p className="terror">{t.error}</p>}
+      {t?.error && <ErrorText text={t.error} />}
       {item.calls.map((c) => <Tool key={c.id} call={c} />)}
       {meta && <span className="tmeta">{meta}</span>}
     </div>
@@ -256,7 +256,7 @@ function Evidence({ picked, onClose }: { picked: Picked; onClose: () => void }) 
           {trace.peak_force_n != null && <><dt>Peak</dt><dd>{trace.peak_force_n.toFixed(2)} N</dd></>}
           {trace.travel_mm != null && <><dt>Travel</dt><dd>{trace.travel_mm.toFixed(2)} mm</dd></>}
           {trace.stop_reason && <><dt>Stopped on</dt><dd>{trace.stop_reason}</dd></>}
-          {trace.duration_s != null && <><dt>Took</dt><dd>{trace.duration_s.toFixed(1)} s</dd></>}
+          {trace.duration_s != null && <><dt>Took</dt><dd>{duration(trace.duration_s)}</dd></>}
           {measures.map(([k, v]) => <div key={k} style={{ display: "contents" }}><dt>{k}</dt><dd>{typeof v === "string" ? v : JSON.stringify(v)}</dd></div>)}
         </dl></div>}
         {readings.length > 0 && <div className="stack"><span className="label">Device readings</span><dl className="kv mono">{readings.map(([ch, seq]) => <div key={ch} style={{ display: "contents" }}><dt>{ch}</dt><dd>{seq.map(String).join(" → ")}</dd></div>)}</dl></div>}
