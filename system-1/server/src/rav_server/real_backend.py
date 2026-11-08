@@ -125,7 +125,7 @@ class RealBackend(PipelineRobot):
                 toward = step.params.get("toward")  # +1 up the slope, -1 down: the operator's word over the scan's lean
                 if toward and (p.x[2] > 0) != (toward < 0):  # the plan pushes against p.x
                     p = self._mirrored(p)
-                real_skills.flip(self.arm, p, self.parts)
+                real_skills.flip(self.arm, p, self.parts, plane=self.plane_T)
             else:
                 real_skills.grip_turn(self.arm, p, self.plane_T, math.radians(angle), self.rig.wrist)
         except RuntimeError as e:  # no plan or out of reach

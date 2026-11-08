@@ -31,6 +31,9 @@ FLIP_BEHIND, FLIP_ON = 0.015, 0.003  # 6 mm back still came down on the lever ti
 # pushing up the slope (OFF to ON): 3 mm on, then 10, left the real POWER lever short of going over, and the jaw came
 # down low enough to catch on the lip below the switch: the push runs FLIP_UP_LIFT higher off the panel
 FLIP_ON_UP, FLIP_UP_LIFT = 0.015, 0.004
+# the push starts this high over the panel (up, down), whatever height the scan put the switch's base at: from a base
+# read 14.9 mm up, 21 and 17 mm flipped 4 of 4; from one read 0.8 mm up the push ran 7 mm up and caught the lips
+FLIP_PUSH_H = (0.021, 0.017)
 
 
 def slope_swing(p):
@@ -51,7 +54,7 @@ def slope_swing(p):
     return p
 
 
-def flip(arm, p, parts, snap=None):
+def flip(arm, p, parts, snap=None, plane=None):
     """A toggle flipped in four straight moves, the gripper held as for a press (tilt and roll): to just above where the push starts, down to it, across the lever (the
     flip plan's push, past its centre), and up. No look, guarded descent or let-go moves: on the real arm those were
     ten waypoints, and contact sensing can't feel this lever anyway. The operator says whether it flipped."""
@@ -63,7 +66,10 @@ def flip(arm, p, parts, snap=None):
     m = (b - a) / np.linalg.norm(b - a)
     up = m[2] > 0  # m rises: the push goes up the slope
     a, b = a - FLIP_BEHIND * m, b + (FLIP_ON_UP if up else FLIP_ON) * m  # down behind the lever; on far enough to go over
-    if up:
+    if plane is not None:  # the push at FLIP_PUSH_H over the panel
+        rise = FLIP_PUSH_H[0 if up else 1] - (a - plane[:3, 3]) @ n
+        a, b = a + rise * n, b + rise * n
+    elif up:
         a, b = a + FLIP_UP_LIFT * n, b + FLIP_UP_LIFT * n
     ax, q0 = affordances._press_axis(arm, p), plan.qs[0].copy()  # the gripper held as for a press
     q0[4] = arm.home_q[4]  # the IK keeps the roll
