@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RAAV Slides</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Michroma&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Architects+Daughter&display=swap" rel="stylesheet">
+<style>
+/* Console dark tokens (system-2/console/web/src/styles/tokens.css) + the video's System colors (video/build/comp.js) */
+:root {
+  --bg: #1e2226; --surface: #24282c; --sunk: #171a1d; --ink: #ecebe6; --muted: #b4b5ae; --dim: #8b9095;
+  --line: #474d51; --accent: #e3ae3c; --accent-wash: rgba(227,174,60,.12);
+  --pass: #1fa3ba; --fail: #e66a4a; --fail-wash: rgba(230,106,74,.12);
+  --s1: #eebc24; --s2: #8fb3d9; --person: #f0a63a;
+  --serif: "Source Serif 4", Georgia, serif; --mono: "JetBrains Mono", Menlo, monospace; --display: "Michroma", var(--mono);
+  --hand: "Architects Daughter", cursive;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+.slide { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); display: none;
+  background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 48px 48px; background-position: -1px -1px; }
+.slide::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 40%, rgba(30,34,38,.86), rgba(30,34,38,.97) 70%); }
+.slide > * { position: relative; }
+.slide.on { display: block; }
+body.all .slide { display: block; }
+
+.eyebrow { font: 500 20px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 400 60px/1.18 var(--display); letter-spacing: .01em; margin: 14px 0 0; }
+h1 em { font-style: normal; color: var(--accent); }
+p { margin: 0; }
+.lede { font: 400 27px/1.45 var(--serif); color: var(--muted); }
+.mono { font-family: var(--mono); }
+
+.foot { position: absolute; left: 96px; right: 96px; bottom: 44px; display: flex; justify-content: space-between; align-items: center;
+  font: 500 17px var(--mono); letter-spacing: .16em; color: var(--dim); }
+.foot .brand { display: flex; align-items: center; gap: 14px; }
+.logo { width: 30px; height: 30px; background: var(--sunk); border: 1px solid var(--line); display: grid; place-items: center; }
+.logo svg { width: 22px; height: 22px; }
+
+.chip { display: inline-block; font: 500 20px var(--mono); padding: 10px 18px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.tag { position: absolute; font: 600 14px var(--mono); letter-spacing: .14em; padding: 4px 9px; background: rgba(23,26,29,.85); color: var(--s1); border: 1px solid rgba(238,188,36,.5); }
+.panel { background: var(--surface); border: 1px solid var(--line); }
+.lbl { font: 500 15px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+
+/* ---------- 1 ---------- */
+#s1 .left { position: absolute; left: 96px; top: 96px; width: 820px; }
+#s1 .mark { display: flex; align-items: center; gap: 22px; }
+#s1 .mark img { height: 96px; filter: drop-shadow(1px 0 0 #f1efe6) drop-shadow(-1px 0 0 #f1efe6) drop-shadow(0 1px 0 #f1efe6) drop-shadow(0 -1px 0 #f1efe6) drop-shadow(1px 1px 0 #f1efe6); }
+#s1 .mark span { font: 400 22px var(--display); letter-spacing: .12em; color: var(--muted); }
+#s1 h1 { font-size: 104px; line-height: 1.12; margin-top: 44px; }
+#s1 .lede { margin-top: 44px; max-width: 780px; }
+#s1 .chips { display: flex; gap: 14px; margin-top: 44px; flex-wrap: wrap; }
+#s1 .win { position: absolute; left: 990px; top: 110px; width: 834px; }
+#s1 .bar { display: flex; justify-content: space-between; padding: 10px 14px; font: 500 15px var(--mono); color: var(--dim); border-bottom: 1px solid var(--line); background: var(--sunk); }
+#s1 .bar b { color: var(--accent); font-weight: 500; letter-spacing: .1em; }
+#s1 .shot { height: 440px; background: url(img/hero.jpg) 0 -44px / 1060px auto no-repeat; border-bottom: 1px solid var(--line); }
+#s1 .row { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+#s1 .row div { padding: 14px 16px; border-right: 1px solid var(--line); }
+#s1 .row div:last-child { border-right: 0; }
+#s1 .row b { display: block; font: 600 30px var(--mono); color: var(--ink); }
+#s1 .row span { font: 400 15px var(--mono); color: var(--dim); }
+#s1 .cent { position: absolute; left: 1010px; top: 735px; width: 250px; padding: 10px; background: #f3efe6; border: 1px solid var(--line); box-shadow: 0 18px 50px rgba(0,0,0,.45); transform: rotate(-3deg); }
+#s1 .cent img { width: 100%; display: block; }
+#s1 .cent div { font: 600 13px var(--mono); color: #3a3d40; letter-spacing: .08em; padding-top: 4px; }
+#s1 .note { position: absolute; left: 1420px; top: 830px; font: 400 36px/1.15 var(--hand); color: var(--person); transform: rotate(-4deg); width: 300px; }
+#s1 .arrow { position: absolute; left: 1290px; top: 690px; }
+
+/* ---------- 2 ---------- */
+#s2 .head { position: absolute; left: 96px; top: 96px; right: 96px; display: flex; justify-content: space-between; align-items: flex-end; }
+#s2 .head .lede { width: 640px; text-align: right; font-size: 24px; }
+#s2 .cards { position: absolute; left: 96px; right: 96px; top: 290px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px; }
+#s2 .card .img { height: 250px; border: 1px solid var(--line); background-repeat: no-repeat; background-color: var(--sunk); position: relative; }
+#s2 .card .img .tag { right: 8px; bottom: 8px; font-size: 11px; }
+#s2 .steps { position: absolute; left: 96px; right: 96px; top: 578px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px; }
+#s2 .steps::before { content: ""; position: absolute; left: 10%; right: 10%; top: 25px; border-top: 2px dotted var(--line); }
+#s2 .step { text-align: center; position: relative; }
+#s2 .num { width: 52px; height: 52px; margin: 0 auto; border-radius: 50%; display: grid; place-items: center; background: var(--bg); border: 2px solid var(--accent); color: var(--accent); font: 600 22px var(--mono); }
+#s2 .step h3 { font: 400 23px var(--display); margin: 22px 0 12px; letter-spacing: .02em; }
+#s2 .step p { font: 400 20px/1.4 var(--serif); color: var(--muted); padding: 0 6px; }
+#s2 .log { position: absolute; left: 96px; right: 96px; top: 850px; padding: 14px 20px; font: 400 16.5px/1.6 var(--mono); color: var(--muted); border-left: 3px solid var(--s1); background: rgba(23,26,29,.7); }
+#s2 .log b { color: var(--ink); font-weight: 500; }
+#s2 .log .f { color: var(--fail); } #s2 .log .k { color: var(--dim); }
+
+/* ---------- 3 ---------- */
+#s3 .left { position: absolute; left: 96px; top: 96px; width: 760px; }
+#s3 .lede { margin-top: 30px; font-size: 25px; }
+#s3 .pts { margin-top: 44px; display: flex; flex-direction: column; gap: 30px; }
+#s3 .pt { display: grid; grid-template-columns: 64px 1fr; gap: 22px; align-items: start; }
+#s3 .ic { width: 64px; height: 64px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; }
+#s3 .pt h3 { font: 600 22px var(--mono); margin: 2px 0 6px; }
+#s3 .pt p { font: 400 20px/1.42 var(--serif); color: var(--muted); }
+#s3 .board { position: absolute; left: 930px; top: 170px; width: 894px; padding: 34px; border-radius: 4px; }
+#s3 .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+#s3 .colh { font: 600 15px var(--mono); letter-spacing: .12em; text-transform: uppercase; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 2px solid currentColor; }
+#s3 .case { padding: 14px 16px; margin-bottom: 12px; background: var(--bg); border: 1px solid var(--line); border-left-width: 4px; }
+#s3 .case b { display: block; font: 600 20px var(--mono); margin-bottom: 4px; }
+#s3 .case span { font: 400 17px/1.35 var(--serif); color: var(--muted); }
+#s3 .ok .case { border-left-color: var(--pass); } #s3 .late .case { border-left-color: var(--fail); }
+#s3 .loop { margin-top: 18px; padding-top: 22px; border-top: 1px dashed var(--line); }
+#s3 .flow { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+#s3 .node { flex: 1; padding: 14px 12px; text-align: center; border: 1px solid var(--line); background: var(--bg); font: 500 16px/1.35 var(--mono); }
+#s3 .node b { display: block; font: 400 15px var(--display); margin-bottom: 6px; letter-spacing: .04em; }
+#s3 .ar { color: var(--dim); font: 400 24px var(--mono); }
+
+/* ---------- 4 ---------- */
+#s4 .head { position: absolute; left: 96px; top: 96px; }
+#s4 h1 { font-size: 54px; }
+#s4 .box { position: absolute; background: var(--surface); border: 1px solid var(--line); padding: 18px 20px; }
+#s4 .box h4 { margin: 0 0 8px; font: 400 21px var(--display); letter-spacing: .03em; display: flex; align-items: center; gap: 10px; }
+#s4 .box h5 { margin: 12px 0 4px; font: 500 13px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+#s4 .box .t { font: 400 16.5px/1.45 var(--mono); color: var(--muted); }
+#s4 .box .t b { color: var(--ink); font-weight: 500; }
+#s4 .sys { position: absolute; border: 2px solid; padding: 20px 22px; background: rgba(36,40,44,.92); }
+#s4 .sys .title { font: 400 26px var(--display); letter-spacing: .04em; }
+#s4 .sys .sub { font: 400 15px var(--mono); opacity: .8; margin-left: 12px; letter-spacing: .04em; }
+#s4 .sub2 { background: var(--bg); border: 1px solid var(--line); padding: 10px 14px; margin-top: 12px; }
+#s4 .sub2 .k { font: 500 13px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
+#s4 .sub2 .v { font: 400 16px/1.45 var(--mono); color: var(--ink); }
+#s4 .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+#s4 .pills span { font: 500 14.5px var(--mono); padding: 3px 9px; border: 1px solid var(--line); border-radius: 20px; color: var(--ink); background: var(--surface); }
+#s4 .tools { position: absolute; }
+#s4 .never { color: var(--fail); }
+#s4 .wire { position: absolute; font: 500 13px var(--mono); color: var(--dim); letter-spacing: .08em; }
+#s4 .stats { position: absolute; left: 96px; right: 96px; top: 960px; display: flex; justify-content: space-between; font: 400 16px var(--mono); color: var(--muted); }
+#s4 .stats b { color: var(--ink); font-weight: 600; }
+
+/* ---------- 5 ---------- */
+#s5 .left { position: absolute; left: 96px; top: 96px; width: 830px; }
+#s5 h2 { font: 600 24px var(--mono); margin: 36px 0 10px; }
+#s5 .lede2 { font: 400 21px/1.45 var(--serif); color: var(--muted); }
+#s5 .chain { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 18px; }
+#s5 .chain > div { background: var(--surface); border: 1px solid var(--line); padding: 14px; position: relative; }
+#s5 .chain > div:not(:last-child)::after { content: "→"; position: absolute; right: -14px; top: 40%; color: var(--dim); font: 400 18px var(--mono); background: var(--bg); }
+#s5 .chain .k { font: 500 13px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+#s5 .chain b { display: block; font: 600 30px var(--mono); margin: 6px 0 4px; }
+#s5 .chain span { font: 400 16px/1.35 var(--serif); color: var(--muted); }
+#s5 .meta { margin-top: 12px; font: 400 16px var(--mono); color: var(--dim); }
+#s5 table { width: 100%; border-collapse: collapse; margin-top: 8px; font: 400 17px var(--mono); }
+#s5 th { text-align: left; font: 500 13px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); padding: 8px 0; border-bottom: 1px solid var(--ink); }
+#s5 td { padding: 9px 0; border-bottom: 1px solid var(--line); color: var(--ink); }
+#s5 td.n, #s5 th.n { text-align: right; font-variant-numeric: tabular-nums; }
+#s5 .card { position: absolute; left: 990px; top: 120px; width: 834px; padding: 34px 38px; }
+#s5 .big { display: flex; align-items: flex-start; gap: 26px; }
+#s5 .big b { font: 600 132px/1 var(--mono); color: var(--accent); letter-spacing: -.02em; }
+#s5 .big p { font: 400 21px/1.4 var(--serif); color: var(--muted); padding-top: 8px; }
+#s5 .big p strong { color: var(--ink); font-weight: 600; }
+#s5 .rows { margin-top: 30px; border-top: 1px solid var(--line); }
+#s5 .r { display: grid; grid-template-columns: 1fr 290px; gap: 18px; padding: 15px 0; border-bottom: 1px solid var(--line); align-items: center; }
+#s5 .r .what { font: 400 19px/1.35 var(--serif); }
+#s5 .r .what span { display: block; font: 400 14.5px var(--mono); color: var(--dim); margin-top: 3px; }
+#s5 .r .nums { text-align: right; font: 600 27px var(--mono); white-space: nowrap; }
+#s5 .r .nums .was { color: var(--dim); font-weight: 400; }
+#s5 .r .nums .ar { color: var(--dim); font-weight: 400; margin: 0 8px; }
+#s5 .r .nums .bad { color: var(--fail); }
+#s5 .r .nums .good { color: var(--pass); }
+#s5 .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 26px; }
+#s5 .tiles div { padding-right: 14px; }
+#s5 .tiles b { display: block; font: 600 30px var(--mono); }
+#s5 .tiles span { font: 400 15px/1.35 var(--mono); color: var(--dim); }
+#s5 .src { margin-top: 20px; font: 400 14px var(--mono); color: var(--dim); }
+</style>
+</head>
+<body>
+
+<!-- ======================= 1 · TITLE ======================= -->
+<section class="slide" id="s1">
+  <div class="left">
+    <div class="mark"><img src="img/raav_hand.png" alt="RAAV"><span>ROBOT AS A VERIFIER</span></div>
+    <h1>A verifier<br>for <em>hardware.</em></h1>
+    <p class="lede">Give RAAV a prototype, its manual and its CAD if you have one. A low-cost robot arm finds every control, tests it with capped force, and reports what it measured. A fix only counts if the score goes up.</p>
+    <div class="chips"><span class="chip">Reads the manual</span><span class="chip">Tests with force</span><span class="chip">Scores every revision</span></div>
+  </div>
+
+  <div class="win panel">
+    <div class="bar"><span>an unseen device · no CAD · no tags</span><b>SIMULATION</b></div>
+    <div class="shot"></div>
+    <div class="row">
+      <div><b>SO-101</b><span>arm + $19 wrist camera</span></div>
+      <div><b>7 tools</b><span>model ↔ robot, over MCP</span></div>
+      <div><b>15 N</b><span>hard cap on every press</span></div>
+    </div>
+  </div>
+  <div class="cent"><img src="img/fig_centrifuge.png" alt=""><div>MC-6 CENTRIFUGE · BUILT AT MAKECU</div></div>
+  <svg class="arrow" width="140" height="150" viewBox="0 0 140 150" fill="none" stroke="#f0a63a" stroke-width="3" stroke-linecap="round"><path d="M128 150 C 90 120, 40 110, 30 10"/><path d="M30 10 L 18 34 M30 10 L 44 32"/></svg>
+  <div class="note">the model can’t move a single joint</div>
+
+  <div class="foot"><div class="brand"><span class="logo"><svg viewBox="0 0 16 16"><path d="M3 12 L8 4 L13 12" fill="none" stroke="#e3ae3c" stroke-width="2"/></svg></span>RAAV · MAKECU 2026</div><div>01 / 05</div></div>
+</section>
+
+<!-- ======================= 2 · THE DEMO ======================= -->
+<section class="slide" id="s2">
+  <div class="head">
+    <div><div class="eyebrow">The demo</div><h1>Find it. Test it. <em>Fix it.</em></h1></div>
+    <p class="lede">From a prototype it has never seen to a scored revision, with a person approving each step that matters.</p>
+  </div>
+  <div class="cards">
+    <div class="card"><div class="img" style="background-image:url(img/stage_3_segment.jpg);background-size:200% auto;background-position:22% 30%"><span class="tag">SIMULATION</span></div></div>
+    <div class="card"><div class="img" style="background-image:url(img/stage_6_plan.jpg);background-size:200% auto;background-position:30% 30%"><span class="tag">SIMULATION</span></div></div>
+    <div class="card"><div class="img" style="background-image:url(img/stage_7_test.jpg);background-size:200% auto;background-position:30% 22%"><span class="tag">SIMULATION</span></div></div>
+    <div class="card"><div class="img" style="background-image:url(img/fig_wells.png);background-size:cover;background-position:center;background-color:#f3efe6"></div></div>
+    <div class="card"><div class="img" style="background-image:url(img/stage_8_report.jpg);background-size:240% auto;background-position:2% 12%"><span class="tag">SIMULATION</span></div></div>
+  </div>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><h3>Find controls</h3><p>One wrist camera. OWLv2 finds parts, SAM 2.1 outlines them, a touch pins each one down.</p></div>
+    <div class="step"><div class="num">2</div><h3>Plan from the manual</h3><p>A model drafts the steps. A person approves before anything moves.</p></div>
+    <div class="step"><div class="num">3</div><h3>Test with force</h3><p>Press, flip, turn, hook-pull. Verdicts come from sensors, not the model.</p></div>
+    <div class="step"><div class="num">4</div><h3>Trace to CAD</h3><p>An analyst edits the faulty part and must pass geometry checks. A person approves.</p></div>
+    <div class="step"><div class="num">5</div><h3>Retest</h3><p>Same plan on Rev B. Keep the fix only if the reward rises.</p></div>
+  </div>
+  <div class="log">
+    <span class="k">Rev A run · Nov 8 · Claude Sonnet 5.5 ·</span> plan check refused plan-0, the model fixed it, a person clicked <b>Approve</b><br>
+    <b>s1</b> <span class="f">STOPPED</span> lcd read “1000rpm&nbsp;&nbsp;0:30”, manual says “1000 RPM 0:30” → plan amended &nbsp;·&nbsp; <b>s7</b> <span class="f">SKIPPED</span> handle_1 needs a pinch grip, which the no-thumbs rule rules out
+  </div>
+  <div class="foot"><div class="brand"><span class="logo"><svg viewBox="0 0 16 16"><path d="M3 12 L8 4 L13 12" fill="none" stroke="#e3ae3c" stroke-width="2"/></svg></span>RAAV · MAKECU 2026</div><div>02 / 05</div></div>
+</section>
+
+<!-- ======================= 3 · THE BIGGER GOAL ======================= -->
+<section class="slide" id="s3">
+  <div class="left">
+    <div class="eyebrow">The bigger goal</div>
+    <h1>A verifier for<br><em>AI-designed</em><br>hardware.</h1>
+    <p class="lede">Software has verifiers, so a model can propose thousands of attempts and keep only the ones that check out. Hardware has nothing like it, so failures surface late.</p>
+    <div class="pts">
+      <div class="pt"><div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#eebc24" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="1"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div><div><h3>The model thinks. Code moves. Sensors decide.</h3><p>The LLM plans and explains. It can't move a joint, override a verdict or approve its own patch.</p></div></div>
+      <div class="pt"><div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#f0a63a" stroke-width="1.8"><path d="M12 4v16M4 12h16"/><circle cx="12" cy="12" r="9"/></svg></div><div><h3>Medical hardware first</h3><p>Lab instruments, pumps, meters. “Usable with no thumbs” or “opens under 5 N” become tests the robot runs on every revision.</p></div></div>
+      <div class="pt"><div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8fb3d9" stroke-width="1.8"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg></div><div><h3>A reward for design models</h3><p>So a model that designs physical things improves against real tests, not its own opinion of its work.</p></div></div>
+    </div>
+  </div>
+
+  <div class="board panel">
+    <div class="cols">
+      <div class="ok"><div class="colh" style="color:var(--pass)">Software · checked before use</div>
+        <div class="case"><b>Lean</b><span>Claimed ETH refutations checked, Oct 2026</span></div>
+        <div class="case"><b>CompCert</b><span>Compiler proved correct in Coq · ATR 42/72 avionics</span></div>
+        <div class="case"><b>seL4</b><span>Verified kernel · DARPA HACMS Little Bird</span></div>
+      </div>
+      <div class="late"><div class="colh" style="color:var(--fail)">Hardware · found after the fact</div>
+        <div class="case"><b>Pirbright · 2007</b><span>Foot-and-mouth leak, most likely a damaged drain</span></div>
+        <div class="case"><b>JWST</b><span>Loose fasteners in a 2018 acoustic test · 29-month delay</span></div>
+        <div class="case"><b>Dyson</b><span>5,127 prototypes before DC01 worked, 1993</span></div>
+      </div>
+    </div>
+    <div class="loop">
+      <div class="lbl">The loop RAAV closes</div>
+      <div class="flow">
+        <div class="node" style="border-color:var(--s2)"><b style="color:var(--s2)">PROPOSE</b>a model edits the CAD</div><span class="ar">→</span>
+        <div class="node" style="border-color:var(--s1)"><b style="color:var(--s1)">TEST</b>the robot runs the same plan</div><span class="ar">→</span>
+        <div class="node"><b>SCORE</b>coverage × pass rate</div><span class="ar">→</span>
+        <div class="node" style="border-color:var(--pass)"><b style="color:var(--pass)">KEEP</b>only if it rises</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><div class="brand"><span class="logo"><svg viewBox="0 0 16 16"><path d="M3 12 L8 4 L13 12" fill="none" stroke="#e3ae3c" stroke-width="2"/></svg></span>RAAV · MAKECU 2026</div><div>03 / 05</div></div>
+</section>
+
+<!-- ======================= 4 · TECH STACK ======================= -->
+<section class="slide" id="s4">
+  <div class="head"><div class="eyebrow">Tech stack</div><h1>The model thinks. Code moves. <em>Sensors decide.</em></h1></div>
+
+  <svg style="position:absolute;left:0;top:0" width="1920" height="1080" fill="none" stroke-width="2">
+    <!-- appliances -> vultr -->
+    <path d="M300 498 V 540" stroke="#8b9095" stroke-dasharray="4 5"/>
+    <!-- vultr -> system 1 (tunnel) -->
+    <path d="M524 640 H 640" stroke="#eebc24" stroke-dasharray="4 5"/>
+    <!-- vultr hosts system 2: line under -->
+    <path d="M300 762 V 790" stroke="#8b9095" stroke-dasharray="4 5"/>
+    <!-- tool lines -->
+    <g stroke-width="1.6">
+      <path d="M1124 400 H 1262" stroke="url(#g)"/><path d="M1124 466 H 1262" stroke="url(#g)"/><path d="M1124 532 H 1262" stroke="url(#g)"/>
+      <path d="M1124 598 H 1262" stroke="url(#g)"/><path d="M1124 664 H 1262" stroke="url(#g)"/><path d="M1124 730 H 1262" stroke="url(#g)"/><path d="M1124 796 H 1262" stroke="url(#g)"/>
+    </g>
+    <defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#eebc24"/><stop offset="1" stop-color="#8fb3d9"/></linearGradient></defs>
+  </svg>
+
+  <div class="box" style="left:96px;top:300px;width:428px;height:198px">
+    <h4>Appliances</h4>
+    <div class="t"><b>MC-6 centrifuge · MW-1 microwave</b><br>Arduino Uno R4 WiFi each<br>Sensor JSON over HTTPS,<br>at least every 0.5 s<br>Quiet 2 s → the next step stops</div>
+  </div>
+  <div class="wire" style="left:314px;top:505px">HTTPS POST</div>
+  <div class="box" style="left:96px;top:530px;width:428px;height:232px">
+    <h4>Vultr</h4>
+    <div class="t">Caddy TLS · <b>the only public door</b><br>Reverse WebSocket tunnel to the robot<br>(a hotspot takes no incoming calls)<br>Hosts System 2 + a replay Console<br>3 keys: tunnel · tools · one per board</div>
+  </div>
+  <div class="wire" style="left:540px;top:612px;color:#eebc24">WSS</div>
+  <div class="box" style="left:96px;top:790px;width:428px;height:106px"><h4>Console</h4><div class="t">Vite + React · live 3D view<br>replays any run from <b>events.jsonl</b></div></div>
+
+  <div class="sys" style="left:640px;top:300px;width:484px;height:596px;border-color:#eebc24">
+    <div><span class="title" style="color:#eebc24">SYSTEM 1</span><span class="sub" style="color:#eebc24">the robot · code</span></div>
+    <div class="sub2"><div class="k">Arm</div><div class="v">SO-101 stock gripper · $19 wrist camera<br>force from the servos' own load</div></div>
+    <div class="sub2"><div class="k">Perception</div><div class="v">OWLv2 finds · SAM 2.1 outlines<br>plane sweep for heights · touch-off</div></div>
+    <div class="sub2"><div class="k">Skills</div><div class="pills"><span>press</span><span>flip</span><span>turn</span><span>hook_pull</span><span>pick</span><span>place</span></div></div>
+    <div class="sub2"><div class="k">Safety + verdicts</div><div class="v">15 N hard cap · torque gate · 50 Hz loop<br>verdict rules read sensors + the board</div></div>
+    <div class="sub2" style="border-color:rgba(230,106,74,.5)"><div class="v"><span class="never">never</span> calls an LLM</div></div>
+  </div>
+
+  <div class="tools">
+    <div class="lbl" style="position:absolute;left:1124px;top:322px;width:138px;text-align:center;line-height:1.3">7 MCP tools</div>
+    <div style="position:absolute;left:1124px;top:372px;width:138px;font:500 13.5px var(--mono);color:var(--muted);text-align:center;line-height:66px">system_status<br>scene_get<br>evidence_get<br>routine_start<br>routine_wait<br>routine_resume<br>routine_stop</div>
+    <div style="position:absolute;left:1124px;top:820px;width:138px;font:500 13px/1.35 var(--mono);color:var(--fail);text-align:center">none moves<br>a joint</div>
+  </div>
+
+  <div class="sys" style="left:1262px;top:300px;width:562px;height:596px;border-color:#8fb3d9">
+    <div><span class="title" style="color:#8fb3d9">SYSTEM 2</span><span class="sub" style="color:#8fb3d9">the harness · the only LLM</span></div>
+    <div class="sub2"><div class="k">Does</div><div class="v">plan from the manual · recover from stops<br>steering · reports · memory · reward</div></div>
+    <div class="sub2"><div class="k">Snowflake Cortex · every model call</div><div class="pills"><span>Claude Haiku 5.5</span><span>Claude Sonnet 5.5</span><span>GPT-5.4</span><span>Grok 4.7</span></div><div class="v" style="margin-top:6px;color:var(--muted)">model is one config value · cost ledger · prompt caching</div></div>
+    <div class="sub2"><div class="k">CAD analyst · Claude Opus 5.5</div><div class="pills"><span>get_part</span><span>measure_gap</span><span>write_part</span><span>check</span><span>submit_fix</span></div><div class="v" style="margin-top:6px;color:var(--muted)">Onshape branch or offline CadQuery</div></div>
+    <div class="sub2" style="border-color:rgba(240,166,58,.5)"><div class="v"><span style="color:#f0a63a">a person</span> approves the plan and every patch</div></div>
+  </div>
+
+  <div class="stats" style="top:938px"><span>Sim: <b>MuJoCo</b> SO-101 from bench measurements · <b>12</b> hand-authored appliances + seeded random ones</span><span>Fallbacks: model down → cached plans · arm down → sim on the same Console</span></div>
+  <div class="foot"><div class="brand"><span class="logo"><svg viewBox="0 0 16 16"><path d="M3 12 L8 4 L13 12" fill="none" stroke="#e3ae3c" stroke-width="2"/></svg></span>RAAV · MAKECU 2026</div><div>04 / 05</div></div>
+</section>
+
+<!-- ======================= 5 · RESULTS ======================= -->
+<section class="slide" id="s5">
+  <div class="left">
+    <div class="eyebrow">Results</div>
+    <h1>Every number comes<br>from a <em>run folder.</em></h1>
+    <h2>The full loop on the MC-6 centrifuge</h2>
+    <p class="lede2">The analyst never saw the designer's own fix, and landed within 0.2 mm of it.</p>
+    <div class="chain">
+      <div><div class="k">Found</div><b>8.15 mm</b><span>tube stopped above its seat; START refused with TUBE</span></div>
+      <div><div class="k">Traced</div><b>0.4 mm</b><span>bore narrower than the tube body</span></div>
+      <div><div class="k">Fixed</div><b>45°</b><span>bore widened, lead-in added</span></div>
+      <div><div class="k">Retested</div><b>0.97 mm</b><span>tube seated; the centrifuge ran</span></div>
+    </div>
+    <div class="meta">Opus 5.5 · 14 tool calls · 102 s · $0.43</div>
+    <h2>Four models, one endpoint</h2>
+    <table>
+      <tr><th>Model via Cortex</th><th class="n">Tokens</th><th class="n">Tool errors</th><th class="n">Median turn</th></tr>
+      <tr><td>Claude Haiku 5.5</td><td class="n">388,590</td><td class="n">1</td><td class="n">3.4 s</td></tr>
+      <tr><td>Claude Sonnet 5.5</td><td class="n">243,671</td><td class="n">3</td><td class="n">2.5 s</td></tr>
+      <tr><td>GPT-5.4</td><td class="n">157,810</td><td class="n">4</td><td class="n">2.8 s</td></tr>
+      <tr><td>Grok 4.7</td><td class="n">221,060</td><td class="n">3</td><td class="n">2.9 s</td></tr>
+    </table>
+  </div>
+
+  <div class="card panel">
+    <div class="lbl">Held-out test · 16 devices never tuned on · simulation</div>
+    <div class="big" style="margin-top:16px"><b>96%</b><p><strong>110 of 115</strong> attempted tests passed, with <strong>0 false failures</strong>.</p></div>
+    <div class="lbl" style="margin-top:34px">Measurements that changed the design</div>
+    <div class="rows" style="margin-top:12px">
+      <div class="r"><div class="what">Skills on servo force alone<span>position error, zeroed near the part</span></div><div class="nums"><span class="was">0</span><span class="ar">→</span><span class="good">84</span><span class="was"> / 89</span></div></div>
+      <div class="r"><div class="what">Toggle flips on unseen devices<span>lever trimmed from SAM's outline</span></div><div class="nums"><span class="was">4</span><span class="ar">→</span><span class="good">10</span></div></div>
+      <div class="r"><div class="what">Reward, interval timer, 3 planted faults<span>Haiku found 2, the CAD loop patched them</span></div><div class="nums"><span class="was">0.42</span><span class="ar">→</span><span class="good">0.64</span></div></div>
+      <div class="r"><div class="what">RealSense D405, modelled honestly<span>parts found on plain plastic → dropped it</span></div><div class="nums"><span class="was">29/29</span><span class="ar">→</span><span class="bad">28/66</span></div></div>
+    </div>
+    <div class="tiles">
+      <div><b>0.41 mm</b><span>outlines from a $19 camera</span></div>
+      <div><b>±1 mm</b><span>heights, 93–95% of the time</span></div>
+      <div><b>1.00 / 0.49</b><span>round 1: all 4 models / rules</span></div>
+    </div>
+    <div class="src">Simulation unless stated. On the real SO-101, the arm scans the MC-6, flips POWER, turns SPEED and presses START.</div>
+  </div>
+  <div class="foot"><div class="brand"><span class="logo"><svg viewBox="0 0 16 16"><path d="M3 12 L8 4 L13 12" fill="none" stroke="#e3ae3c" stroke-width="2"/></svg></span>RAAV · MAKECU 2026</div><div>05 / 05</div></div>
+</section>
+
+<script>
+  const n = (location.hash || "#1").slice(1);
+  if (n === "all") document.body.classList.add("all");
+  else document.getElementById("s" + n)?.classList.add("on");
+</script>
+</body>
+</html>
