@@ -58,7 +58,8 @@ FLAT_BUTTONS = False    # real-rig rules (hw_rig sets it): round button-sized ou
                         # reads flat (dark glossy tops give the sweep little texture) or knob-tall, and extra views
                         # chase only candidates on the panel
 BUTTON_DIAM = (0.012, 0.030)
-BUTTON_MAX_H = 0.012   # and under this tall: arcade buttons stand 7-10 mm proud, which the sim's rules call a knob or dial
+BUTTON_MAX_H = 0.014   # and under this tall: arcade buttons stand 7-10 mm proud, which the sim's rules call a knob or dial;
+                        # the real START read 12.4 mm
 MIN_TRACKS = 30         # fewer panel feature tracks than this (a plain panel): keep the believed poses
 # reprojection noise; prior on each pose's correction. On the real remote photos (system-1/arm/camera/pose_test.py)
 # a 1 deg, 3 mm prior corrected 1 deg, 3 mm errors to 0.15 mm median height error, against 0.27 with 0.25 deg, 0.5 mm
