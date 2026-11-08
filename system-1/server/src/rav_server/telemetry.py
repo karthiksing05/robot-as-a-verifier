@@ -3,6 +3,8 @@
     GET  /health            run id, stages, feeds, speed, whether a scene is ready, the recording's clock
     GET  /scene.json        the compiled model: geoms, materials, moving bodies. {"run_id": null} until a routine has built it
     GET  /scene/<path>      its meshes and textures, by content hash
+    GET  /scan.json         the real arm's last scan: panel corners, parts, and the id of /scan.bin's coloured points
+    GET  /scan.bin          those points, int16 xyz in 0.1 mm then RGB bytes
     GET  /poses             SSE at 30 Hz: seven floats per moving body. Latest only, so a slow viewer skips ahead
     GET  /telemetry         SSE, named "telemetry": stage, status, force samples, step, lcd, probe_n
     GET  /feed/<camera>     MJPEG
@@ -47,6 +49,7 @@ SKIP_GEOMS = {"cyclorama"}  # the film's backdrop: the Console lights its own st
 MESH_CELL_M = 0.0015  # vertices closer than this merge, about a fifth of the triangles and no visible change at this scale
 TEXTURE_MAX, TEXTURE_QUALITY = 1024, 84
 JPEG_QUALITY = 70
+SCAN_POINTS = 40_000  # the real scan's height map, thinned to about this many points: ~360 kB once per scan
 _mesh_cache: dict[bytes, tuple[bytes, int, int]] = {}
 
 
@@ -132,6 +135,35 @@ def build_scene(model, data, run_id: str) -> tuple[dict, dict[str, tuple[str, by
              "files": {path: hashlib.blake2b(blob, digest_size=6).hexdigest() for path, (_, blob) in blobs.items()},
              "bodies": [{"name": model.body(b).name, "pos": data.xpos[b].round(6).tolist(), "quat": data.xquat[b].round(6).tolist()} for b in range(model.nbody)]}
     return scene, blobs
+
+
+def scan_cloud(scene: Any, parts: list, shift: Any = None) -> tuple[dict, bytes]:
+    """The real arm's last scan for the Console: its height map as at most SCAN_POINTS coloured points (int16 xyz in
+    0.1 mm, then uint8 RGB), the panel's corners, and each part where the camera saw it (parts are moved by shift,
+    RealArm.part_shift, for the arm)."""
+    import numpy as np
+
+    hm, img, cell, (u0, v0) = scene.heightmap
+    Tg, (a, b, c, d) = scene.plane
+    every = max(1, int(np.ceil(np.sqrt(np.isfinite(hm).sum() / SCAN_POINTS))))
+    i, j = np.mgrid[:hm.shape[0]:every, :hm.shape[1]:every]
+    h = hm[i, j]
+    ok = np.isfinite(h)
+    i, j, h = i[ok], j[ok], h[ok]
+    pts = Tg[:3, 3] + np.c_[u0 + i * cell, v0 + j * cell, h] @ Tg[:3, :3].T
+    rgb = img[i, j][:, ::-1]  # the orthophoto is BGR
+    blob = np.clip(np.round(pts / 1e-4), -32767, 32767).astype("<i2").tobytes() + rgb.astype(np.uint8).tobytes()
+    corner = lambda u, v: (Tg[:3, 3] + u * Tg[:3, 0] + v * Tg[:3, 1]).round(4).tolist()  # noqa: E731
+    out = []
+    for p in parts:
+        n, m = p.normal, p.meta
+        pos = p.pos if shift is None else p.pos - (shift - (shift @ n) * n)
+        r = m.get("radius") or m.get("pad_radius") or m.get("knob_radius") or max(p.size[:2]) / 2
+        out.append({"id": p.id, "kind": p.kind, "pos": pos.round(4).tolist(), "normal": n.round(4).tolist(), "r": round(float(r), 4)})
+    body = {"points": int(len(pts)), "spacing": every * cell, "panel": [corner(a, c), corner(b, c), corner(b, d), corner(a, d)],
+            "normal": Tg[:3, 2].round(4).tolist(), "parts": out}
+    body["id"] = hashlib.blake2b(blob + json.dumps(body).encode(), digest_size=6).hexdigest()
+    return body, blob
 
 
 def write_scene(folder: pathlib.Path, scene: dict, blobs: dict[str, tuple[str, bytes]]) -> None:
@@ -232,6 +264,7 @@ class Telemetry:
         self.cond = threading.Condition()
         self.scene: dict | None = None
         self.blobs: dict[str, tuple[str, bytes]] = {}
+        self.scan: tuple[dict, bytes] | None = None  # the real arm's last scan (scan_cloud)
         self.poses: tuple[int, str] = (0, "")
         self.telemetry: tuple[int, str] = (0, "")
         self.frames: dict[str, tuple[int, bytes]] = {}
@@ -298,15 +331,13 @@ class Telemetry:
         arm.on_tick = on_tick
         return robot
 
-    def _export(self, arm: Any = None, parts: list = ()) -> None:
-        """Reads a scratch copy, so that exporting can't touch the run's own state. parts: the real arm's scan, each a
-        disc on a body named for it, where the Console's halo finds the target."""
+    def _export(self, arm: Any = None) -> None:
+        """Reads a scratch copy, so that exporting can't touch the run's own state."""
         arm = self.arm if arm is None else arm
         if not hasattr(arm, "m"):
             return
         try:
             import mujoco
-            import numpy as np
 
             m = arm.m
             d = mujoco.MjData(m)
@@ -314,13 +345,6 @@ class Telemetry:
             mujoco.mj_kinematics(m, d)
             scene, blobs = build_scene(m, d, self.run_id)
             self.moving = list(scene["moving"])
-            for p in parts:
-                r = p.meta.get("radius") or p.meta.get("pad_radius") or p.meta.get("knob_radius") or max(p.size[:2]) / 2
-                q = np.zeros(4)
-                mujoco.mju_mat2Quat(q, p.T[:3, :3].flatten())
-                scene["geoms"].append({"name": p.id, "body": len(scene["bodies"]), "type": "cylinder", "size": [float(r), 0.002, 0],
-                                       "pos": [0, 0, 0], "quat": [1, 0, 0, 0], "mesh": -1, "mat": -1, "rgba": [0.2, 0.85, 0.9, 1]})
-                scene["bodies"].append({"name": p.id, "pos": p.pos.round(6).tolist(), "quat": q.round(6).tolist()})
         except Exception:
             traceback.print_exc()
             return
@@ -364,16 +388,22 @@ class Telemetry:
             self.feeds.append(name)
         return lambda img: self.publish_frame(name, img) if self.watching.get(name) else None
 
-    def follow_real_arm(self, arm: Any, parts: Callable[[], Any]) -> None:
+    def follow_real_arm(self, arm: Any, parts: Callable[[], Any], scene: Callable[[], Any]) -> None:
         """The real arm in the Console's 3D view, posed by what arm.d holds (RealArm's own loop poses it from the joint
-        readings; nothing here reads the servo bus), with parts() as discs, exported again whenever it's a new list."""
+        readings; nothing here reads the servo bus), with the last scan on /scan.json, again whenever parts() is a new
+        list: a scan, System 2's names for its parts, or a flip."""
         def follow():
-            shown = object()
+            shown = None
+            self._export(arm)
             while not self.closed.wait(1 / POSE_FPS):
                 try:
                     if parts() is not shown:
                         shown = parts()
-                        self._export(arm, shown or [])
+                        try:
+                            if shown and getattr(scene(), "heightmap", None) is not None:
+                                self.scan = scan_cloud(scene(), shown, getattr(arm, "part_shift", None))
+                        except Exception:  # a scan it can't draw still leaves the arm moving
+                            traceback.print_exc()
                     if self.watching.get("poses") and self.moving:
                         self._publish_pose(arm)
                 except Exception:  # what people watch must never stop the robot
@@ -638,6 +668,18 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "public, max-age=31536000, immutable")  # the Console asks for these by content hash
             self.end_headers()
             self.wfile.write(blob[1])
+        elif path == "/scan.json":
+            self.reply(200, self.tel.scan[0] if self.tel.scan else {"id": None})  # polled by the real arm's 3D view
+        elif path == "/scan.bin":
+            if not self.tel.scan:
+                return self.reply(404, {"error": "no scan yet"})
+            blob = self.tel.scan[1]
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(len(blob)))
+            self.send_header("Access-Control-Allow-Origin", "*")  # geometry only, on 127.0.0.1
+            self.end_headers()
+            self.wfile.write(blob)
         elif path == "/poses":
             self.latest("poses", "", lambda: self.tel.poses)
         elif path == "/telemetry":
