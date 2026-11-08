@@ -11,7 +11,7 @@ The server now shares two of explore.py's rules. Each touch falls back on its ow
 `rav-server --robot real --arm-port COM5 --calibration <file>` runs `PipelineRobot` over `hw_rig.make_rig`. It asks at the terminal before torque goes on, and has only run against the fake bus. Before it's useful it needs:
 
 - The appliance's Pico firmware. `hardware/pico_readout.py` streams its readings (`make_rig(..., readout_port=...)`), which `affordances` reads during a slide or turn, but it has only run against a stand-in.
-- A hand-eye calibration, the camera's mount offset on the gripper. Every part the scan finds is shifted by it, so presses land off centre. The plane sweep doesn't need it: an offset shared by every photo cancels out, and the bundle adjustment corrects each photo's own error from the joints.
+- A hand-eye calibration, the camera's mount offset on the gripper. Every part the scan finds is shifted by it. The last look before a step re-places buttons and doors, but toggles, sliders and dials are tested where the scan put them. The plane sweep doesn't need it: an offset shared by every photo cancels out, and the bundle adjustment corrects each photo's own error from the joints.
 - The bench numbers on [the real-arm page](sim/docs/real-arm.md): servo stiffness and bus timing.
 
 A later `explore` can take an area of the panel from System 2 and scan only that. It would be built from `perceive.plan_views` and `rgbperceive.scan`, as `perceive_rgb` already does for the extra views of parts too few photos saw, and would go in `core/pipeline.py` with a `PipelineRobot` method.
