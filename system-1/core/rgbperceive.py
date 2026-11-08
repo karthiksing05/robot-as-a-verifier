@@ -189,7 +189,7 @@ def _settle(arm, q, site):
     far the joint readings fall short until they put the camera within SAG_TOL of where q does."""
     skills.move_joints(arm, q)
     for _ in range(3):
-        if np.linalg.norm(arm.ik.fk(arm.read_q(), site)[0] - arm.ik.fk(q, site)[0]) < SAG_TOL:
+        if np.linalg.norm(arm.ik.fk(arm.read_q(), site)[0] - arm.ik.fk(q, site)[0]) < (arm.view_tol or SAG_TOL):
             break
         skills.move_joints(arm, arm.cmd + q - arm.read_q())
     for _ in range(perceive.SETTLE_TICKS):

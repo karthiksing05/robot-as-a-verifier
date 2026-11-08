@@ -74,6 +74,8 @@ def main(argv=None, ask=input):
     port, cal = (argv or sys.argv[1:])[:2]
     out = os.path.join(os.getcwd(), "scan_check")
     os.makedirs(out, exist_ok=True)
+    import segmodels
+    threading.Thread(target=lambda: (segmodels.owl(), segmodels.sam_boxes()), daemon=True).start()  # load while it moves
     ask("Connecting turns torque off on every motor, and the arm goes limp. Support it, then press Enter: ")
     rig = hw_rig.make_rig(port, cal)
     arm, wrist = rig.arm, rig.wrist

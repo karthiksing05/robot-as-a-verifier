@@ -220,6 +220,7 @@ class ArmBase:
     table_z, workspace, standoff = TABLE_Z, WORKSPACE, STANDOFF
     stall_m, guard_speed = None, 0.0  # see affordances._guarded
     view_tilts = None  # radians, perceive.plan_views' tilts when set (default perceive.VIEW_TILTS)
+    view_tol = None  # m: rgbperceive._settle re-commands a view until the camera is this close (default SAG_TOL)
 
     def _fit(self, tau, zero=None):
         # 5 joint torques, 3 force components: least squares (wrist_roll turns about the probe, so carries none). A fit
