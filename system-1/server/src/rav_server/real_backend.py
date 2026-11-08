@@ -120,6 +120,9 @@ class RealBackend(PipelineRobot):
                     return shifted(q, shift) if q.meta.get("refined") else p
                 self.refine = refine
                 self.arm.relook = lambda part: refine(self.arm, part)  # a missed press looks again (affordances._press)
+        # a real dial's travel is the scan's guess (SPEED read 0 to 23.7 deg) and real_skills.grip_turn has no stops to
+        # keep to: unknown, so a plan's turn isn't refused for it
+        self.parts = [replace(p, range=(0.0, 0.0)) if p.kind in ("dial", "knob") else p for p in self.parts]
         import real_skills
         # toggles as press_part flips them: the swing snapped to the panel's slope, the push lowered onto the lever
         self.parts = [real_skills.slope_swing(copy.deepcopy(p)) if p.kind == "toggle" and "tip" in p.meta else p

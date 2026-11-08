@@ -35,7 +35,9 @@ OPEN_DEG = 100.0                      # default swing: past vertical, so it fall
 AWAY = 0.03                           # and then off the cover this far
 # closing: from in front, over the cover's top edge, down behind it, and drawn back past vertical; it falls shut
 OVER_TILT = math.radians(20)  # manipulate's 45 put the tool over the real lid's edge out of reach at any box distance
-OVER_FRONT, OVER_BEHIND, OVER_CLEAR, OVER_DOWN = 0.05, 0.012, 0.025, 0.006
+# the real lid's first close stopped 10 mm short above its edge (Nov 8): deeper, and a little further behind it
+OVER_FRONT, OVER_BEHIND, OVER_CLEAR, OVER_DOWN = 0.05, 0.018, 0.025, 0.016
+SAFE_BACK, SAFE_UP = 0.06, 0.03  # a close starts from here, nearer the arm and higher, clear of the open lid
 CLOSE_TO = 78.0                       # deg: drawn back to here, past vertical (manipulate.OVER_TO), then let go
 FALL_S = 3.0
 # the tube: jaws open around its 18 mm collar, down straight, shut, lift clear of the rack
@@ -206,8 +208,10 @@ def close_cover(arm, cover, lip, R):
     over, behind = edge + OVER_BEHIND * flat + OVER_CLEAR * up, edge + OVER_BEHIND * flat - OVER_DOWN * up
     # a straight line, as manipulate's: it cuts inside the edge's arc, so it bears on the edge (an arc kept its gap)
     drop = hinge + _rot(lip - hinge, k, CLOSE_TO) + OVER_BEHIND * flat - OVER_DOWN * up
-    legs = [_line("over", edge - OVER_FRONT * flat + OVER_CLEAR * up, over, a),
-            _line("down", over, behind, a, guard="stop"),
+    start = edge - OVER_FRONT * flat + OVER_CLEAR * up
+    legs = [_line("clear", start - SAFE_BACK * flat + SAFE_UP * up, start, a),
+            _line("over", start, over, a),
+            _line("down", over, behind, a, guard="until"),  # on the edge early: draw it back from there
             _line("draw", behind, drop, a, ARC_SPEED),
             _line("up", drop, drop + OVER_CLEAR * up, a)]
     why, _ = _run(arm, label, legs, arm.cmd.copy())
@@ -274,6 +278,15 @@ def pick_tube(arm, collar_top):
     return {"verdict": "FAIL" if why else "done", "reason": why or f"shut on the collar and lifted {LIFT * 1000:.0f} mm"}
 
 
+PLACE_UP, PLACE_BACK = PLACE_ABOVE, 0.06  # out of the well (as high as the place started, which reached), then toward the arm: the arm went home past the open lid (Nov 8)
+
+
+def _toward(p):
+    """Level unit vector from the pan axis out to p."""
+    r = np.r_[p[:2] - PAN_XY, 0.0]
+    return r / np.linalg.norm(r)
+
+
 def place_tube(arm, seat):
     """With the tube held, over the well's seat (seat: where its collar top sits once seated), lowered until the arm
     stalls or the collar reaches the seat (never forced), jaws opened, lifted out."""
@@ -283,7 +296,8 @@ def place_tube(arm, seat):
         tip, a, q = _jaws_at(arm, seat - TUBE_GRIP_DOWN * up, TUBE_HELD_X, tilt)
         return [_line("lower", tip + PLACE_ABOVE * up, tip, a, guard="until"),
                 ("let go", TUBE_OPEN),
-                _line("up", tip, tip + ABOVE * up, a),
+                _line("up", tip, tip + PLACE_UP * up, a),  # clear of the lid, then back toward the arm
+                _line("back", tip + PLACE_UP * up, tip + PLACE_UP * up - PLACE_BACK * _toward(tip), a),
                 ("shut the jaws", 0.0)], q
     held = getattr(arm, "tube_tilt", None)  # the pick's tilt, so the tube goes in as upright as it came out
     _, met = _run(arm, label, *_tube_legs(arm, label, build, (held,) if held else TUBE_TILTS))

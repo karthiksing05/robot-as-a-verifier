@@ -2,7 +2,7 @@
   "id": "centrifuge",
   "name": "MC-6 mini centrifuge",
   "summary": "A benchtop mini centrifuge with a four-position tube rack and two tubes: power switch, three push buttons, a speed dial, a hinged lid, two wells, a display and a light ring.",
-  "instruction": "Run the MC-6 demo: these eight steps, in this order, and nothing else. 1. tube_pick on STOP (it finds the red tube in the rack with the camera and lifts it). 2. tube_place on STOP (it lowers the held tube into well A). 3. lid_close on STOP. 4. flip POWER with toward=1 (up, to ON). 5. press TIME+. 6. turn SPEED with angle=-60. 7. press START. 8. press STOP. Propose them as one plan, then report what each step did.",
+  "instruction": "Run the MC-6 demo: these eight steps, in this order, and nothing else. tube_pick, tube_place and lid_close are skills System 1 publishes (get_status lists them), and all three take STOP as their target: the tube, the rack, well A and the lid are not scanned controls, and none is needed. The robot finds the tube with its camera and the lid and well A from where STOP is. 1. tube_pick on STOP (lifts the red tube from the rack). 2. tube_place on STOP (lowers it into well A). 3. lid_close on STOP. 4. flip POWER with toward=1 (up, to ON), even if the scan reads it as on already. 5. press TIME+. 6. turn SPEED with angle=-60. 7. press START. 8. press STOP. Propose them as one plan, then report what each step did.",
   "kind": "sim",
   "sim": {
     "path": "appliances/centrifuge/device.yaml",
