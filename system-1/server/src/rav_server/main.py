@@ -76,9 +76,7 @@ def make_robot(args):
                             readout_port=args.readout_port if args.readout == "serial" else None,
                             readout_device=args.readout_device if args.readout == "http" else None,
                             readout_url=readout_url(args))
-        make = lambda: robot  # noqa: E731
-        make.built = robot  # its skills are offered before the first routine builds it in the engine (Engine._actions)
-        return make
+        return lambda: robot
     from .sim_backend import SimBackend  # imports MuJoCo and torch
 
     def build():
@@ -234,7 +232,9 @@ def main(argv=None) -> None:
         real.live_feed = telemetry.add_feed("wrist")  # live_view's window, for the Console
         if args.telemetry_port:
             telemetry.follow_real_arm(real.arm, lambda: real.parts, lambda: real.scene)  # and its 3D view
-    engine = RoutineEngine(lambda: telemetry.instrument(make()), robot_name=args.robot)
+    build = lambda: telemetry.instrument(make())  # noqa: E731
+    build.built = real  # the real backend, built above: its skills are offered before the first routine (Engine._actions)
+    engine = RoutineEngine(build, robot_name=args.robot)
     telemetry.status_fn = engine.status
     try:
         readouts = {args.readout_device: real.http_readout} if real and real.http_readout else {}
