@@ -44,7 +44,7 @@
         "eval-1107-165307",
         "eval-1107-165455"
       ],
-      "test_set": "The four models on two generated sim devices (seeds 7 and 13, depth route), one run each, with a random planted fault (fault seeds 7001 and 13001) and a 5% chance per action that the arm or the world misbehaves (error seed 1). The rule-based baseline ran on the same set. Every model got the same devices and faults. Errors were then drawn from a running count of actions, so models that planned differently met different errors: every model run drew one error, and both baseline runs drew a device move. Coverage tops out at 94% because device 7's knob needs a pinch grip, which the robot's turn skill doesn't take: every model reported it as untestable.",
+      "test_set": "Scored with the symptom rule (added 2026-11-07, applied to every model, the baseline and every earlier round): a finding counts for a fault when a failing check on it reads where the fault shows, on the step the device's own verify check fails at, and quotes the manual. The four models on two generated sim devices (seeds 7 and 13, depth route), one run each, with a random planted fault (fault seeds 7001 and 13001) and a 5% chance per action that the arm or the world misbehaves (error seed 1). The rule-based baseline ran on the same set. Every model got the same devices and faults. Errors were then drawn from a running count of actions, so models that planned differently met different errors: every model run drew one error, and both baseline runs drew a device move. Coverage tops out at 94% because device 7's knob needs a pinch grip, which the robot's turn skill doesn't take: every model reported it as untestable.",
       "fault_scenarios": [],
       "spend": "570,906 tokens across the four models (no Cortex prices set, so no dollar figure).",
       "takeaway": "All four models found both planted faults, against none for the rule baseline, which stopped at a device move it can't plan around. Grok re-explored after a real device move and finished the plan. The differences were in judgment: Haiku made up a 20 mm travel limit and reported a working slider as wrong feedback; GPT-5.4 made up a contact-offset bound and got the slider called intermittent; Haiku pushed a jammed door again at 12 N and hit the 15 N safety cap, then homed correctly. Grok took about 10 s a turn, against 2 to 5 s for the others.",
@@ -63,13 +63,70 @@
         "eval-1107-172307",
         "eval-1107-172735"
       ],
-      "test_set": "Round 2's devices, faults and seeds, with three fixes made by class and the same prompts for every model: a check against a value needs a quoted manual line or a named spec, or the plan is refused before anything moves; a part that doesn't move at its normal force limit is the finding, so a retest keeps the same limit; and a skill called as a tool is pointed at plans. Errors are now drawn from the seed and what each action is (an explore stage, or a skill on a target, and which time it has run), so two models that run the same step meet the same error. This round ran from a frozen copy of the repo made at 2026-11-07 17:13:01 EST, because other work was changing System 1 at the time. With the new draw, 5% per action gave one error in eight model runs (a slow arm on a retest), so this round says little about recovery.",
+      "test_set": "Scored with the symptom rule (added 2026-11-07, applied to every model, the baseline and every earlier round): a finding counts for a fault when a failing check on it reads where the fault shows, on the step the device's own verify check fails at, and quotes the manual. Round 2's devices, faults and seeds, with three fixes made by class and the same prompts for every model: a check against a value needs a quoted manual line or a named spec, or the plan is refused before anything moves; a part that doesn't move at its normal force limit is the finding, so a retest keeps the same limit; and a skill called as a tool is pointed at plans. Errors are now drawn from the seed and what each action is (an explore stage, or a skill on a target, and which time it has run), so two models that run the same step meet the same error. This round ran from a frozen copy of the repo made at 2026-11-07 17:13:01 EST, because other work was changing System 1 at the time. With the new draw, 5% per action gave one error in eight model runs (a slow arm on a retest), so this round says little about recovery.",
       "fault_scenarios": [],
       "spend": "436,287 tokens across the four models, plus 61,000 for one confirming run after a fourth fix.",
       "takeaway": "No false findings from any model, and every model found both faults. Each model had one plan turned down for a made-up limit, and fixed it before anything moved. One new class showed up in all four: calling finish_run while the routine still held at its last failed step. Now finish_run closes it when nothing is left to run, confirmed on a rerun with no refused call. One noise flag remains: Grok's dial missed once (stopped on travel at 2.9 N), then passed, so it settled as intermittent. Grok read it as a miss, but System 1's rule calls that miss failed, not inconclusive, so it's for System 1's rules rather than the harness."
     },
     {
+      "id": "2c",
+      "title": "Forced recovery on generated devices",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "eval",
+      "folders": [
+        "eval-1107-183951",
+        "eval-1107-184601"
+      ],
+      "test_set": "Devices 7 and 13 from round 2, with the same planted faults and 5% per-action errors, plus a forced schedule the same for every model: a dropped frame and a slow arm in the first scan, and a servo-bus fault on button_2's first press; device 13 also has a silent device move at button_1's first press. Coverage stops at 85%: device 7's knob needs a pinch grip, and the copy's probe skipped device 13's dial (fixed since). Ran from the frozen copy of 2026-11-07 17:46:57 EST.",
+      "fault_scenarios": [],
+      "spend": "893,298 tokens across the four models.",
+      "takeaway": "Every model recovered from every forced error and finished: each re-explored after the bus fault and after the silent move, and each found both planted faults with no false findings. The rule baseline aborted both runs at the bus fault. Recovery doesn't separate the models; cost does: GPT-5.4 used 151k tokens, Haiku 288k."
+    },
+    {
       "id": "3",
+      "title": "Manual-driven verification, Rev A",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "eval",
+      "folders": [
+        "eval-1107-175052"
+      ],
+      "test_set": "Scored with the symptom rule (added 2026-11-07, applied to every model, the baseline and every earlier round): a finding counts for a fault when a failing check on it reads where the fault shows, on the step the device's own verify check fails at, and quotes the manual. Five authored devices from the dev split (interval timer, label printer, wall thermostat, kettle base, tube sealer), Rev A, the fingertip probe, each device's manual given through read_manual, 5% per-action errors. Scored against each revision's observable faults from its build answer key, which only the scorer reads: a masked fault counts only if its part is called passed, and a fault that only shows with an object placed (the robot can't pick) counts as handled when its part isn't called passed. A fault reported as intermittent counts as found. Ran from the frozen copy of 2026-11-07 17:46:57 EST.",
+      "fault_scenarios": [],
+      "spend": "3.97M tokens across the four models (about 200k a run).",
+      "takeaway": "Every model beat the rule baseline (3 of 12), but none found more than 7 of 12. Single-press faults (a dead button, a wrong step size) were found; procedures that need a set state or many presses (a setpoint that wraps at its top, pause during a countdown) were mostly not reached, and the control was called passed. Kettle-base was hardest: its power-on default fault shows at the power switch, and the symptom rule credits Haiku and Sonnet for reporting it there. Grok was the only model to find interval-timer's pause fault."
+    },
+    {
+      "id": "3b",
+      "title": "Rev A again, after fixes by class",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "eval",
+      "folders": [
+        "eval-1107-185344"
+      ],
+      "test_set": "Scored with the symptom rule (added 2026-11-07, applied to every model, the baseline and every earlier round): a finding counts for a fault when a failing check on it reads where the fault shows, on the step the device's own verify check fails at, and quotes the manual. Round 3's devices and seeds, with four fixes and the same prompt for every model: the symptom rule above; a new plan closes a routine held at a stop; a record_hypothesis tool turns the model's description of the device (its pieces, relations and procedures, docs/device-theory.md) into a checklist of properties to test, and finish_run points out untested ones once; and a device's refusal of a precondition is evidence about the device. Partial: the token cap stopped the round before Grok's kettle-base run and all four models' tube-sealer runs, so compare it with round 3 on the first four devices. Ran from the frozen copy of 2026-11-07 18:45:35 EST.",
+      "fault_scenarios": [],
+      "spend": "4.70M tokens across the four models.",
+      "takeaway": "On the four devices both rounds finished, faults found barely moved (Haiku 6 to 6 of 11, Sonnet 6 to 5, GPT-5.4 6 to 7; Grok 5 to 5 of 8), but faults called passed fell (Haiku 5 to 3, Sonnet 6 to 4) and false findings went to none. GPT-5.4 found the thermostat's wrap-around for the first time. The checklist made runs about 40% longer: six runs ran out of their 400k-token budget before finishing, and nearly every model's first hypothesis was turned down by the schema. Those are the next fixes."
+    },
+    {
+      "id": "3m",
+      "title": "Manual-driven verification, mixed revision M1 (partial)",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "eval",
+      "folders": [
+        "eval-1107-183801"
+      ],
+      "test_set": "Scored with the symptom rule (added 2026-11-07, applied to every model, the baseline and every earlier round): a finding counts for a fault when a failing check on it reads where the fault shows, on the step the device's own verify check fails at, and quotes the manual. Partial: one run. M1 was stopped after Haiku's interval-timer run to spend the budget on recovery and on fixes to Rev A first; the other models and devices haven't run on M1 yet.",
+      "fault_scenarios": [],
+      "spend": "88,375 tokens.",
+      "takeaway": "Not a comparison: one model on one device."
+    },
+    {
+      "id": "4",
       "title": "The centrifuge, Rev A and Rev B",
       "status": "planned",
       "kind": "eval",

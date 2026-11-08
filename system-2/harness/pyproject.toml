@@ -3,7 +3,7 @@ name = "rav-harness"
 version = "0.1.0"
 description = "Runs a test through System 1's tools: planning, steering, reward, report, fix loop."
 requires-python = ">=3.12"
-dependencies = ["rav-contracts", "rav-cad", "mcp>=2.3,<3", "httpx2"]
+dependencies = ["rav-contracts", "rav-cad", "mcp>=2.3,<3", "httpx2", "pyyaml>=6"]
 
 [build-system]
 requires = ["hatchling"]

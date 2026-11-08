@@ -511,3 +511,30 @@ def test_held_out_devices_are_never_run(tmp_path):
 def test_a_fault_reported_as_intermittent_counts_as_found_with_a_note(tmp_path):
     s = _authored_run(tmp_path, [("button_2", "intermittent")], [])
     assert s["faults_found"] == ["F2"] and s["found_as_intermittent"] == ["F2"] and not s["noise_flags"]
+
+
+def test_a_finding_that_reads_a_faults_symptom_counts_for_it_wherever_its_check_sat(tmp_path):
+    from rav_contracts import Coverage, Finding, Reward, SceneInventory, StepOutcome, StepVerdict
+    from rav_contracts import CheckResult
+    log = RunLog("r", tmp_path)
+    controls = [Control(id=i, kind="button", pos_mm=[n * 30.0, 0, 0], normal=[0, 0, 1]) for n, i in enumerate(["button_1", "button_2", "well_1", "display_1", "toggle_1"])]
+    log.emit("scene_ready", SceneInventory(controls=controls))
+    from rav_contracts import Check, Plan, Step
+    log.emit("plan_ready", Plan(plan_id="p", source="model", steps=[
+        Step(id="on", skill="flip", target="toggle_1", quote="Shows 100 at power-on", check=[Check(metric="lcd", op="==", value="100")]),
+        Step(id="made_up", skill="flip", target="toggle_1", check=[Check(metric="lcd", op="==", value="100")])]))
+    for sid, actual in (("on", "60"), ("made_up", "60")):
+        log.emit("step_finished", StepOutcome(trace=StepTrace(step=sid, checks=[CheckResult(metric="lcd", op="==", value="100", actual=actual, passed=False)]),
+                                              verdict=StepVerdict(step=sid, target="toggle_1", status="failed", label="wrong_feedback", reason="x")))
+    key = {"device": {"rev": BUILD["revs"]["A"]["choices"]}, "controls": [{"id": c.id, "pos_mm": c.pos_mm} for c in controls], "errors": []}
+    cov = Coverage(detected=5, passed=[], failed=["toggle_1"], observed=[], inconclusive=[], skipped={})
+    def run(step_ids, symptom):
+        report = Report(run_id="r", product="p", revision="A", findings=[Finding(id="F1", severity="high", target="toggle_1", label="wrong_feedback", what_happened="x", step_ids=step_ids)],
+                        coverage=cov, reward=Reward(value=0, control_coverage=0, pass_rate=0, formula="x"), summary="")
+        return score(report, read_events(log.path), key, BUILD, symptom)
+    shows = {"F2": {"on": "toggle_1", "reads": {"lcd", "state"}}}
+    s = run(["on"], shows)
+    assert "F2" in s["faults_found"] and s["found_by_symptom"] == {"F2": "toggle_1"} and not s["false_findings"]
+    assert run(["made_up"], shows)["false_findings"] == ["toggle_1"]  # no quote: a number of its own, not the manual's promise
+    assert run(["on"], {"F2": {"on": "button_2", "reads": {"lcd"}}})["false_findings"] == ["toggle_1"]  # the fault shows on another control's step
+    assert run(["on"], {"F4": {"on": "toggle_1", "reads": {"lcd"}}})["false_findings"] == ["toggle_1"]  # a masked fault can't show

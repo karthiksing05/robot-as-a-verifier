@@ -716,3 +716,29 @@ def test_finishing_while_held_at_the_last_step_closes_the_routine(tmp_path):
     report, events, client, _ = go(tmp_path, [say(call("look_at_device")), say(call("propose_plan", steps=steps("c1", "c2", "c3"))), say(call("run_plan")),
                                               say(call("finish_run", summary="c3 failed once."))], robot=Robot({"c3": ["failed"]}))
     assert not errors_told(client) and report.coverage.failed == ["c3"] and events[-1].payload["status"] == "completed"
+
+
+HYPOTHESIS = {"controls": [{"id": "c1", "primitive": "press"}, {"id": "c2", "primitive": "press"}, {"id": "c3", "primitive": "turn", "range": {"low": 0, "high": 10}}],
+              "state": [{"name": "level", "default": 0}], "relations": [{"kind": "drives", "source": "c3", "target": "level"}]}
+
+
+def test_a_hypothesis_gives_a_checklist_and_finishing_points_at_what_is_untested_once(tmp_path):
+    tagged = steps("c1", "c2", "c3")
+    tagged[0]["tests"] = ["actuates:c1"]
+    report, events, client, _ = go(tmp_path, [say(call("look_at_device")), say(call("record_hypothesis", hypothesis={"controls": [{"id": "c1"}]})),
+                                              say(call("record_hypothesis", hypothesis=HYPOTHESIS)), say(call("propose_plan", steps=tagged)), say(call("run_plan")),
+                                              say(call("finish_run", summary="x")), say(call("finish_run", summary="Left the range ends: no time."))])
+    told = list(dict.fromkeys(errors_told(client)))
+    assert "doesn't fit the schema" in told[0] and "checklist properties have no evidence yet" in told[1] and "respects_range:c3" in told[1]
+    checklist = next(r.content for m in client.requests[3]["messages"] for r in m.results if r.call.name == "record_hypothesis" and "checklist" in r.content)
+    assert {"actuates:c1", "respects_range:c3", "default_on_power:level", "mapping_matches:c3:level"} <= {c["key"] for c in checklist["checklist"]}
+    note = next(e.payload for e in events if e.type == "message" and "checklist" in e.payload)
+    assert note["checklist"]["tested"] == {"actuates:c1": "passed"} and events[-1].payload["status"] == "completed"
+
+
+def test_a_new_plan_closes_a_routine_held_at_a_stop(tmp_path):
+    report, events, client, robot = go(tmp_path, [say(call("look_at_device")), say(call("propose_plan", steps=steps("c1", "c2", "c3"))), say(call("run_plan")),
+                                                  say(call("propose_plan", steps=steps("c1", "c2", "c3", prefix="r"))), say(call("run_plan")),
+                                                  say(call("finish_run", summary="x"))], robot=Robot({"c1": ["failed"]}))
+    assert not errors_told(client) and report.coverage.intermittent == ["c1"] and report.coverage.passed == ["c2", "c3"]
+    assert any("has been closed" in str(r.content) for m in client.requests[-1]["messages"] for r in m.results)

@@ -1690,6 +1690,7 @@ source = { editable = "harness" }
 dependencies = [
     { name = "httpx2" },
     { name = "mcp" },
+    { name = "pyyaml" },
     { name = "rav-cad" },
     { name = "rav-contracts" },
 ]
@@ -1698,6 +1699,7 @@ dependencies = [
 requires-dist = [
     { name = "httpx2" },
     { name = "mcp", specifier = ">=2.3,<3" },
+    { name = "pyyaml", specifier = ">=6" },
     { name = "rav-cad", editable = "cad" },
     { name = "rav-contracts", editable = "contracts" },
 ]

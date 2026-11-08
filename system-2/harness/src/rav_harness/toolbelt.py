@@ -30,7 +30,7 @@ from .verdicts import findings_from, settle
 Ask = Callable[[str], str | None]
 SAME_PLACE_MM = 30.0  # after a look, a control this close to where the layout says it was is the same control
 FORCE_POINTS = 40
-STAGE = {"look_at_device": "MAP", "get_scene": "MAP", "get_status": "MAP", "recover": "MAP", "read_manual": "PLAN", "propose_plan": "PLAN",
+STAGE = {"look_at_device": "MAP", "get_scene": "MAP", "get_status": "MAP", "recover": "MAP", "read_manual": "PLAN", "record_hypothesis": "PLAN", "propose_plan": "PLAN",
          "ask_operator": "PLAN", "run_plan": "TEST", "answer_stop": "TEST", "get_evidence": "TEST", "finish_run": "REPORT"}
 # How to tell the robot's trouble from the device's has one more source than a verdict: a scene is only true until the device moves.
 STREAK, OFFSET_MM = 2, 3.0
@@ -101,6 +101,9 @@ class ToolBelt:
         self.seqs: dict[int, int] = {}
         self.readings: dict[str, Any] = {}
         self.skipped_by_operator: set[str] = set()
+        self.tests_of: dict[str, list[str]] = {}  # step id -> checklist keys it gives evidence for
+        self.intents: list = []  # the checklist from the model's hypothesis, if it recorded one
+        self.checklist_nudged = False
         self.suspect: str | None = None
         self.recent: deque[dict] = deque(maxlen=4)
         self.finished: dict | None = None
@@ -121,7 +124,8 @@ class ToolBelt:
             "expected": {"type": "string", "description": "What should happen"}, "quote": {"type": "string", "description": "The manual's line this comes from"},
             "why": {"type": "string", "description": "With skill none: why this control can't be tested"},
             "check": {"type": "array", "items": check, "description": "Measurable results to evaluate on this step"},
-            "requires": {"type": "array", "items": check, "description": "Readings that must hold before this step for its checks to mean anything"}},
+            "requires": {"type": "array", "items": check, "description": "Readings that must hold before this step for its checks to mean anything"},
+            "tests": {"type": "array", "items": {"type": "string"}, "description": "Checklist keys from record_hypothesis that this step gives evidence for"}},
             "required": ["id", "skill", "target"]}
         if names:
             step["properties"]["params"] = {"type": "object", "description": "Numbers, per get_status",
@@ -135,6 +139,16 @@ class ToolBelt:
                 "page": {"type": "integer", "description": "Page number"}, "query": {"type": "string", "description": "Words to search for"}}}),
             ToolSpec("get_evidence", "A trace or image, by a reference from a stop or the scene. Ask only when the summary isn't enough.", {
                 "type": "object", "properties": {"ref": {"type": "string"}}, "required": ["ref"]}),
+            ToolSpec("record_hypothesis", "Records what you believe the device is, from the manual and the scan, and returns the checklist of "
+                     "properties worth testing on it. Plan from the checklist; it isn't a plan, and you can test more.", {
+                "type": "object", "properties": {"hypothesis": {"type": "object", "description": (
+                    "controls [{id, label, primitive: press|turn|flip|slide|push_latch|hook_pull|pick|place, returns: momentary|latching|continuous, "
+                    "range {low, high, unit, direction}}], indicators [{id, label, kind: text_display|light|led|beeper|flag, shows [state], vocabulary [messages]}], "
+                    "mechanisms [{id, kind: hinge|slide|latch|spring, rest, operated_by}], containers [{id, kind, accepts [object ids], sensed}], objects [{id, fits}], "
+                    "state [{name, values or range, default, persists, is_mode}], relations [{kind: enables|requires|interlocks|drives|displays, source, target, "
+                    "when {subject, op, value}, mapping, message}], procedures [{name, goal, manual_ref, steps [{primitive, target, pre [conditions], effects [conditions]}]}]. "
+                    "Use the scene's control ids. Every field but ids is optional; say only what the manual or the scan supports")}},
+                "required": ["hypothesis"]}),
             ToolSpec("propose_plan", "Submits steps. They're checked, then go for approval if they need it. Nothing moves until run_plan.", {
                 "type": "object", "properties": {"steps": {"type": "array", "items": step}, "why": {"type": "string"}}, "required": ["steps"]}),
             ToolSpec("run_plan", "Runs the approved plan and returns at the next stop that needs you.", no_args),
@@ -297,12 +311,14 @@ class ToolBelt:
             try:
                 item = dict(item)
                 reqs = item.pop("requires", None) or []
+                tests = item.pop("tests", None) or []
                 for c in [*reqs, *(item.get("check") or [])]:
                     if "value" in c:
                         c["value"] = _value(c["value"])
                 step = Step(**item)
                 steps.append(step)
                 requires[step.id] = [Check(**r) for r in reqs]
+                self.tests_of[step.id] = [str(t) for t in tests] if isinstance(tests, list) else []
             except (ValidationError, TypeError, ValueError) as e:
                 problems.append(f"{item.get('id', '?') if isinstance(item, dict) else item}: {e}".replace("\n", " ")[:400])
         return steps, requires, problems
@@ -343,6 +359,11 @@ class ToolBelt:
         self.approved += [s.model_copy(update={"target": self.canon.get(s.target, s.target)}) for s in steps]
 
     def tool_propose_plan(self, steps: Any = None, why: str = "") -> dict:
+        closed = None
+        if self.holding and not self.needs_recovery:  # a new plan replaces what's left of the held one: close it, rather than refuse
+            self._resume(Decision(kind="abort", note="replaced by a new plan"))
+            self._wait()
+            closed = "The routine that was holding at a stop has been closed, so this plan can run."
         self._guard_idle("planning")
         parsed, requires, malformed = self._parse_steps(steps)
         self._validate(parsed, malformed)
@@ -360,7 +381,7 @@ class ToolBelt:
             self.log.emit("plan_amended", {"level": level, "by": None, "steps": [s.id for s in parsed], "why": why})
         self._accept(parsed, requires)
         self.ready = plan
-        return {"approved": True, "plan_id": plan.plan_id, "next": "run_plan"}
+        return {"approved": True, "plan_id": plan.plan_id, "next": "run_plan", **({"note": closed} if closed else {})}
 
     def tool_run_plan(self) -> dict:
         self._guard_idle("running a plan")
@@ -570,6 +591,33 @@ class ToolBelt:
             return self._look()
         return view
 
+    def tool_record_hypothesis(self, hypothesis: Any = None) -> dict:
+        from . import theory
+
+        try:
+            h = theory.DeviceHypothesis.model_validate(hypothesis if isinstance(hypothesis, dict) else {})
+        except ValidationError as e:
+            raise ToolRejected("bad_args", "That hypothesis doesn't fit the schema. Fix these and send it again:\n" + str(e)[:1500]) from e
+        self.intents = theory.derive_tests(h)
+        unknown = sorted(c.id for c in h.controls if self.scene and c.id not in {x.id for x in self.scene.controls})
+        self.log.emit("message", {"role": "harness", "text": f"hypothesis recorded: {len(self.intents)} properties to test"})
+        return {"checklist": [{"key": t.key, "test": t.statement, "evidence": t.oracle, **({"after": t.blocked_by} if t.blocked_by else {})} for t in self.intents],
+                "note": "Put a step's checklist keys in its tests. Untested isn't passed: a property behind a failed one is blocked, not passed.",
+                **({"not_in_the_scene": unknown} if unknown else {})}
+
+    def checklist(self) -> Any:
+        """What the checklist's properties add up to, from the steps that named them."""
+        from . import theory
+
+        latest = {v.step: v.status for v in self.verdicts}
+        done: dict[str, Any] = {}
+        for step, keys in self.tests_of.items():
+            status = latest.get(step)
+            if status in ("passed", "failed", "observed", "inconclusive"):
+                for k in keys:
+                    done[k] = "failed" if "failed" in (done.get(k), status) else status
+        return theory.coverage(self.intents, done)
+
     def tool_ask_operator(self, question: str = "") -> dict:
         self.log.emit("message", {"role": "model", "text": question, "asks": True})
         self.on_state("waiting_person", "question")
@@ -591,8 +639,19 @@ class ToolBelt:
         missing = [i for i, s in progress.items() if s == "untested" and not (said.get(i) or {}).get("why")]
         if missing and not self.operator_note:
             raise ToolRejected("refused", f"No result or reason for: {', '.join(missing)}. Test them, or give each a why in controls.")
+        if self.intents and not self.checklist_nudged and not self.operator_note:
+            open_ = self.checklist().untested
+            if open_:  # once: then finishing anyway is the model's call
+                self.checklist_nudged = True
+                raise ToolRejected("refused", f"{len(open_)} checklist properties have no evidence yet: {', '.join(open_[:20])}"
+                                   f"{' …' if len(open_) > 20 else ''}. Test the ones a user would rely on, or call finish_run again to finish, "
+                                   "saying in the summary which you left and why.")
         claims = {i: str(c.get("status")) for i, c in said.items() if c.get("status")}
         self.log.emit("message", {"role": "model", "text": summary, "claims": claims})
+        if self.intents:
+            cov = self.checklist()
+            self.log.emit("message", {"role": "harness", "text": f"checklist: {len(cov.tested)} tested, {len(cov.blocked)} blocked, {len(cov.untested)} untested",
+                                      "checklist": cov.model_dump()})
         for i, claim in claims.items():
             actual = progress.get(i, "").split(" ")[0]
             if actual and actual != "untested" and claim not in (actual, "") and claim.split(" ")[0] != actual:

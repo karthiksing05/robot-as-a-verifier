@@ -78,7 +78,64 @@ def _settings() -> dict:
     return json.loads(SCORING.read_text()) if SCORING.is_file() else {}
 
 
-def score_authored(report: Report, events: list, key: dict, build: dict) -> dict[str, Any]:
+DISPLAYED = ("lcd", "state", "ring", "light")  # what a verify step can expect besides channel readings
+
+
+def symptoms(folder: pathlib.Path) -> dict[str, dict]:
+    """Where each fault shows, from the device's own verify checks: the step its check fails at (`fails_at`), and what
+    that step expects, without the channel the operated control drives itself. {fault: {"on": control or None, "reads": set}}.
+    Scorer only: like the build key, nothing here reaches a model."""
+    import yaml
+
+    verify, device = folder / "verify.yaml", folder / "device.yaml"
+    if not verify.is_file() or not device.is_file():
+        return {}
+    v, d = yaml.safe_load(verify.read_text()) or {}, yaml.safe_load(device.read_text()) or {}
+    # a control's body can be a parameter a fault swaps ($name): resolve it as the designer meant it, Rev B
+    params = {k: v2 for f in (d.get("faults") or {}).values() for k, v2 in (((f or {}).get("B") or {}).get("params") or {}).items()}
+    body = {c["id"]: params.get(str(c.get("body", "")).lstrip("$"), c.get("body")) for c in d.get("controls", [])}
+    own: dict[str, set] = {}
+    for sensor in ((d.get("firmware") or {}).get("sensors") or []):
+        for cid, b in body.items():
+            if b and sensor.get("joint") == b:
+                own.setdefault(cid, set()).add(sensor.get("channel"))
+    out = {}
+    for fid, f in (v.get("faults") or {}).items():
+        steps, at = (f or {}).get("steps") or [], (f or {}).get("fails_at")
+        if f.get("rev") or at is None or at >= len(steps):  # a variant check (another revision's mix), not the fault's own
+            continue
+        step, expect = steps[at], steps[at].get("expect") or {}
+        reads = {*(expect.get("readings") or {}), *(expect.get("changed") or []), *(expect.get("unchanged") or []), *(k for k in DISPLAYED if k in expect)}
+        on = next((st.get("target") for st in reversed(steps[:at + 1]) if st.get("target")), None)  # a wait shows what the last action started
+        out[fid] = {"on": on, "reads": reads - own.get(step.get("target"), set())}
+    return out
+
+
+def _metric(name: str) -> str:
+    return name.split(":", 1)[1].lower() if name.startswith("reading:") else name.lower()
+
+
+def _failed_checks(events: list) -> dict[str, list[dict]]:
+    """Every step's failed checks, by step id, with whether the step quoted the manual or named a source."""
+    planned: dict[str, dict] = {}
+    for e in events:
+        for st in (e.payload.get("steps") or []) if isinstance(e.payload, dict) else []:
+            if isinstance(st, dict) and st.get("id"):
+                planned[st["id"]] = st
+    out: dict[str, list[dict]] = {}
+    for e in events:
+        if e.type != "step_finished":
+            continue
+        trace = e.payload["trace"]
+        st = planned.get(trace.get("step"), {})
+        for c in trace.get("checks") or []:
+            if c.get("passed") is False:
+                sourced = bool(st.get("quote")) or any((x or {}).get("source") for x in st.get("check") or [] if (x or {}).get("metric") == c.get("metric"))
+                out.setdefault(trace["step"], []).append({"metric": _metric(c.get("metric", "")), "sourced": sourced})
+    return out
+
+
+def score_authored(report: Report, events: list, key: dict, build: dict, symptom: dict[str, dict] | None = None) -> dict[str, Any]:
     """An authored device, against its build answer key: the revision's observable faults are what should be found. A
     masked fault counts only if its part is called passed. A fault that can only show with an object placed (the robot
     can't pick) counts as handled when its part isn't called passed."""
@@ -100,14 +157,30 @@ def score_authored(report: Report, events: list, key: dict, build: dict) -> dict
     present = {faults[i]["piece"] for i in [*observable, *masked]}
     untestable = [i for i in observable if faults[i].get("property") in needs_object and faults[i]["piece"] not in reported and faults[i]["piece"] not in passed]
     judged = [i for i in observable if i not in untestable]
+    # A finding found the fault if a failing check on it reads where the fault shows, on the step the fault shows at, and
+    # quotes the manual's promise: a tester who reports the symptom found the fault, whichever control the check sat on.
+    failed_checks, by_symptom, credited = _failed_checks(events), {}, set()
+    for i in judged:  # a masked fault can't show, so nothing reads its symptom
+        sym = (symptom or {}).get(i)
+        if not sym:
+            continue
+        for p, f in reported.items():
+            if (sym["on"] and p != sym["on"]) or p in present:  # a finding on another fault's own part is that fault's
+                continue
+            if any(c["sourced"] and c["metric"] in sym["reads"] for sid in f.step_ids for c in failed_checks.get(sid, [])):
+                credited.add(p)  # it reports this fault, so it isn't a false finding, whether or not the fault's own part was reported too
+                if faults[i]["piece"] not in reported:
+                    by_symptom.setdefault(i, p)
+    hit = lambda i: faults[i]["piece"] in reported or i in by_symptom  # noqa: E731
     return {
-        "revision": rev, "faults_planted": judged, "faults_found": [i for i in judged if faults[i]["piece"] in reported],
-        "faults_missed": [i for i in judged if faults[i]["piece"] not in reported], "faults_untestable_ok": untestable,
+        "revision": rev, "faults_planted": judged, "faults_found": [i for i in judged if hit(i)],
+        "faults_missed": [i for i in judged if not hit(i)], "faults_untestable_ok": untestable,
+        "found_by_symptom": {i: p for i, p in by_symptom.items() if i in judged},
         "faults_called_passed": [i for i in [*observable, *masked] if faults[i]["piece"] in passed],
         "found_as_intermittent": [i for i in judged if faults[i]["piece"] in reported and reported[faults[i]["piece"]].label == "intermittent"],
-        "masked": list(masked), "masked_found": [i for i in masked if faults[i]["piece"] in reported],
-        "false_findings": sorted(p for p, f in reported.items() if p not in present and f.label != "intermittent"),
-        "noise_flags": sorted(p for p, f in reported.items() if p not in present and f.label == "intermittent"),
+        "masked": list(masked), "masked_found": [i for i in masked if hit(i)],
+        "false_findings": sorted(p for p, f in reported.items() if p not in present | credited and f.label != "intermittent"),
+        "noise_flags": sorted(p for p, f in reported.items() if p not in present | credited and f.label == "intermittent"),
         "truth_controls": len(key.get("controls") or []), "truth_found": len(named),
         "errors_injected": len(key.get("errors") or []),
         "errors_drawn": [{k: e.get(k) for k in ("kind", "when", "draw") if e.get(k) is not None} for e in key.get("errors") or []],
@@ -115,7 +188,7 @@ def score_authored(report: Report, events: list, key: dict, build: dict) -> dict
     }
 
 
-def score(report: Report, events: list, key: dict | None, build: dict | None = None) -> dict[str, Any]:
+def score(report: Report, events: list, key: dict | None, build: dict | None = None, symptom: dict[str, dict] | None = None) -> dict[str, Any]:
     """Everything worth comparing about one run. Only `faults_*`, `false_*` and `noise_*` need the key."""
     types = [e.type for e in events]
     turns = [e.payload for e in events if e.type == "model_turn"]
@@ -139,7 +212,7 @@ def score(report: Report, events: list, key: dict | None, build: dict | None = N
     if key is None:
         return out
     if build is not None:
-        return {**out, **score_authored(report, events, key, build)}
+        return {**out, **score_authored(report, events, key, build, symptom)}
     truth = key.get("controls") or []
     named: dict[str, str] = {}
     scene = {"controls": []}
@@ -193,7 +266,8 @@ def run_one(device: Device, model: str, folder: pathlib.Path, run_id: str, confi
             report = run_agent(system1, request, log, make_client(model, ledger=ledger or Ledger(), run=run_id), approve=sim_auto_approve, config=config, manual=manual)
         key = json.loads(process.key.read_text()) if process.key and process.key.is_file() else None
         build = json.loads(authored["build_key"].read_text()) if authored else None  # read here, after the run, by the scorer alone
-        record.update(score(report, read_events(log.path), key, build))
+        symptom = symptoms(authored["device_path"].parent) if authored else None
+        record.update(score(report, read_events(log.path), key, build, symptom))
     except Exception as e:  # noqa: BLE001 - recovery is one of the things being measured
         record.update(crashed=f"{type(e).__name__}: {e}", finished=None, report_written=False)
     finally:
@@ -264,8 +338,10 @@ def rescore(folder: str | pathlib.Path) -> dict:
         run = folder / r["run_id"]
         if (run / "report.json").is_file() and (run / "events.jsonl").is_file():
             key = json.loads((run / "answer_key.json").read_text()) if (run / "answer_key.json").is_file() else None
-            build = json.loads(find_authored(r["authored"])["build_key"].read_text()) if r.get("authored") else None
-            r = {**r, **score(Report.model_validate_json((run / "report.json").read_text()), read_events(run / "events.jsonl"), key, build)}
+            found = find_authored(r["authored"]) if r.get("authored") else None
+            build = json.loads(found["build_key"].read_text()) if found else None
+            symptom = symptoms(found["device_path"].parent) if found else None
+            r = {**r, **score(Report.model_validate_json((run / "report.json").read_text()), read_events(run / "events.jsonl"), key, build, symptom)}
         rows.append(r)
     return {"results": rows, "summary": summarize(rows)}
 
