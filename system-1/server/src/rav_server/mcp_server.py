@@ -4,6 +4,7 @@ from __future__ import annotations
 import anyio
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from pydantic import BaseModel
 from rav_interface import (Checkpoint, Decision, EscalationPolicy, Frame, Plan, RoutineHandle, RoutineName, SceneReport, StepTrace,
                            SystemStatus)
 
@@ -12,12 +13,33 @@ from .engine import RoutineEngine, RoutineError
 MAX_WAIT_S = 60.0
 
 
-def build_server(engine: RoutineEngine) -> MCPServer:
+class ApplianceList(BaseModel):
+    devices: list[str]
+
+
+class ApplianceSnapshot(BaseModel):
+    device_id: str
+    readings: dict[str, int | float | str | bool | None]
+    lcd: int | float | str | bool | None
+    age_s: float | None
+    fresh: bool
+
+
+def build_server(engine: RoutineEngine, devices=None) -> MCPServer:
     mcp = MCPServer("rav-system-1", instructions="Starts routines on the robot and reports when they stop. Never moves a joint directly.")
 
     @mcp.tool(description="State, the skills on offer with what each acts on and takes, the force limit, and the active routine.")
     def system_status() -> SystemStatus:
         return engine.status()
+
+    if devices:
+        @mcp.tool(description="Latest appliance snapshot and freshness. Omit device_id to list registered appliances.")
+        def appliance_readout(device_id: str | None = None) -> ApplianceList | ApplianceSnapshot:
+            if device_id is None:
+                return ApplianceList(devices=sorted(devices.readouts))
+            if device_id not in devices.readouts:
+                raise ToolError(f"unknown appliance '{device_id}'")
+            return ApplianceSnapshot(**devices.snapshot(device_id))
 
     @mcp.tool(description="The current SceneInventory from explore, updated as steps move parts, and a rule-based fallback plan.")
     def scene_get() -> SceneReport:

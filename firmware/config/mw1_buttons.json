@@ -1,0 +1,229 @@
+{
+  "schema": 1,
+  "device": "MW-1",
+  "port": "COM6",
+  "recorded_at": "2026-11-08T05:57:53.924935+00:00",
+  "labels_to_pins": {
+    "time": 5,
+    "30s": 6,
+    "power": 7,
+    "start": 4,
+    "stop": 3
+  },
+  "previous_labels_to_pins": {
+    "time": 6,
+    "30s": 5,
+    "power": 7,
+    "start": 4,
+    "stop": 3
+  },
+  "source_sha256_before": "fa4a291f1bfaa78df19f78c3fdf110839b3afbcfe412330436fc294300cc6ec4",
+  "captures": [
+    {
+      "label": "time",
+      "round": 1,
+      "pin": 5,
+      "press": {
+        "t": 565136,
+        "ev": "input",
+        "v": 1,
+        "pin": 5,
+        "host_at": "2026-11-08T05:55:10.902936+00:00"
+      },
+      "release": {
+        "t": 566545,
+        "ev": "input",
+        "v": 0,
+        "pin": 5,
+        "host_at": "2026-11-08T05:55:12.314555+00:00"
+      }
+    },
+    {
+      "label": "30s",
+      "round": 1,
+      "pin": 6,
+      "press": {
+        "t": 392378,
+        "ev": "input",
+        "v": 1,
+        "pin": 6,
+        "host_at": "2026-11-08T05:52:17.852481+00:00"
+      },
+      "release": {
+        "t": 396528,
+        "ev": "input",
+        "v": 0,
+        "pin": 6,
+        "host_at": "2026-11-08T05:52:22.009857+00:00"
+      }
+    },
+    {
+      "label": "power",
+      "round": 1,
+      "pin": 7,
+      "press": {
+        "t": 888011,
+        "ev": "input",
+        "v": 1,
+        "pin": 7,
+        "host_at": "2026-11-08T04:58:12.202960+00:00"
+      },
+      "release": {
+        "t": 889286,
+        "ev": "input",
+        "v": 0,
+        "pin": 7,
+        "host_at": "2026-11-08T04:58:13.480135+00:00"
+      }
+    },
+    {
+      "label": "start",
+      "round": 1,
+      "pin": 4,
+      "press": {
+        "t": 890815,
+        "ev": "input",
+        "v": 1,
+        "pin": 4,
+        "host_at": "2026-11-08T04:58:15.012285+00:00"
+      },
+      "release": {
+        "t": 892815,
+        "ev": "input",
+        "v": 0,
+        "pin": 4,
+        "host_at": "2026-11-08T04:58:17.015978+00:00"
+      }
+    },
+    {
+      "label": "stop",
+      "round": 1,
+      "pin": 3,
+      "press": {
+        "t": 893875,
+        "ev": "input",
+        "v": 1,
+        "pin": 3,
+        "host_at": "2026-11-08T04:58:18.077825+00:00"
+      },
+      "release": {
+        "t": 895015,
+        "ev": "input",
+        "v": 0,
+        "pin": 3,
+        "host_at": "2026-11-08T04:58:19.219859+00:00"
+      }
+    },
+    {
+      "label": "time",
+      "round": 2,
+      "pin": 5,
+      "press": {
+        "t": 641237,
+        "ev": "input",
+        "v": 1,
+        "pin": 5,
+        "host_at": "2026-11-08T05:56:27.130853+00:00"
+      },
+      "release": {
+        "t": 642108,
+        "ev": "input",
+        "v": 0,
+        "pin": 5,
+        "host_at": "2026-11-08T05:56:28.003392+00:00"
+      }
+    },
+    {
+      "label": "30s",
+      "round": 2,
+      "pin": 6,
+      "press": {
+        "t": 642771,
+        "ev": "input",
+        "v": 1,
+        "pin": 6,
+        "host_at": "2026-11-08T05:56:28.667793+00:00"
+      },
+      "release": {
+        "t": 642936,
+        "ev": "input",
+        "v": 0,
+        "pin": 6,
+        "host_at": "2026-11-08T05:56:28.832869+00:00"
+      }
+    },
+    {
+      "label": "power",
+      "round": 2,
+      "pin": 7,
+      "press": {
+        "t": 914225,
+        "ev": "input",
+        "v": 1,
+        "pin": 7,
+        "host_at": "2026-11-08T04:58:38.464298+00:00"
+      },
+      "release": {
+        "t": 914298,
+        "ev": "input",
+        "v": 0,
+        "pin": 7,
+        "host_at": "2026-11-08T04:58:38.537365+00:00"
+      }
+    },
+    {
+      "label": "start",
+      "round": 2,
+      "pin": 4,
+      "press": {
+        "t": 916615,
+        "ev": "input",
+        "v": 1,
+        "pin": 4,
+        "host_at": "2026-11-08T04:58:40.858855+00:00"
+      },
+      "release": {
+        "t": 916858,
+        "ev": "input",
+        "v": 0,
+        "pin": 4,
+        "host_at": "2026-11-08T04:58:41.102222+00:00"
+      }
+    },
+    {
+      "label": "stop",
+      "round": 2,
+      "pin": 3,
+      "press": {
+        "t": 919215,
+        "ev": "input",
+        "v": 1,
+        "pin": 3,
+        "host_at": "2026-11-08T04:58:43.463452+00:00"
+      },
+      "release": {
+        "t": 920481,
+        "ev": "input",
+        "v": 0,
+        "pin": 3,
+        "host_at": "2026-11-08T04:58:44.731631+00:00"
+      }
+    }
+  ],
+  "applied": true,
+  "source_sha256_after": "a7e7124fa508818b501b7967380129243c0e50fa93dd16f0ea1eb33da91025d2",
+  "verification": {
+    "type": "TIME/+30s connection swap recheck",
+    "newly_verified_labels": [
+      "time",
+      "30s"
+    ],
+    "preserved_labels": [
+      "power",
+      "start",
+      "stop"
+    ],
+    "previous_record_sha256": "42cb604b245c9e4152e0e8169fcd93665ccf1e6f841fbe74b4319ef28a52bb4a",
+    "trace": ".pio/button-swap-events.jsonl"
+  }
+}

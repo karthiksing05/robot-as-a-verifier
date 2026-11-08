@@ -12,8 +12,8 @@ they differ, the firmware is what runs (notes at the end). All grounds common.
 | POWER, SPDT mini toggle | D5 → GND | INPUT_PULLUP | ON = LOW. Software power: the board stays on and on serial when OFF |
 | NeoPixel ring, 24 × WS2812B (GRB) | D6 | output | brightness capped at 50/255 |
 | SPEED, WH148 10 kΩ pot | A0 | analog | 0-1023 over the 270° sweep, clockwise up (`SPEED_INVERT` false) |
-| Lid light, Grove Light Sensor v1.2 | A1 | analog | shaded by the lid's fin = lid closed |
-| Tube light, Grove Light Sensor v1.2, under well A | A2 | analog | shaded by a seated tube |
+| Lid light, Grove Light Sensor v1.2 | A2 | analog | shaded by the lid's fin = lid closed |
+| Tube light, Grove Light Sensor v1.2, under well A | A1 | analog | shaded by a seated tube |
 | SSD1306 OLED 128 × 64, I2C 0x3C | A4/A5 (header SDA/SCL) | I2C | two lines of 2× text |
 | USB | | | power and serial |
 

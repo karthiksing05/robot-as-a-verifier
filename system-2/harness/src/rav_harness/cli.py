@@ -282,6 +282,36 @@ def soft(args) -> None:
     print(f"every run: {done['folder']}/results.json")
 
 
+def _fix_one(run_dir: pathlib.Path, args) -> dict:
+    from .cadloop import fix_run
+    return fix_run(run_dir, step=getattr(args, "step", None), tags=getattr(args, "tags", None), approve=getattr(args, "approve", None),
+                   retest=not getattr(args, "no_retest", False), model=getattr(args, "retest_model", None), parallel=not getattr(args, "serial", False))
+
+
+def _print_fix(s: dict) -> None:
+    print(f"\nCAD loop on {pathlib.Path(s['run']).name} ({s['product']} rev {s['rev']}), pose residual {s['pose']['residual_mm']} mm")
+    for r in s["findings"]:
+        cause, applied = r["cause"], r.get("applied") or {}
+        state = ("applied" if "folder" in applied else f"refused: {applied['refused']}" if "refused" in applied else
+                 "proposed" if r["patch"] else "no CAD fix")
+        print(f"  {r['finding']} {r['robot_target']} -> CAD {r['cad_control']}: {state}. {cause.get('root_cause', '')[:200]}")
+    for n in s["not_cad"]:
+        print(f"  {n['finding']} {n['target']}: {n['why']}")
+    if s.get("next"):
+        print(f"  {s['next']}")
+    rt = s.get("retest")
+    if rt:
+        print(f"  retest {rt['run']} ({rt['model']}): " + ", ".join(f"{k} {v}" for k, v in rt["verdicts"].items()))
+        for k, v in rt["device"]["travel"].items():
+            print(f"    {k}: travel {v['from']} -> {v['to']} mm (clearance {v['clearance_from']} -> {v['clearance_to']} mm)")
+    print(f"  details: {pathlib.Path(s['run']) / 'cad' / 'fix.json'}")
+
+
+def fix(args) -> None:
+    """The CAD loop on one recorded run."""
+    _print_fix(_fix_one(pathlib.Path(args.run), args))
+
+
 def evaluate(args) -> None:
     from .eval import run_matrix
 
@@ -295,12 +325,47 @@ def evaluate(args) -> None:
             print(f"stopped early: {done['stopped']}")
         print(json.dumps(done["summary"], indent=2))
         print(f"every run: {done['folder']}/results.json")
+        if args.fix:
+            for r in done["results"]:
+                if r.get("crashed") or not r.get("report_written"):
+                    continue
+                _print_fix(_fix_one(pathlib.Path(done["folder"]) / r["run_id"], args))
         return
     done = run_matrix(args.devices.split(","), args.faults.split(","), [float(r) for r in args.error_rates.split(",")], models, args.repeats, args.route, args.runs, args.base_seed, budget=_budget(args), error_schedule=args.error_schedule)
     if done.get("stopped"):
         print(f"stopped early: {done['stopped']}")
     print(json.dumps(done["summary"], indent=2))
     print(f"every run: {done['folder']}/results.json")
+
+
+def inspect_system1(args) -> None:
+    from .client import McpSystem1, ToolFailed
+
+    client = McpSystem1(args.url)
+    try:
+        if args.command == "status":
+            print(client.system_status().model_dump_json(indent=2))
+        elif args.watch:
+            ids = [args.device_id] if args.device_id else client.appliance_readout()["devices"]
+            if not ids:
+                raise SystemExit("System 1 has no registered appliances.")
+            while True:
+                for device_id in ids:
+                    sample = client.appliance_readout(device_id)
+                    age = sample["age_s"]
+                    state = "NO DATA" if age is None else f"{'FRESH' if sample['fresh'] else 'STALE'} {age:.2f}s"
+                    stamp = time.strftime("%H:%M:%SZ", time.gmtime())
+                    readings = json.dumps(sample["readings"], sort_keys=True)
+                    print(f"{stamp} {device_id}  {state}  LCD={json.dumps(sample['lcd'])}  {readings}", flush=True)
+                time.sleep(1)
+        else:
+            print(json.dumps(client.appliance_readout(args.device_id), indent=2))
+    except KeyboardInterrupt:
+        pass
+    except ToolFailed as error:
+        raise SystemExit(str(error)) from error
+    finally:
+        client.close()
 
 
 def main(argv=None) -> None:
@@ -328,6 +393,14 @@ def main(argv=None) -> None:
     a.add_argument("--serial", action="store_true", help="one finding at a time instead of all at once")
     a.set_defaults(fn=analyze)
     m.set_defaults(fn=mock)
+    for name, about in (("status", "read System 1 status without moving the robot"),
+                        ("readout", "list appliances or show one appliance's latest snapshot")):
+        c = sub.add_parser(name, help=about)
+        c.add_argument("--url", default="http://127.0.0.1:8780/mcp")
+        if name == "readout":
+            c.add_argument("device_id", nargs="?")
+            c.add_argument("--watch", action="store_true", help="poll every second for one appliance or all registered appliances")
+        c.set_defaults(fn=inspect_system1)
     for name, fn, about in (("run", run, "one full run against System 1's server"), ("explore", explore, "/explore: find the controls, and print them")):
         c = sub.add_parser(name, help=about)
         c.add_argument("--url", default="http://127.0.0.1:8780/mcp", help="System 1's server. Set RAV_TOKEN if it needs a token")
@@ -369,6 +442,17 @@ def main(argv=None) -> None:
     e.add_argument("--baseline", action="store_true", help="also run the rule-based plan on each")
     e.add_argument("--route", default="rgb", choices=["depth", "rgb"])
     e.add_argument("--base-seed", type=int, default=0)
+    e.add_argument("--fix", action="store_true", help="after each authored run, the CAD loop: CadQuery fixes for its findings, then a retest on the patched device")
+    e.add_argument("--retest-model", default=None, help="who runs the retest (default: the run's own model)")
+    x = sub.add_parser("fix", help="the CAD loop on a recorded run: findings -> CadQuery fixes (claude CLI, offline) -> approve -> patched device -> retest in the sim")
+    x.add_argument("--run", required=True, help="a run folder (an eval run, or any run with --step and --tags)")
+    x.add_argument("--step", default=None, help="the tested product as a STEP assembly, for a run that isn't on an authored appliance")
+    x.add_argument("--tags", default=None, help="that product's tag file")
+    x.add_argument("--approve", default=None, help="who approves the patches. In the sim it's automatic and recorded; elsewhere, without it the loop stops at proposals")
+    x.add_argument("--no-retest", action="store_true")
+    x.add_argument("--retest-model", default=None, help="who runs the retest (default: the run's own model)")
+    x.add_argument("--serial", action="store_true", help="one finding at a time")
+    x.set_defaults(fn=fix)
     e.set_defaults(fn=evaluate)
     f = sub.add_parser("soft", help="round 1: short made-up scenarios on a fake robot, per model. No sim")
     f.add_argument("--models", default=",".join(MODELS))

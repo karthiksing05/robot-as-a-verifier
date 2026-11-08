@@ -1,12 +1,14 @@
-// MC-6 Mini Centrifuge firmware, v1.0
-// Arduino Uno + Grove Base Shield v2 (VCC switch on 5V).
+// MC-6 Mini Centrifuge firmware, v1.1
+// Arduino Uno or UNO R4 WiFi + Grove Base Shield v2 (VCC switch on 5V).
 // Libraries: U8g2 (2.34+), Adafruit NeoPixel (1.12+).
 // Serial: 115200 baud, one JSON object per line. Commands: ping, status, cal, reset.
+// WiFi (UNO R4 WiFi with arduino_secrets.h): also POSTs a snapshot of every channel to rav-server (rav_wifi.h).
 
 #include <Arduino.h>
 #include <Wire.h>
 #include <U8x8lib.h>
 #include <Adafruit_NeoPixel.h>
+#include "rav_wifi.h"
 
 // ---------------- pins
 const uint8_t PIN_START = 2;     // INPUT_PULLUP, LOW = pressed
@@ -15,8 +17,8 @@ const uint8_t PIN_TIME = 4;
 const uint8_t PIN_POWER = 5;     // SPDT toggle, LOW = ON
 const uint8_t PIN_RING = 6;      // 24 x WS2812B, GRB
 const uint8_t PIN_SPEED = A0;    // 10k pot
-const uint8_t PIN_LID = A1;      // Grove light sensor, shaded = lid closed
-const uint8_t PIN_TUBE = A2;     // Grove light sensor under well A, shaded = tube seated
+const uint8_t PIN_LID = A2;      // Grove light sensor, shaded = lid closed
+const uint8_t PIN_TUBE = A1;     // Grove light sensor under well A, shaded = tube seated
 
 // ---------------- tuning
 const uint8_t RING_N = 24;
@@ -44,6 +46,7 @@ State st = S_OFF;
 uint16_t rpm = RPM_MIN, setTime = TIME_DEFAULT, left = 0;
 char reason[5] = "";
 uint32_t stateSince = 0, lastTick = 0, ringSteadySince = 0;
+const char *lastRun = "";        // the last run event's value, for the WiFi snapshot
 
 struct Btn { uint8_t pin; const char *ev; bool stable; bool raw; uint32_t changed; };
 Btn btns[] = {{PIN_START, "btn_start", 0, 0, 0}, {PIN_STOP, "btn_stop", 0, 0, 0},
@@ -60,12 +63,16 @@ char line1[17] = "", line2[17] = "";
 const char *ringName = "off";
 
 // ---------------- serial helpers
+#if defined(__AVR__)
 int freeRam() { extern int __heap_start, *__brkval; int v; return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int)__brkval); }
+#else
+int freeRam() { return -1; }     // the R4 has 32 KB: nothing to watch
+#endif
 void evStart(const __FlashStringHelper *ev) { Serial.print(F("{\"t\":")); Serial.print(millis()); Serial.print(F(",\"ev\":\"")); Serial.print(ev); Serial.print('"'); }
 void evStart(const char *ev) { Serial.print(F("{\"t\":")); Serial.print(millis()); Serial.print(F(",\"ev\":\"")); Serial.print(ev); Serial.print('"'); }
 void evInt(const char *ev, long v) { evStart(ev); Serial.print(F(",\"v\":")); Serial.print(v); Serial.println('}'); }
 void evStr(const __FlashStringHelper *ev, const char *v) { evStart(ev); Serial.print(F(",\"v\":\"")); Serial.print(v); Serial.println(F("\"}")); }
-void evRun(const char *v) { evStr(F("run"), v); }
+void evRun(const char *v) { lastRun = v; evStr(F("run"), v); }
 
 // ---------------- sensors
 uint16_t avgRead(uint8_t pin, uint8_t n) { uint32_t s = 0; for (uint8_t i = 0; i < n; i++) s += analogRead(pin); return s / n; }
@@ -216,6 +223,20 @@ void handleSerial() {
   }
 }
 
+#ifdef RAV_WIFI
+// Every channel the sim's device has (device.yaml's firmware.channels, minus its sim-only tube_raw_*), plus state, ring
+// and the display's two lines as LCD, joined as the sim shows them. time is what the time events say: the set time,
+// or what's left while running.
+void snapshot(char *o, size_t n) {
+  char shown[36];
+  if (line2[0]) snprintf(shown, sizeof(shown), "%s  %s", line1, line2); else snprintf(shown, sizeof(shown), "%s", line1);
+  snprintf(o, n, "{\"power\":%u,\"btn_start\":%u,\"btn_stop\":%u,\"btn_time\":%u,\"speed\":%u,\"lid\":%u,\"tube\":%u,"
+           "\"run\":\"%s\",\"time\":%u,\"state\":\"%s\",\"ring\":\"%s\",\"LCD\":\"%s\"}",
+           btns[B_POWER].stable, btns[B_START].stable, btns[B_STOP].stable, btns[B_TIME].stable, rpm, lid.shaded,
+           tube.shaded, lastRun, st == S_RUNNING ? left : setTime, STATE_NAME[st], ringName, shown);
+}
+#endif
+
 void setup() {
   Serial.begin(115200);
   for (uint8_t i = 0; i < 4; i++) pinMode(btns[i].pin, INPUT_PULLUP);
@@ -227,6 +248,9 @@ void setup() {
   for (uint8_t i = 0; i < 4; i++) { btns[i].raw = btns[i].stable = digitalRead(btns[i].pin) == LOW; }
   evInt("power", btns[B_POWER].stable);
   if (btns[B_POWER].stable) powerOn(); else go(S_OFF);
+#ifdef RAV_WIFI
+  rav::begin();                  // blocks a few seconds while it joins; the display is already up
+#endif
 }
 
 void loop() {
@@ -254,4 +278,8 @@ void loop() {
   }
   if (st == S_DONE && now - stateSince >= DONE_HOLD_MS) go(S_READY);
   if (now - lastHb >= 1000) { lastHb = now; heartbeat(); }
+#ifdef RAV_WIFI
+  static uint32_t lastSnap = 0;
+  if (now - lastSnap >= 10) { lastSnap = now; char b[RAV_SNAPSHOT_MAX]; snapshot(b, sizeof(b)); rav::update(b); }
+#endif
 }

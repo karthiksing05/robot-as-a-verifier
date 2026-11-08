@@ -59,6 +59,8 @@ uv run rav analyze --analyst local --run subjects/centrifuge/sim_run/centrifuge-
 
 `uv run rav mock --analyst local` runs the whole loop on our box, with each feature's CadQuery shown to the model as a reference.
 
+**From a real run, and back to the sim** ([D36](../../docs/decisions.md)). `rav fix --run <run>` takes any run's findings to this analyst. On an authored sim appliance, [`appliance.py`](src/rav_cad/appliance.py) writes its tag file from the device file and Rev A, and `patched_device` swaps the approved parts into the tested revision for a retest: new meshes, and each button's travel from its geometry (under 0.3 mm of clearance per side binds at 0.1 mm). On a real product, pass `--step`, `--tags` and `--approve NAME`; the retest is printing rev_<X>/.
+
 ## The CadQuery model
 
 The appliance is a YAML spec: the box, an optional sloped panel, and a list of controls placed on faces. Every control is a small keyed **insert** that drops into a pocket, so a fix reprints a 5 to 15 minute part, not the box.

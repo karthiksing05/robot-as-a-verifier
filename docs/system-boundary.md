@@ -23,6 +23,7 @@ The test for any new code: **would it still have to work if the model's API went
 
 ```
 docs/                 what both systems must read: this page, architecture, decisions, pitch
+firmware/             standalone MC-6/MW-1 Arduino R4 builds, calibration tools and bench tests
 system-1/             its own pyproject.toml and uv.lock
   interface/          the wire contract: types and tool definitions, no heavy dependencies
   server/             the tool server System 2 talks to, plus the telemetry streams
