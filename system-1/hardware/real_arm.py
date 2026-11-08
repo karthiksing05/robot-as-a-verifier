@@ -46,8 +46,10 @@ OFFSET_RAD = np.radians([0.0, -1.9, -4.8, -2.24, 0.0])
 # P gain enable() sets on the five arm joints. The RobiServo-01 ships at 160. LeRobot's follower writes 16 on every
 # connect (lerobot-calibrate, teleop), and at 16 a loose motor didn't follow a 5 deg move at all; at 160 it stopped 5
 # steps short (system-1/arm/bringup/results.md).
-# 130 on the centrifuge rig: at 160 the arm oscillated holding its views (Nov 8)
-SERVO_P = 130
+SERVO_P = 160
+# and D: LeRobot writes D 32 (P 16) on every connect; with P 160 the arm oscillated holding its views (Nov 8), so
+# damped harder (130 P alone was the fallback)
+SERVO_D = 64
 # Servo stiffness the force estimate assumes (N.m/rad). The sim's 36 is fitted to a bench test at an unstated P gain,
 # and the stiffness at SERVO_P is unmeasured. On softer servos the estimate reads high and drifts with the pose (slides
 # miss, the cap trips with nothing touching); on stiffer ones it reads low and the cap trips late (sim/docs/real-arm.md,
@@ -202,9 +204,10 @@ class RealArm(rig.ArmBase):
                for j, q, lo, hi in zip(ARM_JOINTS, self.q, self.ik.lo, self.ik.hi) if not lo - OUT_OK <= q <= hi + OUT_OK]
         if out:
             raise SafetyStop("; ".join(out) + ". Check the joint mapping (tools/arm_check.py), or move it inside by hand")
-        p = self.bus.sync_read("P_Coefficient", ARM_JOINTS, normalize=False)
-        if any(p[j] != SERVO_P for j in ARM_JOINTS):  # torque is still off, as an EEPROM write needs
-            self.bus.sync_write("P_Coefficient", dict.fromkeys(ARM_JOINTS, SERVO_P), normalize=False)
+        for reg, want in (("P_Coefficient", SERVO_P), ("D_Coefficient", SERVO_D)):
+            have = self.bus.sync_read(reg, ARM_JOINTS, normalize=False)
+            if any(have[j] != want for j in ARM_JOINTS):  # torque is still off, as an EEPROM write needs
+                self.bus.sync_write(reg, dict.fromkeys(ARM_JOINTS, want), normalize=False)
         self.goal = self.pos.copy()
         self.bus.sync_write("Goal_Position", dict(zip(ARM_JOINTS, self.goal.tolist())), normalize=False)
         self.bus.enable_torque(ARM_JOINTS)  # after the goal: a servo turned on runs to whatever goal it last had

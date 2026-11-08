@@ -51,7 +51,7 @@ class FakeServos:
         self.names = {c.id: name for name, c in cal.items()}
         self.mid = np.array([(cal[j].range_min + cal[j].range_max) / 2 for j in robot.ARM_JOINTS])
         self.torque = dict.fromkeys(self.names, False)
-        self.goal, self.p = {}, {}
+        self.goal, self.p, self.d = {}, {}, {}
         self.rng = np.random.default_rng(robot.SENSE_SEED + 7)
         self.collisions, self.peak_true_n, self.open = set(), 0.0, True
         self.qs = []  # every pose the arm was driven toward, model frame
@@ -63,7 +63,7 @@ class FakeServos:
             return int(real_arm.to_raw(q, self.mid)[id_ - 1])
         return {"present_position": (c.range_min + c.range_max) // 2, "min_position_limit": c.range_min,
                 "max_position_limit": c.range_max, "homing_offset": c.homing_offset, "model_number": 777,
-                "p_coefficient": self.p.get(id_, 16), "torque_enable": int(self.torque[id_])}[name]
+                "p_coefficient": self.p.get(id_, 16), "d_coefficient": self.d.get(id_, 32), "torque_enable": int(self.torque[id_])}[name]
 
     def read_register_with_error(self, id, name, retries=0):
         return self._value(id, name), 0
@@ -76,9 +76,9 @@ class FakeServos:
         return {}
 
     def sync_write_register(self, ids, name, values, retries=0):
-        if name == "p_coefficient":
-            assert not any(self.torque[i] for i in ids), "P written with torque on"
-            self.p.update(zip(ids, values))
+        if name in ("p_coefficient", "d_coefficient"):
+            assert not any(self.torque[i] for i in ids), "gain written with torque on"
+            (self.p if name == "p_coefficient" else self.d).update(zip(ids, values))
             return
         assert name == "goal_position", name
         self.goal.update(zip(ids, values))
