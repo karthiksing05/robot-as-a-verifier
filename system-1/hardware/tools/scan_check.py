@@ -51,23 +51,24 @@ class Live(threading.Thread):
 
 
 def results_image(scene):
-    """The last scan frame with every candidate's outline (grey: rejected, with why) and the parts circled in red."""
-    f = (scene.frames or [None])[-1]
-    if f is None:
+    """The scan's straight-on view of the panel (its orthophoto) with every candidate's outline, red for the parts it
+    kept (named) and grey for the ones it rejected."""
+    if scene.heightmap is None or scene.plane is None:
         return None
-    img, inv = f.rgb.copy(), np.linalg.inv(f.T_base_cam)
+    _, img, cell, (u0, v0) = scene.heightmap
+    inv = np.linalg.inv(scene.plane[0])
 
     def px(P):
-        c = (inv @ np.c_[P, np.ones(len(P))].T)[:3]
-        return (f.K @ (c / c[2]))[:2].T.astype(np.int32)
+        q = (inv @ np.c_[P, np.ones(len(P))].T)[:3].T
+        return (np.c_[(q[:, 1] - v0) / cell, (q[:, 0] - u0) / cell] * 2).astype(np.int32)
+    out = cv2.resize(img, None, fx=2, fy=2)
     for b in scene.blobs:
-        colour = (0, 0, 255) if b.get("part") else (160, 160, 160)
         if b.get("outline") is not None and len(b["outline"]):
-            cv2.polylines(img, [px(np.asarray(b["outline"]))], True, colour, 3)
+            cv2.polylines(out, [px(np.asarray(b["outline"]))], True, (0, 0, 255) if b.get("part") else (170, 170, 170), 2)
     for p in scene.parts:
-        u, v = px(p.pos[None])[0]
-        cv2.putText(img, f"{p.id} {p.score:.2f}", (int(u) + 15, int(v) - 15), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 0, 255), 3)
-    return cv2.resize(img, None, fx=0.5, fy=0.5)
+        c, r = px(p.pos[None])[0]
+        cv2.putText(out, p.id, (int(c) + 10, int(r) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+    return out
 
 
 def main(argv=None, ask=input):

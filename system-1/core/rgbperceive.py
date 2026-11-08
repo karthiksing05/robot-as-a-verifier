@@ -52,9 +52,11 @@ PX_WIDTH = 1920         # the frame width the pixel constants here are for; othe
 # bundle adjustment
 PANEL_INSET = 0.008     # panel features come from the survey's panel rectangle shrunk this much (off the housing)
 FK_TOL_PX = 135         # a pair whose panel matches land this far from where the believed poses put them: a wild fit
-FLAT_BUTTONS = False    # a round, button-sized outline is a button even when its height reads flat (hw_rig sets it:
-                        # the real buttons' dark glossy tops gave the height sweep too little texture on some scans)
+FLAT_BUTTONS = False    # real-rig rules (hw_rig sets it): round button-sized outlines are buttons even when their height
+                        # reads flat (dark glossy tops give the sweep little texture) or knob-tall, and extra views
+                        # chase only candidates on the panel
 BUTTON_DIAM = (0.012, 0.030)
+BUTTON_MAX_H = 0.012   # and under this tall: arcade buttons stand 7-10 mm proud, which the sim's rules call a knob or dial
 MIN_TRACKS = 30         # fewer panel feature tracks than this (a plain panel): keep the believed poses
 # reprojection noise; prior on each pose's correction. On the real remote photos (system-1/arm/camera/pose_test.py)
 # a 1 deg, 3 mm prior corrected 1 deg, 3 mm errors to 0.15 mm median height error, against 0.27 with 0.25 deg, 0.5 mm
@@ -125,7 +127,7 @@ def perceive_rgb(arm, phone, wrist, on_stage=None, on_frame=None):
     caps = scan(arm, wrist, scene.views, on_frame)
 
     def more(cands, poses, Tg):  # a view centred on each candidate with a cell fewer than two views see
-        short = [c for c in cands if _fewest_views(c, caps, poses, Tg) < 2]
+        short = [c for c in cands if _fewest_views(c, caps, poses, Tg) < 2 and (not FLAT_BUTTONS or _on_panel(c, Tg, scene.survey))]
         if not short:
             return []
         stage("views")
@@ -932,8 +934,10 @@ def classify(cands, hm, img):
             if kind != "pad" and score > pick[1]:
                 pick = (kind, score, why, r)
         w = perceive.region(c["mask"], hm, CELL)["width"]
-        if FLAT_BUTTONS and pick[0] == "unknown" and c["round"] >= 0.95 and BUTTON_DIAM[0] <= w <= BUTTON_DIAM[1]:
-            pick = ("button", 0.5, f"round, {w * 1000:.0f} mm across, height not measured", c["readings"][0])
+        r = pick[3] if isinstance(pick[3], dict) else c["readings"][0]
+        if (FLAT_BUTTONS and pick[0] in ("unknown", "knob", "dial") and c["round"] >= 0.95
+                and BUTTON_DIAM[0] <= w <= BUTTON_DIAM[1] and r["plateau"] <= BUTTON_MAX_H):
+            pick = ("button", 0.5, f"round, {w * 1000:.0f} mm across, {r['plateau'] * 1000:.1f} mm tall (real-rig rule)", r)
         door = _pad(c, hm, img)
         if door and door[2] > pick[1]:
             pick = ("door", door[2], door[3], door[:2])
@@ -1006,6 +1010,15 @@ def build(cands, picks, hm, img, grid):
         records.append(dict(kind=kind, score=round(score, 3), part=pid, why=why,
                             outline=grid.point(outline, np.full(len(outline), 0.0003))))
     return parts, records, masks
+
+
+def _on_panel(cand, Tg, survey, margin=0.01):
+    """Whether a candidate's centre lies on the survey's panel (within margin): extra views chase only those, as
+    cables and boards beside a real panel pulled the arm off to the side."""
+    p = Tg[:3, :3] @ [*(np.argwhere(cand["mask"]).mean(0) * CELL), 0] + Tg[:3, 3]
+    u, v = (np.linalg.inv(survey["panel"]) @ np.r_[p, 1])[:2]
+    u0, u1, v0, v1 = survey["extent"]
+    return u0 - margin <= u <= u1 + margin and v0 - margin <= v <= v1 + margin
 
 
 def _fewest_views(cand, caps, poses, Tg):
