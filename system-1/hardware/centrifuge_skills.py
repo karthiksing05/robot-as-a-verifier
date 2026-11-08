@@ -330,67 +330,23 @@ SKILLS = {  # skill: (offset from STOP, what runs it)
 }
 
 
-PICK_RETRIES = 2  # picks again this many times when Haiku sees no tube in the jaws after a pick
-JAWS_EMPTY_TICKS = 80  # and the gripper shut to within this of its calibrated close: an 18 mm collar stops it far short
-
-
-def _jaws_empty(arm):
-    """True if the gripper shut to within JAWS_EMPTY_TICKS of its calibrated close (or past it), False if it stopped
-    further open, as on the 18 mm collar; None if it can't be read (the sim bus)."""
-    try:
-        at = arm.bus.read("Present_Position", "gripper", normalize=False)
-        return at <= arm.bus.calibration["gripper"].range_min + JAWS_EMPTY_TICKS
-    except Exception:  # noqa: BLE001
-        return None
-
-
-def _save_check(frame, attempt):
-    """The photo Haiku judged, beside tube_find's, for checking its answer afterwards."""
-    try:
-        import cv2
-        import os
-        import time
-        import tube_find
-        os.makedirs(tube_find.OUT_DIR, exist_ok=True)
-        cv2.imwrite(os.path.join(tube_find.OUT_DIR, time.strftime("%H%M%S") + f"_tube_held_{attempt}.jpg"), frame.rgb)
-    except Exception:  # noqa: BLE001 - evidence must never stop a pick
-        pass
-
-
 def run(arm, skill, p, plane_T, params, wrist=None):
     """One skill on part p (STOP, or the thing itself), with the step's params: angle, dx_mm, dy_mm, dz_mm, and for
     tube_find and tube_pick which tube (1 the green collar, 2 the red). Those two find the tube with the wrist camera
     (tube_find.find): tube_find only reports where, tube_pick then picks it there."""
     nudge = [float(params.get(k, 0.0)) for k in ("dx_mm", "dy_mm", "dz_mm")]
     if skill in ("tube_find", "tube_pick") and wrist is not None:
-        import haiku_check
         import tube_find
-        notes = []
-        for attempt in range(1 + (PICK_RETRIES if skill == "tube_pick" else 0)):
-            top, how = tube_find.find(arm, wrist, "red" if float(params.get("tube", 2)) >= 2 else "green")
-            if top is None:
-                raise RuntimeError("; ".join([*notes, how]))
-            r = np.r_[top[:2] - PAN_XY, 0.0]  # the search's point sits past the collar's centre: pull it toward the arm
-            top = top - TUBE_PULL * r / np.linalg.norm(r)
-            top = top + (device_frame(plane_T) if plane_T is not None else np.eye(3)) @ np.asarray(nudge) / 1000
-            if skill == "tube_find":
-                return {"verdict": "done", "reason": how}
-            done = pick_tube(arm, top)
-            if done["verdict"] == "FAIL":
-                return {**done, "reason": "; ".join([*notes, how, done["reason"]])}
-            frame = wrist.capture()  # lifted: the jaw tips, and a held tube, are in the picture's lower left
-            _save_check(frame, attempt)
-            held, why = haiku_check.tube_held(frame)
-            empty = _jaws_empty(arm)  # the jaws shut right up (nothing between them), or None on the sim bus
-            if held is not False or empty is False:  # a retry opens the jaws: only when both say there's nothing in them
-                said = f"Haiku: {'held' if held else 'no answer' if held is None else 'not held'} ({why})"
-                if held is False:
-                    said += "; the jaws stopped short of shut, so a tube is held: kept it"
-                return {**done, "reason": "; ".join([*notes, how, done["reason"], said])}
-            notes.append(f"try {attempt + 1}: Haiku saw no tube in the jaws ({why}) and they shut right up, picking again")
-            real_skills.gripper(arm, TUBE_OPEN, hold_s=0.3)  # let go of whatever it has, for the next search
-            arm.holding = False
-        return {"verdict": "FAIL", "reason": "; ".join([*notes, f"no tube in the jaws after {1 + PICK_RETRIES} picks"])}
+        top, how = tube_find.find(arm, wrist, "red" if float(params.get("tube", 2)) >= 2 else "green")
+        if top is None:
+            raise RuntimeError(how)
+        r = np.r_[top[:2] - PAN_XY, 0.0]  # the search's point sits past the collar's centre: pull it toward the arm
+        top = top - TUBE_PULL * r / np.linalg.norm(r)
+        top = top + (device_frame(plane_T) if plane_T is not None else np.eye(3)) @ np.asarray(nudge) / 1000
+        if skill == "tube_find":
+            return {"verdict": "done", "reason": how}
+        done = pick_tube(arm, top)
+        return {**done, "reason": f"{how}; {done['reason']}"}
     if skill == "tube_find":
         raise RuntimeError("no wrist camera to look with")
     if plane_T is None:
