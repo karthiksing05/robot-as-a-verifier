@@ -247,6 +247,21 @@ def evaluate(args) -> None:
     print(f"every run: {done['folder']}/results.json")
 
 
+def inspect_system1(args) -> None:
+    from .client import McpSystem1, ToolFailed
+
+    client = McpSystem1(args.url)
+    try:
+        if args.command == "status":
+            print(client.system_status().model_dump_json(indent=2))
+        else:
+            print(json.dumps(client.appliance_readout(args.device_id), indent=2))
+    except ToolFailed as error:
+        raise SystemExit(str(error)) from error
+    finally:
+        client.close()
+
+
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(prog="rav", description=__doc__)
     ap.add_argument("--runs", default="runs", help="where run folders go")
@@ -272,6 +287,13 @@ def main(argv=None) -> None:
     a.add_argument("--serial", action="store_true", help="one finding at a time instead of all at once")
     a.set_defaults(fn=analyze)
     m.set_defaults(fn=mock)
+    for name, about in (("status", "read System 1 status without moving the robot"),
+                        ("readout", "list appliances or show one appliance's latest snapshot")):
+        c = sub.add_parser(name, help=about)
+        c.add_argument("--url", default="http://127.0.0.1:8780/mcp")
+        if name == "readout":
+            c.add_argument("device_id", nargs="?")
+        c.set_defaults(fn=inspect_system1)
     for name, fn, about in (("run", run, "one full run against System 1's server"), ("explore", explore, "/explore: find the controls, and print them")):
         c = sub.add_parser(name, help=about)
         c.add_argument("--url", default="http://127.0.0.1:8780/mcp", help="System 1's server. Set RAV_TOKEN if it needs a token")

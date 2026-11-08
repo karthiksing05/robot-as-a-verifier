@@ -60,6 +60,21 @@ def test_the_device_key_never_opens_the_tools():
     assert c.post("/mcp", json={}, headers={"Authorization": f"Bearer {KEY}"}).status_code == 401
 
 
+def test_board_credentials_are_scoped_to_one_id():
+    readouts = {name: http_readout.HttpReadout(name) for name in ("mc6-01", "mw1-01")}
+    app = build_app(RoutineEngine(MockRobot, "mock"), "127.0.0.1", TOKEN, readouts,
+                    {"mc6-01": "centrifuge-key", "mw1-01": "microwave-key"})
+    c = TestClient(app)
+    auth = {"Authorization": "Bearer centrifuge-key"}
+    assert c.post("/readout/mw1-01", json={"door": 1}, headers=auth).status_code == 401
+    assert not readouts["mw1-01"].started
+    assert c.post("/readout/mc6-01", json={"speed": 1000}, headers=auth).status_code == 204
+    assert c.get("/readout/mc6-01", headers=auth).json()["fresh"]
+    assert c.post("/readout/mc6-01", json={}, headers=auth).status_code == 400
+    assert c.post("/readout/mc6-01", json={"lid": 1}, headers=auth).status_code == 204
+    assert readouts["mc6-01"].readings == {"lid": 1}
+
+
 def test_refuses_to_start_without_a_separate_key_off_loopback():
     with pytest.raises(SystemExit, match="RAV_DEVICE_KEY"):
         client(key=None)

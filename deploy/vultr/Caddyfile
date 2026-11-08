@@ -1,0 +1,30 @@
+{$RAV_PUBLIC_HOST} {
+	@tunnel {
+		path /tunnel
+		method GET
+		header Upgrade websocket
+	}
+	handle @tunnel {
+		reverse_proxy 127.0.0.1:7000
+	}
+
+	@readout {
+		method POST
+		path_regexp ^/readout/[A-Za-z0-9_-]{1,64}$
+	}
+	handle @readout {
+		request_body {
+			max_size 4KB
+		}
+		reverse_proxy 127.0.0.1:8780 {
+			header_up Host 127.0.0.1:8780
+			transport http {
+				response_header_timeout 2s
+			}
+		}
+	}
+
+	handle {
+		respond 404
+	}
+}

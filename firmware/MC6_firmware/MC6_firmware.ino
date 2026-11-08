@@ -6,6 +6,10 @@
 #include <avr/pgmspace.h>
 #include <stdio.h>
 #include <string.h>
+#if defined(ARDUINO_UNOWIFIR4) && __has_include("arduino_secrets.h")
+#include "arduino_secrets.h"
+#include "../firmware/rav_wifi.h"
+#endif
 
 #if defined(ARDUINO_ARCH_RENESAS_UNO)
 extern "C" void *_sbrk(int increment);
@@ -154,6 +158,7 @@ void stateMachine(uint32_t now);
 void heartbeat();
 void executeCommand(uint32_t now);
 void serialPoll(uint32_t now);
+void actionEvent(Flash action);
 void setup();
 void loop();
 
@@ -352,7 +357,7 @@ void sampleLight(Light &sensor, Flash name) {
   }
 }
 void calibrationStart(uint32_t now) {
-  if (state == RUNNING) { event(F("run"), F("stop")); changeState(READY); restoreTime(); }
+  if (state == RUNNING) { actionEvent(F("stop")); changeState(READY); restoreTime(); }
   calibrating = true; calStage = CAL_BOOT; calCount = 0; lidSum = tubeSum = 0;
   calStarted = calLast = now; tubeValid = false; uiDirty = true;
   prefix(F("notice")); Serial.println(requireTubePresent ? F(",\"msg\":\"Calibration: open lid, remove tube; ring white\"}") : F(",\"msg\":\"Calibration: open lid; tube ignored; ring white\"}"));
@@ -438,7 +443,7 @@ void calibrationFailure(Flash why, uint16_t lidMean, uint16_t tubeMean) {
 }
 void guidedCalibrationStart(uint32_t now) {
   if (buttonTest) setButtonTest(false);
-  if (state == RUNNING) { event(F("run"), F("stop")); changeState(READY); restoreTime(); }
+  if (state == RUNNING) { actionEvent(F("stop")); changeState(READY); restoreTime(); }
   if (state != OFF) changeState(READY);
   calibrating = true; calStage = WAIT_OPEN; calFailed = false; tubeValid = false; uiDirty = true;
   render(now); calibrationReply();
@@ -520,7 +525,7 @@ void buttonTestReply() {
 void setButtonTest(bool enabled) {
   if (enabled && !buttonTest) {
     if (calibrating) calibrationCancel();
-    if (state == RUNNING) { event(F("run"), F("stop")); restoreTime(); changeState(READY); }
+    if (state == RUNNING) { actionEvent(F("stop")); restoreTime(); changeState(READY); }
     for (uint8_t i = 0; i < BUTTON_SCAN_COUNT; ++i) {
       Button &button = scanButtons[i]; button.pin = BUTTON_SCAN_PINS[i]; button.begin();
       button.raw = button.held = digitalRead(button.pin) == LOW; button.pressed = false; button.changed = millis();
@@ -546,7 +551,7 @@ void pollButtons(uint32_t now) {
   }
   if (powerSwitch.poll(now)) {
     buttonEvent(F("power"), powerSwitch);
-    if (state == RUNNING) event(F("run"), F("stop"));
+    if (state == RUNNING) actionEvent(F("stop"));
     if (powerSwitch.held) { defaults(); changeState(READY); }
     else { changeState(OFF); restoreTime(); }
   }
@@ -577,14 +582,14 @@ void stateMachine(uint32_t now) {
   if (calibrating || buttonTest || state == OFF) return;
   if (state == RUNNING) {
     if (requireLidClosed && !lid.shaded) {
-      event(F("run"), F("abort:LID")); restoreTime(); changeState(REFUSED, LID); return;
+      actionEvent(F("abort:LID")); restoreTime(); changeState(REFUSED, LID); return;
     }
     if (stopButton.pressed) {
-      event(F("run"), F("stop")); restoreTime(); changeState(READY); return;
+      actionEvent(F("stop")); restoreTime(); changeState(READY); return;
     }
     while (state == RUNNING && uint32_t(now - tickLast) >= 1000UL) {
       tickLast += 1000UL; --remaining; event(F("time"), remaining); uiDirty = true;
-      if (!remaining) { event(F("run"), F("done")); changeState(DONE); doneSince = now; }
+      if (!remaining) { actionEvent(F("done")); changeState(DONE); doneSince = now; }
     }
     return;
   }
@@ -603,11 +608,11 @@ void stateMachine(uint32_t now) {
   if (stopButton.pressed) { setSeconds(DEFAULT_TIME); return; }
   if (timeButton.pressed) setSeconds(min(uint16_t(setTime + TIME_STEP), MAX_TIME));
   if (!startButton.pressed) return;
-  if (requireLidClosed && !lid.shaded) { event(F("run"), F("refused:LID")); changeState(REFUSED, LID); }
-  else if (requireTubePresent && (!tubeValid || !tube.shaded)) { event(F("run"), F("refused:TUBE")); changeState(REFUSED, TUBE); }
+  if (requireLidClosed && !lid.shaded) { actionEvent(F("refused:LID")); changeState(REFUSED, LID); }
+  else if (requireTubePresent && (!tubeValid || !tube.shaded)) { actionEvent(F("refused:TUBE")); changeState(REFUSED, TUBE); }
   else {
     remaining = setTime; tickLast = now; tubeValid = false;
-    event(F("run"), F("start")); changeState(RUNNING);
+    actionEvent(F("start")); changeState(RUNNING);
   }
 }
 void heartbeat() {
@@ -667,7 +672,7 @@ void executeCommand(uint32_t now) {
   } else if (!commandOverflow && !strcmp_P(command, reinterpret_cast<PGM_P>(F("oled")))) {
     initializeDisplay();
   } else if (!commandOverflow && !strcmp_P(command, reinterpret_cast<PGM_P>(F("reset")))) {
-    if (state == RUNNING) event(F("run"), F("stop"));
+    if (state == RUNNING) actionEvent(F("stop"));
     defaults(); changeState(powerSwitch.held ? READY : OFF); uiDirty = true; render(now);
     prefix(F("reset")); Serial.println(F("}"));
   } else { prefix(F("error")); Serial.println(F(",\"msg\":\"unknown command\"}")); }
@@ -688,6 +693,34 @@ void serialPoll(uint32_t now) {
     else commandOverflow = true;
   }
 }
+#ifdef RAV_WIFI
+static Flash lastAction = F("");
+#endif
+
+void actionEvent(Flash action) {
+#ifdef RAV_WIFI
+  lastAction = action;
+#endif
+  event(F("run"), action);
+}
+
+#ifdef RAV_WIFI
+static void publishSnapshot() {
+  char body[rav::SNAPSHOT_MAX];
+
+  snprintf(body, sizeof(body),
+           "{\"power\":%u,\"btn_start\":%u,\"btn_stop\":%u,\"btn_time\":%u,\"speed\":%u,"
+           "\"lid\":%u,\"tube\":%u,\"tube_valid\":%u,\"time\":%u,\"run\":\"%s\","
+           "\"state\":\"%s\",\"ring\":\"%s\",\"LCD\":\"%s  %s\"}",
+           unsigned(powerSwitch.held), unsigned(startButton.held), unsigned(stopButton.held),
+           unsigned(timeButton.held), unsigned(rpm), unsigned(lid.shaded), unsigned(tube.shaded),
+           unsigned(tubeValid), unsigned(state == RUNNING ? remaining : setTime),
+           reinterpret_cast<const char *>(lastAction), reinterpret_cast<const char *>(stateName()),
+           reinterpret_cast<const char *>(colourName()), display1, display2);
+  rav::update(body);
+}
+#endif
+
 void setup() {
   Serial.begin(115200);
 #if defined(ARDUINO_ARCH_RENESAS_UNO)
@@ -711,4 +744,7 @@ void loop() {
   render(now); serialPoll(millis()); oledPoll();
   now = millis();
   if (uint32_t(now - heartbeatLast) >= HEARTBEAT_MS) { heartbeatLast = now; heartbeat(); }
+#ifdef RAV_WIFI
+  publishSnapshot();
+#endif
 }

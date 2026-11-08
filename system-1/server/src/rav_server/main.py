@@ -13,8 +13,9 @@ from __future__ import annotations
 
 import argparse
 import hmac
-import ipaddress
+import json
 import os
+import re
 import socket
 
 import uvicorn
@@ -106,22 +107,37 @@ def readout_url(args) -> str | None:
 
 
 def build_app(engine: RoutineEngine, host: str, token: str | None, readouts: dict | None = None,
-              device_key: str | None = None):
+              device_key: str | dict[str, str] | None = None):
     """The MCP app behind RAV_TOKEN, and with readouts ({device: HttpReadout}) the boards' /readout/<device> beside it,
     behind RAV_DEVICE_KEY (device_api.py)."""
     if host not in LOOPBACK and not token:
         raise SystemExit(f"refusing to listen on {host} without a token: set RAV_TOKEN")
     if readouts and host not in LOOPBACK and not device_key:
         raise SystemExit(f"refusing to take device readings on {host} without a key: set RAV_DEVICE_KEY")
-    if readouts and device_key and device_key == token:
+    keys = device_key.values() if isinstance(device_key, dict) else (device_key,) if device_key else ()
+    if token and token in keys:
         raise SystemExit("RAV_DEVICE_KEY must differ from RAV_TOKEN: the boards should never hold the key that moves the arm")
-    mcp = build_server(engine)
+    devices = DeviceApi(readouts, device_key) if readouts else None
+    mcp = build_server(engine, devices)
     # Off a loopback address the token is the guard, and the SDK's host check would reject the laptop's LAN address.
     from mcp.server.transport_security import TransportSecuritySettings
     security = None if host in LOOPBACK else TransportSecuritySettings(enable_dns_rebinding_protection=False)
     app = mcp.streamable_http_app(host=host, transport_security=security)
     app = RequireToken(app, token) if token else app
-    return Router(DeviceApi(readouts, device_key), app) if readouts else app
+    return Router(devices, app) if devices else app
+
+
+def device_keys(raw: str) -> dict[str, str]:
+    try:
+        keys = json.loads(raw)
+    except ValueError:
+        keys = None
+    if not isinstance(keys, dict) or not keys or not all(
+        re.fullmatch(r"[A-Za-z0-9_-]{1,64}", name) and isinstance(key, str)
+        and re.fullmatch(r"[A-Za-z0-9_-]{32,128}", key) for name, key in keys.items()
+    ) or len(set(keys.values())) != len(keys):
+        raise SystemExit("RAV_DEVICE_KEYS must be a JSON map of device IDs to distinct URL-safe keys (32–128 characters)")
+    return keys
 
 
 def main(argv=None) -> None:
@@ -157,6 +173,10 @@ def main(argv=None) -> None:
     ap.add_argument("--readout-port", help="real, --readout serial: the Pico's serial port, such as COM7")
     ap.add_argument("--readout-device", help="real, --readout http: the board's name in its URL, such as mw1")
     args = ap.parse_args(argv)
+    token = os.environ.get("RAV_TOKEN")
+    keys = device_keys(raw) if (raw := os.environ.get("RAV_DEVICE_KEYS")) is not None else None
+    if keys is not None and (not token or token in keys.values() or (args.readout_device and args.readout_device not in keys)):
+        ap.error("RAV_DEVICE_KEYS requires a separate RAV_TOKEN and a key for --readout-device")
     if args.robot == "real" and (args.depth or not (args.arm_port and args.calibration)):
         ap.error("--robot real needs --arm-port and --calibration, and has no depth camera for --depth")
     if args.readout != "operator" and args.robot != "real":
@@ -180,8 +200,14 @@ def main(argv=None) -> None:
     engine = RoutineEngine(lambda: telemetry.instrument(make()), robot_name=args.robot)
     telemetry.status_fn = engine.status
     try:
-        readouts = {args.readout_device: real.http_readout} if real and real.http_readout else None
-        app = build_app(engine, args.host, os.environ.get("RAV_TOKEN"), readouts, os.environ.get("RAV_DEVICE_KEY"))
+        readouts = {args.readout_device: real.http_readout} if real and real.http_readout else {}
+        if keys:
+            from .sim_backend import CORE_DIR, HARDWARE_DIR, on_path
+            on_path(CORE_DIR, HARDWARE_DIR)
+            from http_readout import HttpReadout
+            for name in keys.keys() - readouts.keys():
+                readouts[name] = HttpReadout(name, track_events=False)
+        app = build_app(engine, args.host, token, readouts, keys or os.environ.get("RAV_DEVICE_KEY"))
         try:  # before torque: a port in use would otherwise stop the server, and drop the arm, right after the yes
             sock = socket.create_server((args.host, args.port), family=socket.AF_INET6 if ":" in args.host else socket.AF_INET)
         except OSError as e:
@@ -190,7 +216,7 @@ def main(argv=None) -> None:
             enable_torque(real, args.enable_torque)
         watching = telemetry.serve(args.telemetry_port) if args.telemetry_port else 0
         print(f"System 1 ({args.robot}) waiting on http://{args.host}:{args.port}/mcp" + (f", telemetry on http://127.0.0.1:{watching}" if watching else ""))
-        if readouts:
+        if args.readout_device:
             print(f"device readout: {args.readout_device} POSTs to {readout_url(args)}. No step runs until it does")
         Server(uvicorn.Config(app, log_level="warning"), engine, real).run(sockets=[sock])
     finally:

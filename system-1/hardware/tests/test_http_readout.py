@@ -34,9 +34,10 @@ def test_a_quiet_board_stops_the_next_step(monkeypatch):
     r.ingest({"BTN1": 0})
     now = time.monotonic()
     monkeypatch.setattr(time, "monotonic", lambda: now + http_readout.STALE_S + 0.1)
-    assert r.readings == {"BTN1": 0}  # readings never go stale, as with the Pico
-    with pytest.raises(SafetyStop, match="nothing from device 'mw1' over WiFi"):
-        r.events
+    assert not r.snapshot()["fresh"]
+    for prop in ("readings", "events"):
+        with pytest.raises(SafetyStop, match="nothing from device 'mw1' over WiFi"):
+            getattr(r, prop)
 
 
 def test_closed_ignores_late_posts():
@@ -44,4 +45,4 @@ def test_closed_ignores_late_posts():
     r.ingest({"BTN1": 0})
     r.close()
     r.ingest({"BTN1": 1})
-    assert r.readings == {"BTN1": 0} and r.events == []
+    assert r.snapshot()["readings"] == {"BTN1": 0} and not r.snapshot()["fresh"]

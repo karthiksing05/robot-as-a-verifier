@@ -3,6 +3,10 @@
 #include <avr/pgmspace.h>
 #include <stdio.h>
 #include <string.h>
+#if defined(ARDUINO_UNOWIFIR4) && __has_include("arduino_secrets.h")
+#include "arduino_secrets.h"
+#include "../firmware/rav_wifi.h"
+#endif
 
 #if defined(ARDUINO_ARCH_RENESAS_UNO)
 extern "C" void *_sbrk(int increment);
@@ -166,6 +170,7 @@ void stateMachine(uint32_t now);
 void heartbeat();
 void executeCommand(uint32_t now);
 void serialPoll(uint32_t now);
+void actionEvent(Flash action);
 void setup();
 void loop();
 
@@ -481,7 +486,7 @@ void sampleDoor() {
 }
 void pauseCooking(bool byDoor) {
   doorPause = byDoor; message = NO_MESSAGE;
-  event(F("cook"), byDoor ? F("pause:DOOR") : F("pause")); changeState(PAUSED);
+  actionEvent(byDoor ? F("pause:DOOR") : F("pause")); changeState(PAUSED);
 }
 void calibrationStart(uint32_t now) {
   calibrating = true; doorCalStage = CAL_BOOT;
@@ -642,15 +647,15 @@ void requestStart(uint32_t now) {
   bool doorBlocked = requireDoorClosed && !doorShut;
   if (doorBlocked || !seconds) {
     message = doorBlocked ? CLOSE_DOOR : SET_TIME; messageSince = now; uiDirty = true;
-    event(F("cook"), doorBlocked ? F("refused:DOOR") : F("refused:TIME")); return;
+    actionEvent(doorBlocked ? F("refused:DOOR") : F("refused:TIME")); return;
   }
   bool resume = state == PAUSED;
   message = NO_MESSAGE; doorPause = false; tickLast = now;
-  event(F("cook"), resume ? F("resume") : F("start")); changeState(COOKING);
+  actionEvent(resume ? F("resume") : F("start")); changeState(COOKING);
 }
 void clearCooking() {
   setSeconds(0); doorPause = false; message = NO_MESSAGE; uiDirty = true;
-  event(F("cook"), F("clear")); changeState(READY);
+  actionEvent(F("clear")); changeState(READY);
 }
 void stateMachine(uint32_t now) {
   if (calibrating) { calibrationControls(now); return; }
@@ -663,7 +668,7 @@ void stateMachine(uint32_t now) {
   if (state == COOKING) {
     while (state == COOKING && uint32_t(now - tickLast) >= 1000UL) {
       tickLast += 1000UL; setSeconds(seconds - 1);
-      if (!seconds) { event(F("cook"), F("done")); changeState(DONE); doneSince = now; startBeeps(3, ALERT_BEEP_MS); }
+      if (!seconds) { actionEvent(F("done")); changeState(DONE); doneSince = now; startBeeps(3, ALERT_BEEP_MS); }
     }
   }
   if (state == DONE && uint32_t(now - doneSince) >= DONE_MS) changeState(READY);
@@ -779,6 +784,34 @@ void serialPoll(uint32_t now) {
     else commandOverflow = true;
   }
 }
+#ifdef RAV_WIFI
+static Flash lastAction = F("");
+#endif
+
+void actionEvent(Flash action) {
+#ifdef RAV_WIFI
+  lastAction = action;
+#endif
+  event(F("cook"), action);
+}
+
+#ifdef RAV_WIFI
+static void publishSnapshot() {
+  char body[rav::SNAPSHOT_MAX];
+
+  snprintf(body, sizeof(body),
+           "{\"btn_start\":%u,\"btn_stop\":%u,\"btn_time\":%u,\"btn_power\":%u,\"btn_30s\":%u,"
+           "\"door\":%u,\"time\":%u,\"power_level\":\"%s\",\"cook\":\"%s\","
+           "\"state\":\"%s\",\"backlight\":\"%s\",\"LCD\":\"%s  %s\"}",
+           unsigned(startButton.held), unsigned(stopButton.held), unsigned(timeButton.held),
+           unsigned(powerButton.held), unsigned(quickButton.held), unsigned(doorShut), unsigned(seconds),
+           reinterpret_cast<const char *>(powerName()), reinterpret_cast<const char *>(lastAction),
+           reinterpret_cast<const char *>(stateName()), reinterpret_cast<const char *>(colourName()),
+           display1, display2);
+  rav::update(body);
+}
+#endif
+
 void setup() {
   Serial.begin(115200);
 #if defined(ARDUINO_ARCH_RENESAS_UNO)
@@ -805,4 +838,7 @@ void loop() {
   now = millis();
   if (uint32_t(now - heartbeatLast) >= HEARTBEAT_MS) { heartbeatLast = now; heartbeat(); }
   scanPoll(); lcdPoll(); pollBuzzer(millis());
+#ifdef RAV_WIFI
+  publishSnapshot();
+#endif
 }

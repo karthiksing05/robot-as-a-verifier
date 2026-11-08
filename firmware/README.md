@@ -21,6 +21,8 @@ The tiny files in `firmware/` include the sketches for PlatformIO. Source filter
 
 ## Build and upload
 
+For Wi-Fi snapshots from these same PlatformIO targets, see [the Vultr setup](../deploy/vultr/README.md#appliances). Each sketch accepts its own ignored `arduino_secrets.h`. USB operation works without that file.
+
 Install these exact Arduino libraries, or let PlatformIO fetch the pinned dependencies:
 
 | Device | Library | Version |

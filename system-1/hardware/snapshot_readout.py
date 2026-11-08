@@ -14,7 +14,7 @@ for STALE_S, so a crashed device stops the next step instead of failing every pa
 import threading
 import time
 
-from rig import SafetyStop
+from safety import SafetyStop
 
 STALE_S = 2.0  # the device sends at least every 0.5 s; this long without one, it's gone
 
@@ -41,18 +41,19 @@ class SnapshotReadout:
             raise SafetyStop(f"device readout lost: nothing from {self.source} for {quiet:.1f} s" + self.hint)
         return self._events
 
-    def ingest(self, new):
+    def ingest(self, new, *, track_events=True, replace=False):
         """One snapshot, already parsed. Not a dict: ignored."""
         if not isinstance(new, dict):
             return
         new = dict(new)
         with self._lock:
             t = time.monotonic()
-            self.lcd = new.pop("LCD", self.lcd)
+            self.lcd = new.pop("LCD", None if replace else self.lcd)
             old = self._readings
-            self._events.extend((t, ch, v) for ch, v in new.items()
-                                if isinstance(v, int) and ch in old and old[ch] != v)
-            self._readings = {**old, **new}
+            if track_events:
+                self._events.extend((t, ch, v) for ch, v in new.items()
+                                    if isinstance(v, int) and ch in old and old[ch] != v)
+            self._readings = new if replace else {**old, **new}
             self.last = t
 
     def _alive(self):
