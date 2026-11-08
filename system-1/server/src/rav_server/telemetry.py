@@ -32,7 +32,7 @@ from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-ORIGINS = {"http://127.0.0.1:5173", "http://localhost:5173"}
+ORIGINS = {f"http://{h}:{p}" for h in ("127.0.0.1", "localhost") for p in (5173, 5174)}  # 5174: Vite's next port when 5173 is taken
 POSE_FPS, TELEMETRY_FPS, PANEL_FPS, RECORD_FPS = 30, 10, 8, 30
 SPEEDS = (0, 1, 2, 4, 8)
 HEARTBEAT_S = 0.5
