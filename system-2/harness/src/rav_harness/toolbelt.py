@@ -6,6 +6,8 @@ A new robot ability needs no tool here: it arrives as a skill in SystemStatus.ac
 """
 from __future__ import annotations
 
+import base64
+import json
 import math
 from collections import deque
 from collections.abc import Callable
@@ -22,9 +24,10 @@ from .client import ToolFailed
 from .commands import Responder, log_crossing, wait_for_stop
 from .loop import MAX_UNSIGNED_AMENDMENTS, Approver, Steering
 from .manual import Manual
-from .model import Image, ToolRequest, ToolSpec
+from .model import DEFAULT_MODEL, Image, ToolRequest, ToolSpec, make_client
 from .reward import coverage, reward
 from .runlog import RunLog
+from .survey import read_display
 from .trace import ToolRejected, Tracer
 from .verdicts import findings_from, settle
 
@@ -91,6 +94,7 @@ class ToolBelt:
         self.system1, self.request, self.log, self.tracer, self.approve, self.steering = system1, request, log, tracer, approve, steering
         self.policy, self.manual, self.ask, self.wake_on_checkpoint = policy, manual, ask, wake_on_checkpoint
         self.review = review  # survey.survey_reviewer: with it, each look holds after its scan for the parts to be named from the manual
+        self.display_reader = None  # the model that reads photos of the display, made at the first
         self.on_state = on_state or (lambda state, detail: None)
         self.status: SystemStatus = system1.system_status()
         self.scene: SceneInventory | None = None
@@ -564,6 +568,22 @@ class ToolBelt:
         if verdict.channel:
             own.add(verdict.channel)
 
+    def _read_display(self, step: Step, trace) -> str | None:
+        """What the display showed in the photo System 1 took of it at an observe (the real arm's), read by the default
+        model, or None with no photo. The crop and the reading go in the run's folder, for checking afterwards."""
+        ref = trace.measures.get("display_frame")
+        if step.skill != "observe" or not ref:
+            return None
+        try:
+            frame = self.system1.evidence_frame(ref)
+            (self.log.dir / f"display_{step.id}.jpg").write_bytes(base64.b64decode(frame.data_b64))
+            self.display_reader = self.display_reader or make_client(DEFAULT_MODEL, run=self.log.run_id)
+            seen = read_display(self.display_reader, frame.data_b64)
+        except Exception as e:  # noqa: BLE001 - a reading that failed leaves the step as System 1 judged it
+            seen = f"? (couldn't read the photo: {type(e).__name__}: {e})"
+        self.log.emit("message", {"role": "harness", "text": f"{step.id}: the photo of {step.target} reads {json.dumps(seen)}"})
+        return seen
+
     def _reading(self, metric: str) -> Any:
         return self.readings.get(metric.removeprefix("reading:"))
 
@@ -589,6 +609,12 @@ class ToolBelt:
                     break
             self.log.emit("step_started", step.model_copy(update={"target": first}))
             trace = self.system1.evidence_get(summary.trace_ref)
+            seen = self._read_display(step, trace)
+            # the photo stands in for a board that doesn't send its LCD, when it was read in full: Haiku called a lit
+            # screen dark in 6 of 24 real scan photos, so a dark reading doesn't count
+            if seen and "?" not in seen:
+                summary.checks = [c.model_copy(update={"actual": seen, "passed": " ".join(seen.split()) == " ".join(str(c.value).split())})
+                                  if c.metric == "lcd" and c.passed is None and c.op == "==" else c for c in summary.checks]
             judged = self._judge_checks(step, summary, verdict).model_copy(update={"target": first})
             self._note_checkback(step, first, verdict, summary, trace)
             self._note_readings(trace)
@@ -599,6 +625,8 @@ class ToolBelt:
             view = {"step": verdict.step, "target": verdict.target, "status": judged.status, "label": judged.label, "reason": judged.reason,
                     "attempts": summary.attempts, "peak_force_n": summary.peak_force_n, "travel_mm": summary.travel_mm, "stop": summary.stop_reason,
                     "readings": summary.readout_change, "measures": summary.measures, "trace_ref": summary.trace_ref}
+            if seen is not None:
+                view["display_seen"] = seen
             if summary.checks:
                 view["checks"] = [c.model_dump(mode="json", exclude_none=True) for c in summary.checks]
             if judged.status != verdict.status:

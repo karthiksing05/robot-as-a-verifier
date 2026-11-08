@@ -88,6 +88,9 @@ class RealBackend(PipelineRobot):
               + ", ".join(f"{p.id} ({p.kind})" for p in self.parts), flush=True)
         with open(LAST_SCAN, "wb") as f:  # the whole scan, to work out offline what it saw and why
             pickle.dump(self.scene, f)
+        import display_view
+        # the display, which the scan never finds, from the buttons before their press shift: an observe photographs it
+        display = None if any(p.kind == "display" for p in self.parts) else display_view.display_part(self.parts, self.plane_T)
         shift = getattr(self.arm, "part_shift", None)
         if shift is not None:  # as tools/press_part.py: the scan's parts and each last look's answer
             self.parts = [shifted(p, shift) for p in self.parts]
@@ -101,14 +104,16 @@ class RealBackend(PipelineRobot):
         import real_skills
         # toggles as press_part flips them: the swing snapped to the panel's slope, the push lowered onto the lever
         self.parts = [real_skills.slope_swing(copy.deepcopy(p)) if p.kind == "toggle" and "tip" in p.meta else p
-                      for p in self.parts]
+                      for p in self.parts] + ([display] if display is not None else [])
         return self.current_scene()
 
     def execute(self, step):
         """Flips and knob turns as the hardware session ran them on the real centrifuge (real_skills), which
-        affordances' own can't do on this arm (its jaws don't open for them); everything else as PipelineRobot. The
-        operator says whether the device changed, which gives the verdict."""
+        affordances' own can't do on this arm (its jaws don't open for them); observe as _observe; everything else as
+        PipelineRobot. The operator says whether the device changed, which gives the verdict."""
         p = next((q for q in self.parts if q.id == step.target), None)
+        if step.skill == "observe" and p is not None and p.kind == "display":
+            return self._observe(step, p)
         if step.skill not in ("flip", "turn") or p is None:
             return self._press_with_photo(step)
         import real_skills
@@ -145,6 +150,41 @@ class RealBackend(PipelineRobot):
         trace, verdict = map_verdict(step, r)
         ref = self._snap(f"{step.id}, at {step.target}, after the step")
         trace.frames = [ref] if ref else []
+        return trace, verdict
+
+    def _observe(self, step, p):
+        """Photographs the display from in front of it (display_view): OBSERVED with the photo cut to the screen as
+        measures["display_frame"], for System 2 to read, and the board's LCD as lcd when it sends one. MISSED if no
+        view of it is clear or the camera gives no frame."""
+        import display_view
+        import skills
+
+        t0 = time.monotonic()
+        qs, why = display_view.view_qs(self.arm, p, self.plane_T)
+        crop = full = None
+        if not why:
+            skills.go_home(self.arm)
+            for q in qs:
+                skills.move_joints(self.arm, q)
+            self.at_home = False
+            try:
+                frame = self.rig.wrist.capture()
+                crop = display_view.crop(frame, p)
+                full = self._store(frame.rgb, f"{step.id}, the wrist camera facing {p.id}")
+            except Exception as e:  # noqa: BLE001 - a missed photo is a missed step, not a stop
+                why = f"the camera gave no frame: {type(e).__name__}: {e}"
+        ref = self._store(crop, f"{step.id}, {p.id} cut from the photo and turned upright") if crop is not None else None
+        lcd = getattr(self.arm.app, "lcd", None)
+        if ref:
+            r = {"verdict": "OBSERVED", "reason": f"photographed {p.id}" + (f'; the board shows "{lcd}"' if lcd is not None else ""),
+                 "channel": "LCD" if lcd is not None else None, "lcd": lcd}
+        else:
+            r = {"verdict": "MISSED", "reason": f"no photo of {p.id}: {why or 'the screen is outside the picture'}"}
+        r["duration_s"] = round(time.monotonic() - t0, 1)
+        trace, verdict = map_verdict(step, r)
+        trace.frames = [f for f in (ref, full) if f]
+        if ref:
+            trace.measures["display_frame"] = ref
         return trace, verdict
 
     @staticmethod
