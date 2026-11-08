@@ -8,8 +8,10 @@ joints and takes a frame of the desk board.
     python tools/hand_eye.py COM5 CAL.json --views 40
 
 CAL.json is lerobot-calibrate's file. Run arm_check.py first: the joint mapping has to be right. The board is the desk
-board (vision.BOARD, which `tools/cam_check.py board` prints), left where it is fixed. At each pose, hold the arm still
-with at least half the board in the frame from 15 to 25 cm, and press Enter. Spread the poses: tilt the camera 20 to 30
+board (vision.BOARD, which `tools/cam_check.py board` prints, or arm/camera/hand_eye_board_tab_s9fe.png full screen on
+the Galaxy Tab S9 FE), left where it is fixed. A window shows the camera with the board corners it finds and how far
+away the board is. At each pose, hold the arm still with at least half the board in the frame from 15 to 25 cm (the
+distance turns green), and press Space in the window; q stops early. Spread the poses: tilt the camera 20 to 30
 deg toward each side and roll the wrist both ways. Views turned about one axis alone leave the mount undetermined.
 
 Each view gives the model's wrist_cam pose, by forward kinematics of the joint readings, and the board's pose in the
@@ -131,25 +133,70 @@ def _read(arm):
     return arm.read_q()
 
 
+def _take(arm, wrist):
+    """One view: the joints read around one frame. Returns (view or None, what happened)."""
+    before = [_read(arm) for _ in range(READS)]
+    frame = wrist.capture()
+    after = [_read(arm) for _ in range(READS)]
+    moved = np.abs(np.mean(after, axis=0) - np.mean(before, axis=0)).max()
+    if moved > STILL_RAD:
+        return None, f"the arm moved {np.degrees(moved):.2f} deg during the shot: again"
+    seen = board_in_cam(frame.rgb, frame.K)
+    if seen is None:
+        return None, f"fewer than {MIN_CORNERS} board corners in view: again"
+    q = np.mean(before + after, axis=0)
+    return (dict(q=q, hand=fk(arm, q), board=seen[0], obj=seen[1], img=seen[2]),
+            f"{len(seen[1])} corners, board {np.linalg.norm(seen[0][:3, 3]) * 1000:.0f} mm away")
+
+
 def collect(arm, wrist, n, ask):
     """n views: at each, ask() waits for the arm to be posed, then the joints are read around one frame."""
     views = []
     while len(views) < n:
         ask(f"View {len(views) + 1} of {n}: pose the arm with the board in view, hold it still, press Enter: ")
-        before = [_read(arm) for _ in range(READS)]
-        frame = wrist.capture()
-        after = [_read(arm) for _ in range(READS)]
-        moved = np.abs(np.mean(after, axis=0) - np.mean(before, axis=0)).max()
-        if moved > STILL_RAD:
-            print(f"  the arm moved {np.degrees(moved):.2f} deg during the shot: again")
-            continue
-        seen = board_in_cam(frame.rgb, frame.K)
-        if seen is None:
-            print(f"  fewer than {MIN_CORNERS} board corners in view: again")
-            continue
-        q = np.mean(before + after, axis=0)
-        views.append(dict(q=q, hand=fk(arm, q), board=seen[0], obj=seen[1], img=seen[2]))
-        print(f"  {len(seen[1])} corners, board {np.linalg.norm(seen[0][:3, 3]) * 1000:.0f} mm away")
+        view, what = _take(arm, wrist)
+        print("  " + what)
+        if view:
+            views.append(view)
+    return views
+
+
+def collect_live(arm, wrist, n):
+    """collect() for a person at the real camera: a window with the live picture, the corners found and the board's
+    distance. Space takes a view, q stops early."""
+    views, status = [], "Hold still, Space takes a view, q stops"
+    K = wrist.K.copy()
+    K[:2] *= 0.5  # the window shows half-size frames
+    try:
+        while len(views) < n:
+            img = cv2.resize(wrist.capture().rgb, None, fx=0.5, fy=0.5)
+            cc, ci, _, _ = vision.CHARUCO.detectBoard(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
+            found, good = 0 if ci is None else len(ci), False
+            if found:
+                cv2.aruco.drawDetectedCornersCharuco(img, cc.reshape(-1, 1, 2), ci.reshape(-1, 1), (0, 255, 0))
+            if found >= MIN_CORNERS:
+                t = cv2.solvePnP(vision.BOARD.getChessboardCorners()[ci.ravel()], cc.reshape(-1, 2), K, None,
+                                 flags=cv2.SOLVEPNP_IPPE)[2]
+                mm = np.linalg.norm(t) * 1000
+                good = 150 <= mm <= 250
+                line = f"{found} corners, board {mm:.0f} mm away" + ("" if good else " (aim for 150 to 250)")
+            else:
+                line = f"{found} corners, need {MIN_CORNERS}"
+            for k, (text, colour) in enumerate([(line, (0, 200, 0) if good else (0, 140, 255)),
+                                                (f"{len(views)} of {n} views. {status}", (255, 255, 255))]):
+                cv2.putText(img, text, (12, 32 + 32 * k), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 5)
+                cv2.putText(img, text, (12, 32 + 32 * k), cv2.FONT_HERSHEY_SIMPLEX, 0.8, colour, 2)
+            cv2.imshow("hand_eye: wrist camera", img)
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord("q"):
+                break
+            if key == ord(" "):
+                view, status = _take(arm, wrist)
+                if view:
+                    views.append(view)
+                print(f"View {len(views)} of {n}: {status}")
+    finally:
+        cv2.destroyAllWindows()
     return views
 
 
@@ -178,10 +225,14 @@ def main(argv=None, bus=None, ask=input, camera=real_wrist.WristCamera):
     ask("Connecting turns torque off on every motor, and the arm goes limp. Support it, then press Enter: ")
     with real_arm.RealArm(bus or real_arm.make_bus(args.port, args.calibration)) as arm:
         wrist = camera(arm)
-        try:
-            views = collect(arm, wrist, args.views, ask)
+        try:  # the window needs the real camera's stream; tests/hand_eye_check.py drives collect() through ask
+            live = isinstance(wrist, real_wrist.WristCamera)
+            views = collect_live(arm, wrist, args.views) if live else collect(arm, wrist, args.views, ask)
         finally:
             wrist.close()
+    if len(views) < 5:
+        print(f"Only {len(views)} views: too few to solve.")
+        return None, views
     X, T_board, rms = solve(views, wrist.K)
     report(X, T_board, rms, expected_error(X, views, wrist.K))
     if ask(f"Write this to {args.out}, for WristCamera to use? Type yes to save: ").strip().lower() != "yes":

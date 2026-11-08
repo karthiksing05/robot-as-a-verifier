@@ -14,7 +14,7 @@ import math
 import os
 import pathlib
 import sys
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from typing import Any
 
 from rav_interface import DEVICE_CONTROL, Control, Frame, Plan, SceneInventory, Step, StepTrace, StepVerdict
@@ -102,6 +102,15 @@ def map_verdict(step: Step, r: dict) -> tuple[StepTrace, StepVerdict]:
     return trace, verdict
 
 
+def expected_vs_found(expected, parts) -> str:
+    """A note comparing the manual's controls (SurveyAnswer.expect) with the scan's parts, kind by kind."""
+    want, got = Counter(e.kind for e in expected), Counter(p.kind for p in parts)
+    diffs = [f"{k}: manual {want[k]}, scan {got[k]}" for k in sorted(set(want) | set(got)) if want[k] != got[k]]
+    listed = ", ".join(f"{e.name} ({e.kind})" for e in expected)
+    return f"the manual lists {listed}. " + ("The scan has the same kinds and counts." if not diffs else
+                                            "By kind, " + "; ".join(diffs))
+
+
 class RetryingCamera:
     """A camera that's asked again when a view gives no frame, as a dropped USB frame or a driver timeout would. It holds
     still between tries, so the view is the same one. Shared by every view in one explore, and once the budget is spent
@@ -128,6 +137,8 @@ class PipelineRobot:
     """The pipeline as a Robot, on any rig. A backend builds its rig and passes it in, as SimBackend does the sim's.
     Everything here runs on the engine's worker thread, except frame(), which only reads what's already encoded."""
 
+    touches = True  # the RGB route touches the panel and some parts after the scan
+
     def __init__(self, rig, depth: bool = False, refine: bool = True, plan_id: str = "rules"):
         on_path(CORE_DIR)
         self.rig, self.arm, self.depth, self.use_refine, self.plan_id = rig, rig.arm, depth, refine, plan_id
@@ -136,6 +147,8 @@ class PipelineRobot:
         self.notes: list[str] = []
         self.stale = False  # the device moved since the last explore
         self.survey_refs: list[str] = []
+        self.review = None  # set by the engine for one explore: review(measured) holds at a survey_review stop
+        self.expected, self.also_look = [], []
         self.frames: OrderedDict[str, Frame] = OrderedDict()
         self.frame_n = 0
 
@@ -211,10 +224,14 @@ class PipelineRobot:
             captured = []
             wrist = RetryingCamera(self.rig.wrist)
             phone = RetryingCamera(self.rig.phone) if self.rig.phone is not None else None
+            self.expected, self.also_look = [], []
             self.scene = pipeline.scan_device(self.arm, phone, wrist, self.depth,
-                                              on_stage=getattr(self, "on_stage", None), on_frame=lambda frame, _: captured.append(frame.rgb))
+                                              on_stage=getattr(self, "on_stage", None), on_frame=lambda frame, _: captured.append(frame.rgb),
+                                              on_survey=self._review_survey if self.review else None)
             self.parts = self.scene.parts
-            if not self.depth:  # as in explore.py: a touch that fails goes on with what the scan found, and says so
+            if not self.depth and not self.touches:  # the last look then works on the scan's plane
+                self.plane_T = self.scene.plane[0]
+            elif not self.depth:  # as in explore.py: a touch that fails goes on with what the scan found, and says so
                 if getattr(self, "on_stage", None):  # telemetry's stage hook
                     self.on_stage("touch", self.scene)
                 self.plane_T, _, e = pipeline.touch_plane(self.arm, self.scene)
@@ -227,6 +244,10 @@ class PipelineRobot:
                 self.refine = pipeline.last_look(self.rig.wrist, self.plane_T, self.depth)
             if getattr(self, "inventory", None) is not None:
                 self._registered(before)
+            if self.expected:
+                self.notes.append(expected_vs_found(self.expected, self.parts))
+            if self.also_look:
+                self.notes.append(f"not scanned, where System 2 said to look too: {'; '.join(self.also_look)}")
         except (rig_module.SafetyStop, PipelineFailure):
             raise
         except OSError:  # a driver, not perception: we can't be sure the arm is safe
@@ -245,6 +266,31 @@ class PipelineRobot:
         refs = [self._panel_map()] + [self._store(f, f"wrist camera, scan view {i + 1} of {len(views)}") for i, f in enumerate(views)]
         self.survey_refs = [r for r in refs if r]
         return self.current_scene()
+
+    def _review_survey(self, survey: dict) -> None:
+        """Holds at a survey_review stop with the survey's candidate surfaces drawn on its photo, then applies System 2's
+        SurveyAnswer: another candidate as the panel, and what the manual expects, which perceive compares with the scan."""
+        import rgbperceive
+
+        cands, picked = survey["candidates"], survey["picked"]
+        ref = self._store(rgbperceive.draw_candidates(survey), "the survey: each numbered outline is a flat surface the "
+                          "robot measured, and the scan will look closely at the one that holds the controls")
+        measured = {"candidates": [{"k": k + 1, "tilt_deg": round(math.degrees(math.acos(min(1.0, abs(float(n[2]))))), 1),
+                                    "points": len(idx), "faces_arm": faces} for k, (n, _, idx, faces) in enumerate(cands)],
+                    "picked": picked + 1, "frames": [ref] if ref else []}
+        decision = self.review(measured)
+        if decision.kind == "abort":
+            raise PipelineFailure(f"stopped after the survey: {decision.note or 'System 2 aborted'}")
+        answer = decision.survey
+        if answer is None:
+            return
+        if answer.panel is not None and answer.panel - 1 != picked:
+            if 1 <= answer.panel <= len(cands):
+                rgbperceive.use_panel(survey, answer.panel - 1)
+                self.notes.append(f"System 2 picked surface {answer.panel} as the panel over the survey's {picked + 1}")
+            else:
+                self.notes.append(f"System 2 picked surface {answer.panel}, which the survey doesn't have: kept {picked + 1}")
+        self.expected, self.also_look = answer.expect, answer.also_look
 
     def _registered(self, before: list) -> None:
         """With a device file: register its roots from the scan's parts and touches, and add each part the scan didn't

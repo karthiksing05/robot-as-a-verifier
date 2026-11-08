@@ -53,7 +53,6 @@ COARSE_THR = 0.004
 # Fewer views left the panel behind tall parts (dial, toggle) seen by one frame or none.
 VIEW_LOOKS = [(0.0, 0.0), (0.0, -0.05), (0.05, -0.05), (0.05, 0.0), (0.05, 0.05), (0.0, 0.05),
               (-0.05, 0.05), (-0.05, 0.0), (-0.05, -0.05)]
-STANDOFF = 0.12         # camera to panel (m): the probe tip then clears the panel by about 4 cm
 # Views tip toward horizontal: straight along -normal is often out of reach. A view the first tilt
 # can't reach (far, shallow panels) tries the next, which brings the camera lower and nearer.
 VIEW_TILTS = np.radians([10, 20, 30])
@@ -149,15 +148,22 @@ def survey(arm, f):
     pts, rgb, px = rig.backproject(f, stride=2)
     d, k = f.depth, np.ones((11, 11), np.uint8)
     spread = cv2.dilate(d, k) - cv2.erode(np.where(d > 0, d, 9.0).astype(np.float32), k)
-    keep = (spread[px[:, 1], px[:, 0]] < LIDAR_EDGE_M) & _inside(pts, SURVEY_BOX) & ~_on_arm(arm, pts)
+    keep = (spread[px[:, 1], px[:, 0]] < LIDAR_EDGE_M) & _inside(pts, _survey_box(arm)) & ~_on_arm(arm, pts)
     pts, rgb = pts[keep], rgb[keep]
     dev = _largest_cluster(pts, SURVEY_VOXEL)
     pts, rgb = pts[dev], rgb[dev]
     foot = cv2.boxPoints(cv2.minAreaRect(pts[:, :2].astype(np.float32)))  # corners going around
     top = np.percentile(pts[:, 2], 99.5)
-    box = np.vstack([np.c_[foot, np.full(4, TABLE_Z)], np.c_[foot, np.full(4, top)]])
+    box = np.vstack([np.c_[foot, np.full(4, arm.table_z)], np.c_[foot, np.full(4, top)]])
     T, extent = _coarse_panel(pts, f.T_base_cam[:3, 3])
     return dict(points=pts, colors=rgb, box=box, panel=T, extent=extent)
+
+
+def _survey_box(arm):
+    """SURVEY_BOX with its floor 1 cm over the arm's desk."""
+    box = SURVEY_BOX.copy()
+    box[2, 0] = arm.table_z + 0.01
+    return box
 
 
 def _inside(pts, box):
@@ -224,37 +230,50 @@ def plane_frame(n, p):
     return features.frame(p, n, -up)
 
 
+PANEL_NZ = (0.3, 0.95)  # the panel's normal's up component: tilted between about 18 and 73 deg from flat
+PANEL_PLANES, PANEL_MIN_PTS = 4, 100  # planes tried, and the points that must be left to try another
 VERTICAL_NZ = -0.1  # an upright panel may lean back this far (its normal's z)
 
 
-def _coarse_panel(pts, cam_pos):
-    """The control panel: the biggest plane that faces up and toward the arm, as a plane frame
-    (z toward the camera) and its extent (u0, u1, v0, v1) in that frame. With none, the biggest that faces the arm
-    upright (a wall thermostat's face: n_z down to VERTICAL_NZ)."""
-    rest, best, upright = np.ones(len(pts), bool), None, None
-    for _ in range(4):
-        if rest.sum() < 100:
+def panel_candidates(pts, cam_pos):
+    """Every plane the coarse panel fit tries, each the biggest left, as (normal toward the camera, point, inlier
+    indices into pts, faces the arm), and the index of the control panel among them: the biggest that faces up and
+    toward the arm, or with none, the biggest that faces the arm upright (a wall thermostat's face: n_z down to
+    VERTICAL_NZ). None if neither."""
+    rest, cands = np.ones(len(pts), bool), []
+    for _ in range(PANEL_PLANES):
+        if rest.sum() < PANEL_MIN_PTS:
             break
         n, p, inl = ransac_plane(pts[rest], COARSE_THR)
         if n @ (cam_pos - p) < 0:
             n = -n
-        toward_arm = -p[:2] @ n[:2] > 0.5 * np.linalg.norm(n[:2]) * np.linalg.norm(p[:2])
-        cand = (n, p, inl, np.flatnonzero(rest)[inl])
-        if 0.3 < n[2] < 0.95 and toward_arm and (best is None or inl.sum() > best[2].sum()):
-            best = cand
-        elif VERTICAL_NZ < n[2] <= 0.3 and toward_arm and (upright is None or inl.sum() > upright[2].sum()):
-            upright = cand
-        rest[np.flatnonzero(rest)[inl]] = False
-    best = best or upright
-    if best is None:
-        raise ValueError("no control panel in the scan: no plane of 100+ points faces the arm, either tilted "
-                         "up toward the camera or upright")
-    n, p, _, idx = best
+        toward_arm = bool(-p[:2] @ n[:2] > 0.5 * np.linalg.norm(n[:2]) * np.linalg.norm(p[:2]))
+        cands.append((n, p, np.flatnonzero(rest)[inl], toward_arm))
+        rest[cands[-1][2]] = False
+    tilted = [k for k, c in enumerate(cands) if PANEL_NZ[0] < c[0][2] < PANEL_NZ[1] and c[3]]
+    upright = [k for k, c in enumerate(cands) if VERTICAL_NZ < c[0][2] <= PANEL_NZ[0] and c[3]]
+    return cands, max(tilted or upright, key=lambda k: len(cands[k][2]), default=None)
+
+
+def panel_frame(pts, cand):
+    """A panel_candidates plane as a plane frame (z toward the camera) and its extent (u0, u1, v0, v1) in that frame."""
+    n, p, idx, _ = cand
     T = plane_frame(n, p)
     uv = (pts[idx] - p) @ T[:3, :2]
     (u0, v0), (u1, v1) = np.percentile(uv, 1, axis=0), np.percentile(uv, 99, axis=0)
     T[:3, 3] = p + T[:3, :2] @ [(u0 + u1) / 2, (v0 + v1) / 2]
     return T, ((u0 - u1) / 2, (u1 - u0) / 2, (v0 - v1) / 2, (v1 - v0) / 2)
+
+
+NO_PANEL = "no control panel in the scan: no plane of 100+ points faces the arm, either tilted up toward the camera or upright"
+
+
+def _coarse_panel(pts, cam_pos):
+    """The control panel (panel_candidates' pick) as panel_frame gives it."""
+    cands, pick = panel_candidates(pts, cam_pos)
+    if pick is None:
+        raise ValueError(NO_PANEL)
+    return panel_frame(pts, cands[pick])
 
 
 # --- wrist views and the scan ---
@@ -277,12 +296,12 @@ def plan_views(arm, surv):
     site, cam = arm.m.site("wrist_cam").id, arm.m.camera("wrist_cam").id
     fk = mujoco.MjData(arm.m)
     views, q0 = [], arm.home_q.copy()
-    for du, dv in VIEW_LOOKS:
+    for du, dv in VIEW_LOOKS if getattr(arm, "view_looks", None) is None else arm.view_looks:
         look = c - du * down + dv * left
-        for tilt in VIEW_TILTS:
+        for tilt in VIEW_TILTS if getattr(arm, "view_tilts", None) is None else arm.view_tilts:
             view = aim = -n * math.cos(tilt) - down * math.sin(tilt)
             for _ in range(3):
-                q, ok, err, _ = arm.ik.solve(look - STANDOFF * aim, view, q0, site=site)
+                q, ok, err, _ = arm.ik.solve(look - arm.standoff * aim, view, q0, site=site)
                 aim = arm.ik.fk(q, site)[1]
             clear = (arm.ik.fk(q)[0] - c) @ n
             why = ""
@@ -337,8 +356,8 @@ def wrist_points(f, box):
 
 
 def _in_box(pts, box, margin):
-    """Points inside the survey box (8 corners, bottom face first) grown by margin, above the desk."""
-    c, ok = box.mean(0), pts[:, 2] > TABLE_Z + 0.005
+    """Points inside the survey box (8 corners, bottom face first, on the desk) grown by margin, above the desk."""
+    c, ok = box.mean(0), pts[:, 2] > box[0, 2] + 0.005
     for e in ((box[1] - box[0]) / 2, (box[3] - box[0]) / 2, (box[4] - box[0]) / 2):
         half = np.linalg.norm(e)
         ok &= np.abs((pts - c) @ (e / half)) < half + margin

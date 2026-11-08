@@ -10,7 +10,7 @@ import time
 
 from rav_contracts import POLICIES, TestRequest
 
-from .commands import explore as explore_command
+from .commands import explore as explore_command, rule_responder
 from .loop import auto_approve, fix_and_retest, robot_may_auto_approve, rule_planner, run_test
 from .mock import mock_analyst, mock_system_1
 from .model import DEFAULT_MODEL, MODELS
@@ -127,6 +127,9 @@ def _person_here(kind: str, ref: str) -> str | None:
 
 
 def _show_steps(event) -> None:
+    if event.type == "scene_ready":
+        for note in event.payload.get("notes") or []:
+            print(f"  note: {note}")
     if event.type in ("plan_ready", "plan_amended"):
         for s in event.payload.get("steps") or []:
             print(f"  {s['id']}: {s['skill']} {s['target']} {s.get('params') or ''}")
@@ -153,8 +156,9 @@ def run(args) -> None:
     try:
         real = not robot_may_auto_approve(system1.system_status().robot)
         log = RunLog(run_id, args.runs, on_event=_show_steps if real else None)
+        policy, respond = _survey_review(args, system1, log)
         _print(run_test(system1, request, log, planner=_only(args.only), approve=_person_here if real else auto_approve,
-                        policy=POLICIES[args.policy]))
+                        policy=policy, respond=respond))
     finally:
         system1.close()
 
@@ -162,12 +166,30 @@ def run(args) -> None:
 def explore(args) -> None:
     system1 = _connect(args)
     try:
-        scene, plan = explore_command(system1, RunLog(args.id or f"explore-{int(time.time())}", args.runs), POLICIES[args.policy])
+        log = RunLog(args.id or f"explore-{int(time.time())}", args.runs)
+        scene, plan = explore_command(system1, log, *_survey_review(args, system1, log))
     finally:
         system1.close()
     for c in scene.controls:
         print(f"  {c.id:<12} {c.kind:<8} conf {c.conf:.2f}")
+    for note in scene.notes:
+        print(f"  note: {note}")
     print(f"fallback plan {plan.plan_id}: {len(plan.steps)} steps")
+
+
+def _survey_review(args, system1, log):
+    """The policy and responder for explore: with --survey-review, System 1 holds after its survey and the model
+    answers, with the manual if one was given."""
+    policy = POLICIES[args.policy]
+    if args.survey_review is None:
+        return policy, rule_responder
+    from .manual import Manual
+    from .model import make_client
+    from .survey import survey_reviewer
+
+    manual = "\n\n".join(Manual(args.survey_review).pages) if args.survey_review else None
+    client = make_client(DEFAULT_MODEL, run=log.run_id)
+    return policy.model_copy(update={"review_survey": True}), survey_reviewer(system1, client, log, manual)
 
 
 def up(args) -> None:
@@ -271,6 +293,8 @@ def main(argv=None) -> None:
         c = sub.add_parser(name, help=about)
         c.add_argument("--url", default="http://127.0.0.1:8780/mcp", help="System 1's server. Set RAV_TOKEN if it needs a token")
         c.add_argument("--id", default=None)
+        c.add_argument("--survey-review", nargs="?", const="", default=None, metavar="MANUAL",
+                       help="hold after the survey for the model to pick the panel and say what to expect, with this manual")
         c.set_defaults(fn=fn)
     r = sub.choices["run"]
     r.add_argument("--product", default="Device under test")

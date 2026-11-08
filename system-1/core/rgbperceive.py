@@ -29,6 +29,7 @@ or slider knob, or None; subs: SAM's sub-part masks; flap and pad for a door)}, 
 import functools
 import math
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 
 import cv2
@@ -53,7 +54,14 @@ GRIPPER_PX = np.array([(1137, 0), (1137, 31), (1080, 320), (1064, 351), (1030, 3
 PX_WIDTH = 1920         # the frame width the pixel constants here are for; other sizes scale them
 # bundle adjustment
 PANEL_INSET = 0.008     # panel features come from the survey's panel rectangle shrunk this much (off the housing)
+THREADS = 4             # captures (SIFT) and candidates (height sweep) at once: cv2 and numpy let go of the GIL
 FK_TOL_PX = 135         # a pair whose panel matches land this far from where the believed poses put them: a wild fit
+FLAT_BUTTONS = False    # real-rig rules (hw_rig sets it): round button-sized outlines are buttons even when their height
+                        # reads flat (dark glossy tops give the sweep little texture) or knob-tall, and extra views
+                        # chase only candidates on the panel
+BUTTON_DIAM = (0.012, 0.030)
+BUTTON_MAX_H = 0.014   # and under this tall: arcade buttons stand 7-10 mm proud, which the sim's rules call a knob or dial;
+                        # the real START read 12.4 mm
 MIN_TRACKS = 30         # fewer panel feature tracks than this (a plain panel): keep the believed poses
 # reprojection noise; prior on each pose's correction. On the real remote photos (system-1/arm/camera/pose_test.py)
 # a 1 deg, 3 mm prior corrected 1 deg, 3 mm errors to 0.15 mm median height error, against 0.27 with 0.25 deg, 0.5 mm
@@ -63,6 +71,8 @@ SIG_PX, SIG_ROT, SIG_T = 0.5, math.radians(1.0), 0.003
 # the camera sideways for parallax; the second row raises it and looks further down
 SURVEY_DQ = [(p, *r) for r in ((0, 0, 0, 0), (-0.15, 0.15, 0.1, 0)) for p in (-0.3, 0.0, 0.3)]
 SURVEY_REPROJ_PX = 30   # at PX_WIDTH: a triangulated feature off its matches by more, through the believed poses, is dropped
+CANDIDATE_COLORS = [(0, 0, 255), (0, 200, 0), (255, 80, 0), (0, 200, 255), (255, 0, 255), (255, 255, 0), (128, 0, 255),
+                    (0, 128, 255)]
 SURVEY_PAD = 0.01       # features stop short of the panel's edges: the extent grows this much on each side
 # orthophoto
 CELL = 0.00025
@@ -97,11 +107,12 @@ class Capture:
     extra: bool = False  # from a view added for a candidate few views saw (its pose is fitted to the others')
 
 
-def perceive_rgb(arm, phone, wrist, on_stage=None, on_frame=None):
+def perceive_rgb(arm, phone, wrist, on_stage=None, on_frame=None, on_survey=None):
     """Survey, scan and segment the device in front of the arm with an RGB wrist camera (WristCamera(arm, usb=True)).
     phone=None surveys with the wrist camera too (survey_wrist).
     on_stage(name, scene) runs at the start of each stage, on_frame(frame, None) after each wrist capture (no
-    cloud: the frame has no depth). Returns a perceive.Scene; see the module docstring for scene.rgb."""
+    cloud: the frame has no depth). on_survey(survey) runs after the wrist survey. Returns a perceive.Scene; see the
+    module docstring for scene.rgb."""
     scene, clock = perceive.Scene(), [None, time.perf_counter()]
 
     def stage(name):  # a stage that runs twice (views, scan and poses, for extra views) adds up
@@ -115,6 +126,8 @@ def perceive_rgb(arm, phone, wrist, on_stage=None, on_frame=None):
     stage("survey")
     if phone is None:
         scene.survey = survey_wrist(arm, wrist)
+        if on_survey:  # it may pick another of the survey's candidate surfaces (use_panel) before the views are planned
+            on_survey(scene.survey)
     else:
         scene.frames.append(phone.capture())
         scene.survey = perceive.survey(arm, scene.frames[0])
@@ -124,7 +137,7 @@ def perceive_rgb(arm, phone, wrist, on_stage=None, on_frame=None):
     caps = scan(arm, wrist, scene.views, on_frame)
 
     def more(cands, poses, Tg):  # a view centred on each candidate with a cell fewer than two views see
-        short = [c for c in cands if _fewest_views(c, caps, poses, Tg) < 2]
+        short = [c for c in cands if _fewest_views(c, caps, poses, Tg) < 2 and (not FLAT_BUTTONS or _on_panel(c, Tg, scene.survey))]
         if not short:
             return []
         stage("views")
@@ -159,7 +172,8 @@ def analyse(scene, caps, stage, more=None):
         caps = caps + extra
         poses, _, how = adjust(caps, scene.survey, held=poses)
     stage("heights")
-    cands = [sweep_part(c, caps, poses, Tg) for c in cands]
+    with ThreadPoolExecutor(THREADS) as ex:
+        cands = list(ex.map(lambda c: sweep_part(c, caps, poses, Tg), cands))
     fix, Tg = panel_fix(cands, Tg, shape)  # from here heights and the grid are on the panel the sweep sees
     cands = [measure(c, fix, poses, Tg, best) for c in cands]
     stage("classify")
@@ -191,7 +205,7 @@ def _settle(arm, q, site):
     far the joint readings fall short until they put the camera within SAG_TOL of where q does."""
     skills.move_joints(arm, q)
     for _ in range(3):
-        if np.linalg.norm(arm.ik.fk(arm.read_q(), site)[0] - arm.ik.fk(q, site)[0]) < SAG_TOL:
+        if np.linalg.norm(arm.ik.fk(arm.read_q(), site)[0] - arm.ik.fk(q, site)[0]) < (arm.view_tol or SAG_TOL):
             break
         skills.move_joints(arm, arm.cmd + q - arm.read_q())
     for _ in range(perceive.SETTLE_TICKS):
@@ -231,34 +245,67 @@ def survey_wrist(arm, wrist, on_frame=None):
     of the features, so a plain panel gives too few (RuntimeError)."""
     cam = arm.m.camera("wrist_cam").id
     fk, q0, views = mujoco.MjData(arm.m), arm.home_q.copy(), []
-    for dq in SURVEY_DQ:
+    for dq in SURVEY_DQ if getattr(arm, "survey_dq", None) is None else arm.survey_dq:
         q = np.clip(q0 + dq, arm.ik.lo, arm.ik.hi)
         views.append(dict(q=q, T=perceive._camera_pose(arm, fk, cam, q), ok=True, why=""))
     caps = scan(arm, wrist, views, on_frame)
     poses = [c.frame.T_base_cam for c in caps]
-    sift, feats = cv2.SIFT_create(4000), []
-    for c in caps:
-        mask = np.full(c.frame.rgb.shape[:2], 255, np.uint8)
-        cv2.fillPoly(mask, [_gripper(c.frame.rgb.shape[1])], 0)
-        kp, des = sift.detectAndCompute(cv2.cvtColor(c.frame.rgb, cv2.COLOR_BGR2GRAY), mask)
-        feats.append((np.float32([k.pt for k in kp]).reshape(-1, 2), des))
+    with ThreadPoolExecutor(THREADS) as ex:
+        feats = list(ex.map(lambda c: _sift(c.frame, np.full(c.frame.rgb.shape[:2], 255, np.uint8)), caps))
     tracks = _pair_tracks(feats)
     X = np.array([_triangulate(caps, poses, t) for t in tracks]).reshape(-1, 3)
     lim = SURVEY_REPROJ_PX * caps[0].frame.rgb.shape[1] / PX_WIDTH if caps else 0
     ok = [max(np.linalg.norm(_project(caps[c].frame.K, poses[c], x[None])[0][0] - uv) for c, uv in t) < lim
           for t, x in zip(tracks, X)]
-    keep = np.array(ok, bool) & perceive._inside(X, perceive.SURVEY_BOX) & ~perceive._on_arm(arm, X)
+    keep = np.array(ok, bool) & perceive._inside(X, perceive._survey_box(arm)) & ~perceive._on_arm(arm, X)
     pts = X[keep]
     colors = np.array([caps[t[0][0]].frame.rgb[int(t[0][1][1]), int(t[0][1][0])] for t, k in zip(tracks, keep) if k])
     if len(pts) < 100:
         raise RuntimeError(f"wrist survey: only {len(pts)} features above the table (a plain panel?)")
-    T, (u0, u1, v0, v1) = perceive._coarse_panel(pts, np.mean([T[:3, 3] for T in poses], axis=0))
+    cands, pick = perceive.panel_candidates(pts, np.mean([T[:3, 3] for T in poses], axis=0))
+    if pick is None:
+        raise ValueError(perceive.NO_PANEL)
     foot = cv2.boxPoints(cv2.minAreaRect(pts[:, :2].astype(np.float32)))
     top = np.percentile(pts[:, 2], 99.5)
-    box = np.vstack([np.c_[foot, np.full(4, perceive.TABLE_Z)], np.c_[foot, np.full(4, top)]])
+    box = np.vstack([np.c_[foot, np.full(4, arm.table_z)], np.c_[foot, np.full(4, top)]])
+    survey = dict(points=pts, colors=colors.reshape(-1, 3), box=box, captures=caps, candidates=cands)
+    use_panel(survey, pick)
+    return survey
+
+
+def use_panel(survey, k):
+    """Make survey_wrist's candidate surface k (an index into survey["candidates"]) its panel."""
+    T, (u0, u1, v0, v1) = perceive.panel_frame(survey["points"], survey["candidates"][k])
     a = SURVEY_PAD
-    return dict(points=pts, colors=colors.reshape(-1, 3), box=box, panel=T, extent=(u0 - a, u1 + a, v0 - a, v1 + a),
-                captures=caps)
+    survey.update(panel=T, extent=(u0 - a, u1 + a, v0 - a, v1 + a), picked=k)
+
+
+def draw_candidates(survey):
+    """The survey photo that shows the most of the picked panel, with each candidate surface's points, outline and
+    number (k + 1), at half size: what System 2 sees at a survey_review stop."""
+    pts, cands = survey["points"], survey["candidates"]
+
+    def seen(f, idx):
+        uv, z = _project(f.K, f.T_base_cam, pts[idx])
+        h, w = f.rgb.shape[:2]
+        ok = (z > 0) & (uv[:, 0] >= 0) & (uv[:, 1] >= 0) & (uv[:, 0] < w) & (uv[:, 1] < h)
+        return uv[ok]
+    f = max((c.frame for c in survey["captures"]), key=lambda f: len(seen(f, cands[survey["picked"]][2])))
+    img, labels = f.rgb.copy(), []
+    for k, (_, _, idx, _) in enumerate(cands):
+        uv = seen(f, idx)
+        if len(uv) < 3:
+            continue
+        col = CANDIDATE_COLORS[k % len(CANDIDATE_COLORS)]
+        for u, v in uv.astype(int):
+            cv2.circle(img, (int(u), int(v)), 4, col, -1)
+        cv2.polylines(img, [cv2.convexHull(uv.astype(np.int32))], True, col, 3)
+        # the number on one of its own points, the one furthest from the numbers already drawn (surfaces' middles meet)
+        u, v = uv[np.argmax([min((np.hypot(*(p - q)) for q in labels), default=-np.hypot(*(p - uv.mean(0)))) for p in uv])]
+        labels.append(np.array([u, v]))
+        for color, width in (((0, 0, 0), 12), (col, 4)):
+            cv2.putText(img, str(k + 1), (int(u) - 14, int(v) + 16), cv2.FONT_HERSHEY_SIMPLEX, 1.8, color, width)
+    return cv2.resize(img, None, fx=0.5, fy=0.5)
 
 
 def _pair_tracks(feats):
@@ -319,19 +366,23 @@ def _exp(w, t):
 
 def _features(caps, survey):
     """SIFT keypoints and descriptors per capture, inside the survey's panel rectangle and off the gripper."""
-    sift = cv2.SIFT_create(4000)
     T, (u0, u1, v0, v1) = survey["panel"], survey["extent"]
     a = PANEL_INSET
     rect = T[:3, 3] + np.array([[u0 + a, v0 + a], [u1 - a, v0 + a], [u1 - a, v1 - a], [u0 + a, v1 - a]]) @ T[:3, :2].T
-    out = []
-    for c in caps:
-        f = c.frame
+
+    def panel(f):
         mask = np.zeros(f.rgb.shape[:2], np.uint8)
-        cv2.fillPoly(mask, [np.round(_project(f.K, f.T_base_cam, rect)[0]).astype(np.int32)], 255)
-        cv2.fillPoly(mask, [_gripper(f.rgb.shape[1])], 0)
-        kp, des = sift.detectAndCompute(cv2.cvtColor(f.rgb, cv2.COLOR_BGR2GRAY), mask)
-        out.append((np.float32([k.pt for k in kp]).reshape(-1, 2), des))
-    return out
+        return _sift(f, cv2.fillPoly(mask, [np.round(_project(f.K, f.T_base_cam, rect)[0]).astype(np.int32)], 255))
+    with ThreadPoolExecutor(THREADS) as ex:
+        return list(ex.map(lambda c: panel(c.frame), caps))
+
+
+def _sift(f, mask):
+    """SIFT keypoints (Nx2 pixels) and descriptors of frame f inside mask, off the gripper. A detector per call, so
+    frames can run on threads."""
+    cv2.fillPoly(mask, [_gripper(f.rgb.shape[1])], 0)
+    kp, des = cv2.SIFT_create(4000).detectAndCompute(cv2.cvtColor(f.rgb, cv2.COLOR_BGR2GRAY), mask)
+    return np.float32([k.pt for k in kp]).reshape(-1, 2), des
 
 
 def _tracks(caps, feats, survey):
@@ -930,6 +981,11 @@ def classify(cands, hm, img):
                 kind, score = "unknown", 0.0
             if kind != "pad" and score > pick[1]:
                 pick = (kind, score, why, r)
+        w = perceive.region(c["mask"], hm, CELL)["width"]
+        r = pick[3] if isinstance(pick[3], dict) else (c["readings"] or [None])[0]
+        if (FLAT_BUTTONS and r is not None and pick[0] in ("unknown", "knob", "dial") and c["round"] >= 0.95
+                and BUTTON_DIAM[0] <= w <= BUTTON_DIAM[1] and r["plateau"] <= BUTTON_MAX_H):
+            pick = ("button", 0.5, f"round, {w * 1000:.0f} mm across, {r['plateau'] * 1000:.1f} mm tall (real-rig rule)", r)
         door = _pad(c, hm, img)
         if door and door[2] > pick[1]:
             pick = ("door", door[2], door[3], door[:2])
@@ -1002,6 +1058,15 @@ def build(cands, picks, hm, img, grid):
         records.append(dict(kind=kind, score=round(score, 3), part=pid, why=why,
                             outline=grid.point(outline, np.full(len(outline), 0.0003))))
     return parts, records, masks
+
+
+def _on_panel(cand, Tg, survey, margin=0.01):
+    """Whether a candidate's centre lies on the survey's panel (within margin): extra views chase only those, as
+    cables and boards beside a real panel pulled the arm off to the side."""
+    p = Tg[:3, :3] @ [*(np.argwhere(cand["mask"]).mean(0) * CELL), 0] + Tg[:3, 3]
+    u, v = (np.linalg.inv(survey["panel"]) @ np.r_[p, 1])[:2]
+    u0, u1, v0, v1 = survey["extent"]
+    return u0 - margin <= u <= u1 + margin and v0 - margin <= v <= v1 + margin
 
 
 def _fewest_views(cand, caps, poses, Tg):

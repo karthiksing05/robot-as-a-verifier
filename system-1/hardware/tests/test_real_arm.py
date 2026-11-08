@@ -39,7 +39,13 @@ def _setup(pace=False):
     w = world.build_world(None)
     sim = robot.SimArm(world=w, slop=True, sensing="current", effector="stock")
     bus = fake_bus.make(sim, TMP)
-    return w, sim, bus, real_arm.RealArm(bus, app=sim.app, pace=pace)
+    arm = real_arm.RealArm(bus, app=sim.app, pace=pace)
+    arm.press_down, arm.press_depth = sim.press_down, sim.press_depth  # the sim presses along the normal, to contact
+    arm.table_z, arm.workspace, arm.standoff, arm.stall_m, arm.guard_speed = (  # the sim's desk, camera, contact test
+        sim.table_z, sim.workspace, sim.standoff, sim.stall_m, sim.guard_speed)
+    arm.hard_cap_n = rig.HARD_FORCE_CAP_N  # the sim's cap, not the real arm's 20 N
+    arm.noise_n = arm.noise_axial = sim.noise_n  # the sim servos' noise, not the real arm's floor
+    return w, sim, bus, arm
 
 
 def _raises(exc, f, *args):
@@ -109,7 +115,7 @@ def test_torque_off_after_exit_exception_and_ctrl_c():
                 for _ in range(5):
                     arm.send(arm.cmd)
                     arm.tick()
-                assert all(bus.fake.torque[i] for i in ARM_IDS) and not bus.fake.torque[6]  # the gripper is left off
+                assert all(bus.fake.torque[i] for i in [*ARM_IDS, 6])  # the gripper holds closed too
                 if exc:
                     raise exc("test")
         except (ValueError, KeyboardInterrupt) as e:
@@ -128,7 +134,7 @@ def test_refuses_torque_without_confirmation():
         assert not any(bus.fake.torque.values()) and not bus.fake.goal
         # moved by hand after the last reading, with no tick since: enable() must read again
         q = sim.d.qpos[sim.qadr[1]]
-        sim.d.qpos[sim.qadr[1]] = sim.ik.lo[1] - 0.05  # shoulder_lift past its limit, as if resting on its stop
+        sim.d.qpos[sim.qadr[1]] = sim.ik.lo[1] - 0.4  # shoulder_lift 23 deg past its limit: a wrong joint mapping
         _raises(SafetyStop, arm.enable, True)
         assert not any(bus.fake.torque.values())
         sim.d.qpos[sim.qadr[1]], sim.d.qpos[sim.qadr[2]] = q, sim.d.qpos[sim.qadr[2]] - np.radians(20)

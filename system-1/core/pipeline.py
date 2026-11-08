@@ -17,10 +17,12 @@ import rig
 import touch
 
 
-def scan_device(arm, phone, wrist, depth=False, on_stage=None, on_frame=None):
-    """The device's parts from the cameras: rgbperceive.perceive_rgb, or perceive.perceive with a depth camera."""
-    run = perceive.perceive if depth else rgbperceive.perceive_rgb
-    return run(arm, phone, wrist, on_stage=on_stage, on_frame=on_frame)
+def scan_device(arm, phone, wrist, depth=False, on_stage=None, on_frame=None, on_survey=None):
+    """The device's parts from the cameras: rgbperceive.perceive_rgb (on_survey runs after its wrist survey), or
+    perceive.perceive with a depth camera."""
+    if depth:
+        return perceive.perceive(arm, phone, wrist, on_stage=on_stage, on_frame=on_frame)
+    return rgbperceive.perceive_rgb(arm, phone, wrist, on_stage=on_stage, on_frame=on_frame, on_survey=on_survey)
 
 
 def touch_plane(arm, scene):

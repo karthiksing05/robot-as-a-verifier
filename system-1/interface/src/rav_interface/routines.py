@@ -15,7 +15,7 @@ TOOLS = ("system_status", "scene_get", "evidence_get", "routine_start", "routine
 RoutineName = Literal["explore", "run_plan", "home"]
 StopKind = Literal["done", "checkpoint", "escalation", "safety_abort", "pipeline_error"]
 EscalationCode = Literal["step_failed", "unexpected_response", "retries_exhausted", "perception_low_confidence",
-                         "pose_unstable", "unknown_control"]
+                         "pose_unstable", "unknown_control", "survey_review"]
 RoutineState = Literal["idle", "running", "paused"]
 
 
@@ -25,6 +25,7 @@ class EscalationPolicy(Contract):
     retries_per_step: int = Field(default=0, ge=0, le=10)
     checkpoint_every: int | None = Field(default=1, ge=1)  # steps between checkpoints; None means only at the end
     confidence_floor: float = Field(default=0.5, ge=0.0, le=1.0)  # detections below this escalate
+    review_survey: bool = False  # explore holds after its survey (survey_review) for a SurveyAnswer before it scans
 
 
 # Start with TETHERED, and loosen a setting only when the measurements hold up. The values are guesses until then.
@@ -76,12 +77,27 @@ class Checkpoint(Contract):
     reason: str | None = None
 
 
+class ExpectedControl(Contract):
+    name: str  # as the manual names it, such as START
+    kind: str  # a ControlKind when it is one
+
+
+class SurveyAnswer(Contract):
+    """System 2's answer to a survey_review stop. panel picks one of the stop's numbered candidate surfaces (None keeps
+    System 1's pick). expect is what the manual says the device has: System 1 compares the scan with it and says where
+    they differ, but never adds a control from it. also_look names other places on the device worth a look."""
+    panel: int | None = None
+    expect: list[ExpectedControl] = Field(default_factory=list)
+    also_look: list[str] = Field(default_factory=list)
+
+
 class Decision(Contract):
     """System 2's answer to a stop. It takes effect at the step boundary where the routine is holding."""
     kind: Literal["continue", "amend", "skip", "abort"] = "continue"
     steps: list[Step] = Field(default_factory=list)  # amend: replaces every remaining step
     targets: list[str] = Field(default_factory=list)  # skip: drop the remaining steps on these controls
     note: str | None = None
+    survey: SurveyAnswer | None = None  # continue, at a survey_review stop
 
 
 class ParamSpec(Contract):

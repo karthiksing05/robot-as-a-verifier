@@ -40,7 +40,9 @@ from rig import ARM_JOINTS, CONTROL_HZ, HARD_FORCE_CAP_N, MAX_STEP_RAD, TICK_RAD
 # into this model through np.deg2rad alone. Hence sign +1 and no offset. Unchecked on the team's arm: tools/arm_check.py
 # is for that, and what it finds goes here. Expect offsets of a few degrees, as a hand sweep's middle isn't the model's.
 SIGN = np.array([1, 1, 1, 1, 1])                       # ARM_JOINTS order
-OFFSET_RAD = np.radians([0.0, 0.0, 0.0, 0.0, 0.0])
+# lift, elbow and wrist_flex: the hand-eye views (4.6 px rms) refitted with lift held where six desk touches came out
+# flat (12.8 -> 1.9 mm spread); hand-eye can't see pan's or roll's
+OFFSET_RAD = np.radians([0.0, -1.9, -4.8, -2.24, 0.0])
 # P gain enable() sets on the five arm joints. The RobiServo-01 ships at 160. LeRobot's follower writes 16 on every
 # connect (lerobot-calibrate, teleop), and at 16 a loose motor didn't follow a 5 deg move at all; at 160 it stopped 5
 # steps short (system-1/arm/bringup/results.md).
@@ -50,6 +52,7 @@ SERVO_P = 160
 # miss, the cap trips with nothing touching); on stiffer ones it reads low and the cap trips late (sim/docs/real-arm.md,
 # Servo numbers). Measure it with system-1/arm/bringup/stiffness_test.py and put the result here before any test step.
 SERVO_NM_PER_RAD = 36.0
+OUT_OK = np.radians(15)  # enable() starts from a joint up to this far past its limit
 MOTOR_IDS = {"shoulder_pan": 1, "shoulder_lift": 2, "elbow_flex": 3, "wrist_flex": 4, "wrist_roll": 5, "gripper": 6}
 
 
@@ -75,7 +78,7 @@ def make_bus(port, calibration):
 
 class RealArm(rig.ArmBase):
     """Connects with torque off on every motor, after checking the motors hold the calibration in the file (homing
-    offsets and limits). enable(confirm=True) turns torque on for the five arm joints; the gripper is never driven.
+    offsets and limits). enable(confirm=True) turns torque on for the five arm joints, and holds the gripper where it is.
 
     tick() writes the goal for cmd, waits for the tick's end, then reads every joint once (so read_q() and tip_pose()
     between ticks give the last reading, as on the sim). d.time counts ticks, 1 / CONTROL_HZ each. With pace=False
@@ -85,6 +88,48 @@ class RealArm(rig.ArmBase):
     floor. tip_force() and the hard cap then use it, and the force across the probe stays the servo estimate, as with
     SimArm(sensing="tactile"). No driver for the SensX 25 exists yet.
     """
+    # The arm stands on the desk, not the sim's post: the hand-eye fit put the desk at z = -0.1 mm. The workspace floor
+    # is 5 mm over it, where perceive starts counting points as above the desk, so controls low on a panel stay in reach.
+    # The camera sits about 130 mm behind the probe tip (the model's 81 mm), so at the sim's standoff the tip would be
+    # in the panel.
+    table_z = 0.0
+    workspace = np.array([[0.05, 0.42], [-0.25, 0.25], [0.005, 0.35]])
+    standoff = 0.14  # camera to panel: the jaw tip sits ~11 cm in front of the camera; 12 cm reached no views
+    # The force estimate drifts 2.5-10 N along the fingertip in free air on any downward move (tools/creep_log.py, Nov 7),
+    # so guarded moves take contact as a stall instead, as tools/press_check.py does, at a speed that tracks smoothly
+    # (at 2 mm/s the tip stick-slips)
+    stall_m, guard_speed = 0.004, 0.015
+    # on the desk, a panel 23 cm out tilted toward the arm put every view tilted down its slope out of reach (0/9);
+    # tilted up it, the camera rises away from the base and all 9 reach at a 14-17 cm standoff
+    view_tilts = np.radians([-10, -20, -30])
+    # each photo's pose comes from the joint readings, so a view needn't be met to 0.5 mm: re-commanding to that took
+    # ~3 s a photo on this stick-slip arm
+    view_tol = 0.01
+    view_looks = [(0.0, -0.05), (0.0, 0.0), (0.0, 0.05)]  # the middle row only: one 14 cm view nearly covers a panel
+    # wrist_roll at home, so views and presses start from it: -90 deg puts the camera on top of the gripper, centred,
+    # instead of 7 cm to its side (same views in reach); the gripper then sits along the bottom of the picture
+    home_roll = np.radians(-90)  # camera on top; +90 (under) pointed the survey away from the panel
+    # Free moves (skills.move_joints) at 1.5x the sim's cap (0.2 read 35 N on the servo estimate going home and tripped
+    # the hard cap). The joints peak well inside MAX_STEP_RAD,
+    # and a cosine profile arrives at rest. Guarded moves keep guard_speed.
+    tip_speed = 0.2
+    # one re-command of an approach pose: the press is by stall and the last look's pose is from the joint readings, so
+    # the ~1.2 mm one round leaves doesn't matter, and each further round cost 0.7 s
+    sag_tries = 1
+    # the hard cap on the force estimate is a last resort only: it read 35-60 N on free moves home with nothing touching.
+    # Stalls and the press depth bound a press; the servos cap themselves (Torque_Limit 680/1000, overload protection)
+    hard_cap_n = 70.0
+    # taken off every part along the panel, in the arm frame: on Nov 8 presses aimed at the camera's position landed 3-5 mm
+    # up the slope from the cap's centre and slid further up. 5.4 mm clicked TIME+ (2 and 3 landed high, 8 on the lower
+    # edge). Hand touches read more, but the arm flexes under a hand; the last look agrees with the scan to 1-3.5 mm
+    part_shift = np.array([-0.0054, 0.0, -0.00225])
+    # presses come in 40% of the way from the panel's normal to straight down: along the normal the jaw slid off a tilted
+    # button's cap, halfway the gripper met the panel's lower edge first. A second last look 18 mm out leaves less travel
+    # to err. TIME+ clicked with these (Nov 8)
+    press_down = 0.4
+    look_close = None  # a second look 18 mm out failed its check on START twice, and costs an extra in and out
+    # presses go to a fixed depth: stall contact ended START's press 2.8 mm in, before it clicked
+    press_depth = 0.009  # 7 mm left STOP short
 
     def __init__(self, bus, app=None, pad=None, pace=True):
         self.bus, self.pad, self.pace = bus, pad, pace
@@ -94,11 +139,12 @@ class RealArm(rig.ArmBase):
         self.arm_bodies = rig.arm_bodies(self.m)  # perceive crops the arm out of what the cameras see
         self.qadr, self.dadr, self.tip = self.ik.qadr, self.ik.dadr, self.ik.tip
         self.home_q, *_ = self.ik.solve(np.array([0.2, 0.0, 0.14]), np.array([0.7, 0, -0.7]), np.zeros(5))
+        self.home_q[4] = self.home_roll  # wrist_roll isn't solved by the IK: it stays where home puts it
         self.mid = np.array([(bus.calibration[j].range_min + bus.calibration[j].range_max) / 2 for j in ARM_JOINTS])
         self.controls, self.seen_collisions, self.force_log, self.status = {}, set(), [], "idle"
         self.sensing = "tactile" if pad else "current"
         self.axial_sensor = pad is not None
-        self.noise_n = rig.SENSED_NOISE_N
+        self.noise_n = rig.SENSED_NOISE_N  # arm_check --noise: 0.6 N worst at rest, but up to 3.5 N moving at 20 mm/s
         self.noise_axial = pad.noise_n if pad else self.noise_n
         self.raw, self.qs, self.zero = [], [], np.zeros(len(ARM_JOINTS))
         self.W, self.axis_est, self.est_vec = np.zeros((len(ARM_JOINTS), 3)), np.zeros(3), np.zeros(3)
@@ -136,21 +182,25 @@ class RealArm(rig.ArmBase):
 
     def enable(self, confirm=False):
         """Torque on for the five arm joints, holding where they are. confirm must be True: the caller has checked the
-        arm is clear to move. Refuses while a joint reads outside the model's limits, which the first command would
-        then jump it back inside."""
+        arm is clear to move. A joint a little outside the model's limits (resting limp past one) steps back inside on the
+        first commands, MAX_STEP_RAD a tick; one far outside means a wrong joint mapping, so that refuses."""
         if confirm is not True:
             raise RuntimeError("enable(confirm=True) turns torque on, and the arm then holds and moves: confirm it")
         self._read()  # the limp arm may have moved since the last reading: hold it where it is now
         out = [f"{j} reads {np.degrees(q):+.1f} deg, outside {np.degrees(lo):+.0f} to {np.degrees(hi):+.0f}"
-               for j, q, lo, hi in zip(ARM_JOINTS, self.q, self.ik.lo, self.ik.hi) if not lo <= q <= hi]
+               for j, q, lo, hi in zip(ARM_JOINTS, self.q, self.ik.lo, self.ik.hi) if not lo - OUT_OK <= q <= hi + OUT_OK]
         if out:
-            raise SafetyStop("; ".join(out) + ". Move it inside by hand, or check the joint mapping (tools/arm_check.py)")
+            raise SafetyStop("; ".join(out) + ". Check the joint mapping (tools/arm_check.py), or move it inside by hand")
         p = self.bus.sync_read("P_Coefficient", ARM_JOINTS, normalize=False)
         if any(p[j] != SERVO_P for j in ARM_JOINTS):  # torque is still off, as an EEPROM write needs
             self.bus.sync_write("P_Coefficient", dict.fromkeys(ARM_JOINTS, SERVO_P), normalize=False)
         self.goal = self.pos.copy()
         self.bus.sync_write("Goal_Position", dict(zip(ARM_JOINTS, self.goal.tolist())), normalize=False)
         self.bus.enable_torque(ARM_JOINTS)  # after the goal: a servo turned on runs to whatever goal it last had
+        # The gripper is driven to its closed end (range_min, past where the jaws meet, so they squeeze) at LeRobot's soft
+        # gripper gain and torque limit: held where it was, a press pushed the loose jaw open
+        self.bus.sync_write("Goal_Position", {"gripper": self.bus.calibration["gripper"].range_min}, normalize=False)
+        self.bus.enable_torque(["gripper"])
         self.torque = True
         self._io()
 
@@ -166,11 +216,11 @@ class RealArm(rig.ArmBase):
 
     def tick(self):
         self._io()
-        f = self.cap_f if self.cap_f > HARD_FORCE_CAP_N else self.tip_force()
+        f = self.cap_f if self.cap_f > self.hard_cap_n else self.tip_force()
         self.force_log.append((self.d.time, f))
-        if self.torque and f > HARD_FORCE_CAP_N:
+        if self.torque and f > self.hard_cap_n:
             self._back_off()
-            raise SafetyStop(f"tip force {f:.1f} N over hard cap {HARD_FORCE_CAP_N} N")
+            raise SafetyStop(f"tip force {f:.1f} N over hard cap {self.hard_cap_n} N")
         return f
 
     def tip_pose(self):

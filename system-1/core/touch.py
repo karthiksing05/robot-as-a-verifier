@@ -110,12 +110,17 @@ def touch(arm, at, n, top, bottom=-CREEP_M, label="touch", on=None):
     try:
         _, bias = affordances._approach(arm, start, -n, label)
         arm.status = f"{label}: touch"
-        g = affordances._guarded(arm, lambda s, c: (start - s * n, -n), skills.APPROACH_M - top, n, limit,
-                                 skills.APPROACH_SPEED, bias)
-        fast = g["stop"] != "end"
-        if not fast:
-            g = affordances._guarded(arm, lambda s, c: (at + (top - s) * n, -n), top - bottom, n, limit,
+        if arm.stall_m:  # one creep from the start: a stall can't be told from a new move's start-up (affordances._stall)
+            g = affordances._guarded(arm, lambda s, c: (start - s * n, -n), skills.APPROACH_M - bottom, n, limit,
                                      CREEP_SPEED, bias)
+            fast = g["contact"] is not None and g["contact"] < skills.APPROACH_M - top
+        else:
+            g = affordances._guarded(arm, lambda s, c: (start - s * n, -n), skills.APPROACH_M - top, n, limit,
+                                     skills.APPROACH_SPEED, bias)
+            fast = g["stop"] != "end"
+            if not fast:
+                g = affordances._guarded(arm, lambda s, c: (at + (top - s) * n, -n), top - bottom, n, limit,
+                                         CREEP_SPEED, bias)
         tip, a = arm.tip_pose()
         if arm.sensing:
             affordances._unwind(arm, bias)  # a late contact left the command mm into the surface

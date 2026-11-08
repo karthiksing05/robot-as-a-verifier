@@ -66,7 +66,7 @@ def test_torque_only_after_a_yes_and_off_after_ctrl_c(answer, monkeypatch, tmp_p
     with pytest.raises(KeyboardInterrupt if answer == "yes" else SystemExit):
         main.main(["--robot", "real", "--arm-port", "COM9", "--calibration", "unused.json", "--port", "0"])
     if answer == "yes":
-        assert turned_on == [[1, 2, 3, 4, 5]] and serving == [{1: True, 2: True, 3: True, 4: True, 5: True, 6: False}]
+        assert turned_on == [[1, 2, 3, 4, 5], [6]] and serving == [dict.fromkeys(range(1, 7), True)]  # the gripper held shut too
         (checkpoint, goals), = stopped
         assert checkpoint.stop == "safety_abort" and "torque is off" in checkpoint.reason and len(bus.fake.qs) == goals
     else:
