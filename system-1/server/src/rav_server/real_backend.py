@@ -42,8 +42,8 @@ class RealBackend(PipelineRobot):
 
     touches = False  # the touch-offs and part touches never ran on a real panel: the scan's plane and heights are used
 
-    def __init__(self, arm_port: str, calibration: str, refine: bool = True, readout_port: str | None = None,
-                 readout_device: str | None = None, readout_url: str | None = None):
+    def __init__(self, arm_port: str, calibration: str, refine: bool = True, single_look: bool = False,
+                 readout_port: str | None = None, readout_device: str | None = None, readout_url: str | None = None):
         on_path(CORE_DIR, HARDWARE_DIR)
         import hw_rig
 
@@ -52,6 +52,8 @@ class RealBackend(PipelineRobot):
             import http_readout
             self.http_readout = http_readout.HttpReadout(readout_device, readout_url)
         rig = hw_rig.make_rig(arm_port, calibration, app=self.http_readout, readout_port=readout_port)
+        if single_look:  # undo hw_rig's second view: one photo, its centre at the scan's height
+            hw_rig.touch.TWO_VIEW = None
         super().__init__(rig, refine=refine, plan_id="rules-real")
         self.rest, self.closing, self.stage = None, threading.Lock(), "idle"
         threading.Thread(target=load_models, daemon=True).start()  # while the operator checks the arm, not mid-scan

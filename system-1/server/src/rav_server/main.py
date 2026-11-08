@@ -71,7 +71,7 @@ def make_robot(args):
         return lambda: MockRobot()
     if args.robot == "real":  # built once, here on the main thread, so that main can ask before torque goes on
         from .real_backend import RealBackend
-        robot = RealBackend(args.arm_port, args.calibration, refine=not args.no_refine,
+        robot = RealBackend(args.arm_port, args.calibration, refine=not args.no_refine, single_look=args.single_look,
                             readout_port=args.readout_port if args.readout == "serial" else None,
                             readout_device=args.readout_device if args.readout == "http" else None,
                             readout_url=readout_url(args))
@@ -164,6 +164,7 @@ def main(argv=None) -> None:
     ap.add_argument("--sensing", default=None, choices=["tactile", "loadcell", "current", "perfect"], help="default: current, the servos' own, on the stock gripper; tactile, the pad, on the probe")
     ap.add_argument("--depth", action="store_true", help="the D405 pipeline: no OWLv2 or SAM download")
     ap.add_argument("--no-refine", action="store_true")
+    ap.add_argument("--single-look", action="store_true", help="real only: the last look from one photo, as before it triangulated from two")
     ap.add_argument("--placement", default="nominal", choices=["nominal", "random"], help="random moves the device on the desk, drawn from the seed")
     ap.add_argument("--device", default=None, metavar="PATH", help="sim only: a device file (appliances/<name>/device.yaml) in place of a generated device")
     ap.add_argument("--rev", default="B", help="with --device: its revision, or fault choices like F1=B,F2=B,F3=A")
