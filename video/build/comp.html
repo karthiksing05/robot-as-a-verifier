@@ -10,7 +10,7 @@
   .layer { position: absolute; inset: 0; }
   svg { display: block; }
   /* the Console's dark theme */
-  #tech { background: #111417; font-family: "JetBrains Mono", monospace; color: #d9dcdf; }
+  #tech { transform-origin: 960px 450px; background: #111417; font-family: "JetBrains Mono", monospace; color: #d9dcdf; }
   #tech .grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px); background-size: 48px 48px; }
   .mono { font-family: "JetBrains Mono", monospace; }
   .mich { font-family: "Michroma", sans-serif; letter-spacing: .04em; }
@@ -71,6 +71,9 @@
   </div>
 
   <img id="footage" class="full" style="display:none" alt="">
+  <canvas id="fcan" width="1920" height="1080" class="layer" style="display:none"></canvas>
+  <div id="panes" class="layer" style="pointer-events:none"></div>
+  <div id="hud" class="layer" style="pointer-events:none;z-index:22;display:none"></div>
   <svg id="overlay" class="layer" width="1920" height="1080" style="pointer-events:none;z-index:20"></svg>
   <div id="rail" style="display:none"></div>
   <div id="tag" style="display:none">SIMULATION</div>
