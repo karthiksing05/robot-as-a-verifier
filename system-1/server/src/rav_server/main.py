@@ -241,6 +241,11 @@ def main(argv=None) -> None:
             if args.device_host:
                 sockets.append(listeners.enter_context(bind_listener(args.device_host, DEVICE_PORT)))
                 print(f"Appliances POST to http://{args.device_host}:{DEVICE_PORT}/readout/<device-id>")
+            print(f"System 1 server source: {__file__}", flush=True)
+            if readouts:
+                print(f"MCP appliance_readout enabled for: {', '.join(sorted(readouts))}", flush=True)
+                if not keys:
+                    print("Vultr appliance publishing requires RAV_DEVICE_KEYS in this server's environment.", flush=True)
             if real:
                 enable_torque(real, args.enable_torque)
             watching = telemetry.serve(args.telemetry_port) if args.telemetry_port else 0

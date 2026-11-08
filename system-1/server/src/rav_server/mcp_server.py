@@ -37,7 +37,10 @@ def build_server(engine: RoutineEngine, devices=None) -> MCPServer:
 
     @mcp.tool(description="State, the skills on offer with what each acts on and takes, the force limit, and the active routine.")
     def system_status() -> SystemStatus:
-        return engine.status()
+        status = engine.status()
+        if devices:
+            status.tools.append("appliance_readout")
+        return status
 
     if devices:
         @mcp.tool(description="Latest appliance snapshot and freshness. Omit device_id to list registered appliances.")
