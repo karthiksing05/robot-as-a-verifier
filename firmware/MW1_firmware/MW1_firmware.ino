@@ -808,7 +808,8 @@ static void publishSnapshot() {
            reinterpret_cast<const char *>(powerName()), reinterpret_cast<const char *>(lastAction),
            reinterpret_cast<const char *>(stateName()), reinterpret_cast<const char *>(colourName()),
            display1, display2);
-  rav::update(body);
+  rav::update(body, startButton.held | (stopButton.held << 1) | (timeButton.held << 2)
+                    | (powerButton.held << 3) | (quickButton.held << 4));
 }
 #endif
 

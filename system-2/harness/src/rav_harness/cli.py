@@ -258,12 +258,22 @@ def inspect_system1(args) -> None:
             ids = [args.device_id] if args.device_id else client.appliance_readout()["devices"]
             if not ids:
                 raise SystemExit("System 1 has no registered appliances.")
+            seen = {}
             while True:
                 for device_id in ids:
                     sample = client.appliance_readout(device_id)
                     age = sample["age_s"]
                     state = "NO DATA" if age is None else f"{'FRESH' if sample['fresh'] else 'STALE'} {age:.2f}s"
                     stamp = time.strftime("%H:%M:%SZ", time.gmtime())
+                    edges = sample.get("button_edges", [])
+                    latest = edges[-1]["seq"] if edges else 0
+                    previous = seen.get(device_id, latest)
+                    if latest < previous:
+                        previous = 0
+                    for edge in edges:
+                        if edge["seq"] > previous:
+                            print(f"{stamp} {device_id}  EDGE #{edge['seq']} {edge['channel']}={edge['value']}", flush=True)
+                    seen[device_id] = latest
                     readings = json.dumps(sample["readings"], sort_keys=True)
                     print(f"{stamp} {device_id}  {state}  LCD={json.dumps(sample['lcd'])}  {readings}", flush=True)
                 time.sleep(1)

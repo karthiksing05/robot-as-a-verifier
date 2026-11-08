@@ -11,6 +11,19 @@ import pytest  # noqa: E402
 from rig import Readout, SafetyStop  # noqa: E402
 
 
+def test_readout_retains_button_edges_between_polls():
+    readout = http_readout.HttpReadout("mc6-01", track_events=False)
+    readout.ingest({"btn_time": 0})
+    readout.ingest({"btn_time": 1})
+    readout.ingest({"btn_time": 1})  # a retry after a lost acknowledgement
+    readout.ingest({"btn_time": 0})
+    assert readout.snapshot()["button_edges"] == [
+        {"seq": 1, "channel": "btn_time", "value": 1},
+        {"seq": 2, "channel": "btn_time", "value": 0},
+    ]
+    assert readout.events == []
+
+
 def test_no_step_runs_before_the_first_post():
     r = http_readout.HttpReadout("mw1", "http://lab:8780/readout/mw1")
     assert isinstance(r, Readout) and not r.started

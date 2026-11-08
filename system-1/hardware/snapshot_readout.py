@@ -50,11 +50,14 @@ class SnapshotReadout:
             t = time.monotonic()
             self.lcd = new.pop("LCD", None if replace else self.lcd)
             old = self._readings
-            if track_events:
-                self._events.extend((t, ch, v) for ch, v in new.items()
-                                    if isinstance(v, int) and ch in old and old[ch] != v)
+            changes = [(t, ch, v) for ch, v in new.items() if isinstance(v, int) and ch in old and old[ch] != v]
+            self._record_changes(changes, track_events)
             self._readings = new if replace else {**old, **new}
             self.last = t
+
+    def _record_changes(self, changes, track_events):
+        if track_events:
+            self._events.extend(changes)
 
     def _alive(self):
         if self.error:

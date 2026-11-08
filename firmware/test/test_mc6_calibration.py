@@ -45,3 +45,11 @@ class Mc6CalibrationTests(unittest.TestCase):
         event["tube_required"] = 1
         with self.assertRaises(ValueError):
             validate_result(event)
+
+    def test_tube_only_requires_eeprom_confirmation_even_when_interlock_is_disabled(self):
+        event = {"saved": 1, "tube_required": 0, "tube_saved": 1,
+                 "tube": {"clear": 700, "shaded": 640, "lo": 664, "hi": 676}}
+        validate_result(event, tube_only=True)
+        event["tube_saved"] = 0
+        with self.assertRaises(ValueError):
+            validate_result(event, tube_only=True)

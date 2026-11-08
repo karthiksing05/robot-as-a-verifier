@@ -60,6 +60,13 @@ def main():
         print(f"{label}: {result.stderr.strip()}")
         print(f"  {len(events)} valid JSON events; longest line {max_line} bytes")
 
+    wifi_test = build / "wifi_queue_test.exe"
+    subprocess.run([compiler, "-std=c++17", "-Wall", "-Wextra", "-Werror",
+                    "-I", str(ROOT / "test/host/fakes"),
+                    str(ROOT / "test/host/wifi_queue_test.cpp"), "-o", str(wifi_test)], check=True)
+    subprocess.run([str(wifi_test)], check=True, stdout=subprocess.DEVNULL)
+    print("Wi-Fi queue: 450 ms press and release survive an in-flight request")
+
 
 if __name__ == "__main__":
     main()

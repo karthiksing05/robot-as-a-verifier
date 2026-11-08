@@ -18,6 +18,8 @@ const uint16_t TIMEOUT_MS = RAV_USE_TLS ? 1500 : 300;
 const uint16_t CONNECT_TIMEOUT_MS = 1200;
 const uint32_t RETRY_POST_MS = 5000;
 const uint32_t REJOIN_MS = 15000;
+constexpr uint8_t EDGE_QUEUE_SIZE = 8;
+const uint32_t EDGE_MAX_AGE_MS = 2000;
 
 #if RAV_USE_TLS
 WiFiSSLClient client;
@@ -30,6 +32,14 @@ bool joinedOnce = false;
 int lastLink = -1;
 int lastStatus = -1;
 bool pending = false;
+bool pendingEdge = false;
+struct ButtonSnapshot {
+  char body[SNAPSHOT_MAX];
+  uint32_t capturedAt;
+};
+ButtonSnapshot edges[EDGE_QUEUE_SIZE];
+uint8_t edgeHead = 0, edgeCount = 0;
+int lastButtons = -1;
 uint32_t polledAt = 0;
 char statusLine[32];
 size_t statusLength = 0;
@@ -59,6 +69,11 @@ inline bool post(const char *body, size_t len) {
 
 inline void complete(int status) {
   pending = false;
+  if (status == 204 && pendingEdge) {
+    edgeHead = (edgeHead + 1) % EDGE_QUEUE_SIZE;
+    --edgeCount;
+  }
+  pendingEdge = false;
   if (status != 204) client.stop();
   if (status != lastStatus) {
     lastStatus = status;
@@ -93,11 +108,28 @@ inline void pollResponse(uint32_t now) {
   }
 }
 
-// Call every loop with the current snapshot (a NUL-terminated flat JSON object).
-inline void update(const char *body) {
+// Capture debounced button changes even while an earlier request is in flight.
+inline void update(const char *body, uint8_t buttons) {
   uint32_t now = millis();
+  if (lastButtons >= 0 && buttons != lastButtons) {
+    if (edgeCount < EDGE_QUEUE_SIZE) {
+      auto &edge = edges[(edgeHead + edgeCount) % EDGE_QUEUE_SIZE];
+      strcpy(edge.body, body);
+      edge.capturedAt = now;
+      ++edgeCount;
+    } else {
+      Serial.println(F("{\"ev\":\"wifi_button_edge_dropped\",\"reason\":\"queue_full\"}"));
+    }
+  }
+  lastButtons = buttons;
   if (pending) { pollResponse(now); return; }
-  bool changed = strcmp(body, last) != 0;
+  while (edgeCount && now - edges[edgeHead].capturedAt >= EDGE_MAX_AGE_MS) {
+    edgeHead = (edgeHead + 1) % EDGE_QUEUE_SIZE;
+    --edgeCount;
+    Serial.println(F("{\"ev\":\"wifi_button_edge_dropped\",\"reason\":\"expired\"}"));
+  }
+  const char *outgoing = edgeCount ? edges[edgeHead].body : body;
+  bool changed = edgeCount || strcmp(outgoing, last) != 0;
   if (now - sentAt < (lastStatus == 204 && changed ? 50 : SEND_EVERY_MS)) return;
   const bool connected = WiFi.status() == WL_CONNECTED;
   const bool linkChanged = connected != lastLink;
@@ -114,8 +146,9 @@ inline void update(const char *body) {
     return;
   }
   if (!linkChanged && lastStatus != -1 && lastStatus != 204 && now - sentAt < RETRY_POST_MS) return;
-  strcpy(last, body);  // each sketch builds its snapshot in a SNAPSHOT_MAX byte buffer
-  pending = post(body, strlen(body));
+  strcpy(last, outgoing);  // each sketch builds its snapshot in a SNAPSHOT_MAX byte buffer
+  pendingEdge = edgeCount != 0;
+  pending = post(outgoing, strlen(outgoing));
   sentAt = millis();
   polledAt = sentAt;
   statusLength = tail = responseStatus = 0;
