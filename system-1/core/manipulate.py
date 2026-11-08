@@ -337,7 +337,10 @@ def hook_pull(arm, parts, i, step):
             way_in.append((poses[0][0] - feel * u_in, poses[0][1]))
         else:
             way_in.append(poses[0])
-        if staged:  # zeroed up there, clear of everything: at the stage over a level tool the drift alone read 7-9 N (D32)
+        # zeroed up there, clear of everything: at the stage over a level tool the drift alone read 7-9 N (D32). Reaching over
+        # a lid resting open, the entry is 40 mm above its top edge, as clear: unzeroed, the long reach up to it read 6 N on
+        # the way in with nothing touching (centrifuge lid at 105 deg, after a pick and place)
+        if staged or falls:
             arm.tare()
         peak, ok1, why1 = _follow(arm, way_in, HOOK_SPEED, bias, limit, "in", follow=jaw, ramp_s=HOOK_RAMP_S)
         arm.tare(False)
