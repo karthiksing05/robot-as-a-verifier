@@ -30,6 +30,8 @@ cancel; the camera mount's error stays in.
 Only buttons and door pads are refined (see REFINED).
 """
 import math
+import os
+import time
 from dataclasses import replace
 
 import cv2
@@ -90,6 +92,7 @@ SEARCH_M = 0.006        # SAM's box grows this much all round when its first out
                         # from where it was scanned)
 FIT_TRIM = 0.0015       # outline points further than this from the fitted circle are something else
 MIN_EDGE = 30           # outline points needed for a fit
+LOOK_DIR = None         # a folder: each look's frame is saved there with SAM's outline and the fitted circle drawn
 
 
 # --- touch ---
@@ -436,12 +439,14 @@ def _fit(q, toward, r):
     return c, rr, None
 
 
-def locate(f, p, plane, sam):
+def locate(f, p, plane, sam, seen=None):
     """Where part p's origin is, seen in RGB frame f: (point, None), or (None, why). The part's round outline as believed, at its top and at the panel, is
     projected into the frame; their bounding box is SAM's prompt. The mask's outline is cast onto the plane at
     the part's top height and a circle fitted to it (_fit); the point is its centre at that height. A mask whose
     area is far from the fitted circle's silhouette is another object, or cut by the box: then the box grows
-    SEARCH_M all round for one more try. Only kinds in REFINED."""
+    SEARCH_M all round for one more try. Only kinds in REFINED. seen, a dict, gets the last try's box, mask,
+    believed silhouette and fitted circle (pixels), to draw."""
+    seen = {} if seen is None else seen
     if p.kind not in REFINED:
         return None, f"a {p.kind} isn't refined from RGB (see touch.REFINED)"
     r, top = _round(p)
@@ -470,13 +475,38 @@ def locate(f, p, plane, sam):
         away = (c0 - T[:3, 3]) @ uv
         q = (X - c0) @ uv
         c, rr, why = _fit(q, away / max(np.linalg.norm(away), 1e-9), r)
+        seen.update(box=box, mask=mask, believed=silhouette(c0, r)[:48], circle=None)
         if c is None:
             continue
+        seen.update(circle=_project(f.K, T, c0 + uv @ c + top * n + rr * ring), fitted_mm=rr * 2000, scanned_mm=r * 2000)
         area = mask.sum() / cv2.contourArea(cv2.convexHull(silhouette(c0 + uv @ c, rr).astype(np.float32)))
         if AREA[0] < area < AREA[1]:
             return c0 + uv @ c + top * n, None
         why = f"SAM's outline is {area:.1f} times the area of the circle fitted to it"
     return None, f"{p.id}: {why}"
+
+
+def _save_look(f, p, seen, said):
+    """The look's frame in LOOK_DIR with SAM's prompt box (blue), the part as believed (white), SAM's outline (yellow)
+    and the fitted circle (green), and what came of it. The folder ignores itself in git."""
+    os.makedirs(LOOK_DIR, exist_ok=True)
+    if not os.path.exists(os.path.join(LOOK_DIR, ".gitignore")):
+        with open(os.path.join(LOOK_DIR, ".gitignore"), "w") as fh:
+            fh.write("*\n")
+    img = f.rgb.copy()
+    if seen.get("mask") is not None:
+        x0, y0, x1, y1 = np.round(seen["box"]).astype(int)
+        cv2.rectangle(img, (x0, y0), (x1, y1), (255, 120, 0), 2)
+        cv2.polylines(img, [seen["believed"].astype(np.int32)], True, (255, 255, 255), 2)
+        contours, _ = cv2.findContours(seen["mask"], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        cv2.drawContours(img, contours, -1, (0, 255, 255), 2)
+    if seen.get("circle") is not None:
+        cv2.polylines(img, [seen["circle"].astype(np.int32)], True, (0, 255, 0), 2)
+        said += f" (fitted {seen['fitted_mm']:.1f} mm across, scanned {seen['scanned_mm']:.1f})"
+    for color, width in (((0, 0, 0), 6), ((255, 255, 255), 2)):
+        cv2.putText(img, (said if said.startswith(p.id) else f"{p.id}: {said}")[:110], (12, 40), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.9, color, width)
+    cv2.imwrite(os.path.join(LOOK_DIR, f"{time.strftime('%H%M%S')}_{p.id}.jpg"), img)
 
 
 def make_refine(wrist, plane, sam=None):
@@ -491,11 +521,16 @@ def make_refine(wrist, plane, sam=None):
         sam = segmodels.sam_boxes()
 
     def refine(arm, p):
-        f = wrist.capture()
-        pos, why = locate(f, p, plane, sam)
+        f, seen = wrist.capture(), {}
+        pos, why = locate(f, p, plane, sam, seen)
         shift = 0.0 if pos is None else float(np.linalg.norm(pos - p.pos))
         if shift > SEARCH_M:
             why = f"the outline SAM found is {shift * 1000:.1f} mm from where {p.id} should be: a neighbour"
+        if LOOK_DIR:
+            try:  # evidence must never stop a look
+                _save_look(f, p, seen, why or f"refined: moved {shift * 1000:.1f} mm")
+            except Exception as e:  # noqa: BLE001
+                print(f"couldn't save the look: {type(e).__name__}: {e}")
         if why:
             return replace(p, meta={**p.meta, "refined": False, "refine_shift": 0.0, "refine_why": why})
         q = _moved(p, features.frame(pos, p.normal, p.x))

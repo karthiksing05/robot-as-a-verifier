@@ -17,6 +17,7 @@ import real_arm
 import real_wrist
 import rgbperceive
 import rig
+import touch
 
 GRIPPER_PX = os.path.join(os.path.dirname(real_wrist.HAND_EYE), "gripper_px.json")  # tools/gripper_mask.py
 
@@ -53,6 +54,10 @@ def make_rig(arm_port, calibration, app=None, pad=None, readout_port=None):
         # the real SPEED knob's top reads 12 mm across and 15 mm tall, under the sim knob's 18 mm; and a 34 mm "knob"
         # 13 mm tall was the lid's latch
         perceive.RULES["knob"].update(diam=(0.010, 0.020))
+        # an arcade button is a cap inside a wider bezel, and the last look's outline took one ring or the other (9.4 mm
+        # for a 15.8 mm scan, 36 for 18): either gives the centre, and a neighbour still moves it over SEARCH_M
+        touch.SHRINK, touch.RADIUS_TOL = 0.4, 0.010
+        touch.LOOK_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "last_looks")
     except BaseException:
         arm.close()  # no readout or no camera: let the serial ports go
         raise
