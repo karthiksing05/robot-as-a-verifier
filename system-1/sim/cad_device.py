@@ -476,6 +476,7 @@ def build_cad_world(path, rev="B", placement=None, mounts=None):
         chosen = opts[choices[fault]]
         params.update(chosen.get("params", {}))
         parts.update(chosen.get("parts", {}))
+    params.update(cfg.get("params") or {})  # a patched device's own values (a travel its new geometry gives) win over its revision's
     params.update(parts)
     params.update({f: c for f, c in choices.items()})
     if cfg.get("firmware"):  # firmware faults are data too: a dead switch, a wrong channel or default, a broken interlock
