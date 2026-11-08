@@ -101,6 +101,7 @@ class RealArm(rig.ArmBase):
     # so guarded moves take contact as a stall instead, as tools/press_check.py does, at a speed that tracks smoothly
     # (at 2 mm/s the tip stick-slips)
     stall_m, guard_speed = 0.004, 0.015
+    stall_past = 0.006  # a push goes on until it lags this much past contact: at 2 mm the centrifuge's stiff buttons went down shallow
     # on the desk, a panel 23 cm out tilted toward the arm put every view tilted down its slope out of reach (0/9);
     # tilted up it, the camera rises away from the base and all 9 reach at a 14-17 cm standoff
     view_tilts = np.radians([-10, -20, -30])

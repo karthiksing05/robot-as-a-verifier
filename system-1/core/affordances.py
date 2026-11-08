@@ -225,7 +225,7 @@ def _stall(arm, after=STALL_AFTER_S):
             base = lag
         grown = -np.inf if base is None else lag - base
         run = run + 1 if grown > arm.stall_m else 0
-        return run >= 3, run >= 3 and grown >= arm.stall_m + STALL_PAST
+        return run >= 3, run >= 3 and grown >= arm.stall_m + getattr(arm, "stall_past", STALL_PAST)
     return tick
 
 
