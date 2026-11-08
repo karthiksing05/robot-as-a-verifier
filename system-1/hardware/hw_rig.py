@@ -46,6 +46,9 @@ def make_rig(arm_port, calibration, app=None, pad=None, readout_port=None):
         perceive.PANEL_NZ = (0.3, 0.85)
         # and a small panel beside a big top and front face is the 4th plane with 48 of 467 points: keep looking
         perceive.PANEL_PLANES, perceive.PANEL_MIN_PTS = 8, 25
+        # two points 8 cm off to the side of the centrifuge stretched its panel to 226 mm across, its middle 36 mm off the
+        # panel's: the views missed half the panel and the extra pass photographed the laptop beside it
+        perceive.PANEL_GROUP = 0.01
         perceive.RULES["toggle"].update(plateau=(0.006, 0.016), area=(50e-6, 400e-6))
     except BaseException:
         arm.close()  # no readout or no camera: let the serial ports go

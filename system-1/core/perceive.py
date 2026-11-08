@@ -232,6 +232,7 @@ def plane_frame(n, p):
 
 PANEL_NZ = (0.3, 0.95)  # the panel's normal's up component: tilted between about 18 and 73 deg from flat
 PANEL_PLANES, PANEL_MIN_PTS = 4, 100  # planes tried, and the points that must be left to try another
+PANEL_GROUP = None  # m: when set, the panel's extent comes from its plane's largest group of points this close on a grid
 VERTICAL_NZ = -0.1  # an upright panel may lean back this far (its normal's z)
 
 
@@ -260,9 +261,20 @@ def panel_frame(pts, cand):
     n, p, idx, _ = cand
     T = plane_frame(n, p)
     uv = (pts[idx] - p) @ T[:3, :2]
+    if PANEL_GROUP:
+        uv = uv[_largest_group(uv, PANEL_GROUP)]
     (u0, v0), (u1, v1) = np.percentile(uv, 1, axis=0), np.percentile(uv, 99, axis=0)
     T[:3, 3] = p + T[:3, :2] @ [(u0 + u1) / 2, (v0 + v1) / 2]
     return T, ((u0 - u1) / 2, (u1 - u0) / 2, (v0 - v1) / 2, (v1 - v0) / 2)
+
+
+def _largest_group(uv, cell):
+    """Which of the points uv (Nx2, m) are in the largest group joined through occupied cells of this size on a grid."""
+    ij = np.floor((uv - uv.min(0)) / cell).astype(int)
+    grid = np.zeros(ij.max(0) + 1, bool)
+    grid[ij[:, 0], ij[:, 1]] = True
+    label = ndimage.label(ndimage.binary_dilation(grid))[0][ij[:, 0], ij[:, 1]]
+    return label == np.bincount(label).argmax()
 
 
 NO_PANEL = "no control panel in the scan: no plane of 100+ points faces the arm, either tilted up toward the camera or upright"
