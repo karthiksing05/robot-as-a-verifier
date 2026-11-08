@@ -17,8 +17,10 @@ import rgbperceive
 import skills
 
 # joint offsets from home (pan, lift, elbow, wrist flex, roll): + pan turns the arm to its right (-y), where the rack
-# stands. The survey's +0.3 already had the rack at the photo's edge (Nov 8 scan); these put it across the middle
-FIND_DQ = [(p, 0.0, 0.0, 0.0, 0.0) for p in (0.3, 0.45, 0.6)]
+# stands. The survey's +0.3 had the rack at the photo's edge (Nov 8 9:33 scan, green collar at (397, -151, 65) mm); the
+# wrist raised 0.25 rad looks further out, and these pans then put it low, middle and high in the photo (on the model)
+# (each view's partner photo is only 15 mm over, too short a baseline for the red tube's loop: lift in and out adds 40)
+FIND_DQ = [(p, 0.0, 0.0, -0.25, 0.0) for p in (0.25, 0.4, 0.55)] + [(0.4, d, 0.0, -0.25, 0.0) for d in (-0.15, 0.15)]
 # OpenCV HSV ranges (hue 0-180). The near tube's collar ring is teal-green; the far one's is red (pinkish in the
 # camera). STOP's cap is red too: the blob whose ray passes nearest the others' point wins
 COLOURS = {"green": [((70, 90, 50), (100, 255, 255))],
