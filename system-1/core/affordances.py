@@ -102,6 +102,10 @@ PINCH_RAD_S = math.radians(20)    # turning speed
 PINCH_EMPTY = 0.0015              # shut to under the knob's width less this: they missed it, or hold it by an edge, which slips
 PINCH_RETRY = 0.005               # a pinch that shut on nothing tries again this far either way along the jaws
 PINCH_SLID = 0.001                # shutting, the jaws pushed this far along themselves: the knob was under one's edge
+PINCH_ROLL_SPARE = math.radians(5)  # a turn the roll can't make in one grip stops this short of the roll's limit
+PINCH_MIN_TURN = math.radians(15)   # and one grip turns at least this much, or the turn is refused
+PINCH_TOL = math.radians(4)         # gripping again for what's left of a turn, until within this of it
+PINCH_GRIPS = 6                     # at most this many grips for one turn
 PINCH_SWEEP = math.radians(10)    # room for the jaws is checked every this much of the turn
 FORCE_LIMIT = {"press": 6.0, "push_latch": 6.0, "slide": 5.0, "turn": 5.0, "flip": 5.0}
 SKILL_FOR = {"button": "press", "slider": "slide", "dial": "turn", "knob": "turn", "toggle": "flip",
@@ -537,18 +541,29 @@ def _pinch_plan(arm, p, angle, parts):
         if q is not None and (locate is None or abs(q[4] - arm.cmd[4]) < abs(locate[0][4] - arm.cmd[4])):
             locate = (q, float(np.sign(arm.ik.fk_R(q)[:, 0] @ p.x)))
     why = "the wrist can't roll the jaws across the knob"
+    # either way across: the one whose wrist roll has room for more of the turn first. A turn the roll can't make in one
+    # grip makes what it can, and _turn grips again for the rest
+    cands = []
     for xs in (across, -across):
         seed = _roll_toward(arm, above, n, xs)
         if seed is None:
             continue
+        gain = _roll_gain(arm, seed, n)
+        room = ((hi if gain * angle > 0 else lo) - seed[4]) / gain  # the most the roll allows, signed as the turn
+        cands.append((-min(abs(room) - PINCH_ROLL_SPARE, abs(angle)), seed, gain, room))
+    cands.sort(key=lambda c: c[0])
+    whole = angle
+    for _, seed, gain, room in cands:
+        angle = whole
+        if not lo <= seed[4] + gain * angle <= hi:
+            angle = math.copysign(abs(room) - PINCH_ROLL_SPARE, whole)
+            if abs(angle) < PINCH_MIN_TURN:
+                why = f"the wrist roll can't turn {math.degrees(whole):+.0f} deg from where the jaws go round the knob"
+                continue
         x = arm.ik.fk_R(seed)[:, 0]
         x = x - (x @ n) * n
         x /= np.linalg.norm(x)
         start = p.pos + (kh - PINCH_DEPTH) * n - (JAW_FACE_X + gap / 2) * x  # a dial's origin is its knob's base
-        gain = _roll_gain(arm, seed, n)
-        if not lo <= seed[4] + gain * angle <= hi:
-            why = f"the wrist roll can't turn {math.degrees(angle):+.0f} deg from where the jaws go round the knob"
-            continue
         qs, q, bad = [], seed, None
         for th, lift in ((0.0, HOVER), (0.0, 0.0), (angle, 0.0)):
             pt = p.pos + _rotate(start - p.pos, n, th) + lift * n
@@ -642,6 +657,64 @@ def _pinch_down(arm, plan, start, roll, label, g, widths, opening=PINCH_OPEN, re
             _line(arm, at + HOVER * n, -n, 0.03, bias)
             arm.tare(False)
     return None, bias, why
+
+
+def _seen_angle(p0, p1, expect):
+    """How far the dial turned between two wrist looks, from the fin's line in each (p.meta seen_x, either way along
+    it), the one of the two readings 180 deg apart nearer `expect`; or None if either look didn't see the fin."""
+    x0, x1 = p0.meta.get("seen_x"), p1.meta.get("seen_x")
+    if x0 is None or x1 is None or not p1.meta.get("refined", True):
+        return None
+    n = p0.normal
+    a = math.atan2(float(np.cross(x0, x1) @ n), float(x0 @ x1))
+    return min((a, a - math.pi, a + math.pi), key=lambda v: abs(v - expect))
+
+
+def _pinch_turn(arm, p, plan, params, parts, label, refine=None):
+    """_pinch, gripping again for what's left until the dial has turned the angle asked, within PINCH_TOL, as a hand
+    does a big knob: the wrist roll's range ends a grip, and the knob creeps in the jaws (in the sim, MuJoCo's soft
+    contacts, in proportion to the dial's friction: 50 deg for 59 of the wrist's on a 0.015 N.m pot). How far each grip
+    turned it is the robot's own measure: with a wrist camera (refine), the fin's line seen before and after; without,
+    the wrist's turn while the jaws held it, which misses the creep. Never the device's reading: a dead pot or a wrong
+    mapping must still show as one. Returns as _turn does; g["grips"] counts the grips."""
+    want = math.radians(params["angle"])
+    done, g, look0 = 0.0, None, p if refine else None
+    for k in range(PINCH_GRIPS):
+        gk = _pinch(arm, plan, params["force_limit"], label)
+        if g is None:
+            g = gk
+        else:
+            g.update(peak=max(g["peak"], gk["peak"]), landing=max(g["landing"], gk["landing"]), trace=g["trace"] + gk["trace"],
+                     stop=gk["stop"], missed=gk["missed"])
+        g["grips"] = k + 1
+        turned = math.copysign(gk.get("turned") or 0.0, plan.angle)
+        seen = None
+        if refine is not None and gk["stop"] == "travel":
+            look = refine(arm, _turned_part(p, done + turned))
+            seen = _seen_angle(look0, look, done + turned)
+        done = seen if seen is not None else done + turned
+        g.setdefault("seen_deg", []).append(None if seen is None else round(math.degrees(seen), 1))
+        left = want - done
+        if gk["stop"] != "travel" or abs(left) < PINCH_TOL or left * want < 0:
+            break
+        p1 = _turned_part(p, done)
+        nxt = _turn_plan(arm, p1, left, parts)
+        if isinstance(nxt, str):
+            g["short"] = f"{math.degrees(left):+.0f} deg left, and another grip can't: {nxt}"
+            break
+        plan = nxt
+    g["turned"] = max(0.0, math.copysign(1, want) * done)
+    g["travel"] = g["turned"] * plan.radius
+    return g, p, plan
+
+
+def _turned_part(p, th):
+    """The dial p turned th about its axis: its fin's direction and range, as the robot believes."""
+    k = p.axis / np.linalg.norm(p.axis)
+    x = _rotate(p.x, k, th)
+    rng = p.range if tuple(p.range) == (0, 0) else (p.range[0] - th, p.range[1] - th)
+    return replace(p, T=frame(p.pos, p.normal, x if p.meta.get("one_sided") else canonical_x(x, p.normal)), range=rng,
+                   meta={**p.meta, "angle": p.meta.get("angle", 0.0) + th})
 
 
 def _midpoint(arm, n, axis):
@@ -1068,7 +1141,7 @@ def _pushed(g):
     return f"pushed {g['travel'] * 1000:.1f} mm past contact (peak {g['peak']:.1f} N, stopped by {g['stop']})"
 
 
-def _turn(arm, p, plan, params, parts, label):
+def _turn(arm, p, plan, params, parts, label, refine=None):
     """Push the fin. If that moved no reading without being a fair test, the arm's error along the fin probably
     put the pad too near the axis to beat a detent (it stalled: force_limit or max_lead) or past the fin's end
     (it slipped off, rode or pressed on the end, or never touched), so try once more with the dial taken to be
@@ -1077,7 +1150,7 @@ def _turn(arm, p, plan, params, parts, label):
     off: on 8 runs tried both ways, return turns planned from the shifted dial first touched the fin 0.3 to 5.1 mm
     from plan, from the unshifted one 2.5 to 6.2 mm or not at all (2). Returns the push and the part and plan used."""
     if isinstance(plan, _Pinch):
-        return _pinch(arm, plan, params["force_limit"], label), p, plan
+        return _pinch_turn(arm, p, plan, params, parts, label, refine)
     before = dict(arm.app.readings)
     g = _push(arm, plan, params["force_limit"], label)
     if arm.app.readings != before or g["stop"] == "landed" or not (g["missed"] or g["stop"] in BLOCKED):
@@ -1439,7 +1512,7 @@ def run_step(arm, parts, step, known=None, refine=None):
                      _poke(arm, p, params["force_limit"], label, SETTLE_S, LATCH_RETREAT))
                 trace = arm.force_log[log0:]
             elif skill == "turn":
-                g, p, plan = _turn(arm, p, plan, params, parts, label)
+                g, p, plan = _turn(arm, p, plan, params, parts, label, refine)
                 trace = g["trace"]
             else:
                 g = _push(arm, plan, params["force_limit"], label)
@@ -1450,7 +1523,8 @@ def run_step(arm, parts, step, known=None, refine=None):
             result.update(verdict=verdict, reason=reason, channel=ch, readout_change=seq,
                           peak_force_n=round(float(peak), 2), travel_mm=round(g["travel"] * 1000, 2), stop=g["stop"],
                           contact_offset_mm=g["contact_offset_mm"], force_limit_n=params["force_limit"])
-            result.update({k: g[k] for k in ("touch_mm", "regrip_mm", "located_mm", "search_mm") if k in g})
+            result.update({k: g[k] for k in ("touch_mm", "regrip_mm", "located_mm", "search_mm", "grips", "seen_deg", "short")
+                           if k in g})
             if "landing" in g:
                 result["landing_n"] = round(float(g["landing"]), 2)
             if skill == "turn" and plan.radius and g.get("turned") is not None:

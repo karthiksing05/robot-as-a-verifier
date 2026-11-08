@@ -974,7 +974,7 @@ def refine(arm, wrist, part):
     slot = np.array([part.x @ T[:3, 0], part.x @ T[:3, 1]])  # (row, col) in this map
     build = dict(button=partial(_button, r=r), dial=partial(_dial, r=r), knob=partial(_knob, r=r),
                  slider=partial(_slider, ax=slot / np.linalg.norm(slot)), toggle=_toggle, display=_display)
-    found = []
+    found, seen_x = [], {}
     for blob in blobs:
         feat = blob_features(blob, cell)
         if math.prod(_soft(feat[k], *rule) for k, rule in RULES[want].items() if k not in OUTLINE) < 0.5:
@@ -983,13 +983,16 @@ def refine(arm, wrist, part):
             c, _, top = _round_part(blob, hm, g, blob["h_max"] / 2, r)
             found.append(g.point(c, top))
         else:
-            found.append(build[want](blob, hm, img, g).pos)
+            q = build[want](blob, hm, img, g)
+            found.append(q.pos)
+            seen_x[len(found) - 1] = q.x
     if not found:  # from a sideways push's hover pose the probe can stand right in front of the part
         rr, cc = np.mgrid[:hm.shape[0], :hm.shape[1]]
         near = np.hypot(rr + origin[0] / cell, cc + origin[1] / cell) < reach / 2 / cell
         return fail(f"no {want} near {part.id}, and {np.isnan(hm[near]).mean():.0%} of the panel within "
                     f"{reach * 500:.0f} mm of it is unseen from this pose")
-    pos = min(found, key=lambda q: np.linalg.norm(q - part.pos))
+    k = min(range(len(found)), key=lambda j: np.linalg.norm(found[j] - part.pos))
+    pos = found[k]
     shift = float(np.linalg.norm(pos - part.pos))
     if shift > REFINE_SHIFT:
         return fail(f"the nearest {want} is {shift * 1000:.1f} mm from where {part.id} should be")
@@ -1004,6 +1007,8 @@ def refine(arm, wrist, part):
 
     meta = {k: move(v) if k in ("slot_ends", "tip", "corners", "hinge") else v for k, v in part.meta.items()}
     meta.update(refined=True, refine_shift=shift, refine_probe=None if probe is None else float(np.linalg.norm(probe)))
+    if part.kind == "dial" and k in seen_x:  # the fin's line as this frame sees it (either way along it): a turn checks
+        meta["seen_x"] = seen_x[k]          # how far the dial really went by it, not by the device's reading
     meta.pop("refine_why", None)
     return replace(part, T=Tp, axis=None if part.axis is None else D[:3, :3] @ part.axis, origin=move(part.origin),
                    points=move(part.points), meta=meta)
