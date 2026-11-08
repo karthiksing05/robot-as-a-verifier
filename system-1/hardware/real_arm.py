@@ -98,6 +98,9 @@ class RealArm(rig.ArmBase):
     # so guarded moves take contact as a stall instead, as tools/press_check.py does, at a speed that tracks smoothly
     # (at 2 mm/s the tip stick-slips)
     stall_m, guard_speed = 0.004, 0.015
+    # on the desk, a panel 23 cm out tilted toward the arm put every view tilted down its slope out of reach (0/9);
+    # tilted up it, the camera rises away from the base and all 9 reach at a 14-17 cm standoff
+    view_tilts = np.radians([-10, -20, -30])
     hard_cap_n = 20.0  # the estimate drifts up to ~10 N in free air and tripped 15 N with nothing touching; stalls stop presses first
 
     def __init__(self, bus, app=None, pad=None, pace=True):
