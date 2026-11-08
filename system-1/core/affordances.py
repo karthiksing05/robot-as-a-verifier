@@ -77,7 +77,7 @@ BLOCKED = ("force_limit", "max_lead")  # stops where the pad couldn't go on
 UNWIND_SPEED = 0.2      # m/s: after a sideways push the command first comes back to the pad this fast,
 UNWIND_STEP = 0.03      # and no joint further than this per tick (rad)
 RELEASE = 0.002         # then the pad moves this far the way the contact pushes it,
-ARC_RELEASE = 0.004     # (off a dial's fin: back along the arc, this far)
+ARC_RELEASE = 0.008     # (off a dial's fin: back along the arc, this far: at 4 mm the lift still dragged the fin 3.5-5 deg on)
 RELEASE_SPEED = 0.03    # this fast (m/s), like the lift: at 20 mm/s a lever held 5 deg off its rest sprang back onto
                         # it (6.4 N); at 50 mm/s, one tick's 2 mm step swung a stiff arm's pad into a fin's edge (24 N)
 GIVE = 2e-4             # m per N per tick: while letting go and lifting, the pad gives way to whatever pushes it
@@ -209,12 +209,31 @@ class _Push:
     roll: float = None    # the wrist roll the plan was made with, for a tip that isn't round (rad)
 
 
+LEVER_DISCS = 4
+
+
 def _obstacles(p, parts, datum):
     """The other parts as (position on the plane through p's origin, footprint radius, top above the datum,
     id); datum is the height above the panel that the plan measures from."""
     n = p.normal
-    return [(o.pos - ((o.pos - p.pos) @ n) * n, max(o.size[0], o.size[1]) / 2, o.size[2] - datum, o.id)
-            for o in parts if o.id != p.id]
+
+    def flat(v):
+        return v - ((v - p.pos) @ n) * n
+    out = []
+    for o in parts:
+        if o.id == p.id:
+            continue
+        if o.kind == "toggle" and o.meta.get("base_size") is not None and o.meta.get("tip") is not None:
+            # a toggle is a low base and a thin lever, not a column as wide as its base and as tall as its lever: taken
+            # as one, the coffee grinder's power switch, 20 mm from its timer dial's axis, left no room to turn the dial
+            # (the lever as LEVER_DISCS discs along it, seen from above)
+            base, c0, c1 = o.meta["base_size"], flat(o.pos), flat(np.asarray(o.meta["tip"], float))
+            r = float(np.linalg.norm(c1 - c0)) / (2 * LEVER_DISCS) + o.meta["lever_radius"]
+            out += [(c0, max(base[0], base[1]) / 2, base[2] - datum, o.id)] + \
+                   [(c0 + (c1 - c0) * (i + 0.5) / LEVER_DISCS, r, o.size[2] - datum, o.id) for i in range(LEVER_DISCS)]
+        else:
+            out.append((flat(o.pos), max(o.size[0], o.size[1]) / 2, o.size[2] - datum, o.id))
+    return out
 
 
 def _sideways(arm, face, n, m, floor, contact_h, top, until, what, touch_floor=None, centre=None, k=None,

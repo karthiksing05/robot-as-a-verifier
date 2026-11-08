@@ -15,11 +15,16 @@ from dataclasses import replace
 import numpy as np
 
 import skills
-from rig import CONTROL_HZ, SafetyStop, tip_shape
+from rig import CONTROL_HZ, HARD_FORCE_CAP_N, SafetyStop, tip_shape
 
 HOOK_TILT = math.radians(60)    # the probe comes in this far below level, so its 12 mm pad fits under a lip
 # the tool's start tilt, the handle angle it's level by, and the most it tips up after: in degrees, steepest first
 HOOK_TILTS = ((60, 90, -30), (50, 90, -30), (40, 90, -30), (60, 90, 0), (50, 90, 0), (40, 90, 0), (40, 75, 0))
+# the stock gripper's fixed jaw is 6 mm thick at its tip and its inner face runs straight back along the tool: tilted 60
+# deg, that face stood 19 mm above its tip where it passed the lip's end, so it met the lip's end instead of going under.
+# Within 10-15 deg of level it goes 7 mm in under the lip 2.5 mm below it and clears its end; nearer level, the test lids'
+# lips were out of the arm's reach. Below the lips the test lids leave 12-22 mm
+HOOK_TILTS_JAW = ((10, 90, -30), (5, 90, -30), (15, 90, -30), (0, 90, -30), (10, 90, 0), (5, 90, 0), (15, 90, 0))
 HOOK_IN = 0.03                  # start this far out from under the lip
 HOOK_SPEED = 0.03               # m/s along the arc, and in and out
 SETTLE_S = 1.0                  # after letting go, time for a lid to come to rest
@@ -27,6 +32,13 @@ FALL_S = 6.0                    # after drawing one back past vertical, time for
 FORCE_LIMIT = {"hook_pull": 6.0}
 PAD_OFFSET = (0.0025, 0.007)    # out from the lip's contact point and down from it, when a Part's meta doesn't say
 PAD_R = 0.006                   # the fingertip pad's radius
+HOOK_FACE_CLEAR = 0.004        # stock: the fixed jaw's inner face goes in this far under the lip's underside; 2.5 mm left the tip, lifted ~3 mm by slop low down, striking the lip
+FIXED_JAW_OUT_X = -0.0029       # stock: the fixed jaw's outer face at its tip, along the tip frame's x
+HOOK_JAW_OUT = -0.003           # stock: the jaw's tip goes this far in past the handle's contact point. On the test lids the
+                                # lip runs 4-5 mm out past it and 7-9 mm in, to its riser: 3 mm in puts 7 mm of jaw under it
+HOOK_JAW_IN = 0.016            # stock: the shorter run in, when the arm can't reach HOOK_IN out from the lip
+HOOK_JAW_SLIDE = 0.012         # stock: coming away, first slide the jaws this far back along the lip, off its end
+HOOK_JAW_OPEN = 0.0             # stock: the gripper opened to this (rad) to hook, the moving jaw's tip 16 mm off the fixed one
 OVER_TILT = math.radians(45)    # reaching over a handle past vertical: the tool this far below level
 OVER_BEHIND = 0.012             # pad centre this far behind the handle's top edge
 OVER_CLEAR = 0.04               # going over that edge, this far above it: tilted 45 deg, the jaws hang 27 mm below the tip
@@ -49,7 +61,7 @@ def _changes(app, before, n_events):
 BRANCH_RAD = math.radians(20)  # an IK step bigger than this in one tick jumped to another branch
 
 
-def _follow(arm, poses, speed, bias, limit, what):
+def _follow(arm, poses, speed, bias, limit, what, follow=False):
     """Move through (tip, axis) poses at speed, watching the force. Returns (peak force, whether it got to the end, why
     not): a soft limit here just records the force, since a part may simply be heavy; the arm's own hard cap still stops
     it. A path whose IK jumps to another branch (a joint more than BRANCH_RAD in one tick) ends there: sent anyway, the
@@ -66,6 +78,8 @@ def _follow(arm, poses, speed, bias, limit, what):
             q = q1
             arm.send(q + bias)
             arm.tick()
+            if follow:  # the sag changes along the way: low and near level, a fixed bias let the tip rise 8 mm in 30
+                bias += SAG_FOLLOW * (q - arm.read_q())
             peak = max(peak, float(np.linalg.norm(arm.tip_force_vec())))
             if peak > limit:
                 return peak, False, f"met {peak:.1f} N"
@@ -74,23 +88,29 @@ def _follow(arm, poses, speed, bias, limit, what):
 
 def _hook_poses(arm, p, angle_from, angle_to, tilt0=HOOK_TILT, level_at=math.pi / 2, lowest=-math.pi / 6):
     """Pad poses for swinging a handle about its hinge with the pad underneath it. The tool levels off as the handle rises,
-    turning about the rim of the pad so the rim stays under the lip, until the pad's face is flat against the underside."""
+    turning about the rim of the pad so the rim stays under the lip, until the pad's face is flat against the underside.
+    With the stock gripper the hook is the fixed jaw alone (_hook_jaw): its tip is the point that stays under the lip."""
     hinge, axis = p.meta["hinge"], p.meta["hinge_axis"]
     now = p.meta.get("angle", 0.0)
     # meta holds the part's directions where it is now: take them back to shut
     under0, pull0 = _rotate(p.meta["under"], axis, -now), _rotate(p.meta["pull"], axis, -now)
     point0 = hinge + _rotate(p.pos - hinge, axis, -now)
+    jaw = _hook_jaw(arm)
     out, down = p.meta.get("pad_offset", PAD_OFFSET)
+    if jaw:
+        # the jaw's inner face just under the lip, so the swing lifts it at once, and its tip in past the contact point
+        down, out = JAW_FACE_X + HOOK_FACE_CLEAR, HOOK_JAW_OUT
+    pad_r = 0.0 if jaw else PAD_R
     up = np.array([0, 0, 1.0])
     flat = under0 - (under0 @ up) * up
     flat /= np.linalg.norm(flat)
-    rim0 = point0 - out * under0 - down * pull0 + PAD_R * (math.sin(HOOK_TILT) * flat + math.cos(HOOK_TILT) * up)
+    rim0 = point0 - out * under0 - down * pull0 + pad_r * (math.sin(HOOK_TILT) * flat + math.cos(HOOK_TILT) * up)
 
     def pose(th):
         # past level_at the tool carries on tipping up, as far as lowest
         tilt = max(lowest, tilt0 * (1 - th / level_at))
         rim = hinge + _rotate(rim0 - hinge, axis, th)
-        return rim - PAD_R * (math.sin(tilt) * flat + math.cos(tilt) * up), np.array([*(math.cos(tilt) * flat[:2]), -math.sin(tilt)])
+        return rim - pad_r * (math.sin(tilt) * flat + math.cos(tilt) * up), np.array([*(math.cos(tilt) * flat[:2]), -math.sin(tilt)])
 
     n = max(2, int(abs(angle_to - angle_from) / math.radians(4)) + 1)
 
@@ -99,6 +119,36 @@ def _hook_poses(arm, p, angle_from, angle_to, tilt0=HOOK_TILT, level_at=math.pi 
         return _rotate(under0 if th < math.radians(45) else pull0, axis, th)
 
     return [pose(angle_from + (angle_to - angle_from) * i / (n - 1)) for i in range(n)], away
+
+
+def _hook_jaw(arm):
+    """True for the stock gripper: it hooks with the fixed jaw alone, the moving jaw opened up out of the way and the
+    fixed jaw's flat inner face turned up under the lip. Shut, the two fingertips make a wedge 7 mm thick at the tip and
+    12.6 mm 10 mm back, which doesn't fit under a 10 mm lip: going in, it met the lip's end at 6-7 N on every lid."""
+    return not tip_shape(arm).round and hasattr(arm, "grip")
+
+
+def _roll_up(arm, q, axis):
+    """q with the wrist rolled so the tip frame's x (the fixed jaw's inner face normal, toward the moving jaw) points as
+    nearly up as the tool's axis allows."""
+    a = np.asarray(axis, float) / np.linalg.norm(axis)
+    want = np.array([0, 0, 1.0]) - a[2] * a
+    want /= np.linalg.norm(want)
+    best = None
+    for _ in range(3):
+        x = arm.ik.fk_R(q)[:, 0]
+        turn = math.atan2(np.cross(x, want) @ -a, x @ want)
+        for sgn in (1, -1):
+            qt = q.copy()
+            qt[4] = q[4] + sgn * turn
+            score = arm.ik.fk_R(qt)[:, 0] @ want
+            if best is None or score > best[0]:
+                best = (score, qt)
+        q = best[1]
+    lo, hi = arm.m.jnt_range[arm.m.joint("wrist_roll").id]
+    q = q.copy()
+    q[4] = float(np.clip(q[4], lo, hi))
+    return q
 
 
 def _over_centre_poses(arm, p, rest, tilt=OVER_TILT):
@@ -145,14 +195,24 @@ def hook_pull(arm, parts, i, step):
     level = _rotate(p.meta["under"], p.meta["hinge_axis"], -now) * np.array([1.0, 1.0, 0.0])    # its direction when shut
     level = level / np.linalg.norm(level)
     falls = now > math.pi / 2 and to < now     # resting past vertical, so it has to be drawn back over and then falls
+    # the stock gripper hooks a lip with its fixed jaw, nearly level; reaching over a lid's top edge, its shut fingertip
+    # serves as the probe's does, from the probe's steeper tilts
+    jaw = _hook_jaw(arm) and not falls
 
-    def path(tilt, level_at, lowest):
+    def path(tilt, level_at, lowest, run_in=HOOK_IN):
         if falls:
             first, *rest = _over_centre_poses(arm, p, now, tilt)
             return first, rest, [(rest[-1][0] + 0.02 * np.array([0, 0, 1.0]), rest[-1][1])]
         poses, away = _hook_poses(arm, p, now, to, tilt, level_at, lowest)
         # the entry's direction is the handle's shut one, whatever its angle now
-        entry = (poses[0][0] - HOOK_IN * _rotate(p.meta["under"], p.meta["hinge_axis"], 0.0), poses[0][1])
+        entry = (poses[0][0] - run_in * _rotate(p.meta["under"], p.meta["hinge_axis"], 0.0), poses[0][1])
+        if jaw:
+            # the lip is between the jaws: slide them off its end the way they went in, the tool as it is, and only then
+            # away. Levelling the tool first dragged a lid let go at 99 deg back to 83, short of vertical, and it fell shut
+            u = _rotate(p.meta["under"], p.meta["hinge_axis"], to - now)
+            last, a_end = poses[-1]
+            off = last - HOOK_JAW_SLIDE * u
+            return entry, poses, [(last - HOOK_IN * u, a_end)] + [[(off, a_end), (off + HOOK_IN * d, a_end)] for d in (-level, np.array([0, 0, 1.0]))]
         # high up the arc the probe points upward, and that won't reach back along the handle: level it to come away
         if to < math.radians(45):
             return entry, poses, [(poses[-1][0] - HOOK_IN * away(to), poses[-1][1])]
@@ -167,18 +227,30 @@ def hook_pull(arm, parts, i, step):
             arm.check_workspace(pt)
             q, ok, err, _ = arm.ik.solve(pt, a, q)
             worst = max(worst, 0.0 if ok else err)
-        outs = [(arm.ik.solve(pt, a, q)[2], (pt, a)) for pt, a in leaves]
+        outs = []
+        for leave in leaves:  # a pose, or a list of them (the stock jaw's way off a lip and then away)
+            way_out, q1, err = leave if isinstance(leave, list) else [leave], q, 0.0
+            for pt, a in way_out:
+                q1, _, e, _ = arm.ik.solve(pt, a, q1)
+                err = max(err, e)
+            outs.append((err, way_out))
         for err, out in outs:
             if err < 1e-3:
-                arm.check_workspace(out[0])
+                for pt, _ in out:
+                    arm.check_workspace(pt)
                 return worst, out
         return max(worst, min(e for e, _ in outs)), None
 
     # the steepest tool the arm can hold through the whole swing
     worst, chosen = float("inf"), None
     try:
-        for deg, level_at, lowest in HOOK_TILTS:
-            entry, poses, leaves = path(math.radians(deg), math.radians(level_at), math.radians(lowest))
+        # the stock jaw comes in nearly level: low and near the arm a 30 mm run in can be out of its reach, so a shorter
+        # one, though the longer keeps the wrist further off the device on the way down
+        runs = (HOOK_IN, HOOK_JAW_IN) if jaw else (HOOK_IN,)
+        # reaching over a lid, flatter as a last resort: the stock gripper is longer than the probe and fell 3-7 mm short
+        tilts = HOOK_TILTS_JAW if jaw else HOOK_TILTS + (((30, 90, 0), (20, 90, 0)) if falls else ())
+        for (deg, level_at, lowest), run_in in ((t, r) for r in runs for t in tilts):
+            entry, poses, leaves = path(math.radians(deg), math.radians(level_at), math.radians(lowest), run_in)
             err, leave = reaches([entry, *poses], leaves)
             if err == 0.0:
                 chosen = deg
@@ -198,12 +270,20 @@ def hook_pull(arm, parts, i, step):
     try:
         import affordances
 
+        if jaw:
+            # the moving jaw up and out of the way, the fixed jaw's inner face up: then it's a thin flat hook
+            q_in = _roll_up(arm, arm.ik.solve(entry[0], entry[1], arm.cmd)[0], entry[1])
+            skills.move_joints(arm, np.r_[arm.cmd[:4], q_in[4]])
+            arm.grip(HOOK_JAW_OPEN, 0.5)
         _, bias = affordances._approach(arm, entry[0], entry[1], f"hook_pull {p.id}")
-        peak, ok1, why1 = _follow(arm, [entry, poses[0]], HOOK_SPEED, bias, limit, "in")
+        if jaw and arm.sensing:
+            # low and near level, the estimate reads 4-5 N with nothing touching (D32): over the noise, not at the bare limit
+            limit = params.get("force_limit", FORCE_LIMIT["hook_pull"] + arm.noise_n)
+        peak, ok1, why1 = _follow(arm, [entry, poses[0]], HOOK_SPEED, bias, limit, "in", follow=jaw)
         peak2, ok2, why2 = (0.0, False, None)
         if ok1:
-            peak2, ok2, why2 = _follow(arm, poses, HOOK_SPEED, bias, limit, "swing")
-        peak3, _, _ = _follow(arm, [(arm.ik.fk(arm.cmd - bias)[0], poses[-1][1]), leave], HOOK_SPEED, bias, 2 * limit, "out")
+            peak2, ok2, why2 = _follow(arm, poses, HOOK_SPEED, bias, limit, "swing", follow=jaw)
+        peak3, _, _ = _follow(arm, [(arm.ik.fk(arm.cmd - bias)[0], poses[-1][1]), *leave], HOOK_SPEED, bias, 2 * limit, "out")
         # a handle let go past its balance point falls on its own: give it time, and stop waiting once a reading says it landed
         for k in range(int((FALL_S if falls else SETTLE_S) * CONTROL_HZ)):
             arm.send(arm.cmd)
@@ -244,6 +324,11 @@ def hook_pull(arm, parts, i, step):
             skills.go_home(arm)
         except SafetyStop:
             pass
+    if jaw:
+        try:
+            arm.grip(JAW_SHUT, 0.5)  # a finger again
+        except SafetyStop:
+            pass
     result.update(lcd=app.lcd, duration_s=round(arm.d.time - t0, 2), collisions=sorted(arm.seen_collisions), force_trace=arm.force_log[log0:])
     arm.status = "idle"
     return result
@@ -258,6 +343,8 @@ def _has_reading_for(arm, p):
 # along +x. An object is held with one flat on the fixed jaw: its middle sits flats / 2 out along x from the face.
 JAW_FACE_X = 0.003      # the stock tip (the middle of the fixed jaw's end) to its inner face, along the tip frame's x
 JAW_CLEAR = 0.0015      # going down, the fixed jaw stands this far off the flat
+HELD_FACE_X = 0.001     # held, an object's flat sits this far from the tip along x: measured in the sim, 3.5 mm nearer
+                        # than the plan's JAW_FACE_X + JAW_CLEAR, as the jaws push it over and squeeze into it
 JAW_DEPTH = 0.0025      # the fixed jaw's tip goes this far past an object's grip point, along the tool: the moving jaw's goes 1.6 mm further, and tilted, a jaw's lower edge 2 mm more
 MOVING_JAW_DEEPER = 0.0016  # open, the moving jaw's tip stands this much further out along the tool than the fixed jaw's
 TOP_CLEAR = 0.003       # gripping something that stands above the object's top (a lifting loop): the jaws' lowest point
@@ -275,6 +362,16 @@ JAW_STALL = 0.05        # shutting, the reading this far behind the command mean
 JAW_SQUEEZE = 0.3       # once they meet something, command this far (rad) past it, so the servo keeps pushing at its
                         # torque limit: 0.012 rad was used up as the contacts gave, and the jaws held at no load and dropped it
 JAW_SETTLE_S = 0.5
+FACE_TILT = 6.0         # deg: jaws' faces this near vertical close square on a flat-sided object (_face_tilt)
+SEARCH_MM = (1.0, 2.0)  # placing, the circles to feel round for a bore on, and how many points on each
+SEARCH_DIRS = 6
+SEARCH_LIFT = 0.002     # up this far to move over
+SEARCH_GAIN = 0.0015    # getting this much further down than where it stopped is progress
+SEARCH_DONE = 0.0015    # and within this of the seat's height, done
+SEARCH_TRIES = 16
+CARRY_SPEED = 0.03      # m/s, mean, carrying an object across
+CARRY_RAD_S = 0.3       # and the fastest joint's mean speed
+MAX_TRIES = 3           # ways down to try when the jaws meet something on the way
 JAW_MIN_SQUEEZE = 0.002  # a grip has to be this much wider than the jaws' shut gap for them to squeeze it
 PLACE_CLEAR = 0.0025    # lowering into a well, the jaws' lowest point stays this far above its mouth: short of seating,
                         # they let go there and the object drops the rest of the way, as a person's fingers would
@@ -291,13 +388,13 @@ def _tool_axis(arm, at, tilt):
     return np.array([*(math.cos(tilt) * r), -math.sin(tilt)])
 
 
-def _jaw_q(arm, centre, jaw_dir, tilt, half, q0, depth=None):
+def _jaw_q(arm, centre, jaw_dir, tilt, half, q0, depth=None, signs=(1.0, -1.0)):
     """Joints that put the jaws either side of `centre` (the grip point), closing as near jaw_dir as the tool's tilt
     allows, the fixed jaw's tip JAW_DEPTH past the grip point along the tool. The wrist roll aims the jaws; the other
     four put the tip there. Returns (q, ok, err, axis)."""
     a = _tool_axis(arm, centre, tilt)
     best = None
-    for sign in (1.0, -1.0):
+    for sign in signs:
         x_want = sign * np.asarray(jaw_dir, float)
         x_want = x_want - (x_want @ a) * a
         x_want /= np.linalg.norm(x_want)
@@ -368,7 +465,7 @@ def _jaw_low(arm, q):
     return float(-np.min(tip_shape(arm).world(R)[:, 2])) + MOVING_JAW_DEEPER
 
 
-def _grip_poses(arm, centre, jaw_dir, half, q0, tilts=None, depth=None, floor=None):
+def _grip_poses(arm, centre, jaw_dir, half, q0, tilts=None, depth=None, floor=None, signs=(1.0, -1.0)):
     """The steepest tool tilt from which the jaws reach `centre` and can lift straight up LIFT_M from it, keeping the
     tool's direction all the way. floor: a height the jaws' lowest point stays above, by going less deep past `centre`.
     Returns (tilt, q_down, q_above, axis, depth) or the worst error."""
@@ -376,12 +473,12 @@ def _grip_poses(arm, centre, jaw_dir, half, q0, tilts=None, depth=None, floor=No
     for deg in tilts or GRIP_TILTS:
         t = math.radians(deg)
         d = JAW_DEPTH if depth is None else depth
-        q, ok, err, a = _jaw_q(arm, centre, jaw_dir, t, half, q0, d)
+        q, ok, err, a = _jaw_q(arm, centre, jaw_dir, t, half, q0, d, signs)
         if ok and floor is not None:
             short = floor - (arm.ik.fk(q)[0][2] - _jaw_low(arm, q))
             if short > 0:
                 d -= short / max(math.sin(t), 0.5)
-                q, ok, err, a = _jaw_q(arm, centre, jaw_dir, t, half, q0, d)
+                q, ok, err, a = _jaw_q(arm, centre, jaw_dir, t, half, q0, d, signs)
         if not ok:
             worst = min(worst, err)
             continue
@@ -462,11 +559,76 @@ def _grip_order(p):
     return sorted(ok, key=lambda t: _floor(p, t[1]) is not None)
 
 
-def _place_poses(arm, obj, grip, well, tilt, depth, q0, worst=False):
-    """_grip_poses for lowering obj, held by `grip` at `tilt` and `depth`, into well: or None (with worst, the error)."""
+def _bearing(pt):
+    return math.atan2(pt[1] - PAN_XY[1], pt[0] - PAN_XY[0])
+
+
+def _turn_z(v, th):
+    c, s_ = math.cos(th), math.sin(th)
+    return np.array([c * v[0] - s_ * v[1], s_ * v[0] + c * v[1], v[2]])
+
+
+def _face_tilt(arm, q):
+    """How far from vertical the jaws' faces stand at q (deg). A tool tilted off vertical closes its jaws along a tilted
+    line unless they close across the arm's plane, and squeezed between tilted faces a flat-sided object turns to lie
+    along them: the cuvette came up 20 deg off vertical and wouldn't go in its slot."""
+    return math.degrees(math.asin(min(1.0, abs(arm.ik.fk_R(q)[2, 0]))))
+
+
+def _place_poses(arm, obj, grip, well, tilt, depth, q0, x_rel, worst=False):
+    """_grip_poses for lowering obj into well, held as it was picked: the tool at `tilt`, the jaws `depth` past the grip
+    point, and closing along x_rel turned with the arm's pan, so the object hangs in the jaws as it stood (keeping the
+    jaws' direction in the room instead would tilt it, at another bearing). Or None (with worst, the error)."""
     seat = well.meta.get("collar", well.pos)            # where the held grip point is when the object sits in it
-    found = _grip_poses(arm, seat + grip["at"], grip["axis"], grip["width"] / 2 + JAW_CLEAR, q0, tilts=(tilt,), depth=depth)
+    x = _turn_z(x_rel, _bearing(seat))
+    # shut, the jaws have pushed the object onto the fixed jaw's face, and squeezing sinks it in a little
+    found = _grip_poses(arm, seat + grip["at"], x, grip["width"] / 2 + HELD_FACE_X - JAW_FACE_X, q0, tilts=(tilt,), depth=depth, signs=(1.0,))
     return found if isinstance(found, tuple) or worst else None
+
+
+def _search(arm, to, axis, limit, bias):
+    """The held object met something short of its seat: most often a step on it caught the bore's rim, a millimetre or two
+    off (the servos' dead band, and the object leaning a few degrees in the jaws). Feel round for it as a person would:
+    up a little, over by SEARCH_MM in turn, down again, starting over from wherever it gets further down, until the jaws
+    are at the seat or SEARCH_TRIES run out. Returns (at the seat, tries, peak force)."""
+    def there():
+        return arm.tip_pose()[0][2] < to[2] + SEARCH_DONE
+
+    stop, peak, tries, k = arm.tip_pose()[0], 0.0, 0, 0
+    offsets = [r * 1e-3 * np.array([math.cos(2 * math.pi * j / SEARCH_DIRS), math.sin(2 * math.pi * j / SEARCH_DIRS), 0.0])
+               for r in SEARCH_MM for j in range(SEARCH_DIRS)]
+    while not there() and tries < SEARCH_TRIES and k < len(offsets):
+        d = offsets[k]
+        tries, k = tries + 1, k + 1
+        _line(arm, stop + np.array([0, 0, SEARCH_LIFT]), axis, PICK_SPEED, bias=bias)
+        _line(arm, stop + d + np.array([0, 0, SEARCH_LIFT]), axis, PICK_SPEED / 2, bias=bias)
+        pk, _ = _line(arm, to + (stop - to) * np.array([1, 1, 0]) + d, axis, PICK_SPEED / 2, limit=limit, bias=bias, hold_s=0.3)
+        peak = max(peak, pk)
+        now = arm.tip_pose()[0]
+        if now[2] < stop[2] - SEARCH_GAIN:  # further down: carry on from here
+            stop, k = now, 0
+    return there(), tries, peak
+
+
+def _carry(arm, q_to):
+    """Take what the jaws hold over to q_to, the pose above where it goes, without sweeping it through the device: up
+    to the higher of the two heights first, across there, then down. A joint move straight there swung a tube hanging
+    60 mm under the jaws into the side of the device it was going onto, and it turned in the jaws."""
+    q_now = arm.cmd.copy()
+    (p0, a0), (p1, a1) = arm.ik.fk(q_now), arm.ik.fk(q_to)
+    z = max(p0[2], p1[2])
+    up, ok_up, *_ = _solve_rolled(arm, np.array([p0[0], p0[1], z]), a0, q_now)
+    over, ok_over, *_ = _solve_rolled(arm, np.array([p1[0], p1[1], z]), a1, q_to)
+    if not (ok_up and ok_over):
+        return
+    if z - p0[2] > 0.002:
+        _line(arm, np.array([p0[0], p0[1], z]), a0, PICK_SPEED * 2)
+    # across slowly: a held object turns in the jaws if swung, as they hold it near its top by their fingertips
+    q0 = arm.cmd.copy()
+    n = int(max(np.linalg.norm(p1[:2] - p0[:2]) / CARRY_SPEED, np.max(np.abs(over - q0)) / CARRY_RAD_S, 0.5) * CONTROL_HZ)
+    for i in range(1, n + 1):
+        arm.send(q0 + (0.5 - 0.5 * math.cos(math.pi * i / n)) * (over - q0))
+        arm.tick()
 
 
 def _grip_check(arm, p):
@@ -492,20 +654,19 @@ def pick(arm, parts, i, step):
     plans, worst = [], float("inf")
     wells = [w for w in parts if w.kind == "well" and w.meta.get("reads")]
     for g, grip in _grip_order(p):  # every pair of faces the jaws can reach and lift from, best first
-        fits = []
         for deg in GRIP_TILTS:
             found = _grip_poses(arm, grip_at + grip["at"], grip["axis"], grip["width"] / 2 + JAW_CLEAR, arm.cmd, tilts=(deg,), depth=grip["depth"], floor=_floor(p, grip))
             if not isinstance(found, tuple):
                 worst = min(worst, found)
                 continue
-            # the jaws hold it at this tilt until it's let go: the steepest that a well it would go in also takes
-            fits.append(found)
-            if all(_place_poses(arm, p, grip, w, deg, found[4], arm.cmd) is not None for w in wells):
-                plans.append((False, g, grip, found))
+            # the jaws hold it at this tilt until they let go: rank by whether the faces stand square (FACE_TILT) and a
+            # well it would go in takes the same tilt and roll, then by the device's order and the steepest tilt
+            x_rel = _turn_z(arm.ik.fk_R(found[1])[:, 0], -_bearing(grip_at))
+            square = _face_tilt(arm, found[1]) <= FACE_TILT
+            fits = all(_place_poses(arm, p, grip, w, deg, found[4], arm.cmd, x_rel) is not None for w in wells)
+            plans.append(((not (square and fits), not fits, not square), g, grip, found, x_rel))
+            if square and fits:
                 break
-        else:
-            if fits:
-                plans.append((True, g, grip, fits[0]))
     plans = [t[1:] for t in sorted(plans, key=lambda t: t[0])]
     if not plans:
         result["reason"] = f"{p.id} is out of reach with the jaws on its faces and room to lift it: best IK is {worst * 1000:.1f} mm off"
@@ -517,7 +678,7 @@ def pick(arm, parts, i, step):
     body = p.meta.get("body")
     blocked = []
     try:
-        for g, grip, (tilt, q, qa, axis, depth) in plans:
+        for g, grip, (tilt, q, qa, axis, depth), x_rel in plans[:MAX_TRIES]:
             down_at, above = arm.ik.fk(q)[0], arm.ik.fk(qa)[0]
             arm.grip(_jaw_open(grip["width"]), 0.5)
             bias = _settle(arm, qa)
@@ -539,7 +700,7 @@ def pick(arm, parts, i, step):
             held = arm.jaw() > JAW_EMPTY or arm.jaw_load() > JAW_LOAD
             peak = max((f for _, f in arm.force_log[log0:]), default=0.0)
             if held:
-                arm.holding, arm.hold_tilt, arm.hold_grip, arm.hold_depth = p.id, tilt, g, depth
+                arm.holding, arm.hold_tilt, arm.hold_grip, arm.hold_depth, arm.hold_x = p.id, tilt, g, depth, x_rel
                 result.update(verdict="OBSERVED", tilt_deg=tilt, reason=f"holding {p.id}, tool {tilt} deg below level: the jaws stopped at {math.degrees(arm.jaw()):.1f} deg, squeezing at {arm.jaw_load():.2f} N.m, {LIFT_M * 1000:.0f} mm up")
                 parts[i] = replace(p, T=_moved_T(p.T, above - down_at), meta={**p.meta, "collar": grip_at + (above - down_at), "held": True})
             else:
@@ -596,7 +757,7 @@ def place(arm, parts, i, step):
     # the jaws hold it at the tilt they picked it with: tilting the tool now would tilt the object
     grip = _grips(obj)[arm.hold_grip]
     width = grip["width"]
-    found = _place_poses(arm, obj, grip, well, arm.hold_tilt, getattr(arm, "hold_depth", grip["depth"]), arm.cmd, worst=True)
+    found = _place_poses(arm, obj, grip, well, arm.hold_tilt, arm.hold_depth, arm.cmd, arm.hold_x, worst=True)
     if not isinstance(found, tuple):
         result["reason"] = (f"{into} is out of reach holding {held} {arm.hold_tilt} deg below level, with room to lower it in: "
                             f"best IK is {found * 1000:.1f} mm off")
@@ -616,14 +777,21 @@ def place(arm, parts, i, step):
     arm.seen_collisions = set()
     arm.status = f"place {held} in {into}"
     try:
+        _carry(arm, qa)
         bias = _settle(arm, qa)
         arm.tare()
         peak, reached = _line(arm, down_at + np.array([0, 0, 0.001]), axis, PICK_SPEED / 2, limit=limit, bias=bias)
+        searched = 0
+        if not reached or arm.tip_pose()[0][2] > down_at[2] + SEARCH_DONE:
+            reached, searched, peak2 = _search(arm, down_at + np.array([0, 0, 0.001]), axis, limit, bias)
+            peak = max(peak, peak2)
         stopped_at, _ = arm.tip_pose()
         high_mm = (stopped_at - seated_at)[2] * 1000
         arm.grip(_jaw_open(width), 0.8)
-        arm.held, arm.holding = set(), None
+        arm.holding = None
+        # the jaws may still brush what they let go of on the way up: only once clear does touching it count as a hit
         _line(arm, stopped_at + (above - seated_at), axis, PICK_SPEED, bias=bias)
+        arm.held = set()
         for _ in range(int(SETTLE_S * CONTROL_HZ)):
             arm.send(arm.cmd)
             arm.tick()
@@ -631,6 +799,8 @@ def place(arm, parts, i, step):
         moved = [c for c in seq if app.readings.get(c) != before.get(c)]
         result.update(peak_force_n=round(peak, 2), stop="end" if reached else "force_limit", let_go_mm_above_seat=round(high_mm, 1), readout_change=seq)
         where = f"let go {high_mm:.1f} mm above where it seats" + ("" if reached else f", after meeting {peak:.1f} N")
+        if searched:
+            where += f" ({searched} tries feeling round for the bore)"
         if moved:
             result.update(verdict="PASS", channel=moved[0], reason=f"{held} into {into}: {moved[0]} {' -> '.join(map(str, seq[moved[0]]))}; {where}")
         elif well.meta.get("reads"):

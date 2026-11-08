@@ -94,6 +94,14 @@ JAW_BODIES = ("gripper", "moving_jaw_so101_v1")
 # face, and the tube shot out of the jaws; at 1.5 N.m they sink about 2 mm and hold.
 JAW_SOLREF = [float(v) for v in appliance.CONTACT_SOLREF.split()]
 GRIP_TORQUE_NM = 1.5
+# Held between two fingertips, an object creeps in MuJoCo's soft friction (a tube slid 30 mm up the jaws in a 6 s carry
+# and fell out) and turns freely about the line between the two contacts (point contacts have no torsional friction).
+# Real fingertips do neither at these loads. So while the jaws hold something (SimArm.held) the sim runs noslip
+# iterations, which remove the creep, and the jaws have torsional friction over a fingertip-sized patch. Not all the
+# time: noslip also acts on the joints' friction, which the servo model is built on, and with it on every stock flip
+# tripped the hard cap.
+NOSLIP_ITERS = 5
+JAW_CONDIM, JAW_TORSION_M = 4, 0.02
 JAW_PIECES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "so101", "jaw_pieces")
 
 
@@ -110,7 +118,8 @@ def _jaw_pieces(spec):
             if spec.mesh(name) is None:
                 spec.add_mesh(name=name, file=os.path.join(JAW_PIECES, f))
             body.add_geom(type=mujoco.mjtGeom.mjGEOM_MESH, meshname=name, pos=g.pos, quat=g.quat, contype=g.contype,
-                          conaffinity=g.conaffinity, group=g.group, friction=g.friction, solref=JAW_SOLREF, solimp=g.solimp, mass=0)
+                          conaffinity=g.conaffinity, group=g.group, friction=[g.friction[0], JAW_TORSION_M, g.friction[2]],
+                          condim=JAW_CONDIM, solref=JAW_SOLREF, solimp=g.solimp, mass=0)
         spec.delete(g)
 
 
@@ -400,6 +409,8 @@ class SimArm(ArmBase):
     def tick(self):
         f = 0.0  # peak over the substeps, so short impacts aren't missed
         self.cap_f = 0.0
+        if self.effector == "stock":  # see NOSLIP_ITERS
+            self.m.opt.noslip_iterations = NOSLIP_ITERS if self.held else 0
         for _ in range(self.substeps):
             self._servo()
             mujoco.mj_step(self.m, self.d)
