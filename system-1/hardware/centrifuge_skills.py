@@ -44,14 +44,14 @@ TUBE_OPEN = 0.2                       # 0.3 opened far wider than the red collar
 TUBE_SQUEEZE = -0.25                  # shut drives ~380 ticks past closed (RealArm lowers the servo's limit for it)
 TUBE_CENTRE = 0.015                   # the collar's centre this far from the fixed jaw: half the real gap, not the model's
 TUBE_PULL = 0.006                     # m toward the arm: picks landed past the red tube; 6 mm held it (Nov 8)
-TUBE_HELD_X = 0.012                   # held, the tube's axis this far from the fixed jaw's tip (3 mm to its face + 9)
+TUBE_HELD_X = TUBE_CENTRE             # held, the tube's axis this far from the fixed jaw's tip: where the pick centres it
 # the tool this far below level (deg), steepest first that reaches (manipulate.GRIP_TILTS): straight down only
 # reaches about 290 mm out. It tilts in the upright plane through the pan axis, the jaws closing level across it
 TUBE_TILTS = (90, 75, 60, 50)
 PAN_XY = np.array([0.0388, 0.0])      # the pan axis, arm frame (manipulate.PAN_XY)
 ABOVE = 0.05                          # a pick starts this far over its grip
-LIFT = 0.07                           # and lifts this far: the tube is 55 mm long
-PLACE_ABOVE = 0.06                    # a place starts this far over the seat, and lowers until the arm stalls
+LIFT = 0.12                           # and lifts this far: at 70 mm the 55 mm tube hit the rack going home (Nov 8)
+PLACE_ABOVE = 0.12                    # a place starts this far over the seat, and lowers until the arm stalls: at 60 mm the hanging tube hit the well's rim
 SPEED, ARC_SPEED, GUARD_SPEED = 0.03, 0.02, 0.015  # m/s
 GUARD_N = 5.0                         # with no stall sensing (the sim bus), a guarded move stops at this
 STEP_M, STEP_DEG = 0.005, 3.0         # poses checked for reach every this far
