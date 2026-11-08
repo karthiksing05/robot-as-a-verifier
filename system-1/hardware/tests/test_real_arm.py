@@ -40,6 +40,7 @@ def _setup(pace=False):
     sim = robot.SimArm(world=w, slop=True, sensing="current")
     bus = fake_bus.make(sim, TMP)
     arm = real_arm.RealArm(bus, app=sim.app, pace=pace)
+    arm.press_down = sim.press_down  # the sim presses along the normal
     arm.table_z, arm.workspace, arm.standoff, arm.stall_m, arm.guard_speed = (  # the sim's desk, camera, contact test
         sim.table_z, sim.workspace, sim.standoff, sim.stall_m, sim.guard_speed)
     arm.hard_cap_n = rig.HARD_FORCE_CAP_N  # the sim's cap, not the real arm's 20 N
