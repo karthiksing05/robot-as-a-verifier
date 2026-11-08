@@ -208,6 +208,8 @@ def score(report: Report, events: list, key: dict | None, build: dict | None = N
         "stops_handled": sum(1 for c in calls if c.get("tool") == "answer_stop" and c.get("ok", True)),
         "median_turn_s": round(sorted(t.get("latency_ms") or 0 for t in turns)[len(turns) // 2] / 1000, 2) if turns else None,
         "model_gave_up": any(e.type == "message" and "rule-based plan" in str(e.payload.get("text")) for e in events),
+        "checkback": next((e.payload["checkback"] for e in reversed(events) if e.type == "message" and isinstance(e.payload.get("checkback"), dict)), None),
+        "hypotheses": [c.get("ok", True) for c in calls if c.get("tool") == "record_hypothesis"],
     }
     if key is None:
         return out
@@ -296,9 +298,21 @@ def summarize(results: list[dict]) -> dict[str, dict]:
             "tool_errors": sum(r.get("tool_errors", 0) for r in rows), "recoveries": sum(r.get("recoveries", 0) for r in rows),
             "errors_injected": sum(r.get("errors_injected", 0) for r in keyed), "crashes": sum(bool(r.get("crashed")) for r in rows),
             "wall_s": round(sum(r.get("seconds", 0) for r in rows), 1),
+            "checkback": checkback_totals(rows),
             "median_turn_s": sorted(r["median_turn_s"] for r in rows if r.get("median_turn_s") is not None)[len([r for r in rows if r.get("median_turn_s") is not None]) // 2] if any(r.get("median_turn_s") is not None for r in rows) else None,
         }
     return out
+
+
+def checkback_totals(rows: list[dict]) -> dict[str, int]:
+    """How often check-back stepped in (plans refused) and caught something: an output that disagreed after a part moved,
+    a read-back that failed, a closing look that differed from the first."""
+    cbs = [r["checkback"] for r in rows if isinstance(r.get("checkback"), dict)]
+    total = {k: sum(c.get(k, 0) for c in cbs) for k in ("plans_refused", "output_checks_failed", "checkbacks_run", "checkbacks_failed", "closing_looks", "side_effects")}
+    total["runs_with_closing_differences"] = sum(bool(c.get("closing_differences")) for c in cbs)
+    total["runs_where_it_caught_something"] = sum(bool(c.get("output_checks_failed") or c.get("checkbacks_failed") or c.get("closing_differences")) for c in cbs)
+    total["runs"] = len(cbs)
+    return total
 
 
 def run_matrix(devices: list[str], faults: list[str], error_rates: list[float], models: list[str], repeats: int = 1, route: str = "depth",

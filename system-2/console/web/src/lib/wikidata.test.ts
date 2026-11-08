@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { JOURNEY } from "./journey";
-import { deviceCards, demoHref, fmtRatio, fmtTokens, listOf, loadResults, pieceName, sections, tiedOnScore } from "./wikidata";
+import { deviceCards, demoHref, fmtCredits, fmtRatio, fmtTokens, fmtUsd, listOf, loadResults, pieceName, sections, tiedOnScore } from "./wikidata";
 
 const committed = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "../data/model-results.json"), "utf8"));
 
@@ -31,6 +31,24 @@ describe("model results", () => {
     expect(r.rounds[1].rows[0].score).toBeNull();
     expect(r.rounds[1].rows[0].tokens).toBe(0);
     expect(loadResults(undefined).rounds).toEqual([]);
+  });
+
+  it("carries credits and assumed dollars for every finished round, per model and per run", () => {
+    const r = loadResults(committed);
+    expect(r.pricing?.usd_per_credit).toBe(2);
+    expect(r.pricing?.usd_is).toMatch(/assumption/);
+    for (const round of r.rounds.filter((x) => x.status === "done")) {
+      expect(round.cost).not.toBeNull();
+      for (const row of round.rows.filter((x) => !x.baseline)) {
+        expect(row.credits).toBeGreaterThan(0);
+        expect(row.usd).toBeCloseTo((row.credits ?? 0) * 2, 3);
+        expect(row.per_run.length).toBe(row.runs);
+      }
+    }
+    expect(r.rounds[7].cost).toBeNull();
+    expect(fmtCredits(0.004)).toBe("<0.01");
+    expect(fmtUsd(5.0082)).toBe("$5.01");
+    expect(fmtUsd(null)).toBe("–");
   });
 
   it("formats counts plainly", () => {

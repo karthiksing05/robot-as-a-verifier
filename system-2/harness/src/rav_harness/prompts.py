@@ -25,8 +25,14 @@ manual or a spec promises a measurable result, add a check on a reading, with it
 own rules already judge each step, and a number you made up only adds false failures. Where a check only means something once other conditions \
 hold, declare them in requires: a check that fails while a required condition isn't met says nothing about the product, \
 and fixes nothing but your order of steps.
-4. Run it, and read each stop. Then continue, amend, skip or abort.
-5. Finish with finish_run, accounting for every control.
+4. Check back. Every step that changes something also checks the device's outputs, not only the part you operated: the \
+display, a light, a reading on another channel. Where the manual says nothing else should change, check that it still \
+shows what it showed before. After a group of changes (a mode change, a power cycle, a procedure), observe the device and \
+check that earlier results and its state still hold, naming the earlier step in the check's source. Plans without this are \
+refused, and say what's missing. Note side effects you see.
+5. Run it, and read each stop. Then continue, amend, skip or abort.
+6. Put the device back as you found it, then take a closing look with look_at_device: it's compared with the first, and \
+the differences go in the report. Finish with finish_run, accounting for every control and saying what stayed changed and why.
 
 Judging what you see
 - The robot itself can go wrong, and sensors can misreport for a moment. An inconclusive result says nothing about the \

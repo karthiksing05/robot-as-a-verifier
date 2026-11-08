@@ -22,6 +22,29 @@ export interface ModelRow {
   reasoning_chars: number;
   reasoning: string | null;
   missed: string[];
+  credits: number | null;
+  usd: number | null;
+  per_run: RunCost[];
+}
+
+export interface RunCost {
+  run: string;
+  tokens: number;
+  credits: number;
+  usd: number;
+}
+
+export interface Cost {
+  tokens: number;
+  credits: number;
+  usd: number;
+}
+
+export interface Pricing {
+  unit: string;
+  source: string | null;
+  usd_per_credit: number;
+  usd_is: string;
 }
 
 export interface Round {
@@ -33,6 +56,7 @@ export interface Round {
   test_set: string;
   spend: string | null;
   takeaway: string | null;
+  cost: Cost | null;
   rows: ModelRow[];
 }
 
@@ -40,6 +64,7 @@ export interface Results {
   generated: string;
   route: string | null;
   models: string[];
+  pricing: Pricing | null;
   rounds: Round[];
 }
 
@@ -47,6 +72,17 @@ const STATUSES: RoundStatus[] = ["done", "running", "planned"];
 const num = (v: unknown, fallback = 0) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
 const maybe = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const text = (v: unknown) => (typeof v === "string" && v.trim() ? v : null);
+
+const cost = (v: unknown): Cost | null => {
+  const c = (v ?? null) as Record<string, unknown> | null;
+  return c && typeof c === "object" && maybe(c.credits) !== null ? { tokens: num(c.tokens), credits: num(c.credits), usd: num(c.usd) } : null;
+};
+
+function pricing(v: unknown): Pricing | null {
+  const p = (v ?? null) as Record<string, unknown> | null;
+  if (!p || typeof p !== "object" || maybe(p.usd_per_credit) === null) return null;
+  return { unit: text(p.unit) ?? "AI credits", source: text(p.source), usd_per_credit: num(p.usd_per_credit), usd_is: text(p.usd_is) ?? "an assumption" };
+}
 
 /** Reads the generated file defensively: a missing field shows as a dash, never as a crash. */
 export function loadResults(raw: unknown): Results {
@@ -56,18 +92,21 @@ export function loadResults(raw: unknown): Results {
     generated: text(d.generated) ?? "",
     route: text(d.route),
     models: Array.isArray(d.models) ? d.models.filter((m): m is string => typeof m === "string") : [],
+    pricing: pricing(d.pricing),
     rounds: rounds.map((r: Record<string, unknown>) => {
       const rows = Array.isArray(r.rows) ? r.rows : [];
       const status = STATUSES.includes(r.status as RoundStatus) ? (r.status as RoundStatus) : "planned";
       return {
         id: String(r.id ?? ""), title: text(r.title) ?? "", status, date: text(r.date), kind: r.kind === "eval" ? "eval" : "soft",
-        test_set: text(r.test_set) ?? "", spend: text(r.spend), takeaway: text(r.takeaway),
+        test_set: text(r.test_set) ?? "", spend: text(r.spend), takeaway: text(r.takeaway), cost: status === "planned" ? null : cost(r.cost),
         rows: status === "planned" ? [] : rows.map((x: Record<string, unknown>) => ({
           model: String(x.model ?? "?"), baseline: x.baseline === true, runs: num(x.runs), score: maybe(x.score),
           faults_found: num(x.faults_found), faults_planted: num(x.faults_planted), false_findings: num(x.false_findings), coverage: maybe(x.coverage),
           recovered: num(x.recovered), recovery_tries: num(x.recovery_tries), tokens: num(x.tokens), turns: num(x.turns),
           median_turn_s: maybe(x.median_turn_s), tool_errors: num(x.tool_errors), crashes: num(x.crashes), reasoning_chars: num(x.reasoning_chars),
           reasoning: text(x.reasoning), missed: Array.isArray(x.missed) ? x.missed.map(String) : [],
+          credits: maybe(x.credits), usd: maybe(x.usd),
+          per_run: Array.isArray(x.per_run) ? x.per_run.map((y: Record<string, unknown>) => ({ run: String(y.run ?? "?"), tokens: num(y.tokens), credits: num(y.credits), usd: num(y.usd) })) : [],
         })),
       };
     }),
@@ -80,6 +119,8 @@ const NAMES: Record<string, string> = {
 export const modelName = (id: string) => NAMES[id] ?? id;
 
 export const fmtTokens = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
+export const fmtCredits = (v: number | null) => (v === null ? "–" : v > 0 && v < 0.01 ? "<0.01" : v.toFixed(2));
+export const fmtUsd = (v: number | null) => (v === null ? "–" : v > 0 && v < 0.01 ? "<$0.01" : `$${v.toFixed(2)}`);
 export const fmtRatio = (a: number, b: number) => (b ? `${a} of ${b}` : "–");
 export const fmtShare = (v: number | null) => (v === null ? "–" : `${Math.round(v * 100)}%`);
 export const fmtScore = (v: number | null) => (v === null ? "–" : v.toFixed(2));

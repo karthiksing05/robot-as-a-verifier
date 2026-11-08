@@ -1,9 +1,13 @@
 {
-  "_about": "US dollars per million tokens, from your Snowflake account's price list. Leave a model's numbers null until someone has confirmed them. cached_input and cache_write are optional. Keyed by the name the provider uses.",
+  "_about": "Snowflake AI credits per million tokens, keyed by the name the provider uses. Source: Snowflake Service Consumption Table, effective 2026-11-04, Table 6(b) Cortex Inference with Prompt Caching. input is uncached input; cached_input is a cache read; cache_write is a cache write (a model without one pays input for it). The ledger's input count includes cached and cache-write tokens, so uncached = input - cached - cache_write.",
+  "source": "Snowflake Service Consumption Table, effective 2026-11-04, Table 6(b)",
+  "unit": "AI credits per 1M tokens",
+  "usd_per_credit": 2.0,
+  "usd_per_credit_is": "an assumption, not a quoted price: change it here and every dollar figure follows",
   "models": {
-    "claude-haiku-5-5": {"input": null, "output": null, "cached_input": null, "cache_write": null},
-    "claude-sonnet-5-5": {"input": null, "output": null, "cached_input": null, "cache_write": null},
-    "openai-gpt-5.4": {"input": null, "output": null, "cached_input": null},
-    "grok-4.7": {"input": null, "output": null, "cached_input": null}
+    "claude-haiku-5-5": {"input": 0.05, "output": 0.25, "cache_write": 0.063, "cached_input": 0.005},
+    "claude-sonnet-5-5": {"input": 1.00, "output": 5.00, "cache_write": 1.25, "cached_input": 0.05},
+    "grok-4.7": {"input": 1.00, "output": 3.00, "cached_input": 0.25},
+    "openai-gpt-5.4": {"input": 1.25, "output": 7.50, "cached_input": 0.125}
   }
 }

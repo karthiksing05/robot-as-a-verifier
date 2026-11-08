@@ -339,3 +339,219 @@ def coverage(intents: list[TestIntent], done: dict[str, Outcome]) -> Coverage:
         else:
             out.untested.append(t.key)
     return out
+
+
+# --- what a model sends -------------------------------------------------------------------------
+
+def hypothesis_schema() -> dict[str, Any]:
+    """DeviceHypothesis as a tool's parameter schema: every reference inlined and titles dropped, so any provider takes it."""
+    raw = DeviceHypothesis.model_json_schema()
+    defs = raw.pop("$defs", {})
+
+    def inline(node: Any) -> Any:
+        if isinstance(node, dict):
+            if "$ref" in node:
+                return inline(defs[node["$ref"].rsplit("/", 1)[-1]])
+            return {k: inline(v) for k, v in node.items() if k != "title"}
+        if isinstance(node, list):
+            return [inline(v) for v in node]
+        return node
+
+    return inline(raw)
+
+
+OP_WORDS = {"=": "==", "is": "==", "equals": "==", "eq": "==", "<>": "!=", "not": "!=", "ne": "!=", "change": "changes", "changed": "changes",
+            "becomes": "==", "to": "==", "set": "==", "displays": "shows", "show": "shows", "contains": "shows", "reads": "shows", "lt": "<", "gt": ">", "le": "<=", "ge": ">=", "within": "in"}
+_OPS = sorted([*Op.__args__, *OP_WORDS], key=len, reverse=True)  # type: ignore[attr-defined]
+CONDITION_FIELDS = ("pre", "effects", "when")
+PRIMITIVE_WORDS = {"push": "press", "button": "press", "tap": "press", "click": "press", "toggle": "flip", "switch": "flip", "rotate": "turn",
+                   "twist": "turn", "dial": "turn", "knob": "turn", "slider": "slide", "latch": "push_latch", "pull": "hook_pull", "lift": "hook_pull",
+                   "grab": "pick", "drop": "place", "insert": "place", "read": "observe", "look": "observe", "observe": "observe", "wait": "wait"}
+
+
+def _condition_loc(loc: tuple) -> tuple | None:
+    """The path to the condition that loc is in or at, if any: (..., "when") or (..., "pre", 2)."""
+    for i in range(len(loc) - 1, -1, -1):
+        if loc[i] in CONDITION_FIELDS:
+            return loc[: i + 2] if loc[i] != "when" and i + 1 < len(loc) and isinstance(loc[i + 1], int) else loc[: i + 1]
+    return None
+
+
+def _condition(v: Any) -> Any:
+    """A condition the way models write one: "lid == closed", {"lid": "closed"}, {"name": ..., "value": ...}."""
+    import re
+
+    if isinstance(v, str):
+        for op in _OPS:
+            m = re.match(rf"^\s*(.+?)\s*{re.escape(op)}\s*(.*?)\s*$" if not op.isalpha() else rf"^\s*(.+?)\s+{op}\s*(.*?)\s*$", v)
+            if m and m.group(1):
+                return {"subject": m.group(1), "op": OP_WORDS.get(op, op), "value": m.group(2) or None}
+        return {"subject": v.strip(), "op": "==", "value": True}
+    if isinstance(v, dict):
+        v = dict(v)
+        for alias in ("name", "state", "variable", "target", "what", "field"):
+            if "subject" not in v and alias in v:
+                v["subject"] = v.pop(alias)
+        if "subject" not in v and len(v) == 1:
+            ((k, val),) = v.items()
+            return {"subject": k, "op": "==", "value": val}
+        if "subject" not in v:
+            extra = [k for k in v if k not in ("op", "value")]
+            if extra:
+                v["subject"] = extra[0]
+                v.setdefault("value", v.pop(extra[0]))
+        if isinstance(v.get("op"), str):
+            v["op"] = OP_WORDS.get(v["op"].strip().lower(), v["op"].strip())
+        return {k: v[k] for k in ("subject", "op", "value") if k in v}
+    return v
+
+
+def _range(v: Any) -> Any:
+    import re
+
+    if isinstance(v, (list, tuple)) and len(v) >= 2:
+        return {"low": v[0], "high": v[-1]}
+    if isinstance(v, str):
+        m = re.match(r"^\s*(-?[\d.]+)\s*(?:-|to|\.\.|–)\s*(-?[\d.]+)\s*(.*)$", v)
+        if m:
+            return {"low": float(m.group(1)), "high": float(m.group(2)), **({"unit": m.group(3).strip()} if m.group(3).strip() else {})}
+    if isinstance(v, dict):
+        out = {k: v[k] for k in ("low", "high", "unit", "direction") if k in v}
+        for lo in ("min", "from", "start"):
+            if lo in v and "low" not in out:
+                out["low"] = v[lo]
+        for hi in ("max", "to", "end"):
+            if hi in v and "high" not in out:
+                out["high"] = v[hi]
+        return out
+    return v
+
+
+def _at(root: Any, loc: tuple) -> tuple[Any, Any]:
+    """The container holding loc's last key, and that key."""
+    node = root
+    for key in loc[:-1]:
+        node = node[key]
+    return node, loc[-1]
+
+
+def _drop_item(root: Any, loc: tuple) -> str | None:
+    """Removes the innermost list element on loc's path: one bad entry costs only itself."""
+    for i in range(len(loc) - 1, -1, -1):
+        if isinstance(loc[i], int):
+            parent, key = _at(root, loc[: i + 1])
+            if isinstance(parent, list) and key < len(parent):
+                parent.pop(key)
+                return ".".join(map(str, loc[: i + 1]))
+    return None
+
+
+def parse_hypothesis(raw: Any, tries: int = 200) -> tuple[DeviceHypothesis, list[str]]:
+    """Accepts the hypothesis a model sends, loosely: near misses are repaired, and an entry that can't be is left out.
+    Returns what it kept and one line per repair, so the model can see what was read differently. Raises ValueError
+    only when nothing usable is left."""
+    import copy
+    import json
+
+    from pydantic import ValidationError
+
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError as e:
+            raise ValueError(f"the hypothesis isn't an object or JSON: {e}") from e
+    if not isinstance(raw, dict):
+        raise ValueError("the hypothesis must be an object with controls, indicators, state, relations, procedures ...")
+    data, notes = copy.deepcopy(raw), []
+    if isinstance(data.get("hypothesis"), dict):  # sent wrapped twice
+        data = data["hypothesis"]
+    for _ in range(tries):
+        try:
+            return DeviceHypothesis.model_validate(data), notes
+        except ValidationError as e:
+            errors = e.errors()
+        err = errors[0]
+        loc, kind = tuple(err["loc"]), err["type"]
+        where = ".".join(map(str, loc)) or "the hypothesis"
+        if not loc:  # a whole-hypothesis rule: a relation naming nothing, or an id used twice
+            msg = str(err.get("msg", ""))
+            if "relation" in msg and "names" in msg:
+                name = msg.split("names ", 1)[1].split(",")[0].strip("'\" ")
+                before = len(data.get("relations", []))
+                data["relations"] = [r for r in data.get("relations", []) if name not in (r.get("source"), r.get("target"))]
+                notes.append(f"left out {before - len(data['relations'])} relation(s) naming {name}, which is no piece or state")
+                continue
+            if "ids used twice" in msg:
+                seen: set = set()
+                for group in ("controls", "indicators", "mechanisms", "containers", "objects"):
+                    kept = []
+                    for p in data.get(group, []):
+                        if p.get("id") in seen:
+                            notes.append(f"left out a second {group[:-1]} called {p.get('id')}")
+                            continue
+                        seen.add(p.get("id"))
+                        kept.append(p)
+                    data[group] = kept
+                continue
+            raise ValueError(msg)
+        cond = _condition_loc(loc)
+        if cond is not None and len(loc) > len(cond):  # inside one condition: read the whole condition the way models write them
+            holder, k = _at(data, cond)
+            new = _condition(holder[k])
+            if new != holder[k]:
+                notes.append(f"read {'.'.join(map(str, cond))} as a condition: {new}")
+                holder[k] = new
+                continue
+        parent, key = _at(data, loc)
+        value = parent[key] if (isinstance(parent, dict) and key in parent) or (isinstance(parent, list) and isinstance(key, int) and key < len(parent)) else None
+        field = next((k for k in reversed(loc) if isinstance(k, str)), "")
+        fixed = False
+        if cond == loc and kind in ("model_type", "dict_type"):
+            new = _condition(value)
+            if new != value:
+                parent[key] = new
+                notes.append(f"read {where} as a condition: {new}")
+                fixed = True
+        elif kind == "extra_forbidden":
+            parent.pop(key)
+            notes.append(f"ignored {where}: not a field there")
+            fixed = True
+        elif kind in ("model_type", "dict_type") and field == "range":
+            new = _range(value)
+            if new != value:
+                parent[key] = new
+                notes.append(f"read {where} as a range: {new}")
+                fixed = True
+        elif kind == "list_type" and value is not None:
+            parent[key] = [s.strip() for s in value.split(",")] if isinstance(value, str) and "," in value else [value]
+            notes.append(f"read {where} as a list")
+            fixed = True
+        elif kind == "string_type" and value is not None:
+            parent[key] = value if isinstance(value, str) else json.dumps(value)
+            notes.append(f"read {where} as text")
+            fixed = True
+        elif kind == "bool_parsing":
+            parent[key] = bool(value) and str(value).strip().lower() not in ("no", "false", "none", "0", "unknown")
+            notes.append(f"read {where} as {parent[key]}")
+            fixed = True
+        elif kind == "literal_error" and field == "op" and isinstance(value, str) and OP_WORDS.get(value.strip().lower()):
+            parent[key] = OP_WORDS[value.strip().lower()]
+            fixed = True
+        elif kind == "literal_error" and field == "primitive" and isinstance(value, str) and PRIMITIVE_WORDS.get(value.strip().lower()):
+            parent[key] = PRIMITIVE_WORDS[value.strip().lower()]
+            notes.append(f"read {where} {value!r} as {parent[key]}")
+            fixed = True
+        elif kind == "literal_error" and field == "returns":
+            parent.pop(key)
+            notes.append(f"ignored {where}: {value!r} isn't one of momentary, latching, continuous")
+            fixed = True
+        elif kind == "missing" and field == "steps" and isinstance(parent, dict):
+            parent["steps"] = []
+            notes.append(f"{where}: no steps given")
+            fixed = True
+        if not fixed:
+            dropped = _drop_item(data, loc)
+            if dropped is None:
+                raise ValueError(f"{where}: {err.get('msg')}")
+            notes.append(f"left out {dropped}: {err.get('msg')} at {where}")
+    raise ValueError("too many problems to repair")

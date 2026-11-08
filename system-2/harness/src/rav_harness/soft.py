@@ -278,7 +278,8 @@ def run_scenario(scenario: Scenario, model: str, folder: pathlib.Path, ledger: L
     return record
 
 
-def run_round_one(models: list[str], out: str | pathlib.Path = "runs", budget: Budget | None = None, scenarios: list[Scenario] | None = None, make=make_client, ledger: Ledger | None = None) -> dict:
+def run_round_one(models: list[str], out: str | pathlib.Path = "runs", budget: Budget | None = None, scenarios: list[Scenario] | None = None, make=make_client, ledger: Ledger | None = None,
+                  config: AgentConfig | None = None) -> dict:
     folder = pathlib.Path(out).resolve() / time.strftime("soft-%m%d-%H%M%S")
     folder.mkdir(parents=True, exist_ok=True)
     ledger = ledger or (budget.ledger if budget else Ledger())
@@ -289,7 +290,7 @@ def run_round_one(models: list[str], out: str | pathlib.Path = "runs", budget: B
             if budget and (why := budget.refuse(model)):
                 stopped = f"{model}/{scenario.name}: {why}"
                 break
-            results.append(run_scenario(scenario, model, folder, ledger, make=make))
+            results.append(run_scenario(scenario, model, folder, ledger, config=config, make=make))
             (folder / "results.json").write_text(json.dumps({"results": results, "stopped": stopped}, indent=2) + "\n")
         if stopped:
             break

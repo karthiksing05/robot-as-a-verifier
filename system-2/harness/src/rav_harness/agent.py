@@ -28,12 +28,13 @@ Delta = Callable[[dict], None]
 @dataclass
 class AgentConfig:
     max_turns: int = 80
-    max_tokens: int = 400_000
+    max_tokens: int = 600_000
     max_seconds: float = 3600.0
     max_repeats: int = 6  # the same rejected call, in a run, before it counts as stuck
     keep_messages: int = 16  # older tool results shrink to a line, and older images go
     max_nudges: int = 4
     policy: EscalationPolicy = field(default_factory=lambda: TEST_POLICY)
+    check_back: bool = True  # checkback.py: refuse plans that don't check back, and close the run with a look
 
 
 def sim_auto_approve(kind: str, ref: str) -> str:
@@ -142,6 +143,7 @@ def run_agent(system1, request: TestRequest, log: RunLog, client: ModelClient, a
         log.emit("agent_state", {"state": name, "detail": detail})
 
     belt = ToolBelt(system1, request, log, tracer, approve, steering, config.policy, manual, ask, state)
+    belt.check_back = config.check_back
     if approve is sim_auto_approve and not robot_may_auto_approve(belt.status.robot):
         raise PermissionError(f"plans on {belt.status.robot} must be approved by a person")
     if approve is sim_auto_approve:

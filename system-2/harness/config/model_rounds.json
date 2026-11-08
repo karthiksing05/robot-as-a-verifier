@@ -46,7 +46,7 @@
       ],
       "test_set": "Scored with the symptom rule (added 2026-11-07, applied to every model, the baseline and every earlier round): a finding counts for a fault when a failing check on it reads where the fault shows, on the step the device's own verify check fails at, and quotes the manual. The four models on two generated sim devices (seeds 7 and 13, depth route), one run each, with a random planted fault (fault seeds 7001 and 13001) and a 5% chance per action that the arm or the world misbehaves (error seed 1). The rule-based baseline ran on the same set. Every model got the same devices and faults. Errors were then drawn from a running count of actions, so models that planned differently met different errors: every model run drew one error, and both baseline runs drew a device move. Coverage tops out at 94% because device 7's knob needs a pinch grip, which the robot's turn skill doesn't take: every model reported it as untestable.",
       "fault_scenarios": [],
-      "spend": "570,906 tokens across the four models (no Cortex prices set, so no dollar figure).",
+      "spend": "570,906 tokens across the four models.",
       "takeaway": "All four models found both planted faults, against none for the rule baseline, which stopped at a device move it can't plan around. Grok re-explored after a real device move and finished the plan. The differences were in judgment: Haiku made up a 20 mm travel limit and reported a working slider as wrong feedback; GPT-5.4 made up a contact-offset bound and got the slider called intermittent; Haiku pushed a jammed door again at 12 N and hit the 15 N safety cap, then homed correctly. Grok took about 10 s a turn, against 2 to 5 s for the others.",
       "date": "2026-11-07"
     },

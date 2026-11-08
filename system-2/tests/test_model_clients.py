@@ -221,23 +221,34 @@ def test_cost_uses_each_rate_and_says_when_it_doesnt_know():
     assert cost_of({**row, "model": "other"}, PRICES) is None
 
 
+def test_the_real_price_table_is_in_credits_with_an_assumed_dollar_rate():
+    from rav_harness.ledger import load_prices, run_spend, usd_per_credit
+    prices = load_prices()
+    assert set(prices) == {"claude-haiku-5-5", "claude-sonnet-5-5", "grok-4.7", "openai-gpt-5.4"} and usd_per_credit() == 2.0
+    row = {"model": "snowflake:claude-haiku-5-5", "input": 1_000_000, "cached": 600_000, "cache_write": 100_000, "output": 10_000, "thinking": 0}
+    assert cost_of(row, prices) == pytest.approx(0.3 * 0.05 + 0.6 * 0.005 + 0.1 * 0.063 + 0.01 * 0.25)
+    grok = {"model": "grok-4.7", "input": 1_000_000, "cached": 0, "cache_write": 0, "output": 0}
+    assert run_spend([grok], prices, 2.0) == {"calls": 1, "tokens": 1_000_000, "credits": 1.0, "usd": 2.0, "unpriced_calls": 0}
+
+
 def test_the_total_prints_and_flags_what_has_no_price(tmp_path):
     ledger = Ledger(tmp_path / "l.jsonl")
     ledger.record(reply())
     ledger.record(ModelReply(model="other", tokens_in=5))
-    text = spend_table(ledger, PRICES)
-    assert "no price" in text and "plus 1 calls with no price" in text and "$2.0000" in text
+    text = spend_table(ledger, PRICES, rate=2.0)
+    assert "no price" in text and "plus 1 calls with no price" in text and "2.0000 credits, $4.0000 at an assumed $2.00 per credit" in text
 
 
 def test_a_run_that_could_cross_the_budget_doesnt_start(tmp_path):
     ledger = Ledger(tmp_path / "l.jsonl")
-    budget = Budget(5.0, ledger, PRICES, margin=1.5)
+    budget = Budget(5.0, ledger, PRICES, margin=1.5, rate=1.0)
     assert budget.refuse("snowflake:m") is None  # 60k tokens at the dearest rate: $0.60 x 1.5
     ledger.record(reply(), "run1")  # $2, and now that's the measured worst run: $3 more is exactly the cap
     assert budget.refuse("m") is None
     ledger.record(reply(), "run2")  # $4 spent, and a run could add $3
     assert "over the $5.00 budget" in budget.refuse("m")
-    assert Budget(5.0, ledger, PRICES).refuse("rules") is None
+    assert Budget(5.0, ledger, PRICES, rate=1.0).refuse("rules") is None
+    assert "over the $5.00 budget" in Budget(5.0, ledger, PRICES, rate=2.0).refuse("m")  # 2 credits a run is $4 at $2 a credit
 
 
 def test_no_price_is_refused_unless_allowed_and_then_tokens_are_the_cap(tmp_path):
@@ -266,3 +277,26 @@ def test_claude_reasoning_is_asked_for_only_when_set_and_the_adaptive_way():
     deep = MessagesClient("claude-x", base_url=fake.url, token=SECRET, http=quick(), effort="low")
     assert deep.generate("s", [Message("user", "x")], []).thinking == "Why."
     assert fake.requests[1]["body"]["thinking"]["type"] == "adaptive" and fake.requests[1]["body"]["output_config"] == {"effort": "low"}
+
+
+def test_the_results_page_prices_each_run_from_its_own_ledger_rows(tmp_path):
+    """Run labels repeat across rounds, so a run's calls are its label inside the span its event log covers."""
+    import os
+    import time as _t
+    from rav_harness.results_page import build
+    runs = tmp_path / "runs"
+    folder = runs / "eval-a"
+    run = folder / "001-claude-haiku-5-5-x-A"
+    run.mkdir(parents=True)
+    (run / "events.jsonl").write_text(json.dumps({"seq": 1, "t": 1.0, "type": "run_started"}) + "\n" + json.dumps({"seq": 2, "t": 100.0, "type": "run_finished"}) + "\n")
+    end = _t.time()
+    os.utime(run / "events.jsonl", (end, end))
+    (folder / "results.json").write_text(json.dumps({"results": [{"model": "claude-haiku-5-5", "run_id": run.name, "tokens": 1_000_000, "faults_planted": [], "faults_found": []}]}))
+    mine = {"run": run.name, "model": "claude-haiku-5-5", "at": end - 50, "input": 1_000_000, "output": 0, "cached": 0, "cache_write": 0}
+    earlier_round = {**mine, "at": end - 3600}  # same label, an hour before: another round's run
+    config = {"models": ["claude-haiku-5-5"], "baseline": "rules", "rounds": [{"id": "x", "title": "t", "status": "done", "kind": "eval", "folders": ["eval-a"]}]}
+    out = build(config, runs, [mine, earlier_round])
+    row = out["rounds"][0]["rows"][0]
+    assert row["credits"] == pytest.approx(0.05) and row["usd"] == pytest.approx(0.10) and row["per_run"][0]["tokens"] == 1_000_000
+    assert out["rounds"][0]["cost"] == {"tokens": 1_000_000, "credits": 0.05, "usd": 0.1}
+    assert out["pricing"]["usd_per_credit"] == 2.0 and "assumption" in out["pricing"]["usd_is"]

@@ -99,6 +99,7 @@ def go(tmp_path, script, robot=None, approve=sim_auto_approve, config=None, manu
     system1 = system1 or FakeS1(robot)
     client = ScriptedModel(script)
     log = RunLog("r", tmp_path)
+    config = config or AgentConfig(check_back=False)  # scripted plans here test other rules; check-back has its own tests
     report = run_agent(system1, REQUEST, log, client, approve=approve, config=config, manual=manual, steering=steering, ask=ask, on_delta=on_delta, wait=wait)
     return report, read_events(log.path), client, robot
 
@@ -157,7 +158,7 @@ def test_each_wrong_call_comes_back_readable_and_is_the_models(tmp_path, name, a
 
 def test_the_same_rejected_call_gets_told_then_ends_the_run(tmp_path):
     stuck = lambda: say(call("run_plan"))  # noqa: E731
-    report, events, client, _ = go(tmp_path, [stuck() for _ in range(12)], config=AgentConfig(max_repeats=3))
+    report, events, client, _ = go(tmp_path, [stuck() for _ in range(12)], config=AgentConfig(max_repeats=3, check_back=False))
     assert any("same rejected call" in e for e in errors_told(client))
     assert any(e.type == "message" and "repeating" in e.payload["text"] for e in events) and events[-1].payload["status"] == "aborted"
 
@@ -722,18 +723,41 @@ HYPOTHESIS = {"controls": [{"id": "c1", "primitive": "press"}, {"id": "c2", "pri
               "state": [{"name": "level", "default": 0}], "relations": [{"kind": "drives", "source": "c3", "target": "level"}]}
 
 
-def test_a_hypothesis_gives_a_checklist_and_finishing_points_at_what_is_untested_once(tmp_path):
+def test_a_hypothesis_gives_a_checklist_kept_out_of_the_conversation_and_finishing_points_at_what_is_untested_once(tmp_path):
     tagged = steps("c1", "c2", "c3")
     tagged[0]["tests"] = ["actuates:c1"]
-    report, events, client, _ = go(tmp_path, [say(call("look_at_device")), say(call("record_hypothesis", hypothesis={"controls": [{"id": "c1"}]})),
+    report, events, client, _ = go(tmp_path, [say(call("look_at_device")), say(call("record_hypothesis", hypothesis="not json")),
                                               say(call("record_hypothesis", hypothesis=HYPOTHESIS)), say(call("propose_plan", steps=tagged)), say(call("run_plan")),
-                                              say(call("finish_run", summary="x")), say(call("finish_run", summary="Left the range ends: no time."))])
+                                              say(call("get_status")), say(call("finish_run", summary="x")), say(call("finish_run", summary="Left the range ends: no time."))])
     told = list(dict.fromkeys(errors_told(client)))
-    assert "doesn't fit the schema" in told[0] and "checklist properties have no evidence yet" in told[1] and "respects_range:c3" in told[1]
-    checklist = next(r.content for m in client.requests[3]["messages"] for r in m.results if r.call.name == "record_hypothesis" and "checklist" in r.content)
-    assert {"actuates:c1", "respects_range:c3", "default_on_power:level", "mapping_matches:c3:level"} <= {c["key"] for c in checklist["checklist"]}
-    note = next(e.payload for e in events if e.type == "message" and "checklist" in e.payload)
+    assert "can't be read" in told[0] and "checklist properties have no evidence yet" in told[1] and "respects_range:c3" in told[1]
+    results = {r.call.name: r.content for m in client.requests[-1]["messages"] for r in m.results if "error" not in r.content}
+    recorded = results["record_hypothesis"]
+    assert {"actuates:c1", "respects_range:c3", "default_on_power:level", "mapping_matches:c3:level"} <= set(recorded["untested"])
+    assert "checklist" not in recorded  # keys only: the statements stay in the harness
+    assert "actuates:c1" not in results["run_plan"]["checklist_untested"] and "respects_range:c3" in results["run_plan"]["checklist_untested"]
+    assert any(c["key"] == "respects_range:c3" and c["test"] for c in results["get_status"]["checklist_untested"])
+    note = next(e.payload for e in events if e.type == "message" and "checklist" in e.payload and "tested" in e.payload["checklist"])
     assert note["checklist"]["tested"] == {"actuates:c1": "passed"} and events[-1].payload["status"] == "completed"
+
+
+def test_a_loose_hypothesis_is_repaired_and_says_what_was_read_differently(tmp_path):
+    from rav_harness.theory import hypothesis_schema, parse_hypothesis
+    loose = {"controls": [{"id": "c1", "primitive": "push"}, {"id": "c3", "primitive": "turn", "range": "0-10 C", "unit": "C"}],
+             "state": [{"name": "level", "values": "low, high"}],
+             "relations": [{"kind": "drives", "source": "c3", "target": "level", "mapping": {"0": "low"}}, {"kind": "enables", "source": "ghost", "target": "c1"}],
+             "procedures": [{"name": "p", "steps": [{"primitive": "press", "target": "c1", "pre": ["level = low"], "effects": [{"level": "high"}, "c3 shows 5"]}]}]}
+    h, notes = parse_hypothesis(loose)
+    assert h.controls[0].primitive == "press" and h.controls[1].range.high == 10 and h.state[0].values == ["low", "high"]
+    assert [(c.subject, c.op, c.value) for c in h.procedures[0].steps[0].effects] == [("level", "==", "high"), ("c3", "shows", "5")]
+    assert len(h.relations) == 1 and any("ghost" in n for n in notes) and any("ignored controls.1.unit" in n for n in notes)
+    schema = json.dumps(hypothesis_schema())
+    assert "$ref" not in schema and '"procedures"' in schema and '"subject"' in schema
+    report, events, client, _ = go(tmp_path, [say(call("look_at_device")), say(call("record_hypothesis", **loose)),
+                                              say(call("finish_run", summary="x", controls=[{"id": c, "why": "not tested here"} for c in ("c1", "c2", "c3")]))] * 1
+                                   + [say(call("finish_run", summary="x", controls=[{"id": c, "why": "not tested here"} for c in ("c1", "c2", "c3")]))])
+    recorded = next(r.content for m in client.requests[-1]["messages"] for r in m.results if r.call.name == "record_hypothesis")
+    assert recorded["recorded"] > 0 and any("as press" in n for n in recorded["read_differently"])
 
 
 def test_a_new_plan_closes_a_routine_held_at_a_stop(tmp_path):
@@ -742,3 +766,57 @@ def test_a_new_plan_closes_a_routine_held_at_a_stop(tmp_path):
                                                   say(call("finish_run", summary="x"))], robot=Robot({"c1": ["failed"]}))
     assert not errors_told(client) and report.coverage.intermittent == ["c1"] and report.coverage.passed == ["c2", "c3"]
     assert any("has been closed" in str(r.content) for m in client.requests[-1]["messages"] for r in m.results)
+
+
+# --- check-back --------------------------------------------------------------------------------
+
+def _step(sid, skill, target, *checks):
+    return Step(id=sid, skill=skill, target=target, check=[{"metric": m, "op": "changed"} for m in checks])
+
+
+def test_check_back_wants_outputs_checked_on_every_change_and_a_read_back_after_a_group():
+    from rav_harness.checkback import missing_checkback
+    bare = missing_checkback([_step("s1", "press", "c1")], {})
+    assert len(bare) == 1 and "checks none of the device's outputs" in bare[0]
+    own = missing_checkback([_step("s1", "press", "c1", "reading:R_c1")], {"c1": {"R_c1"}})
+    assert "other than R_c1, which c1 drives" in own[0]  # the part's own channel proves it moved, not what the device did
+    assert missing_checkback([_step("s1", "press", "c1", "lcd")], {}) == []  # one change, checked where it shows: a retest needs no more
+    two = [_step("s1", "press", "c1", "lcd"), _step("s2", "press", "c2", "reading:R_c1")]
+    assert "after s2: the plan ends on changes it never checks back" in missing_checkback(two, {})[0]
+    assert missing_checkback([*two, _step("s3", "observe", "d1", "lcd")], {}) == []
+    many = [_step(f"s{n}", "press", f"c{n}", "lcd") for n in range(1, 8)] + [_step("s9", "observe", "d1", "lcd")]
+    assert any("s1 to s6: 6 changes in a row" in p for p in missing_checkback(many, {}))
+    blind = [*two, _step("s3", "press", "c1", "lcd")]  # nothing to observe: repeating an earlier step reads it back
+    assert missing_checkback(blind, {}, can_observe=False) == [] and missing_checkback(blind, {}, can_observe=True)
+    assert missing_checkback([_step("s1", "observe", "d1"), _step("s2", "none", "c1")], {}) == []
+
+
+def test_closing_state_differences_name_what_changed():
+    from rav_harness.checkback import differences, state_of
+    first = state_of([Control(id="t", kind="toggle", pos_mm=(0, 0, 0), normal=(0, 0, 1), on=False)], {"lcd": "OFF", "mode": 0})
+    now = state_of([Control(id="t", kind="toggle", pos_mm=(0, 0, 0), normal=(0, 0, 1), on=True)], {"lcd": "OFF", "mode": 2})
+    assert differences(first, now) == ["mode: 0 at the start, 2 now", "t on: False at the start, True now"]
+
+
+def test_a_plan_without_check_back_is_refused_and_the_run_closes_with_a_look_compared_to_the_first(tmp_path):
+    checked = [{"id": "s1", "skill": "press", "target": "c1", "check": [{"metric": "lcd", "op": "changed"}]},
+               {"id": "s2", "skill": "press", "target": "c2", "check": [{"metric": "reading:R_c1", "op": "==", "value": 1, "source": "s1 left it at 1"}]},
+               {"id": "s3", "skill": "press", "target": "c1", "check": [{"metric": "reading:R_c2", "op": "==", "value": 1, "source": "s2 left it at 1"}]}]
+    report, events, client, robot = go(tmp_path, [say(call("look_at_device")), say(call("propose_plan", steps=steps("c1", "c2"))),
+                                                  say(call("propose_plan", steps=checked)), say(call("run_plan")),
+                                                  say(call("finish_run", summary="x")), say(call("look_at_device")), say(call("finish_run", summary="x")),
+                                                  say(call("finish_run", summary="The readings stay where the presses left them."))],
+                                       robot=Robot(controls=("c1", "c2")), config=AgentConfig(check_back=True))
+    told = list(dict.fromkeys(errors_told(client)))
+    assert "s1: press c1 changes something but checks none of the device's outputs" in told[0] and "never checks back" in told[0]
+    assert "Look at the device once more before finishing" in told[1]
+    assert "isn't as the first look found it" in told[2] and "R_c1: 0 at the start, 1 now" in told[2]
+    assert len(told) == 3 and robot.explores == 2 and events[-1].payload["status"] == "completed"
+    assert "Closing look differs from the first: R_c1: 0 at the start, 1 now" in report.summary
+    stats = next(e.payload["checkback"] for e in events if e.type == "message" and "checkback" in e.payload)
+    assert stats["plans_refused"] == 1 and stats["closing_looks"] == 1 and stats["closing_differences"] == 2
+
+
+def test_check_back_is_in_the_prompt_and_on_by_default():
+    assert AgentConfig().check_back and AgentConfig().max_tokens == 600_000
+    assert "Check back" in prompts.SYSTEM and "closing look" in prompts.SYSTEM

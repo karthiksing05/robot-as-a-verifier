@@ -8,6 +8,9 @@ wiki-docs.json carries docs/device-theory.md and docs/devices.md to the wiki, wi
 harness/config/model_rounds.json says which folders in runs/ make up each round, and what each round tests. Runs are
 git-ignored, so the file this writes is what the page shows and what gets committed. It only summarises: every number
 comes from a round's results.json (and, for reasoning text, its event logs), never from anything typed in by hand.
+
+Credits and dollars come from the model ledger: a run's calls are the ledger rows with its label inside the time its event
+log covers (labels repeat across rounds), priced by config/model_prices.json. Dollars use the table's assumed rate.
 """
 from __future__ import annotations
 
@@ -17,6 +20,8 @@ import pathlib
 import statistics
 import time
 from typing import Any
+
+from .ledger import LEDGER, PRICES, Ledger, load_prices, run_spend, usd_per_credit
 
 SYSTEM_2 = pathlib.Path(__file__).resolve().parents[3]
 CONFIG = SYSTEM_2 / "harness" / "config" / "model_rounds.json"
@@ -54,8 +59,37 @@ def _load(round_: dict, runs: pathlib.Path) -> list[dict]:
                 continue
             seen.add(key)
             r["_folder"] = runs / name
+            r["_dir"] = runs / name / (r.get("run_id") or f"{r.get('model')}-{r.get('scenario')}")
             rows.append(r)
     return rows
+
+
+def _window(run_dir: pathlib.Path, slack_s: float = 10.0) -> tuple[float, float] | None:
+    """Wall-clock span of a run: its event log was last written at the end, and its last event says how long it took."""
+    path = run_dir / "events.jsonl"
+    if not path.is_file():
+        return None
+    lines = [line for line in path.read_text().splitlines() if line.strip()]
+    took = json.loads(lines[-1]).get("t", 0) if lines else 0
+    end = path.stat().st_mtime
+    return end - took - slack_s, end + slack_s
+
+
+def run_calls(r: dict, ledger_rows: list[dict]) -> list[dict]:
+    """The ledger rows of one run: its label, inside its own time span."""
+    span = _window(r["_dir"]) if r.get("_dir") else None
+    if span is None:
+        return []
+    label = r["_dir"].name
+    return [x for x in ledger_rows if x.get("run") == label and span[0] <= x.get("at", 0) <= span[1]]
+
+
+def _priced(rows: list[dict], spend: dict[str, dict]) -> dict[str, Any]:
+    per_run = [spend[id(r)] | {"run": r["_dir"].name} for r in rows if id(r) in spend]
+    credits = sum(x["credits"] for x in per_run)
+    rate = usd_per_credit()
+    return {"credits": round(credits, 4), "usd": round(credits * rate, 4), "unpriced_calls": sum(x["unpriced_calls"] for x in per_run),
+            "per_run": [{k: x[k] for k in ("run", "calls", "tokens", "credits", "usd")} for x in per_run]}
 
 
 def soft_row(model: str, rows: list[dict], fault_scenarios: list[str]) -> dict[str, Any]:
@@ -105,21 +139,29 @@ def eval_row(model: str, rows: list[dict]) -> dict[str, Any]:
     }
 
 
-def build(config: dict, runs: pathlib.Path) -> dict[str, Any]:
+def build(config: dict, runs: pathlib.Path, ledger_rows: list[dict] | None = None) -> dict[str, Any]:
+    ledger_rows = Ledger(LEDGER).rows() if ledger_rows is None else ledger_rows
+    prices, rate = load_prices(), usd_per_credit()
     rounds = []
     for round_ in config["rounds"]:
         rows = _load(round_, runs) if round_.get("folders") else []
+        spend = {id(r): run_spend(run_calls(r, ledger_rows), prices, rate) for r in rows}
         out_rows = []
         for model in [*config["models"], config["baseline"]]:
             mine = [r for r in rows if r.get("model") == model]
             if not mine:
                 continue
             row = soft_row(model, mine, round_.get("fault_scenarios", [])) if round_["kind"] == "soft" else eval_row(model, mine)
+            row |= _priced(mine, spend)
             row["baseline"] = model == config["baseline"]
             row["reasoning"] = None if row["baseline"] else config.get("reasoning", {}).get(model)
             out_rows.append(row)
-        rounds.append({k: round_.get(k) for k in ("id", "title", "status", "date", "kind", "test_set", "spend", "takeaway")} | {"rows": out_rows})
-    return {"generated": time.strftime("%Y-%m-%d"), "route": config.get("route"), "models": config["models"], "rounds": rounds}
+        credits = sum(x["credits"] for x in spend.values())
+        cost = {"tokens": sum(x["tokens"] for x in spend.values()), "credits": round(credits, 4), "usd": round(credits * rate, 4)} if rows else None
+        rounds.append({k: round_.get(k) for k in ("id", "title", "status", "date", "kind", "test_set", "spend", "takeaway")} | {"cost": cost, "rows": out_rows})
+    table = json.loads(PRICES.read_text()) if PRICES.is_file() else {}
+    pricing = {"unit": "Snowflake AI credits", "source": table.get("source"), "usd_per_credit": rate, "usd_is": "an assumption: $%.2f per AI credit" % rate}
+    return {"generated": time.strftime("%Y-%m-%d"), "route": config.get("route"), "models": config["models"], "pricing": pricing, "rounds": rounds}
 
 
 DOCS = SYSTEM_2.parent / "docs"

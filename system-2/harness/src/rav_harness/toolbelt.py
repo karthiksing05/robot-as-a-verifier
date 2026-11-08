@@ -16,6 +16,7 @@ from pydantic import ValidationError
 from rav_contracts import (DEVICE_CONTROL, Check, Checkpoint, Control, Decision, EscalationPolicy, Plan, Report, RoutineHandle, SceneInventory,
                            Step, StepOutcome, StepVerdict, SystemStatus, TestRequest, check_steps)
 
+from . import checkback as cb
 from .amendments import APPROVE, classify
 from .client import ToolFailed
 from .commands import log_crossing, wait_for_stop
@@ -28,6 +29,16 @@ from .trace import ToolRejected, Tracer
 from .verdicts import findings_from, settle
 
 Ask = Callable[[str], str | None]
+CHECKLIST_SHOWN = 25  # untested keys shown on a stop
+
+
+def _hypothesis_schema() -> dict:
+    from .theory import hypothesis_schema
+
+    return hypothesis_schema()
+
+
+HYPOTHESIS_SCHEMA = _hypothesis_schema()
 SAME_PLACE_MM = 30.0  # after a look, a control this close to where the layout says it was is the same control
 FORCE_POINTS = 40
 STAGE = {"look_at_device": "MAP", "get_scene": "MAP", "get_status": "MAP", "recover": "MAP", "read_manual": "PLAN", "record_hypothesis": "PLAN", "propose_plan": "PLAN",
@@ -110,6 +121,17 @@ class ToolBelt:
         self.operator_note: str | None = None
         self.turn: str | None = None
         self.images: list[Image] = []
+        # check-back (checkback.py): on for every model run; off only where a test asks
+        self.check_back = True
+        self.own: dict[str, set[str]] = {}  # control (first id) -> the channels its verdicts say it drives
+        self.first_state: dict[str, Any] | None = None  # the first completed look
+        self.first_readings: dict[str, Any] = {}  # each reading as first seen, before anything changed it
+        self.changes_since_look = 0
+        self.closing_tried = False
+        self.closing_nudged = False
+        self.side_effects: list[str] = []
+        self.checkback = {"plans_refused": 0, "output_checks_failed": 0, "checkbacks_run": 0, "checkbacks_failed": 0, "closing_looks": 0,
+                          "closing_differences": 0}
 
     # --- the model's view ------------------------------------------------------------------------
 
@@ -139,9 +161,10 @@ class ToolBelt:
                 "page": {"type": "integer", "description": "Page number"}, "query": {"type": "string", "description": "Words to search for"}}}),
             ToolSpec("get_evidence", "A trace or image, by a reference from a stop or the scene. Ask only when the summary isn't enough.", {
                 "type": "object", "properties": {"ref": {"type": "string"}}, "required": ["ref"]}),
-            ToolSpec("record_hypothesis", "Records what you believe the device is, from the manual and the scan, and returns the checklist of "
-                     "properties worth testing on it. Plan from the checklist; it isn't a plan, and you can test more.", {
-                "type": "object", "properties": {"hypothesis": {"type": "object", "description": (
+            ToolSpec("record_hypothesis", "Records what you believe the device is, from the manual and the scan, and derives a checklist of "
+                     "properties worth testing on it. You get its keys; get_status and each stop list the ones still untested. Plan from it; "
+                     "it isn't a plan, and you can test more.", {
+                "type": "object", "properties": {"hypothesis": {**HYPOTHESIS_SCHEMA, "description": (
                     "controls [{id, label, primitive: press|turn|flip|slide|push_latch|hook_pull|pick|place, returns: momentary|latching|continuous, "
                     "range {low, high, unit, direction}}], indicators [{id, label, kind: text_display|light|led|beeper|flag, shows [state], vocabulary [messages]}], "
                     "mechanisms [{id, kind: hinge|slide|latch|spring, rest, operated_by}], containers [{id, kind, accepts [object ids], sensed}], objects [{id, fits}], "
@@ -208,7 +231,9 @@ class ToolBelt:
         return {"robot": self.status.robot, "state": self.status.state, "now": self._plan_state(),
                 "actions": [a.model_dump(mode="json", exclude_none=True) for a in self.status.actions],
                 "max_force_n": self.status.max_force_n, "check_metrics": self.status.check_metrics,
-                "progress": self.progress(), "readings_seen": self.readings, "needs_recovery": self.needs_recovery, "scene_stale": self.scene_stale}
+                "progress": self.progress(), "readings_seen": self.readings, "needs_recovery": self.needs_recovery, "scene_stale": self.scene_stale,
+                **({"checklist_untested": [{"key": t.key, "test": t.statement, "evidence": t.oracle, **({"after": t.blocked_by} if t.blocked_by else {})}
+                                           for t in self.intents if t.key in set(self.untested(None))]} if self.intents else {})}
 
     def _scene_view(self) -> dict:
         if self.scene is None:
@@ -279,17 +304,49 @@ class ToolBelt:
         return notes
 
     def _look(self) -> dict:
+        if self.changes_since_look and self.first_state is not None:
+            self.closing_tried = True
+            self.checkback["closing_looks"] += 1
         self.handle = self._inner("routine_start", {"routine": "explore"}, lambda: self.system1.routine_start("explore", policy=self.policy))
         view = self._wait()
         if view["status"] == "completed":
             report = self.system1.scene_get()
             notes = self._adopt_scene(report.scene, report.fallback_plan)
+            self.changes_since_look = 0
+            if self.first_state is None:
+                self.first_state = self._scene_state()
             view.pop("device_may_have_moved", None)
             view.pop("scene_stale", None)
             view.update(self._scene_view())
             if notes:
                 view["layout"] = notes
         return view
+
+    def _scene_state(self) -> dict[str, Any]:
+        controls = [c.model_copy(update={"id": self.canon.get(c.id, c.id)}) for c in (self.scene.controls if self.scene else []) if c.id != DEVICE_CONTROL]
+        return cb.state_of(controls, {})
+
+    def closing_differences(self) -> list[str]:
+        """The latest look and readings against the first: what the run has left changed."""
+        if self.first_state is None:
+            return []
+        first = {**self.first_state, **cb.state_of([], self.first_readings)}
+        now = {**self._scene_state(), **cb.state_of([], {k: v for k, v in self.readings.items() if k in self.first_readings})}
+        return cb.differences(first, now)
+
+    def _closing_refusal(self) -> str | None:
+        """(iii): the run ends with a look compared with the first, and the device back where it started, or the reason."""
+        if not self.check_back or self.operator_note or self.needs_recovery or self.first_state is None:
+            return None
+        if self.changes_since_look and not self.closing_tried:
+            return ("Look at the device once more before finishing (look_at_device): the closing look is compared with the first, so the report "
+                    "says what this run left changed. Then call finish_run again.")
+        diffs = self.closing_differences()
+        if diffs and not self.closing_nudged:  # once: then finishing anyway is the model's call, and the report lists them
+            self.closing_nudged = True
+            return (f"The device isn't as the first look found it: {'; '.join(diffs[:12])}. Return it to its starting state with a plan "
+                    "(and check it back), then look again; or call finish_run again and say in the summary why it stays this way.")
+        return None
 
     def tool_look_at_device(self) -> dict:
         self._guard_idle("looking again")
@@ -332,9 +389,21 @@ class ToolBelt:
         problems = [*(malformed or []), *check_steps(steps, self.scene.controls, self.status.actions)]
         problems += [f"{s.id}: the operator asked not to test {s.target}" for s in steps if self.canon.get(s.target, s.target) in self.skipped_by_operator]
         problems += unsourced_bounds(steps)
+        if self.check_back:
+            missing = cb.missing_checkback(steps, {s.target: self.own.get(self.canon.get(s.target, s.target), set()) for s in steps},
+                                           [c.id for c in self.scene.controls if self.canon.get(c.id, c.id) in {v.target for v in self.verdicts}],
+                                           self._can_observe())
+            if missing:
+                self.checkback["plans_refused"] += 1
+                self.log.emit("message", {"role": "harness", "text": f"check-back missing: {len(missing)} problems", "checkback_missing": missing})
+            problems += missing
         if problems:
             kind = "unknown_target" if all("no control called" in p for p in problems) else "bad_args"
             raise ToolRejected(kind, "Nothing moved. Fix these and send the steps again:\n" + "\n".join(problems))
+
+    def _can_observe(self) -> bool:
+        kinds = {c.kind for c in (self.scene.controls if self.scene else []) if c.id != DEVICE_CONTROL}
+        return any(a.skill == "observe" and (not a.kinds or kinds & set(a.kinds)) for a in self.status.actions)
 
     def _level(self, steps: list[Step], remaining: list[Step]) -> int:
         """Plain code grades the change against what a person approved. Moving the device always needs a person."""
@@ -423,6 +492,33 @@ class ToolBelt:
                 return verdict.model_copy(update={"status": "failed", "label": "wrong_feedback", "reason": f"{verdict.reason}. Expected {said}"})
         return verdict
 
+    def _note_checkback(self, step: Step, first: str, verdict: StepVerdict, summary, trace) -> None:
+        own = self.own.setdefault(first, set())
+        for channel, values in trace.readout_change.items():  # what each reading was before anything changed it
+            if values:
+                self.first_readings.setdefault(channel, values[0])
+        if not cb.changes(step):
+            snapshot = trace.measures.get("readings")
+            for channel, value in (snapshot.items() if isinstance(snapshot, dict) else []):
+                self.first_readings.setdefault(channel, value)
+            if trace.measures.get("lcd") is not None:
+                self.first_readings.setdefault("lcd", trace.measures["lcd"])
+        failed = {c.metric for c in summary.checks if c.passed is False}
+        outputs = {c.metric for c in cb.output_checks(step, own | ({verdict.channel} if verdict.channel else set()))}
+        if step.skill == "observe" and outputs:
+            self.checkback["checkbacks_run"] += 1
+            self.checkback["checkbacks_failed"] += bool(failed & outputs)
+        elif cb.changes(step) and verdict.status != "inconclusive":
+            self.changes_since_look += 1
+            self.closing_tried = False
+            self.checkback["output_checks_failed"] += bool(failed & outputs) and verdict.status == "passed"  # it moved, and the device showed it wrong
+            checked = {c.metric.removeprefix("reading:") for c in step.check}
+            for channel, values in trace.readout_change.items():
+                if channel != verdict.channel and channel not in checked and len(values) > 1 and values[0] != values[-1]:
+                    self.side_effects.append(f"{step.id} ({step.skill} {first}) also changed {channel}: {values[0]} -> {values[-1]}")
+        if verdict.channel:
+            own.add(verdict.channel)
+
     def _reading(self, metric: str) -> Any:
         return self.readings.get(metric.removeprefix("reading:"))
 
@@ -449,6 +545,7 @@ class ToolBelt:
             self.log.emit("step_started", step.model_copy(update={"target": first}))
             trace = self.system1.evidence_get(summary.trace_ref)
             judged = self._judge_checks(step, summary, verdict).model_copy(update={"target": first})
+            self._note_checkback(step, first, verdict, summary, trace)
             self._note_readings(trace)
             event = self.log.emit("step_finished", StepOutcome(trace=trace, verdict=verdict.model_copy(update={"target": first})))
             self.verdicts.append(judged)
@@ -525,6 +622,8 @@ class ToolBelt:
             view["escalation"] = stop.escalation.model_dump(mode="json", exclude_none=True)
         view["remaining"] = [s.id for s in self.queue]
         view["progress"] = self.progress()
+        if self.intents:
+            view["checklist_untested"] = self.untested()
         if self.suspect:
             view["device_may_have_moved"] = self.suspect
         if self.scene_stale:
@@ -591,19 +690,31 @@ class ToolBelt:
             return self._look()
         return view
 
-    def tool_record_hypothesis(self, hypothesis: Any = None) -> dict:
+    def tool_record_hypothesis(self, hypothesis: Any = None, **rest: Any) -> dict:
         from . import theory
 
+        if hypothesis is None and rest:  # sent without the wrapper
+            hypothesis = rest
         try:
-            h = theory.DeviceHypothesis.model_validate(hypothesis if isinstance(hypothesis, dict) else {})
-        except ValidationError as e:
-            raise ToolRejected("bad_args", "That hypothesis doesn't fit the schema. Fix these and send it again:\n" + str(e)[:1500]) from e
+            h, repaired = theory.parse_hypothesis(hypothesis)
+        except ValueError as e:
+            raise ToolRejected("bad_args", f"That hypothesis can't be read: {str(e)[:600]}. Send an object with controls, indicators, state, "
+                               "relations and procedures, per the schema.") from e
         self.intents = theory.derive_tests(h)
         unknown = sorted(c.id for c in h.controls if self.scene and c.id not in {x.id for x in self.scene.controls})
-        self.log.emit("message", {"role": "harness", "text": f"hypothesis recorded: {len(self.intents)} properties to test"})
-        return {"checklist": [{"key": t.key, "test": t.statement, "evidence": t.oracle, **({"after": t.blocked_by} if t.blocked_by else {})} for t in self.intents],
-                "note": "Put a step's checklist keys in its tests. Untested isn't passed: a property behind a failed one is blocked, not passed.",
+        self.log.emit("message", {"role": "harness", "text": f"hypothesis recorded: {len(self.intents)} properties to test",
+                                  "checklist": [t.model_dump(mode="json") for t in self.intents], "repaired": repaired})
+        return {"recorded": len(self.intents), "untested": [t.key for t in self.intents],
+                "note": "Keys read property:subject. Put a step's keys in its tests. get_status explains any key; each stop lists those still untested. "
+                        "Untested isn't passed, and a property behind a failed one is blocked, not passed.",
+                **({"read_differently": repaired[:15] + ([f"and {len(repaired) - 15} more"] if len(repaired) > 15 else [])} if repaired else {}),
                 **({"not_in_the_scene": unknown} if unknown else {})}
+
+    def untested(self, limit: int | None = CHECKLIST_SHOWN) -> list[str]:
+        if not self.intents:
+            return []
+        keys = self.checklist().untested
+        return keys if limit is None else keys[:limit] + ([f"... {len(keys) - limit} more"] if len(keys) > limit else [])
 
     def checklist(self) -> Any:
         """What the checklist's properties add up to, from the steps that named them."""
@@ -646,6 +757,9 @@ class ToolBelt:
                 raise ToolRejected("refused", f"{len(open_)} checklist properties have no evidence yet: {', '.join(open_[:20])}"
                                    f"{' …' if len(open_) > 20 else ''}. Test the ones a user would rely on, or call finish_run again to finish, "
                                    "saying in the summary which you left and why.")
+        closing = self._closing_refusal()
+        if closing:
+            raise ToolRejected("refused", closing)
         claims = {i: str(c.get("status")) for i, c in said.items() if c.get("status")}
         self.log.emit("message", {"role": "model", "text": summary, "claims": claims})
         if self.intents:
@@ -705,9 +819,23 @@ class ToolBelt:
             self.log.emit("scene_ready", SceneInventory(controls=[c for c in self.controls.values() if c.id != DEVICE_CONTROL], notes=["every control across the run's looks"]))
         cov = coverage(self.controls.values(), about_device)
         score = reward(cov)
+        summary = (f"{len(cov.passed)} of {cov.detected} controls passed, {len(cov.failed)} failed, {len(cov.intermittent)} intermittent, "
+                   f"{len(cov.inconclusive)} inconclusive, {len(cov.skipped)} skipped. Reward {score.value:.2f}.")
+        if self.check_back and self.first_state is not None:
+            diffs = self.closing_differences()
+            self.checkback["closing_differences"] = len(diffs)
+            if self.changes_since_look and not self.closing_tried:
+                summary += " No closing look: the device's state at the end wasn't compared with the start."
+            elif self.changes_since_look:
+                summary += " The closing look didn't complete."
+            else:
+                summary += (f" Closing look differs from the first: {'; '.join(diffs)}." if diffs else " Closing look: the device is as the first look found it.")
+            if self.side_effects:
+                summary += f" Side effects: {'; '.join(self.side_effects[:12])}{' …' if len(self.side_effects) > 12 else ''}."
+            self.log.emit("message", {"role": "harness", "text": "check-back: " + ", ".join(f"{k.replace('_', ' ')} {v}" for k, v in self.checkback.items()),
+                                      "checkback": {**self.checkback, "side_effects": len(self.side_effects)}})
         report = Report(run_id=self.log.run_id, product=self.request.product, revision=self.request.revision, findings=findings, coverage=cov, reward=score,
-                        summary=(f"{len(cov.passed)} of {cov.detected} controls passed, {len(cov.failed)} failed, {len(cov.intermittent)} intermittent, "
-                                 f"{len(cov.inconclusive)} inconclusive, {len(cov.skipped)} skipped. Reward {score.value:.2f}."))
+                        summary=summary)
         self.log.emit("report_ready", report)
         self.log.write_report(report)
         self.log.emit("run_finished", {"status": status})

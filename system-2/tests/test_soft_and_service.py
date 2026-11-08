@@ -7,7 +7,7 @@ import urllib.request
 
 import pytest
 from rav_contracts import Control, Frame, Report, StepTrace
-from rav_harness.agent import run_agent, sim_auto_approve
+from rav_harness.agent import AgentConfig, run_agent, sim_auto_approve
 from rav_harness.eval import _truth_map, score, summarize
 from rav_harness.launch import Device, System1Process, _env, server_command
 from rav_harness.ledger import Budget, Ledger
@@ -15,6 +15,8 @@ from rav_harness.model import ModelReply, ScriptedModel, call
 from rav_harness.runlog import RunLog, read_events
 from rav_harness.service import ORIGINS, Hub, Service, at_recording_time, available_models, manual_of, merge_timeline, project_of
 from rav_harness.soft import SCENARIOS, format_table, number_png, run_round_one, run_scenario
+
+PLAIN = AgentConfig(max_turns=30, max_tokens=120_000, check_back=False)  # scripted plans here test other rules; check-back has its own tests
 
 CONSOLE = next(iter(ORIGINS))
 
@@ -75,13 +77,13 @@ class Thorough:
 
 @pytest.mark.parametrize("scenario", [s.name for s in SCENARIOS if s.name != "image_read"])
 def test_a_sensible_model_scores_full_marks(tmp_path, scenario):
-    record = run_scenario(by_name(scenario), "thorough", tmp_path, Ledger(tmp_path / "l.jsonl"), make=lambda m: Thorough())
+    record = run_scenario(by_name(scenario), "thorough", tmp_path, Ledger(tmp_path / "l.jsonl"), PLAIN, make=lambda m: Thorough())
     assert record["score"] == 1.0, record
 
 
 def test_reading_the_image_is_needed_for_full_marks(tmp_path):
     def run(summary):
-        return run_scenario(by_name("image_read"), "thorough", tmp_path, Ledger(tmp_path / "l.jsonl"), make=lambda m: Thorough(summary))
+        return run_scenario(by_name("image_read"), "thorough", tmp_path, Ledger(tmp_path / "l.jsonl"), PLAIN, make=lambda m: Thorough(summary))
     assert run("The display shows 4729.")["score"] == 1.0
     assert run("I couldn't read it.")["checks"]["read_the_number"] is False
 
@@ -97,7 +99,7 @@ def test_a_careless_model_loses_marks(tmp_path):
               say(call("propose_plan", steps=[{"id": "a", "skill": "press", "target": "p1", "check": [{"metric": "reading:RUN", "op": "==", "value": "1", "source": "manual"}]},
                                               {"id": "b", "skill": "press", "target": "p2"}, {"id": "c", "skill": "press", "target": "p3"}])), say(call("run_plan")),
               say(call("answer_stop", kind="continue")), say(call("finish_run", summary="x"))]
-    record = run_scenario(by_name("plan_from_manual"), "careless", tmp_path, Ledger(tmp_path / "l.jsonl"), make=lambda m: ScriptedModel(script))
+    record = run_scenario(by_name("plan_from_manual"), "careless", tmp_path, Ledger(tmp_path / "l.jsonl"), PLAIN, make=lambda m: ScriptedModel(script))
     assert record["checks"]["no_false_findings"] is False and record["score"] < 1.0
 
 
@@ -106,7 +108,7 @@ def test_a_provider_that_breaks_scores_zero_and_the_round_goes_on(tmp_path):
         if model == "broken":
             raise RuntimeError("no such model")
         return Thorough()
-    done = run_round_one(["broken", "thorough"], tmp_path, make=make, ledger=Ledger(tmp_path / "l.jsonl"), scenarios=[by_name("false_alarm")])
+    done = run_round_one(["broken", "thorough"], tmp_path, make=make, ledger=Ledger(tmp_path / "l.jsonl"), scenarios=[by_name("false_alarm")], config=PLAIN)
     rows = {r["model"]: r for r in done["summary"]}
     assert rows["broken"]["crashes"] == 1 and rows["thorough"]["score"] == 1.0 and "thorough" in format_table(done["summary"])
     assert json.loads((tmp_path / done["folder"] / "results.json").read_text())["summary"]
@@ -115,7 +117,7 @@ def test_a_provider_that_breaks_scores_zero_and_the_round_goes_on(tmp_path):
 def test_the_budget_stops_a_round_before_it_starts_a_run(tmp_path):
     ledger = Ledger(tmp_path / "l.jsonl")
     budget = Budget(0.0, ledger, {"thorough": {"input": 1.0, "output": 1.0}})
-    done = run_round_one(["thorough"], tmp_path, budget=budget, make=lambda m: Thorough(), ledger=ledger, scenarios=[by_name("false_alarm")])
+    done = run_round_one(["thorough"], tmp_path, budget=budget, make=lambda m: Thorough(), ledger=ledger, scenarios=[by_name("false_alarm")], config=PLAIN)
     assert not done["results"] and "budget" in done["stopped"]
 
 
@@ -178,7 +180,7 @@ def test_two_real_processes_over_the_network(tmp_path):
                   say(call("run_plan")), say(call("finish_run", summary="fine"))]
         client = ScriptedModel(script)
         log = RunLog("two", tmp_path)
-        report = run_agent(system1, __import__("rav_contracts").TestRequest(request_id="two", product="p"), log, client, approve=sim_auto_approve)
+        report = run_agent(system1, __import__("rav_contracts").TestRequest(request_id="two", product="p"), log, client, approve=sim_auto_approve, config=PLAIN)
         assert report.coverage.passed == ["button_1", "button_2", "button_3"]
         events = read_events(log.path)
         told = [r.content.get("error", "") for m in client.requests[3]["messages"] for r in m.results]
@@ -199,7 +201,7 @@ def test_two_real_processes_over_the_network(tmp_path):
     log = RunLog("gone", tmp_path)
     try:
         from rav_harness.agent import AgentConfig
-        report = run_agent(system1, __import__("rav_contracts").TestRequest(request_id="gone", product="p"), log, client, approve=sim_auto_approve, config=AgentConfig(max_turns=4))
+        report = run_agent(system1, __import__("rav_contracts").TestRequest(request_id="gone", product="p"), log, client, approve=sim_auto_approve, config=AgentConfig(max_turns=4, check_back=False))
         assert (tmp_path / "gone/report.json").is_file() and isinstance(report, Report)
         bad = [e.payload for e in read_events(log.path) if e.type == "tool_call" and not e.payload["ok"]]
         assert bad and bad[0]["layer"] == "pipeline"
@@ -226,7 +228,7 @@ def service(tmp_path):
         client = ScriptedModel(made["script"], "scripted")
         made["client"] = client
         return client
-    s = Service(tmp_path, port=0, make=make)
+    s = Service(tmp_path, port=0, make=make, config=PLAIN)
     s.made = made
     threading.Thread(target=s.serve, daemon=True).start()
     yield s

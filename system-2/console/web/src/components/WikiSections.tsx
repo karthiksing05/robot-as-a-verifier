@@ -3,7 +3,7 @@
 import { Fragment, useState } from "react";
 import { JOURNEY, type Stage } from "../lib/journey";
 import { GALLERY, splitLabel } from "../lib/gallery";
-import { demoHref, fmtRatio, fmtScore, fmtShare, fmtTokens, loadResults, modelName, pieceName, sections, tiedOnScore, type Round } from "../lib/wikidata";
+import { demoHref, fmtCredits, fmtRatio, fmtScore, fmtShare, fmtTokens, fmtUsd, loadResults, modelName, pieceName, sections, tiedOnScore, type Round } from "../lib/wikidata";
 
 const data = import.meta.glob("../data/{model-results,wiki-docs}.json", { import: "default", eager: true }) as Record<string, unknown>;
 const RESULTS = loadResults(data["../data/model-results.json"]);
@@ -46,7 +46,7 @@ function RoundTable({ round }: { round: Round }) {
       <div className="tablewrap wikitable">
         <table className="modeltable">
           <thead>
-            <tr><th>Model</th><th>Score</th><th>Faults found</th><th>False findings</th><th>Coverage</th><th>Recovered</th><th>Tokens</th><th>Median turn</th><th>Tool errors</th><th>Reasoning</th><th>Runs</th></tr>
+            <tr><th>Model</th><th>Score</th><th>Faults found</th><th>False findings</th><th>Coverage</th><th>Recovered</th><th>Tokens</th><th>Credits</th><th>Dollars*</th><th>Median turn</th><th>Tool errors</th><th>Reasoning</th><th>Runs</th></tr>
           </thead>
           <tbody>
             {round.rows.map((r) => (
@@ -58,6 +58,8 @@ function RoundTable({ round }: { round: Round }) {
                 <td className="n">{fmtShare(r.coverage)}</td>
                 <td className="n">{fmtRatio(r.recovered, r.recovery_tries)}</td>
                 <td className="n"><span className="tokbar" style={{ "--w": r.tokens / maxTokens } as React.CSSProperties}>{r.baseline ? "–" : fmtTokens(r.tokens)}</span></td>
+                <td className="n">{r.baseline ? "–" : fmtCredits(r.credits)}</td>
+                <td className="n">{r.baseline ? "–" : fmtUsd(r.usd)}</td>
                 <td className="n">{r.median_turn_s === null ? "–" : `${r.median_turn_s.toFixed(1)} s`}</td>
                 <td className="n">{r.baseline ? "–" : r.tool_errors}</td>
                 <td className="note">{r.baseline ? "–" : r.reasoning_chars > 0 ? "Returned" : r.reasoning ?? "None returned"}</td>
@@ -67,6 +69,18 @@ function RoundTable({ round }: { round: Round }) {
           </tbody>
         </table>
       </div>
+      {round.cost && (
+        <p className="note">
+          Round total: {fmtTokens(round.cost.tokens)} tokens, {fmtCredits(round.cost.credits)} AI credits, {fmtUsd(round.cost.usd)}.
+          {RESULTS.pricing && ` *Dollars assume $${RESULTS.pricing.usd_per_credit.toFixed(2)} per AI credit, an assumption; credits are from ${RESULTS.pricing.source ?? "Snowflake's price table"}.`}
+        </p>
+      )}
+      {round.rows.filter((r) => r.per_run.length && !r.baseline).map((r) => (
+        <details key={`cost-${r.model}`} className="misses">
+          <summary className="note">{modelName(r.model)}: cost per run ({r.per_run.length})</summary>
+          <ul className="plainlist note">{r.per_run.map((x) => <li key={x.run}>{x.run}: {fmtTokens(x.tokens)} tokens, {fmtCredits(x.credits)} credits, {fmtUsd(x.usd)}</li>)}</ul>
+        </details>
+      ))}
       {misses.map((r) => (
         <details key={r.model} className="misses">
           <summary className="note">What {modelName(r.model)} missed ({r.missed.length})</summary>

@@ -3,8 +3,9 @@
     rav spend                 the total, per model
     rav eval --budget-usd 20  stops before starting a run that could cross the cap
 
-Prices aren't assumed. They come from a table anyone can edit (config/model_prices.json), per million tokens. A model with
-no price is reported in tokens, and costs nothing here only because nobody has said what it costs.
+Prices come from a table anyone can edit (config/model_prices.json): Snowflake AI credits per million tokens, and one
+dollar rate per credit, which is an assumption and says so. A model with no price is reported in tokens, and costs nothing
+here only because nobody has said what it costs.
 """
 from __future__ import annotations
 
@@ -25,6 +26,16 @@ def wire_name(model: str) -> str:
     return model.split(":", 1)[-1]
 
 
+USD_PER_CREDIT = 2.0  # used only if the table doesn't say
+
+
+def usd_per_credit(path: pathlib.Path = PRICES) -> float:
+    """Dollars per AI credit: an assumption kept in the price table, not a quoted price."""
+    if not path.is_file():
+        return USD_PER_CREDIT
+    return float(json.loads(path.read_text()).get("usd_per_credit") or USD_PER_CREDIT)
+
+
 def load_prices(path: pathlib.Path = PRICES) -> dict[str, dict]:
     if not path.is_file():
         return {}
@@ -32,7 +43,8 @@ def load_prices(path: pathlib.Path = PRICES) -> dict[str, dict]:
 
 
 def cost_of(row: dict, prices: dict[str, dict]) -> float | None:
-    """US dollars for one call, or None if there's no price. Cached input costs its own rate when the table has one."""
+    """AI credits for one call, or None if there's no price. The ledger's input includes cache reads and writes, so those
+    come off before the plain input rate applies; each costs its own rate when the table has one."""
     price = prices.get(wire_name(row["model"]))
     if price is None:
         return None
@@ -68,7 +80,7 @@ class Totals:
     input: int = 0
     output: int = 0
     cached: int = 0
-    cost: float = 0.0
+    cost: float = 0.0  # AI credits
     unpriced_calls: int = 0
     latency_ms: float = 0.0
 
@@ -94,17 +106,30 @@ def totals(rows: list[dict], prices: dict[str, dict]) -> dict[str, Totals]:
     return out
 
 
-def spend_table(ledger: Ledger | None = None, prices: dict[str, dict] | None = None) -> str:
+def spend_table(ledger: Ledger | None = None, prices: dict[str, dict] | None = None, rate: float | None = None) -> str:
     rows = (ledger or Ledger()).rows()
     prices = load_prices() if prices is None else prices
+    rate = usd_per_credit() if rate is None else rate
     all_totals = totals(rows, prices)
-    lines = [f"{'model':<34}{'calls':>7}{'input':>11}{'cached':>11}{'output':>10}{'avg s':>8}{'USD':>10}"]
+    lines = [f"{'model':<34}{'calls':>7}{'input':>11}{'cached':>11}{'output':>10}{'avg s':>8}{'credits':>10}{'USD':>10}"]
     for name, t in sorted(all_totals.items()):
-        usd = f"{t.cost:.4f}" if not t.unpriced_calls else "no price"
-        lines.append(f"{name:<34}{t.calls:>7}{t.input:>11}{t.cached:>11}{t.output:>10}{t.latency_ms / max(1, t.calls) / 1000:>8.1f}{usd:>10}")
+        credits, usd = (f"{t.cost:.4f}", f"{t.cost * rate:.4f}") if not t.unpriced_calls else ("no price", "")
+        lines.append(f"{name:<34}{t.calls:>7}{t.input:>11}{t.cached:>11}{t.output:>10}{t.latency_ms / max(1, t.calls) / 1000:>8.1f}{credits:>10}{usd:>10}")
     unpriced = sum(t.unpriced_calls for t in all_totals.values())
-    lines.append(f"total: {sum(t.tokens for t in all_totals.values())} tokens, ${sum(t.cost for t in all_totals.values()):.4f}" + (f", plus {unpriced} calls with no price" if unpriced else ""))
+    credits = sum(t.cost for t in all_totals.values())
+    lines.append(f"total: {sum(t.tokens for t in all_totals.values())} tokens, {credits:.4f} credits, ${credits * rate:.4f} at an assumed ${rate:.2f} per credit"
+                 + (f", plus {unpriced} calls with no price" if unpriced else ""))
     return "\n".join(lines)
+
+
+def run_spend(rows: list[dict], prices: dict[str, dict] | None = None, rate: float | None = None) -> dict:
+    """Tokens, credits and dollars for a set of ledger rows (one run, or a round)."""
+    prices = load_prices() if prices is None else prices
+    rate = usd_per_credit() if rate is None else rate
+    costs = [cost_of(r, prices) for r in rows]
+    credits = sum(c or 0 for c in costs)
+    return {"calls": len(rows), "tokens": sum((r.get("input") or 0) + (r.get("output") or 0) + (r.get("thinking") or 0) for r in rows),
+            "credits": round(credits, 4), "usd": round(credits * rate, 4), "unpriced_calls": sum(c is None for c in costs)}
 
 
 class Budget:
@@ -112,9 +137,10 @@ class Budget:
     a margin; before anything's been measured, a conservative guess from the token cap."""
 
     def __init__(self, budget_usd: float | None = None, ledger: Ledger | None = None, prices: dict[str, dict] | None = None, no_price_ok: bool = False,
-                 token_cap: int | None = None, first_run_tokens: int = 60_000, margin: float = 1.5):
+                 token_cap: int | None = None, first_run_tokens: int = 60_000, margin: float = 1.5, rate: float | None = None):
         self.budget_usd, self.ledger, self.no_price_ok, self.token_cap = budget_usd, ledger or Ledger(), no_price_ok, token_cap
         self.prices = load_prices() if prices is None else prices
+        self.rate = usd_per_credit() if rate is None else rate  # dollars per credit
         self.first_run_tokens, self.margin = first_run_tokens, margin
 
     def _worst_run(self, model: str) -> tuple[float | None, int]:
@@ -124,13 +150,13 @@ class Budget:
                 per_run.setdefault(str(row.get("run")), []).append(row)
         if not per_run:
             return None, self.first_run_tokens
-        costs = [sum(cost_of(r, self.prices) or 0 for r in rows) for rows in per_run.values()]
+        costs = [sum(cost_of(r, self.prices) or 0 for r in rows) * self.rate for rows in per_run.values()]
         tokens = [sum((r.get("input") or 0) + (r.get("output") or 0) + (r.get("thinking") or 0) for r in rows) for rows in per_run.values()]
         return max(costs), max(tokens)
 
     def spent(self) -> tuple[float, int]:
         rows = self.ledger.rows()
-        return sum(cost_of(r, self.prices) or 0 for r in rows), sum((r.get("input") or 0) + (r.get("output") or 0) + (r.get("thinking") or 0) for r in rows)
+        return sum(cost_of(r, self.prices) or 0 for r in rows) * self.rate, sum((r.get("input") or 0) + (r.get("output") or 0) + (r.get("thinking") or 0) for r in rows)
 
     def refuse(self, model: str) -> str | None:
         """Why this run mustn't start, or None."""
@@ -146,7 +172,7 @@ class Budget:
                 return f"{tokens} tokens used and a run could add {worst_tokens * self.margin:.0f}: over the cap of {self.token_cap}"
             return None
         if worst_cost is None:
-            worst_cost = self.first_run_tokens * max(price["input"], price["output"]) / 1e6
+            worst_cost = self.first_run_tokens * max(price["input"], price["output"]) / 1e6 * self.rate
         if spent + worst_cost * self.margin > self.budget_usd:
             return f"${spent:.2f} spent and a run could add ${worst_cost * self.margin:.2f}: over the ${self.budget_usd:.2f} budget"
         return None
