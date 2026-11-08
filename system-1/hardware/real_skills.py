@@ -146,7 +146,14 @@ def grip_turn(arm, p, plane, angle, wrist=None, snap=None):
             break
         seen.T = seen.T.copy()
         seen.T[:3, 3] = axis + top * n
-        pos, why = touch.locate(wrist.capture(), seen, plane, segmodels.sam_boxes())
+        # as tuned (hw_rig widens touch's fit for presses' last looks): with the wide fit the first look moved 9.6 mm,
+        # where the tuned looks had corrected about 4 mm in all, and the grip fumbled
+        tuned, touch.SHRINK, touch.RADIUS_TOL, touch.FIT_FROM_OUTLINE = (
+            (touch.SHRINK, touch.RADIUS_TOL, touch.FIT_FROM_OUTLINE), 0.6, 0.0015, False)
+        try:
+            pos, why = touch.locate(wrist.capture(), seen, plane, segmodels.sam_boxes())
+        finally:
+            touch.SHRINK, touch.RADIUS_TOL, touch.FIT_FROM_OUTLINE = tuned
         if pos is None:
             print(f"  look {k}: {why}")
             break

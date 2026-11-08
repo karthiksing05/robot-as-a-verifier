@@ -122,6 +122,12 @@ def _connect(args):
     return McpSystem1(args.url)
 
 
+def _operator_ran_it(kind: str, ref: str) -> str:
+    """rav run on a real arm: the operator chose the plan by running it (its rules, cut by --only), so it isn't asked
+    again; the plan is still printed. A model's plans (rav agent) still wait for _person_here."""
+    return "the operator who ran rav run"
+
+
 def _person_here(kind: str, ref: str) -> str | None:
     """On a real arm, the person at this terminal approves each plan and change, after seeing its steps."""
     return "terminal" if input(f"Approve {kind} {ref} on the real arm? Type yes: ").strip().lower() == "yes" else None
@@ -173,7 +179,7 @@ def run(args) -> None:
         log = RunLog(run_id, args.runs, on_event=_show_steps if real else None)
         policy, respond = _survey_review(args, system1, log)
         try:
-            _print(run_test(system1, request, log, planner=_only(args.only, args.angle), approve=_person_here if real else auto_approve,
+            _print(run_test(system1, request, log, planner=_only(args.only, args.angle), approve=_operator_ran_it if real else auto_approve,
                             policy=policy, respond=respond))
         finally:
             _save_frames(system1, system1.scene_get().scene.frames, log.dir / "frames")
