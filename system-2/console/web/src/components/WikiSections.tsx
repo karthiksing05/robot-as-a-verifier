@@ -4,6 +4,7 @@ import { Fragment, useState } from "react";
 import { JOURNEY, type Stage } from "../lib/journey";
 import { GALLERY, splitLabel } from "../lib/gallery";
 import { chartPanels, demoHref, fmtCredits, fmtRatio, fmtScore, fmtShare, fmtTokens, fmtUsd, loadResults, modelName, logDomain, pieceName, sections, tiedOnScore, type Round } from "../lib/wikidata";
+import { previewOf } from "../lib/previews";
 
 const data = import.meta.glob("../data/{model-results,wiki-docs}.json", { import: "default", eager: true }) as Record<string, unknown>;
 export const RESULTS = loadResults(data["../data/model-results.json"]);
@@ -250,27 +251,49 @@ export function DeviceTheory() {
   );
 }
 
-export function Devices() {
+const deviceId = (c: (typeof GALLERY)[number]) => c.id ?? c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+/** The benchmark devices as a short list, grouped by split. Each opens on its own page. */
+export function DeviceList() {
   if (!DOCS.devices) return <Waiting doc="docs/devices.md" />;
-  const intro = sections(DOCS.devices, 3).intro;
+  const splits = [...new Set(GALLERY.map((c) => splitLabel(c.split) ?? "Other"))];
   return (
     <>
-      <Md lines={intro} />
-      <div className="devicegrid">
-        {GALLERY.map((c) => (
-          <article key={c.id ?? c.name} className="devicecard" id={c.id ? `device-${c.id}` : undefined}>
-            <header><b>{c.name}</b>{c.split && <span className={`pill ${c.heldOut ? "skipped" : "observed"}`}>{splitLabel(c.split)}</span>}</header>
-            {c.revisions.length > 0 && <div><span className="label">Revisions</span><div className="chips">{c.revisions.map((r) => <span key={r} className="chip">{r}</span>)}</div></div>}
-            <Md lines={c.body} />
-            {c.controls.length > 0 && <div><span className="label">Controls</span><div className="chips">{c.controls.map((x) => <span key={x} className="chip">{x}</span>)}</div></div>}
-            {c.theory.length > 0 && <div><span className="label">Theory it exercises</span><div className="chips">{c.theory.map((x) => <span key={x} className="chip accent" title={x}>{pieceName(x)}</span>)}</div></div>}
-            {c.planted && <details className="planted"><summary className="label">Planted faults</summary><p><Inline text={c.planted} /></p></details>}
-            {c.extra.length > 0 && <dl className="kv">{c.extra.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd><Inline text={v} /></dd></Fragment>)}</dl>}
-            {c.heldOut && <p className="note">Held out for scoring, so its faults aren't shown.</p>}
-            <a className="devicerun" href={demoHref(c)}>Run it in the Demo →</a>
-          </article>
-        ))}
-      </div>
+      <p>Simulated appliances, each with a manual, planted faults in Rev A and their fixes in Rev B. Dev devices are for tuning, validation devices check that tuning generalises, and held-out devices are only run for final results.</p>
+      {splits.map((split) => (
+        <div key={split} className="devicegroup">
+          <span className="label">{split}</span>
+          <ul className="devicelist">
+            {GALLERY.filter((c) => (splitLabel(c.split) ?? "Other") === split).map((c) => (
+              <li key={deviceId(c)}><a href={`#/methodology/devices/${deviceId(c)}`}><span className="thumb">{previewOf(c.project ?? c.id) && <img src={previewOf(c.project ?? c.id)} alt="" loading="lazy" />}</span><b>{c.name}</b><span className="note">{c.controls.length} controls</span></a></li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </>
+  );
+}
+
+/** One benchmark device, on its own page. */
+export function DeviceDetail({ id }: { id: string }) {
+  const c = GALLERY.find((d) => deviceId(d) === id);
+  const back = <a className="note" href="#/methodology/devices">← All devices</a>;
+  if (!c) return <>{back}<p>No device called {id}.</p></>;
+  return (
+    <>
+      {back}
+      <article className="devicecard devicepage">
+        <header><b>{c.name}</b>{c.split && <span className={`pill ${c.heldOut ? "skipped" : "observed"}`}>{splitLabel(c.split)}</span>}</header>
+        {previewOf(c.project ?? c.id) && <img className="devicepic" src={previewOf(c.project ?? c.id)} alt="" />}
+        <Md lines={c.body} />
+        {c.revisions.length > 0 && <div><span className="label">Revisions</span><div className="chips">{c.revisions.map((r) => <span key={r} className="chip">{r}</span>)}</div></div>}
+        {c.controls.length > 0 && <div><span className="label">Controls</span><div className="chips">{c.controls.map((x) => <span key={x} className="chip">{x}</span>)}</div></div>}
+        {c.theory.length > 0 && <div><span className="label">Theory it exercises</span><div className="chips">{c.theory.map((x) => <span key={x} className="chip accent" title={x}>{pieceName(x)}</span>)}</div></div>}
+        {c.planted && <details className="planted"><summary className="label">Planted faults</summary><p><Inline text={c.planted} /></p></details>}
+        {c.extra.length > 0 && <dl className="kv">{c.extra.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd><Inline text={v} /></dd></Fragment>)}</dl>}
+        {c.heldOut && <p className="note">Held out for scoring, so its faults aren't shown.</p>}
+        <a className="devicerun" href={demoHref(c)}>Run it in the Demo →</a>
+      </article>
     </>
   );
 }
