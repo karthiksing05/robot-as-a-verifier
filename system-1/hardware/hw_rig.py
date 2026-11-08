@@ -67,7 +67,9 @@ def make_rig(arm_port, calibration, app=None, pad=None, readout_port=None):
         # the fit starts from SAM's outline, and may move the press 8 mm: on STOP's scan photos, from a belief 8 mm off,
         # that found the button in 3 more of 16 tries and never did worse, and the fits that found something else
         # landed 9.6 mm and more from the button
-        touch.FIT_FROM_OUTLINE, touch.SHIFT_MAX = True, 0.008
+        # From the scan's position (no longer the shifted one) the looks moved presses 0.6-3.7 mm; a 6.2 mm move up the
+        # slope on TIME+ missed while 1.7 clicked, so a look may move a press 5 mm at most
+        touch.FIT_FROM_OUTLINE, touch.SHIFT_MAX = True, 0.005
         touch.LOOK_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "last_looks")
     except BaseException:
         arm.close()  # no readout or no camera: let the serial ports go
