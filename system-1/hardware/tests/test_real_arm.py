@@ -39,7 +39,10 @@ def _setup(pace=False):
     w = world.build_world(None)
     sim = robot.SimArm(world=w, slop=True, sensing="current")
     bus = fake_bus.make(sim, TMP)
-    return w, sim, bus, real_arm.RealArm(bus, app=sim.app, pace=pace)
+    arm = real_arm.RealArm(bus, app=sim.app, pace=pace)
+    arm.table_z, arm.workspace, arm.standoff = sim.table_z, sim.workspace, sim.standoff  # the sim's desk and camera
+    arm.noise_n = arm.noise_axial = sim.noise_n  # the sim servos' noise, not the real arm's floor
+    return w, sim, bus, arm
 
 
 def _raises(exc, f, *args):
