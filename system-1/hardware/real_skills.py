@@ -1,6 +1,8 @@
 """The real arm's flip, knob turns and gripper, as the hardware session ran them on the centrifuge from tools/press_part.py,
 for that tool and for RealBackend: a toggle flipped in four straight moves, and a round knob gripped between the jaws and
 twisted by rolling the wrist. The operator says what each did. Constants are measured on the real arm (Nov 8)."""
+import copy
+
 import numpy as np
 
 import affordances
@@ -24,6 +26,34 @@ GRIP_LOOKS = 4  # looks from above the knob before going down  # a knob grip: op
 KNOB_GAP, KNOB_IN = 0.004, 0.001  # a knob turn comes down this far off its side, then presses this far into it
 FLIP_HOVER = 0.015  # above the push's start: 30 mm along the tilted axis was out of reach
 FLIP_BEHIND, FLIP_ON = 0.015, 0.003  # 6 mm back still came down on the lever tip (held 11 mm up)
+
+
+LEVER_MIN_H, LEVER_R = 0.014, 0.002  # a lever's tip stands this far up at least; its radius (the toggle readings: 1.5-2.7 mm)
+
+
+def lever_from_points(p, plane, shift=None):
+    """A switch the scan read as something else (a knob) and the model named a switch, as a toggle flip() can plan: the
+    lever's tip is its highest measured point, its lean (x) the way that tip leans from the hinge (the part's origin).
+    On the real POWER switch that came within 4-6 mm of the toggle readings' tips, leaning the same way. None when the
+    highest point is under LEVER_MIN_H: one reading's was 6.8 mm, the base alone, and leaned the wrong way. shift is
+    RealArm.part_shift, which moved the part but not its points."""
+    n, o = plane[:3, 2], plane[:3, 3]
+    pts = np.asarray(p.points if p.points is not None else np.zeros((0, 3)))
+    if not len(pts) or ((pts - o) @ n).max() < LEVER_MIN_H:
+        return None
+    tip = pts[np.argmax((pts - o) @ n)]
+    if shift is not None:
+        tip = tip + shift - (shift @ n) * n
+    lean = (tip - p.pos) - ((tip - p.pos) @ n) * n
+    if np.linalg.norm(lean) < 1e-3:
+        return None
+    x = lean / np.linalg.norm(lean)
+    q = copy.deepcopy(p)
+    q.T = q.T.copy()
+    q.T[:3, :3] = np.c_[x, np.cross(n, x), n]
+    q.kind = "toggle"
+    q.meta = {**p.meta, "tip": tip, "lever_radius": LEVER_R, "lever_len": float(np.linalg.norm(tip - p.pos)) + LEVER_R}
+    return q
 
 
 def slope_swing(p):
