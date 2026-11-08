@@ -139,7 +139,8 @@ class RealArm(rig.ArmBase):
     # edge). Hand touches read more, but the arm flexes under a hand; the last look agrees with the scan to 1-3.5 mm
     # Run 54: 2.4 mm more down the slope (x reaches it at 0.68 per mm); with no +y, all three buttons clicked only on the
     # 4 mm search toward +y, so the 3 mm toward +y stays
-    part_shift = np.array([-0.009, 0.003, -0.00225])
+    # Run 58, the centrifuge 58 mm nearer: presses landed at the cap's top edge, so 3 mm more down the slope
+    part_shift = np.array([-0.0135, 0.003, -0.00225])
     # presses come in 40% of the way from the panel's normal to straight down: along the normal the jaw slid off a tilted
     # button's cap, halfway the gripper met the panel's lower edge first. A second last look 18 mm out leaves less travel
     # to err. TIME+ clicked with these (Nov 8)
