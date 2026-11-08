@@ -14,8 +14,8 @@ workflow:
     - {skill: flip, target: toggle_1, expect: {readings: {power: 1}, state: idle, lcd: "0C 0RPM"}}
     - {skill: turn, target: dial_2, params: {angle: -60}, expect: {changed: [stir, motor], state: stirring, lcd: "0C [1-9]00RPM"}}
     - {skill: turn, target: dial_1, params: {angle: -60}, expect: {changed: [heat], state: heating, ring: red, readings: {heater: 1, hot: 1}}}
-    - {skill: turn, target: dial_2, params: {angle: 70}, expect: {readings: {stir: 0, motor: 0}, state: heating}}
-    - {skill: turn, target: dial_1, params: {angle: 62}, expect: {readings: {heat: 0, heater: 0, hot: 1}, state: warm, ring: red, lcd: "0C 0RPM"}}
+    - {skill: turn, target: dial_2, params: {angle: 60}, expect: {readings: {stir: 0, motor: 0}, state: heating}}
+    - {skill: turn, target: dial_1, params: {angle: 60}, expect: {readings: {heat: 0, heater: 0, hot: 1}, state: warm, ring: red, lcd: "0C 0RPM"}}
     - {skill: flip, target: toggle_1, expect: {readings: {power: 0, hot: 1}, state: cooling, ring: red, lcd: ""}}
     - {wait_s: 31, expect: {readings: {hot: 0}, state: dark, ring: "off"}}
 
@@ -63,7 +63,7 @@ faults:
       - {drop_object: {name: beaker_1, into: well_1}, expect: {readings: {vessel: 1}}}
       - {skill: flip, target: toggle_1, expect: {readings: {power: 1}, state: idle}}
       - {skill: turn, target: dial_2, params: {angle: -60}, expect: {state: stirring, changed: [motor]}}
-      - {skill: turn, target: dial_2, params: {angle: 70}, expect: {readings: {stir: 0, motor: 0}, state: idle}}
+      - {skill: turn, target: dial_2, params: {angle: 60}, expect: {readings: {stir: 0, motor: 0}, state: idle}}
     fails_at: 3
   F4f:  # the firmware alone: the operator seats the beaker and sets the switch and dial by hand
     rev: "F1=B,F2=B,F3=B,F4=A"
