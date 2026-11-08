@@ -47,6 +47,12 @@ def make_rig(arm_port, calibration, app=None, pad=None, readout_port=None):
         # as a dial or toggle and the review named it POWER or SPEED. The real POWER read 21 mm off the row at most
         rgbperceive.ROW_MAX = 0.03
         rgbperceive.SAVE_CAPS = "last_caps.pkl"  # in the folder rav-server runs in
+        if os.environ.get("RAV_SURVEY"):  # a saved scan's survey in place of a new one: 4 surveys in 6 put the panel 15-40 mm off
+            import pickle
+
+            survey = pickle.load(open(os.environ["RAV_SURVEY"], "rb"))[0]  # last_caps.pkl's (survey, views, captures)
+            rgbperceive.survey_wrist = lambda arm, wrist, on_frame=None: survey
+            print(f"Survey from {os.environ['RAV_SURVEY']}: panel centre (mm) {(survey['panel'][:3, 3] * 1000).round().tolist()}")
         # the arm's own poses and the survey's plane, always: three views never had enough features to fit poses and
         # their presses landed; five did, and fitted a plane 10 mm off under SPEED (4 of 49 features on it)
         rgbperceive.MIN_TRACKS = 10**9
