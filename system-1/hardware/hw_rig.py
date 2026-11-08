@@ -50,7 +50,8 @@ def make_rig(arm_port, calibration, app=None, pad=None, readout_port=None):
         # good centrifuge surveys: normal z 0.65-0.74, 84-101 points on the panel, 156 mm long. Bad ones fitted the panel and
         # the box's front as one plane (z 0.34: the views went low), had 27 points (113 in all: the views scanned air), or cut
         # the panel to 108 mm (SPEED lost); one 15 mm off drove the jaw into the buttons. A doubtful survey is taken again
-        rgbperceive.SURVEY_TRIES, rgbperceive.SURVEY_CHECK = 3, ((0.55, 0.85), 60, 0.13)
+        # (normal z 0.54 was refused 3 times with the centrifuge 58 mm nearer, Nov 8: 0.45 still refuses the 0.34 one)
+        rgbperceive.SURVEY_TRIES, rgbperceive.SURVEY_CHECK = 3, ((0.45, 0.88), 60, 0.13)
         # the arm's own poses and the survey's plane, always: three views never had enough features to fit poses and
         # their presses landed; five did, and fitted a plane 10 mm off under SPEED (4 of 49 features on it)
         rgbperceive.MIN_TRACKS = 10**9
