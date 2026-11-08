@@ -27,8 +27,24 @@ def load_models():
     import segmodels
 
     t0 = time.monotonic()
-    segmodels.owl(), segmodels.sam_boxes(), segmodels.sam_auto()
+    segmodels.owl(), segmodels.sam_boxes()  # not SAM's automatic masks: hw_rig turns them off
     print(f"OWLv2 and SAM loaded on {segmodels.DEVICE} in {time.monotonic() - t0:.0f} s", flush=True)
+
+
+def live_view(wrist, status):
+    """A window with the wrist camera's newest frame at half size, the gripper's mask outlined, and status(), as
+    tools/scan_check.py shows. It reads frames only, never the arm, so it runs beside the scan."""
+    import cv2
+    import rgbperceive
+
+    while True:
+        bgr, _ = wrist.grab.read()
+        img = cv2.resize(bgr, None, fx=0.5, fy=0.5)
+        cv2.polylines(img, [rgbperceive._gripper(img.shape[1])], True, (0, 200, 255), 2)
+        for color, width in (((0, 0, 0), 5), ((255, 255, 255), 2)):
+            cv2.putText(img, status(), (12, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, width)
+        cv2.imshow("System 1: wrist camera", img)
+        cv2.waitKey(80)
 
 
 class RealBackend(PipelineRobot):
@@ -44,8 +60,11 @@ class RealBackend(PipelineRobot):
 
         rig = hw_rig.make_rig(arm_port, calibration, readout_port=readout_port)
         super().__init__(rig, refine=refine, plan_id="rules-real")
-        self.rest, self.closing = None, threading.Lock()
+        self.rest, self.closing, self.stage = None, threading.Lock(), "idle"
         threading.Thread(target=load_models, daemon=True).start()  # while the operator checks the arm, not mid-scan
+        if hasattr(getattr(rig.wrist, "grab", None), "read"):  # the real camera's stream (not the sim's, nor a test's)
+            status = lambda: f"{self.stage} | {self.arm.status}"  # noqa: E731
+            threading.Thread(target=live_view, args=(rig.wrist, status), daemon=True).start()
 
     def enable(self) -> None:
         """Torque on, holding where the arm rests now, which close() comes back to."""
@@ -58,6 +77,7 @@ class RealBackend(PipelineRobot):
         def on_stage(name, scene=None):  # each stage of the scan in this terminal, as it starts
             views = f" ({len(scene.views)} views so far)" if name == "scan" and getattr(scene, "views", None) else ""
             print(f"  scan {time.monotonic() - t0:5.1f} s: {name}{views}", flush=True)
+            self.stage = f"scan {time.monotonic() - t0:.0f} s: {name}"
             if telemetry:
                 telemetry(name, scene)
         self.on_stage = on_stage
@@ -65,6 +85,7 @@ class RealBackend(PipelineRobot):
             super().perceive()
         finally:
             self.on_stage = telemetry
+        self.stage = f"scanned: {len(self.parts)} parts"
         print(f"  scan {time.monotonic() - t0:5.1f} s: done, {len(self.parts)} parts: "
               + ", ".join(f"{p.id} ({p.kind})" for p in self.parts), flush=True)
         with open(LAST_SCAN, "wb") as f:  # the whole scan, to work out offline what it saw and why

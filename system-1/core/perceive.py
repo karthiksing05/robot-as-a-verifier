@@ -307,7 +307,7 @@ def plan_views(arm, surv):
             why = ""
             if err > 1e-3:
                 why = f"camera {err * 1000:.0f} mm short of its pose"
-            elif clear < MIN_TIP_CLEAR:
+            elif clear < (getattr(arm, "tip_clear", None) or MIN_TIP_CLEAR):
                 why = f"probe tip only {clear * 1000:.0f} mm off the panel"
             if not why:
                 break

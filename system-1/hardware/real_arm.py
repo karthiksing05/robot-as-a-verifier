@@ -105,7 +105,10 @@ class RealArm(rig.ArmBase):
     # each photo's pose comes from the joint readings, so a view needn't be met to 0.5 mm: re-commanding to that took
     # ~3 s a photo on this stick-slip arm
     view_tol = 0.01
-    view_looks = [(0.0, -0.05), (0.0, 0.0), (0.0, 0.05)]  # the middle row only: one 14 cm view nearly covers a panel
+    # one pass, five views across: each view sees 12 cm across the panel (the camera is rolled), so 25 mm steps put every
+    # control from the POWER switch to the SPEED dial (+-50 mm) in at least two views, and no second pass is needed
+    view_looks = [(0.0, d) for d in (-0.05, -0.025, 0.0, 0.025, 0.05)]
+    tip_clear = 0.02  # the jaw tip may come this close to the panel in a scan view: at 30 mm the views at one end failed by 1-3 mm
     # wrist_roll at home, so views and presses start from it: -90 deg puts the camera on top of the gripper, centred,
     # instead of 7 cm to its side (same views in reach); the gripper then sits along the bottom of the picture
     home_roll = np.radians(-90)  # camera on top; +90 (under) pointed the survey away from the panel

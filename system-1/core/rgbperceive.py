@@ -56,6 +56,9 @@ PX_WIDTH = 1920         # the frame width the pixel constants here are for; othe
 PANEL_INSET = 0.008     # panel features come from the survey's panel rectangle shrunk this much (off the housing)
 THREADS = 4             # captures (SIFT) and candidates (height sweep) at once: cv2 and numpy let go of the GIL
 FK_TOL_PX = 135         # a pair whose panel matches land this far from where the believed poses put them: a wild fit
+EXTRA_VIEWS = True      # a second pass of views on candidates fewer than two views saw (hw_rig turns it off: one pass)
+SAM_AUTO = True         # SAM's automatic masks as candidates' sub-parts (hw_rig turns it off: the real centrifuge's
+                        # scan found the same parts without it, in 9 s instead of 43)
 FLAT_BUTTONS = False    # real-rig rules (hw_rig sets it): round button-sized outlines are buttons even when their height
                         # reads flat (dark glossy tops give the sweep little texture) or knob-tall, and extra views
                         # chase only candidates on the panel
@@ -150,7 +153,7 @@ def perceive_rgb(arm, phone, wrist, on_stage=None, on_frame=None, on_survey=None
         scene.views += new
         return scan(arm, wrist, scene.views, on_frame, first=len(scene.views) - len(new))
 
-    analyse(scene, caps, stage, more)
+    analyse(scene, caps, stage, more if EXTRA_VIEWS else None)
     stage("done")
     return scene
 
@@ -615,7 +618,7 @@ def candidates(img, survey, owl_min=0.05):
     import segmodels  # torch and transformers load only when perceive_rgb runs
     boxes, scores, _ = segmodels.owl()(img, threshold=owl_min)
     masks, _ = segmodels.sam_boxes()(img, boxes)
-    auto = _sam_auto(segmodels)(img)[0]
+    auto = _sam_auto(segmodels)(img)[0] if SAM_AUTO else []
     segmodels.torch.cuda.empty_cache()  # the card is shared: hand back what the masks took, keep the weights
     H, W = img.shape[:2]
     big = 0.4 * np.prod(np.ptp(np.reshape(survey["extent"], (2, 2)), axis=1)) / CELL ** 2
