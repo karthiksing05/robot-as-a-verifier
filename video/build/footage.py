@@ -29,23 +29,54 @@ def warp(clip, pts):
 # §1 the cold open: erase at 1.75×, write RAAV at 2×, then the take's own push-in at 2×
 COLD = [(0.0, 6.0, 0.0, 1.75), (6.0, 10.25, 10.5, 2.0), (10.25, 13.4, 21.0, 1.6)]
 for a, b, c0, sp in COLD: seg(a, b, "intro", c0, sp)
-# §3 the demo
-seg(S["never"] - 0.2, s3, "clean_3d", 0.0, 0.6)
-warp("clean_3d", [(s3, 1.0), (S["wrist"], 25.9), (S["finds"], 59.06), (S["touches"], 63.9), (S["model"], 110.0)])
-seg(S["model"], S["then"], "ui_plan_approval", 3.6, (11.4 - 3.6) / (S["then"] - S["model"]), zoom=[1.7, 0, 880])
-seg(S["then"], S["display"], "clean_3d_test_1x", 0.0, 1.0)
-seg(S["display"], S["lid"], "clean_3d_test_1x", t1x(169.01) - 1.5, 0.6, hold=t1x(169.01))
-seg(S["lid"], S["lidui"], "clean_3d_test_1x", t1x(211.49) - 1.0, 0.6, hold=t1x(211.49))
-seg(S["lidui"], S["there"], "ui_live_lid_skip", 2.6, 1.0, zoom=[1.8, 0, 860])
-seg(S["there"], S["test"], "ui_design_analysis", 3.6, (10.8 - 3.6) / (S["test"] - S["there"]))
-seg(S["test"], s4, "clean_3d_revB_test_2x", 4.0, 1.0)
-# §5 behind the scenes
-seg(s5, S["software"] + 2.0, "broll/studies_scroll", 0.0, 1.0)
-seg(S["software"] + 2.0, S["hardware"], "broll/run_log", 0.5, 1.0)
-seg(S["hardware"], S["hardware"] + (S["as_"] - S["hardware"]) / 2, "ui_design_analysis", 0.0, 1.0)
-seg(S["hardware"] + (S["as_"] - S["hardware"]) / 2, S["as_"], "ui_report", 0.0, 1.0)
-seg(S["as_"], S["end"], "clean_3d_test_1x", 120.0, 0.5)
-json.dump({"segments": SEG, "steps": S}, open("segments.json", "w"), indent=1)
+# Tours: scripted Console sessions (tour.mjs), each click logged. Each is time-warped so its clicks land on their cues.
+def tour(name):
+    return json.load(open(f"{FOOT}/tour/{name}.json"))
+def click_t(log, label): return next(e["t"] for e in log if e.get("label") == label)
+CAM, CURSOR, CLICKS = [], [], []
+def lay_tour(clip, log, pts):
+    """pts: (video time, tour time) pairs, increasing. Footage, camera, cursor and clicks all go through the same warp."""
+    warp(clip, pts)
+    def v_of(tt):
+        for (a, ta), (b, tb) in zip(pts, pts[1:]):
+            if ta <= tt <= tb: return a + (tt - ta) * (b - a) / (tb - ta)
+        return None
+    prev_box, moving = [0, 0, 1920, 1080], False
+    CAM.append([round(pts[0][0], 3), prev_box])
+    for e in log:
+        v = v_of(e["t"])
+        if v is None: continue
+        if e["kind"] == "move":
+            CURSOR.append([round(v, 3), round(e["x"]), round(e["y"])])
+            if not moving:  # moving to the next target: widen to keep the cursor in view
+                moving = True
+                nxt = next((x for x in log if x["kind"] == "click" and x["t"] > e["t"]), None)
+                if nxt:
+                    x0, y0, w0, h0 = prev_box; cx, cy = nxt["x"], nxt["y"]
+                    l, t_, r, bt = min(x0, cx - 120), min(y0, cy - 80), max(x0 + w0, cx + 120), max(y0 + h0, cy + 80)
+                    CAM.append([round(v, 3), [l, t_, r - l, bt - t_]])
+        elif e["kind"] == "click":
+            moving = False
+            CLICKS.append([round(v, 3), round(e["x"]), round(e["y"])])
+            prev_box = e["box"]
+            CAM.append([round(v + 0.15, 3), prev_box])
+        elif e["kind"] == "mark":
+            prev_box = e["box"]; CAM.append([round(v, 3), prev_box])
+
+# §3 the demo, on the Rev A run page, then Design Analysis, then the Rev B run
+D = tour("demo")
+c = lambda l: click_t(D, l) - 0.35
+lay_tour("tour/demo", D, [(S["never"] - 0.3, 1.0), (s3, c("speed 4x")), (S["wrist"], c("stage scan")), (S["finds"], c("stage segment")),
+    (T("touches", s3) - 0.8, c("node map")), (S["touches"], c("stage touch")), (S["model"], c("node plan")), (T("person", s3), c("node approved")),
+    (S["then"], c("stage test")), (T("capped", s3), c("node s1")), (S["display"], c("node F1")), (S["lid"], c("fit")), (T("pinch", S["lid"]), c("node s7")),
+    (S["there"], c("tab CAD")), (T("propose", S["there"]), c("rev B")), (T("approve", S["there"]), c("fix F2")), (S["test"], click_t(D, "rev B run") + 0.6),
+    (T("fix", S["test"]), c("stage test B")), (s4, c("stage test B") + 4.0)])
+# §5 behind the scenes, under the case studies
+B = tour("scenes")
+lay_tour("tour/scenes", B, [(s5, 0.5), (S["end"] - 0.6, B[-1]["t"] + 1.5)])
+seg(S["end"] - 0.6, S["end"] + 0.1, "clean_3d_test_1x", 120.0, 0.5)
+
+json.dump({"segments": SEG, "steps": S, "cam": CAM, "cursor": CURSOR, "clicks": CLICKS}, open("segments.json", "w"))
 
 need = {}
 for a, b, clip, c0, sp, hold, _ in SEG:

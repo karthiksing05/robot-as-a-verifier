@@ -15,6 +15,7 @@ function el(tag, cls, html, parent, style = "") { const n = document.createEleme
 const show = (n, o, dy = 0) => { n.style.opacity = o; n.style.transform = `translateY(${(1 - o) * dy}px)`; };
 
 let WORDS = [], CAPS = [], LAY = null, CLIPS = {}, DUR = 165;
+const CUT = 12.6; // the hard cut from the real board to the drawn one
 const norm = (w) => w.replace(/[^\w-]/g, "").toLowerCase();
 function T(word, after = 0) {
   const w = WORDS.find((x) => x.s >= after - 0.01 && norm(x.w).startsWith(word.toLowerCase()));
@@ -146,9 +147,6 @@ function seekChalk(t, turn) {
   const lift = ramp(t, turn, turn + 1.4);
   $("ink").setAttribute("opacity", 1 - lift * 0.95);
   $("ink").setAttribute("transform", `translate(0 ${-lift * 40})`);
-  // RAAV starts where the take left it (big, center), then rises to the top of the board
-  const k = eio(ramp(t, 12.7, 13.9)), sc = lerp(1.9, 1, k), cx = 990, cy = 225;
-  SC.raav.setAttribute("transform", `translate(${lerp(1024 - cx, 0, k)} ${lerp(495 - cy, 0, k)}) translate(${cx} ${cy}) scale(${sc}) translate(${-cx} ${-cy})`);
   const tip = pointAt(t);
   const armIn = ramp(t, T("this") - 0.2, T("this") + 0.6);
   armShape($("armchalk"), tip, "chalk", armIn * (1 - ramp(t, turn + 0.3, turn + 0.9)));
@@ -162,13 +160,13 @@ function seekChalk(t, turn) {
 }
 
 /* ───────────── footage ───────────── */
-async function setFrame(src, filter = "none", zoom = null) {
+async function setFrame(src, filter = "none", zoom = null, cam = null) {
   const img = $("footage");
   if (!src) { img.style.display = "none"; return; }
   img.style.display = "block";
   img.style.filter = filter;
-  img.style.transformOrigin = zoom ? `${zoom[1]}px ${zoom[2]}px` : "50% 50%";
-  img.style.transform = zoom ? `scale(${zoom[0]})` : "none";
+  if (cam) { img.style.transformOrigin = "0 0"; img.style.transform = `translate(${960 - cam.cx * cam.s}px, ${540 - cam.cy * cam.s}px) scale(${cam.s})`; }
+  else { img.style.transformOrigin = zoom ? `${zoom[1]}px ${zoom[2]}px` : "50% 50%"; img.style.transform = zoom ? `scale(${zoom[0]})` : "none"; }
   if (img.getAttribute("src") !== src) { img.setAttribute("src", src); try { await img.decode(); } catch { } }
 }
 function frameOf(clip, sec) {
@@ -176,6 +174,35 @@ function frameOf(clip, sec) {
   if (!c) return null;
   const n = Math.max(1, Math.min(c.frames, Math.floor(sec * FPS) + 1));
   return `../out/frames/${c.dir}/${String(n).padStart(5, "0")}.jpg`;
+}
+
+/* ───────────── a user's view of the Console: the camera follows the clicks, and a cursor ───────────── */
+function camOf(box) {
+  const [x, y, w, h] = box, s = clamp(Math.min(1920 / w, 1080 / h) * 0.94, 1, 2.2);
+  const hw = 960 / s, hh = 540 / s;
+  return { cx: clamp(x + w / 2, hw, 1920 - hw), cy: clamp(y + h / 2, hh, 1080 - hh), s };
+}
+function camAt(t) {
+  const K = LAY.cam;
+  let i = K.findLastIndex((k) => k[0] <= t);
+  if (i < 0) i = 0;
+  const cur = camOf(K[i][1]), prev = camOf(K[Math.max(0, i - 1)][1]);
+  const k = eio((t - K[i][0]) / 0.9);
+  return { cx: lerp(prev.cx, cur.cx, k), cy: lerp(prev.cy, cur.cy, k), s: Math.exp(lerp(Math.log(prev.s), Math.log(cur.s), k)) };
+}
+function drawCursor(t, cam) {
+  const C = LAY.cursor;
+  let i = C.findLastIndex((c) => c[0] <= t);
+  if (i < 0) return;
+  const a = C[i], b = C[i + 1] && C[i + 1][0] - a[0] < 0.3 ? C[i + 1] : a;
+  const k = b === a ? 0 : clamp((t - a[0]) / (b[0] - a[0]));
+  const x = 960 + (lerp(a[1], b[1], k) - cam.cx) * cam.s, y = 540 + (lerp(a[2], b[2], k) - cam.cy) * cam.s;
+  const g = svg("g", {}, $("overlay"));
+  for (const c of LAY.clicks) {
+    const age = t - c[0];
+    if (age >= 0 && age < 0.6) svg("circle", { cx: 960 + (c[1] - cam.cx) * cam.s, cy: 540 + (c[2] - cam.cy) * cam.s, r: 10 + age * 70, fill: "none", stroke: "#eebc24", "stroke-width": 3, opacity: 1 - age / 0.6 }, g);
+  }
+  svg("path", { d: "M0 0 L0 26 L7 20 L12 31 L17 29 L12 18 L21 18 Z", transform: `translate(${x} ${y})`, fill: "#fff", stroke: "#111", "stroke-width": 1.6, "stroke-linejoin": "round" }, g);
 }
 
 /* ───────────── the Console's look: demo cards, the two systems, the end ───────────── */
@@ -198,7 +225,7 @@ function buildTech() {
   SC.note = el("div", "abs mono", "", SC.cards, "right:36px;top:76px;font-size:16px;color:#9aa0a5;background:rgba(10,12,14,.7);padding:5px 10px;opacity:0;max-width:820px;text-align:right");
   const RUN = "Rev A run · Claude Sonnet 5.5 · MuJoCo";
   const s3 = S.s3;
-  SC.beats = [
+  SC.beats = []; const OLD_BEATS = [
     { a: T("touches", s3), b: S.model - 0.2, freeze: true, stamp: "explore", s1: "First scan stopped on a corrupt frame<br>→ System 2 reran it: <b>9 controls</b> mapped", src: RUN },
     { a: S.model + 0.4, b: S.then - 0.2, stamp: "plan", s2: "35 properties to test · plan check<br>refused plan 0; the model fixed it", p: "Karthik · Approve", pAt: T("person", s3), src: RUN + " · approved in the Console" },
     { a: T("capped", s3) - 0.3, b: S.display - 0.2, stamp: "test", s1: "Hard cap <b>15 N</b> · steps ask ≤ 14 N<br>Retries 0 / 2 / 4 by autonomy<br>Verdicts: fixed rules, in System 1", src: "docs/system-boundary.md · decisions D31, D34" },
@@ -233,21 +260,35 @@ function buildTech() {
 
   /* §5 behind the scenes: source chips, and the title card */
   const s5 = S.s5;
-  SC.chips = el("div", "abs", "", SC.cards, "right:60px;top:160px;width:620px");
-  const chip = (txt) => el("div", "mono", txt, SC.chips, "font-size:22px;color:#eceef0;background:rgba(14,16,18,.9);border-left:3px solid #8fb3d9;padding:12px 16px;margin-bottom:10px;opacity:0");
-  SC.src = [["lean", "Lean · two AI-claimed ETH refutations checked, Oct 2026", "#8fb3d9"], ["compcert", "CompCert · qualified for ATR 42/72 avionics", "#8fb3d9"], ["sel4", "seL4 · DARPA HACMS, Boeing Little Bird", "#8fb3d9"],
-    ["biosafety", "Pirbright, 2007 · virus likely escaped via damaged drains", "#e38b7a"], ["spacecraft", "JWST · fasteners loose in test, 29-month delay", "#e38b7a"], ["thousands", "Dyson · 5,127 prototypes before DC01", "#e38b7a"]]
-    .map(([w, txt, c]) => { const n = chip(txt); n.style.borderLeftColor = c; return { n, t: T(w, s5) }; });
+  // case studies: one pop-up at a time as each is named
+  const ICON = {
+    lean: `<text x="32" y="44" text-anchor="middle" font-size="40" fill="#8fb3d9" font-family="JetBrains Mono">⊢</text>`,
+    chip: `<rect x="14" y="14" width="36" height="36" rx="4" fill="none" stroke="#8fb3d9" stroke-width="3"/>${[20, 32, 44].map((v) => `<path d="M${v} 6v8M${v} 50v8M6 ${v}h8M50 ${v}h8" stroke="#8fb3d9" stroke-width="3"/>`).join("")}`,
+    shield: `<path d="M32 6 L54 14 V30 C54 44 44 54 32 58 C20 54 10 44 10 30 V14 Z" fill="none" stroke="#8fb3d9" stroke-width="3"/><path d="M22 32 l7 7 l14 -15" fill="none" stroke="#8fb3d9" stroke-width="3.5"/>`,
+    flask: `<path d="M24 8 h16 M27 8 v16 L12 52 a4 4 0 0 0 4 6 h32 a4 4 0 0 0 4 -6 L37 24 V8" fill="none" stroke="#e38b7a" stroke-width="3"/><path d="M17 44 h30" stroke="#e38b7a" stroke-width="3"/>`,
+    scope: `${[[32, 22], [22, 34], [42, 34], [32, 46]].map(([x, y]) => `<path d="M${x} ${y - 9} l8 4.5 v9 l-8 4.5 l-8 -4.5 v-9 z" fill="none" stroke="#e38b7a" stroke-width="2.6"/>`).join("")}`,
+    stack: `${[0, 1, 2, 3].map((i) => `<rect x="${12 + i * 3}" y="${46 - i * 11}" width="${40 - i * 6}" height="9" fill="none" stroke="#e38b7a" stroke-width="2.6"/>`).join("")}`,
+  };
+  SC.pops = [["lean", "lean", "Lean", "Two AI-claimed refutations of the Exponential Time Hypothesis, checked in Lean", "Oct 2026 · still under examination", "#8fb3d9"],
+    ["compcert", "chip", "CompCert", "A C compiler proven correct in Coq, qualified for ATR 42/72 avionics", "compcert.org · 2026", "#8fb3d9"],
+    ["sel4", "shield", "seL4", "A proven OS kernel: on Boeing's Little Bird, a red team couldn't break out, even in flight", "DARPA HACMS", "#8fb3d9"],
+    ["biosafety", "flask", "Biosafety", "Foot-and-mouth virus most likely escaped Pirbright's labs through damaged drains", "UK HSE report · 2007", "#e38b7a"],
+    ["spacecraft", "scope", "Spacecraft", "Webb's sunshield fasteners shook loose in an acoustic test, part of a 29-month delay", "JWST review board · 2018", "#e38b7a"],
+    ["thousands", "stack", "Prototypes", "5,127 prototypes over 15 years before Dyson's first vacuum, the DC01", "1993", "#e38b7a"]]
+    .map(([w, icon, title, fact, src, c]) => ({ t: T(w, s5), n: el("div", "abs", `<svg width="64" height="64" viewBox="0 0 64 64" style="flex:none">${ICON[icon]}</svg><div><div class="mich" style="font-size:34px;color:${c}">${title}</div><div style="font:500 29px/1.4 Inter,sans-serif;color:#eceef0;margin-top:8px">${fact}</div><div class="mono" style="font-size:16px;color:#8b9095;margin-top:10px">${src}</div></div>`, SC.cards,
+      `left:460px;top:330px;width:1000px;display:flex;gap:26px;align-items:flex-start;padding:28px 32px;background:rgba(14,16,18,.95);border:1.5px solid ${c};border-left-width:5px;box-sizing:border-box;opacity:0;box-shadow:0 30px 80px rgba(0,0,0,.55)`) }));
   SC.titleBg = el("div", "abs", "", SC.cards, "inset:0;background:#111417;opacity:0");
   SC.title = el("div", "abs", `<div class="mich" style="font-size:150px;color:#f1f2f3;text-align:center">RAAV</div><div class="mich" style="font-size:44px;color:#eebc24;text-align:center;letter-spacing:.2em;margin-top:6px">ROBOT AS A VERIFIER</div><div class="mono" style="font-size:22px;color:#8b9095;text-align:center;margin-top:40px">MakeCU 2026</div>`, SC.cards, "left:0;right:0;top:330px;opacity:0");
 }
 
+/** The B-roll dims while a case-study pop-up is up. */
+function popDim(t) { return SC.pops ? 1 - 0.45 * Math.max(0, ...SC.pops.map((p, i) => { const until = Math.min(SC.pops[i + 1]?.t ?? LAY.steps.as_, p.t + 4.0); return ramp(t, p.t - 0.15, p.t + 0.2) * (1 - ramp(t, until - 0.2, until)); })) : 1; }
 const MODELS = ["claude-sonnet-5-5", "claude-haiku-5-5", "openai-gpt-5.4", "grok-4.7"];
 function seekTech(t) {
   const S = LAY.steps;
   // §3 rail and cards
   const inDemo = t >= S.s3 - 0.2 && t < S.s4 - 0.2;
-  $("rail").style.display = inDemo ? "flex" : "none";
+  $("rail").style.display = "none";
   const cur = SC.railAt.findLastIndex((x) => x <= t + 0.05);
   SC.rail.forEach((s, i) => { s.className = i === cur ? "on" : i < cur ? "done" : ""; });
   const beat = SC.beats.find((b) => b.a <= t && t < b.b);
@@ -284,7 +325,11 @@ function seekTech(t) {
   }
   // §5
   const end = S.end;
-  for (const c of SC.src) show(c.n, ramp(t, c.t - 0.1, c.t + 0.35) * (1 - ramp(t, S.as_ - 0.4, S.as_)), 10);
+  SC.pops.forEach((p, i) => {
+    const until = Math.min(SC.pops[i + 1]?.t ?? S.as_, p.t + 4.0);
+    const o = ramp(t, p.t - 0.15, p.t + 0.2) * (1 - ramp(t, until - 0.2, until));
+    p.n.style.opacity = o; p.n.style.transform = `scale(${0.94 + 0.06 * eio(ramp(t, p.t - 0.15, p.t + 0.3))})`;
+  });
   SC.titleBg.style.opacity = ramp(t, end - 0.5, end + 0.2);
   SC.title.style.opacity = ramp(t, end - 0.2, end + 0.5);
 }
@@ -299,6 +344,7 @@ function caption(t) {
 
 window.seek = async function (t) {
   const S = LAY.steps;
+  $("overlay").innerHTML = "";
   const turn = S.never - 0.1;
   // footage, wherever a segment covers t
   const seg = LAY.segments.find((s) => s[0] <= t && t < s[1]);
@@ -307,19 +353,21 @@ window.seek = async function (t) {
     const [from, , clip, c0, speed, hold, zoom] = seg;
     const frozen = beat?.freeze && t > beat.a + 0.35 && t < beat.b - 0.25;
     const sec = hold != null && frozen ? hold : c0 + (t - from) * speed;
-    let z = zoom;
+    let z = zoom, cam = null;
+    if (clip.startsWith("tour/")) cam = camAt(t);
     if (clip === "intro") {
       // centered on the question mark, then following the take's own push-in to RAAV
       const k = eio(ramp(t, 10.25, 13.0));
       z = [lerp(1.45, 1.0, k), lerp(1130, 980, k), lerp(430, 480, k)];
     }
     const f = frozen ? 1 : 0;
-    await setFrame(frameOf(clip, sec), `saturate(${1 - 0.6 * f}) brightness(${1 - 0.3 * f})`, z);
+    await setFrame(frameOf(clip, sec), `saturate(${1 - 0.6 * f}) brightness(${(1 - 0.3 * f) * popDim(t)})`, z, cam);
+    if (cam) drawCursor(t, cam);
   } else await setFrame(null);
-  $("footage").style.opacity = seg?.[2] === "intro" ? 1 - ramp(t, 12.0, 13.0) : 1;
+  if (seg?.[2] === "intro" && t >= CUT) await setFrame(null);
   $("tag").style.display = seg && /^clean_3d|^wrist/.test(seg[2]) ? "block" : "none";
   // chalk, from the take's end until the turn
-  const chalkO = ramp(t, 11.6, 12.6) * (1 - ramp(t, turn + 0.6, turn + 1.6));
+  const chalkO = (t >= CUT ? 1 : 0) * (1 - ramp(t, turn + 0.6, turn + 1.6));
   $("chalklayer").style.opacity = chalkO;
   if (chalkO > 0) seekChalk(t, turn);
   $("tech").style.opacity = ramp(t, turn + 0.4, turn + 1.4);
