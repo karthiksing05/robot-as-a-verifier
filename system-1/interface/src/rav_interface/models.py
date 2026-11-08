@@ -23,6 +23,8 @@ Skill = Literal[
     "hook_pull", "pick", "place",
     # system-1/hardware/centrifuge_skills.py: the real arm's MC-6 lid, rack cover and tube, offered by RealBackend
     "lid_open", "lid_close", "rack_open", "rack_close", "tube_find", "tube_pick", "tube_place",
+    # system-1/hardware/microwave_skills.py: the MW-1 microwave's buttons and door, offered only with the microwave
+    "mw_press", "door_open", "door_close",
     # move the whole device on the desk: a normal step, on the control called DEVICE_CONTROL
     "reposition",
     # no motion: read a display or light with the camera

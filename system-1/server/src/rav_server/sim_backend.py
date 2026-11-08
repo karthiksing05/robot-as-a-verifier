@@ -518,6 +518,29 @@ class PipelineRobot:
     def close(self) -> None:
         self.rig.close()
 
+    # --- the MW-1 microwave (hardware/microwave_skills.py), for a backend whose device is the microwave -----------
+
+    MICROWAVE_SKILLS = ("mw_press", "door_open", "door_close")
+
+    def _microwave_step(self, step: Step, part: Any) -> tuple[StepTrace, StepVerdict]:
+        on_path(HARDWARE_DIR)
+        import microwave_skills
+
+        trace, verdict = map_verdict(step, microwave_skills.execute(self, step, part))
+        ref = self._snap(f"{step.id}, at {step.target}, after the step")
+        trace.frames = [ref] if ref else []
+        return trace, verdict
+
+    def _microwave_plan(self) -> Plan:
+        on_path(HARDWARE_DIR)
+        import microwave_skills
+
+        steps, missing = microwave_skills.demo(self.parts, self.plane_T)
+        if missing:
+            self.notes.append(f"the microwave plan leaves out {', '.join(missing)}: the scan didn't find it")
+        return Plan(plan_id=self.plan_id, steps=[Step(id=f"s{n + 1}", skill=skill, target=t, params=params)
+                                                 for n, (skill, t, params) in enumerate(steps)], source="rules")
+
 
 class AnswerKey:
     """The device's true parts, planted faults and every injected error, in a file only the scorer reads. It never
@@ -602,7 +625,25 @@ class SimBackend(PipelineRobot):
 
             opens = [c.get("open_deg", 105.0) for c in self.inventory.cfg["controls"] if c["kind"] == "handle"]
             out += manipulate_actions(getattr(self.arm, "effector", "probe") == "stock", max(opens, default=105.0))
+        if self.microwave:
+            from .actions import microwave_actions
+
+            out += microwave_actions()
         return out
+
+    @property
+    def microwave(self) -> bool:
+        """The device file is the MW-1 microwave's: its skills and plan are offered, and nothing else changes."""
+        inv = getattr(self, "inventory", None)
+        return inv is not None and inv.cfg.get("meta", {}).get("project") == "microwave"
+
+    def execute(self, step: Step) -> tuple[StepTrace, StepVerdict]:
+        if self.microwave and step.skill in self.MICROWAVE_SKILLS:
+            return self._microwave_step(step, next((p for p in self.parts if p.id == step.target), None))
+        return super().execute(step)
+
+    def default_plan(self, scene: SceneInventory) -> Plan:
+        return self._microwave_plan() if self.microwave else super().default_plan(scene)
 
     def reposition(self, dx_mm: float, dy_mm: float, yaw_deg: float) -> str | None:
         """A device from a device file is pushed by the arm (inventory.push): only a root that isn't clamped, only

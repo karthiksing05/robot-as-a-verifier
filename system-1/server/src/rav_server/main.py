@@ -76,6 +76,8 @@ def make_robot(args):
                             readout_port=args.readout_port if args.readout == "serial" else None,
                             readout_device=args.readout_device if args.readout == "http" else None,
                             readout_url=readout_url(args))
+        if getattr(args, "appliance", "centrifuge") == "microwave":
+            robot.appliance = "microwave"  # before the first explore: its scan settings apply there
         return lambda: robot
     from .sim_backend import SimBackend  # imports MuJoCo and torch
 
@@ -185,6 +187,9 @@ def main(argv=None) -> None:
     ap.add_argument("--arm-port", help="real: the servo bus's serial port, such as COM5")
     ap.add_argument("--calibration", help="real: the file lerobot-calibrate wrote for the arm")
     ap.add_argument("--enable-torque", action="store_true", help="real: turn torque on at startup without asking")
+    ap.add_argument("--appliance", default="centrifuge", choices=["centrifuge", "microwave"],
+                    help="real: whose skills and plan. microwave offers mw_press, door_open and door_close and its own "
+                         "plan and scan settings in place of the centrifuge's (the sim reads it from --device)")
     ap.add_argument("--readout", default="operator", choices=["operator", "serial", "http"],
                     help="real: where verdicts read the device: the operator at this terminal, the appliance's Pico on "
                          "--readout-port, or a board POSTing to /readout/<--readout-device> over WiFi (RAV_DEVICE_KEY)")
@@ -211,6 +216,8 @@ def main(argv=None) -> None:
         ap.error("--robot real needs --arm-port and --calibration, and has no depth camera for --depth")
     if args.readout != "operator" and args.robot != "real":
         ap.error("--readout is for --robot real")
+    if args.appliance != "centrifuge" and args.robot != "real":
+        ap.error("--appliance is for --robot real: the sim takes the microwave from --device")
     if (args.readout == "serial") != bool(args.readout_port) or (args.readout == "http") != bool(args.readout_device):
         ap.error("--readout serial takes --readout-port, and --readout http takes --readout-device")
     if args.readout_device and not all(c.isalnum() or c in "-_" for c in args.readout_device):

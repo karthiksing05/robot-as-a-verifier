@@ -41,6 +41,7 @@ class RealBackend(PipelineRobot):
     else real_arm.OperatorReadout: after each test motion, the server's terminal asks what changed on the device."""
 
     touches = False  # the touch-offs and part touches never ran on a real panel: the scan's plane and heights are used
+    appliance = "centrifuge"  # "microwave" (main.py's --appliance): the MW-1's skills, plan and scan settings instead
 
     def __init__(self, arm_port: str, calibration: str, refine: bool = True, single_look: bool = False,
                  readout_port: str | None = None, readout_device: str | None = None, readout_url: str | None = None,
@@ -70,6 +71,9 @@ class RealBackend(PipelineRobot):
         self.rest = self.arm.read_q()
 
     def perceive(self):
+        if self.appliance == "microwave":
+            import microwave_skills
+            microwave_skills.scan_settings()
         if self.load_scan:
             import pipeline
 
@@ -138,6 +142,8 @@ class RealBackend(PipelineRobot):
         import centrifuge_skills
 
         p = next((q for q in self.parts if q.id == step.target), None)
+        if self.appliance == "microwave" and step.skill in self.MICROWAVE_SKILLS:
+            return self._microwave_step(step, p)
         if step.skill == "observe" and p is not None and p.kind == "display":
             return self._observe(step, p)
         if step.skill not in ("flip", "turn", *centrifuge_skills.SKILLS) or p is None:
@@ -238,6 +244,8 @@ class RealBackend(PipelineRobot):
         """DEMO on this scan's parts. A control the scan didn't find is left out (the run says which)."""
         from rav_interface import Plan, Step
 
+        if self.appliance == "microwave":
+            return self._microwave_plan()
         ids = self._demo_ids()
         steps = [Step(id=f"s{n + 1}", skill=skill, target=ids[t], params=params)
                  for n, (skill, t, params) in enumerate((d for d in self.DEMO if ids.get(d[1])))]
@@ -249,6 +257,9 @@ class RealBackend(PipelineRobot):
     def extra_actions(self) -> list:
         from .actions import centrifuge_actions
 
+        if self.appliance == "microwave":
+            from .actions import microwave_actions
+            return microwave_actions()
         return centrifuge_actions()
 
     @staticmethod
