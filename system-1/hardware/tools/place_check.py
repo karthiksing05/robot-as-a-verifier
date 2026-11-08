@@ -58,6 +58,7 @@ def main(argv=None, bus=None, ask=input):
         mid = tip_now(arm)
         print(f"Surface middle with the arm limp: {np.round(mid * 1000, 1)} mm")
         ask("Lift the arm 3 to 5 cm and tip the gripper forward a little, not folded tight. Hold it and press Enter: ")
+        arm.tick()  # read_q() is the last tick's reading: this one is the lifted pose, not the surface
         floor = arm.workspace[2][0] + 0.002  # the creep may not aim below the workspace floor
         bottom = max(-0.05, (floor - mid[2]) / N[2] - 0.03)
         points = [("search start", mid + (0.03 + touch.skills.APPROACH_M) * N), ("search end", mid + (0.03 + bottom) * N)]
@@ -89,7 +90,7 @@ def main(argv=None, bus=None, ask=input):
                 print(f"  at {np.round(at[:2] * 1000)} mm: " + (f"contact z {s[2] * 1000:6.1f} mm "
                       f"({(s[2] - mid[2]) * 1000:+.1f} vs the first touch)" if s is not None else why), flush=True)
                 hits.append(s)
-        except (SafetyStop, KeyboardInterrupt) as e:  # torque stays on, so the arm holds until the question below
+        except (Exception, KeyboardInterrupt) as e:  # torque stays on, so the arm holds until the question below
             print(f"Stopped: {str(e) or 'Ctrl+C'}")
         z = np.array([s[2] for s in hits if s is not None]) * 1000
         if len(z) > 1:

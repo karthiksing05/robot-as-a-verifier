@@ -37,6 +37,7 @@ def main(argv=None, bus=None, ask=input):
         ask("Rest the fixed jaw's tip on the surface, jaws closed. Hold still and press Enter: ")
         surf = place_check.tip_now(arm)
         ask("Lift the arm about 10 cm and tip the gripper forward a little. Hold it and press Enter: ")
+        arm.tick()  # read_q() is the last tick's reading: this one is the lifted pose, not the surface
         rows = []
         print("Planned poses (tip mm; joints deg):")
         for k, (dx, dy) in enumerate(SPOTS_M):
@@ -55,8 +56,8 @@ def main(argv=None, bus=None, ask=input):
                "sane, and is it clear? Type yes to go: ").strip() != "yes":
             print("Not moved.")
             return
-        start = arm.read_q()
         arm.enable(confirm=True)
+        start = arm.read_q()
         log = {k: [] for k in ("t", "seg", "q", "cmd", "goal", "pos", "f_axial", "f_vec")}
         seg = 0
         try:
@@ -81,7 +82,7 @@ def main(argv=None, bus=None, ask=input):
                         print(f"  segment {seg}: {'down' if a is top else 'up'} at {speed * 1000:.0f} mm/s, estimate "
                               f"max {np.max(log['f_axial'][-n:]):.2f} N along the fingertip", flush=True)
             skills.move_joints(arm, start)
-        except (SafetyStop, KeyboardInterrupt) as e:  # torque stays on, so the arm holds until the question below
+        except (Exception, KeyboardInterrupt) as e:  # torque stays on, so the arm holds until the question below
             print(f"Stopped: {str(e) or 'Ctrl+C'}")
         if log["t"]:
             out = os.path.join(os.getcwd(), "creep_log.npz")
