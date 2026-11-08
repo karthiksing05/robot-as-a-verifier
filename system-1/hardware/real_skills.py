@@ -25,7 +25,9 @@ GRIP_LOOKS = 4  # looks from above the knob before going down  # a knob grip: op
 KNOB_GAP, KNOB_IN = 0.004, 0.001  # a knob turn comes down this far off its side, then presses this far into it
 FLIP_HOVER = 0.015  # above the push's start: 30 mm along the tilted axis was out of reach
 FLIP_BEHIND, FLIP_ON = 0.015, 0.003  # 6 mm back still came down on the lever tip (held 11 mm up)
-FLIP_ON_UP = 0.010  # pushing up the slope (OFF to ON), 3 mm on left the real POWER lever short of going over
+# pushing up the slope (OFF to ON): 3 mm on, then 10, left the real POWER lever short of going over, and the jaw came
+# down low enough to catch on the lip below the switch: the push runs FLIP_UP_LIFT higher off the panel
+FLIP_ON_UP, FLIP_UP_LIFT = 0.015, 0.004
 
 
 def slope_swing(p):
@@ -56,8 +58,10 @@ def flip(arm, p, parts, snap=None):
     n, label = plan.n, f"flip {p.id}"
     a, b = plan.path(0, None)[0], plan.path(plan.length, None)[0]
     m = (b - a) / np.linalg.norm(b - a)
-    on = FLIP_ON_UP if m[2] > 0 else FLIP_ON  # m rises: the push goes up the slope
-    a, b = a - FLIP_BEHIND * m, b + on * m  # down behind the lever, not on its top; and on far enough to go over
+    up = m[2] > 0  # m rises: the push goes up the slope
+    a, b = a - FLIP_BEHIND * m, b + (FLIP_ON_UP if up else FLIP_ON) * m  # down behind the lever; on far enough to go over
+    if up:
+        a, b = a + FLIP_UP_LIFT * n, b + FLIP_UP_LIFT * n
     ax, q0 = affordances._press_axis(arm, p), plan.qs[0].copy()  # the gripper held as for a press
     q0[4] = arm.home_q[4]  # the IK keeps the roll
     _, bias = affordances._approach(arm, a + FLIP_HOVER * ax, -ax, label, q0)
