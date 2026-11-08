@@ -40,6 +40,11 @@ def make_rig(arm_port, calibration, app=None, pad=None, readout_port=None):
         rgbperceive.FLAT_BUTTONS = True  # see rgbperceive.FLAT_BUTTONS
         # the real toggle's bushing stands 9-14 mm and SAM outlines it at 61-81 mm2, outside the sim switch's 2.5-6 mm base
         # and 100 mm2 minimum (a 6 mm floor keeps the cable bundle out)
+        # a device's flat top beside its panel pulled the survey's plane to 23 deg from flat (n_z 0.92) and the views
+        # went in from above; real panels sit 40-50 deg (n_z 0.70-0.75)
+        perceive.PANEL_NZ = (0.3, 0.85)
+        # and a small panel beside a big top and front face is the 4th plane with 48 of 467 points: keep looking
+        perceive.PANEL_PLANES, perceive.PANEL_MIN_PTS = 8, 25
         perceive.RULES["toggle"].update(plateau=(0.006, 0.016), area=(50e-6, 400e-6))
     except BaseException:
         arm.close()  # no readout or no camera: let the serial ports go

@@ -20,6 +20,7 @@ sys.path[:0] = [HARDWARE, os.path.join(HARDWARE, "..", "core")]
 import affordances  # noqa: E402
 import hw_rig  # noqa: E402
 import pipeline  # noqa: E402
+import real_arm  # noqa: E402
 import skills  # noqa: E402
 
 
@@ -34,6 +35,7 @@ def main(argv=None, ask=input):
     print(f"{target}: {part.kind} at {np.round(part.pos * 1000)} mm")
     rig = hw_rig.make_rig(port, cal)
     arm = rig.arm
+    arm.app = real_arm.OperatorReadout(arm, ask=ask)  # the same prompt as the rest, so a script can answer it
     try:
         arm.tick()
         rest = arm.read_q()

@@ -934,8 +934,8 @@ def classify(cands, hm, img):
             if kind != "pad" and score > pick[1]:
                 pick = (kind, score, why, r)
         w = perceive.region(c["mask"], hm, CELL)["width"]
-        r = pick[3] if isinstance(pick[3], dict) else c["readings"][0]
-        if (FLAT_BUTTONS and pick[0] in ("unknown", "knob", "dial") and c["round"] >= 0.95
+        r = pick[3] if isinstance(pick[3], dict) else (c["readings"] or [None])[0]
+        if (FLAT_BUTTONS and r is not None and pick[0] in ("unknown", "knob", "dial") and c["round"] >= 0.95
                 and BUTTON_DIAM[0] <= w <= BUTTON_DIAM[1] and r["plateau"] <= BUTTON_MAX_H):
             pick = ("button", 0.5, f"round, {w * 1000:.0f} mm across, {r['plateau'] * 1000:.1f} mm tall (real-rig rule)", r)
         door = _pad(c, hm, img)

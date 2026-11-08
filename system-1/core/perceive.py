@@ -221,18 +221,22 @@ def plane_frame(n, p):
     return features.frame(p, n, -up)
 
 
+PANEL_NZ = (0.3, 0.95)  # the panel's normal's up component: tilted between about 18 and 73 deg from flat
+PANEL_PLANES, PANEL_MIN_PTS = 4, 100  # planes tried, and the points that must be left to try another
+
+
 def _coarse_panel(pts, cam_pos):
     """The control panel: the biggest plane that faces up and toward the arm, as a plane frame
     (z toward the camera) and its extent (u0, u1, v0, v1) in that frame."""
     rest, best = np.ones(len(pts), bool), None
-    for _ in range(4):
-        if rest.sum() < 100:
+    for _ in range(PANEL_PLANES):
+        if rest.sum() < PANEL_MIN_PTS:
             break
         n, p, inl = ransac_plane(pts[rest], COARSE_THR)
         if n @ (cam_pos - p) < 0:
             n = -n
         toward_arm = -p[:2] @ n[:2] > 0.5 * np.linalg.norm(n[:2]) * np.linalg.norm(p[:2])
-        if 0.3 < n[2] < 0.95 and toward_arm and (best is None or inl.sum() > best[2].sum()):
+        if PANEL_NZ[0] < n[2] < PANEL_NZ[1] and toward_arm and (best is None or inl.sum() > best[2].sum()):
             best = (n, p, inl, np.flatnonzero(rest)[inl])
         rest[np.flatnonzero(rest)[inl]] = False
     n, p, _, idx = best
