@@ -58,26 +58,6 @@ DISPLAY_ASK = ("The photo is cut around the display and turned upright: a screen
                '"dark": <true if the screen shows nothing lit>}')
 
 
-TUBE_ASK = ("This photo is from a camera on a robot arm's gripper, just after it tried to pick up a small test tube with a red "
-            "collar and lift it. The gripper's two white jaws, one with brown tape on its tip, reach in from the left or bottom "
-            'of the picture. Is a test tube held between the jaws? Answer with JSON only: {"held": true or false, "why": '
-            '"<a few words>"}')
-
-
-def tube_held(client: ModelClient, image_b64: str) -> tuple[bool | None, str]:
-    """Whether a photo taken just after a tube pick shows a tube in the jaws: (True/False, why), or (None, why) on a reply
-    it can't read."""
-    reply = client.generate("You check photos from a robot arm's camera and answer in JSON.",
-                            [Message("user", TUBE_ASK, images=[Image("image/jpeg", image_b64)])], [])
-    found = re.search(r"\{.*\}", reply.text, re.S)
-    try:
-        said = json.loads(found.group(0)) if found else {}
-    except ValueError:
-        said = {}
-    held = said.get("held")
-    return (held, str(said.get("why", ""))) if isinstance(held, bool) else (None, f"unclear answer: {reply.text[:120]!r}")
-
-
 def read_display(client: ModelClient, image_b64: str) -> str:
     """What a photo of a display shows, its lines joined by two spaces as the MC-6's board sends its LCD: "1000 RPM  0:30",
     "" if dark. Raises ValueError on a reply it can't read."""

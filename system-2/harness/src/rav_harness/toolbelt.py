@@ -27,7 +27,7 @@ from .manual import Manual
 from .model import DEFAULT_MODEL, Image, ToolRequest, ToolSpec, make_client
 from .reward import coverage, reward
 from .runlog import RunLog
-from .survey import read_display, tube_held
+from .survey import read_display
 from .trace import ToolRejected, Tracer
 from .verdicts import findings_from, settle
 
@@ -87,8 +87,6 @@ def _control_view(c: Control) -> dict:
     return c.model_dump(mode="json", exclude_none=True, exclude={"source"})
 
 
-PICK_TRIES = 3  # tube picks in all, the first and its retries, when the model sees the jaws come up empty
-
 class ToolBelt:
     def __init__(self, system1, request: TestRequest, log: RunLog, tracer: Tracer, approve: Approver, steering: Steering,
                  policy: EscalationPolicy, manual: Manual | None = None, ask: Ask | None = None, on_state: Callable[[str, str], None] | None = None,
@@ -96,7 +94,6 @@ class ToolBelt:
         self.system1, self.request, self.log, self.tracer, self.approve, self.steering = system1, request, log, tracer, approve, steering
         self.policy, self.manual, self.ask, self.wake_on_checkpoint = policy, manual, ask, wake_on_checkpoint
         self.review = review  # survey.survey_reviewer: with it, each look holds after its scan for the parts to be named from the manual
-        self.pick_tries, self.repick = 0, None  # tube picks run, and one to run again before going on (_check_tube)
         self.display_reader = None  # the model that reads photos of the display, made at the first
         self.on_state = on_state or (lambda state, detail: None)
         self.status: SystemStatus = system1.system_status()
@@ -588,28 +585,6 @@ class ToolBelt:
         self.log.emit("message", {"role": "harness", "text": f"{step.id}: the photo of {step.target} reads {json.dumps(seen)}"})
         return seen
 
-    def _check_tube(self, step: Step, verdict: StepVerdict, trace) -> str | None:
-        """After a tube pick, the default model looks at the photo System 1 took just after the lift. If the jaws are
-        empty, the pick is queued to run again at the next checkpoint (_wait), up to PICK_TRIES picks in all, with no
-        stop for the model or the operator. Returns what it saw, or None for any other step."""
-        if step.skill != "tube_pick" or verdict.status == "failed" or not trace.frames:
-            return None
-        self.pick_tries += 1
-        try:
-            frame = self.system1.evidence_frame(trace.frames[-1])
-            (self.log.dir / f"tube_{step.id}_{self.pick_tries}.jpg").write_bytes(base64.b64decode(frame.data_b64))
-            self.display_reader = self.display_reader or make_client(DEFAULT_MODEL, run=self.log.run_id)
-            held, why = tube_held(self.display_reader, frame.data_b64)
-        except Exception as e:  # noqa: BLE001 - no answer leaves the pick as it was
-            held, why = None, f"couldn't look: {type(e).__name__}: {e}"
-        again = held is False and self.pick_tries < PICK_TRIES
-        if again:
-            self.repick = step.model_copy(update={"id": f"{step.id}-again{self.pick_tries}"})
-        said = "held" if held else "no answer" if held is None else "empty"
-        self.log.emit("message", {"role": "harness", "text": f"{step.id}: after pick {self.pick_tries}, the jaws look {said} ({why})"
-                                  + ("; picking again" if again else "")})
-        return f"{said}: {why}"
-
     def _reading(self, metric: str) -> Any:
         return self.readings.get(metric.removeprefix("reading:"))
 
@@ -636,7 +611,6 @@ class ToolBelt:
             self.log.emit("step_started", step.model_copy(update={"target": first}))
             trace = self.system1.evidence_get(summary.trace_ref)
             seen = self._read_display(step, trace)
-            held = self._check_tube(step, verdict, trace)
             # the photo stands in for a board that doesn't send its LCD, when it was read in full: Haiku called a lit
             # screen dark in 6 of 24 real scan photos, so a dark reading doesn't count
             if seen and "?" not in seen:
@@ -654,8 +628,6 @@ class ToolBelt:
                     "readings": summary.readout_change, "measures": summary.measures, "trace_ref": summary.trace_ref}
             if seen is not None:
                 view["display_seen"] = seen
-            if held is not None:
-                view["tube_held"] = held
             if summary.checks:
                 view["checks"] = [c.model_dump(mode="json", exclude_none=True) for c in summary.checks]
             if judged.status != verdict.status:
@@ -705,14 +677,6 @@ class ToolBelt:
             if stop.status != "paused":
                 self.handle, self.holding = None, False
                 break
-            if self.repick is not None:  # the jaws came up empty: the pick again first, then the rest as planned
-                again, self.repick = self.repick, None
-                self.steps[again.id] = again
-                self.queue.appendleft(again)
-                self.system1.routine_resume(self.handle.routine_id, Decision(kind="amend", steps=list(self.queue),
-                                                                              note="tube pick again: the jaws came up empty"))
-                self.holding = False
-                continue
             if self.review and stop.escalation and stop.escalation.code in ("survey_review", "scan_review"):
                 self.system1.routine_resume(self.handle.routine_id, self.review(stop))
                 continue
