@@ -107,6 +107,28 @@ def load_calib(width, path=CALIB):
     return K, np.array(c["dist"], float)
 
 
+def move_mount(m, path=HAND_EYE):
+    """Moves model m's wrist_cam camera and site to the mount tools/hand_eye.py measured, so IK aims the real camera
+    and forward kinematics give its pose. A WristCamera on m then takes T_hand_eye=np.eye(4). No hand_eye.json, no
+    change. Returns whether it moved them."""
+    if not os.path.exists(path):
+        print(f"No {os.path.normpath(path)}, so the wrist camera mount is the model's")
+        return False
+    T = np.asarray(json.load(open(path))["T_hand_eye"], float)
+    cam, site = m.camera("wrist_cam").id, m.site("wrist_cam").id
+    F = np.diag([1.0, -1.0, -1.0])  # OpenCV axes from MuJoCo's camera axes
+    R = np.zeros(9)
+    mujoco.mju_quat2Mat(R, m.cam_quat[cam])
+    R = R.reshape(3, 3) @ F
+    quat = np.zeros(4)
+    mujoco.mju_mat2Quat(quat, (R @ T[:3, :3] @ F).ravel())
+    m.cam_pos[cam] = m.site_pos[site] = m.cam_pos[cam] + R @ T[:3, 3]
+    m.cam_quat[cam] = m.site_quat[site] = quat
+    m.site_sameframe[site] = 0  # the compiler marked the site as at its body's origin, and kinematics would skip it
+    print(f"Wrist camera mount from {os.path.normpath(path)}")
+    return True
+
+
 class WristCamera:
     """The real wrist camera, with the calls the pipeline makes on sensors.WristCamera: capture(), K and close()."""
 

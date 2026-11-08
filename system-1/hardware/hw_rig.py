@@ -6,6 +6,8 @@ the built arm and the camera plugged in, so it has never run: only the drivers u
     scene = pipeline.scan_device(rig.arm, None, rig.wrist)
     rig.close()                                        # camera closed, then torque off: support the arm first
 """
+import numpy as np
+
 import pico_readout
 import real_arm
 import real_wrist
@@ -16,12 +18,14 @@ def make_rig(arm_port, calibration, app=None, pad=None, readout_port=None):
     """arm_port is the servo bus's serial port and calibration lerobot-calibrate's file (real_arm.make_bus). The wrist
     camera is the first USB camera that isn't the laptop's own (real_wrist.find_camera). app is the device's readout,
     real_arm.OperatorReadout unless given, or with readout_port the device's Pico on that serial port
-    (pico_readout.PicoReadout). pad is a fingertip sensor (RealArm). Torque stays off."""
+    (pico_readout.PicoReadout). pad is a fingertip sensor (RealArm). The model's wrist camera moves to the mount in
+    hand_eye.json (real_wrist.move_mount). Torque stays off."""
     arm = real_arm.RealArm(real_arm.make_bus(arm_port, calibration), app=app, pad=pad)
     try:
         if readout_port:
             arm.app = pico_readout.PicoReadout(readout_port)
-        wrist = real_wrist.WristCamera(arm)
+        real_wrist.move_mount(arm.m)  # IK and the photos' poses both use the measured camera, so no T_hand_eye on top
+        wrist = real_wrist.WristCamera(arm, T_hand_eye=np.eye(4))
     except BaseException:
         arm.close()  # no readout or no camera: let the serial ports go
         raise
