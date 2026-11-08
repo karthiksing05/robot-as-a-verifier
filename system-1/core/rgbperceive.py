@@ -65,6 +65,24 @@ REJECTED_MIN_H, REJECTED_MAX_W = 0.003, 0.040  # ... when it stands at least thi
 ROW_MAX = None          # m: parts and rejected candidates further than this along the slope from the parts' median are
                         # dropped, for a panel whose controls sit in one row (hw_rig)
 SAVE_CAPS = None        # a file the survey and captures go to before the vision stages, to replay with analyse (hw_rig)
+SURVEY_TRIES = 1        # surveys to take until one passes SURVEY_CHECK (hw_rig)
+SURVEY_CHECK = None     # (panel normal's z range, fewest points on the panel plane, shortest panel side's longer one, m)
+
+
+def survey_doubt(survey):
+    """Why survey's panel is not to be trusted under SURVEY_CHECK, or None."""
+    if SURVEY_CHECK is None:
+        return None
+    (nz_lo, nz_hi), min_pts, min_len = SURVEY_CHECK
+    nz, pts = survey["panel"][2, 2], len(survey["candidates"][survey["picked"]][2])
+    u0, u1, v0, v1 = survey["extent"]
+    if not nz_lo <= nz <= nz_hi:
+        return f"the panel's normal has z {nz:.2f}, outside {nz_lo}-{nz_hi}"
+    if pts < min_pts:
+        return f"only {pts} points on the panel's plane"
+    if max(u1 - u0, v1 - v0) < min_len:
+        return f"the panel is only {max(u1 - u0, v1 - v0) * 1000:.0f} mm long"
+    return None
 FLAT_BUTTONS = False    # real-rig rules (hw_rig sets it): round button-sized outlines are buttons even when their height
                         # reads flat (dark glossy tops give the sweep little texture) or knob-tall, and extra views
                         # chase only candidates on the panel
@@ -134,7 +152,14 @@ def perceive_rgb(arm, phone, wrist, on_stage=None, on_frame=None, on_survey=None
 
     stage("survey")
     if phone is None:
-        scene.survey = survey_wrist(arm, wrist)
+        for k in range(SURVEY_TRIES):
+            scene.survey = survey_wrist(arm, wrist)
+            why = survey_doubt(scene.survey)
+            if not why:
+                break
+            print(f"  survey {k + 1} of {SURVEY_TRIES}: {why}")
+        else:
+            raise RuntimeError(f"no survey to trust in {SURVEY_TRIES} tries: {why}")
         if on_survey:  # it may pick another of the survey's candidate surfaces (use_panel) before the views are planned
             on_survey(scene.survey)
     else:
