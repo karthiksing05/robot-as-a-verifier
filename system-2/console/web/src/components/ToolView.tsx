@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { ToolCall } from "../lib/trace";
 import { Markdown } from "./Markdown";
+import { ErrorText } from "./ModelTrace";
 import { Pill } from "./ui";
 
 type Obj = Record<string, unknown>;
@@ -109,7 +110,7 @@ export function Tool({ call: c }: { call: ToolCall }) {
     <details className={`tltool ${c.ok ? "" : "bad"}`} open={open}>
       <summary>
         <b className="mono">{c.tool}</b>{line && <span className="muted tlargs">{line}</span>}<span className="tmeta">{[c.ok ? null : c.error_kind, c.caller === "model" ? null : c.caller, seconds(c.duration_ms)].filter(Boolean).join(" / ")}</span>
-        {c.error && <span className="terror">{c.error}</span>}
+        {c.error && <ErrorText text={c.error} />}
       </summary>
       <div className="tlbody">
         <Body c={c} />

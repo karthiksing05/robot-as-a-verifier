@@ -4,7 +4,7 @@ import path from "node:path";
 import { EMPTY_AGENT, agentReducer, isPaused, pendingApproval, planRows, replayItems, stateLine, telemetryOf, timelineOf } from "./agent";
 import { controlStatus, evidenceOf, liveProject, projectOf, reviewOf, type Project } from "./projects";
 import { ReplayClock, nextDelay } from "./simsource";
-import { diagnose, traceFor, traceOf } from "./trace";
+import { diagnose, duration, errorLines, traceFor, traceOf } from "./trace";
 import { describe, expect, it } from "vitest";
 import type { RunEvent, Status, StepVerdict } from "./contracts";
 import { approvalBlock, parsePrompt, type OperatorEdit } from "./edits";
@@ -189,6 +189,13 @@ describe("the trace", () => {
   it("gives a step only its own entries, and runs without a trace nothing", () => {
     expect(traceFor(run, "s1").every((e) => e.step === "s1")).toBe(true);
     expect(traceOf(runs.find((r) => r.id === "sample-revA")!)).toEqual([]);
+  });
+
+  it("reads a refused plan as one line per distinct problem, and times as minutes", () => {
+    const known = "no control called display. Known: POWER, STOP";
+    const text = `Nothing moved. Fix these:\ns1 (observe display): ${known}\ns2 (press STOP): needs force_limit\ns3 (observe display): ${known}`;
+    expect(errorLines(text)).toEqual({ head: "Nothing moved. Fix these:", lines: [`s1, s3 (observe display): ${known}`, "s2 (press STOP): needs force_limit"] });
+    expect([duration(23.24), duration(62), duration(3628)]).toEqual(["23.2 s", "1 m 02 s", "1 h 00 m 28 s"]);
   });
 });
 

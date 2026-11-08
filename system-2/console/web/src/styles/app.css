@@ -274,14 +274,18 @@ pre.code { font-family: var(--mono); font-size: 11.5px; line-height: 1.5; backgr
 .terror { color: var(--fail); }
 .tmore summary { cursor: pointer; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
 .tmore pre { margin: 3px 0 2px; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: 11px; color: var(--muted); }
-.tlayer { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 5px; border: 1px solid var(--line); white-space: nowrap; }
-.tlayer.model { border-color: var(--accent); color: var(--accent); }
-.tlayer.pipeline { border-color: var(--ink); color: var(--ink); }
-.tlayer.robot { border-style: dashed; border-color: var(--ink); color: var(--ink); }
-.tlayer.device { border-color: var(--fail); color: var(--fail); }
+/* l-: plain .pipeline is the wiki's grid */
+.tlayer { --c: var(--ink); font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 5px; border: 1px solid var(--c); color: var(--c); white-space: nowrap; }
+.tlayer.l-model { --c: var(--accent); }
+.tlayer.l-pipeline { --c: var(--obs); }
+.tlayer.l-device { --c: var(--fail); }
 .tlayers { display: flex; flex-wrap: wrap; gap: 8px 22px; }
 .tcount { display: flex; align-items: center; gap: 8px; }
 .tcount b { font-family: var(--mono); font-size: 20px; font-weight: 500; }
+.tcount.zero { opacity: 0.4; }
+.tstats span { display: block; }
+.terrline { display: block; padding-left: 10px; border-left: 1px solid currentColor; margin-top: 3px; }
+.tprob { min-width: 0; }
 .tjump { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; text-align: left; background: none; border: 0; padding: 2px 0; color: inherit; font: inherit; cursor: pointer; }
 .tjump:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 .tjump:disabled { cursor: default; }
