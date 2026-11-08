@@ -34,22 +34,6 @@ def load_models():
     print(f"OWLv2 and SAM loaded on {segmodels.DEVICE} in {time.monotonic() - t0:.0f} s", flush=True)
 
 
-def live_view(wrist, status):
-    """A window with the wrist camera's newest frame at half size, the gripper's mask outlined, and status(), as
-    tools/scan_check.py shows. It reads frames only, never the arm, so it runs beside the scan."""
-    import cv2
-    import rgbperceive
-
-    while True:
-        bgr, _ = wrist.grab.read()
-        img = cv2.resize(bgr, None, fx=0.5, fy=0.5)
-        cv2.polylines(img, [rgbperceive._gripper(img.shape[1])], True, (0, 200, 255), 2)
-        for color, width in (((0, 0, 0), 5), ((255, 255, 255), 2)):
-            cv2.putText(img, status(), (12, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, width)
-        cv2.imshow("System 1: wrist camera", img)
-        cv2.waitKey(80)
-
-
 class RealBackend(PipelineRobot):
     """arm_port is the servo bus's serial port and calibration the file lerobot-calibrate wrote. The device's readout is
     its Pico on readout_port (pico_readout.PicoReadout), or without one real_arm.OperatorReadout: after each test
@@ -66,8 +50,9 @@ class RealBackend(PipelineRobot):
         self.rest, self.closing, self.stage = None, threading.Lock(), "idle"
         threading.Thread(target=load_models, daemon=True).start()  # while the operator checks the arm, not mid-scan
         if hasattr(getattr(rig.wrist, "grab", None), "read"):  # the real camera's stream (not the sim's, nor a test's)
-            status = lambda: f"{self.stage} | {self.arm.status}"  # noqa: E731
-            threading.Thread(target=live_view, args=(rig.wrist, status), daemon=True).start()
+            from . import live_view
+
+            threading.Thread(target=live_view.run, args=(self,), daemon=True).start()
 
     def enable(self) -> None:
         """Torque on, holding where the arm rests now, which close() comes back to."""
