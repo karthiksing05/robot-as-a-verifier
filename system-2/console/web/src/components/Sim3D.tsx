@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import type { SceneData, SceneGeom, SimSource } from "../lib/simsource";
+import type { ScanData, SceneData, SceneGeom, SimSource } from "../lib/simsource";
 
 export interface SimFocus { target: string | null; label: string | null; verdict: string | null; force: number; limit: number; lcd: string[] }
 
@@ -18,7 +18,7 @@ const MAX_FPS = 60; // more only spends battery: the poses are blended, not fast
 const SLOW_MS = 34, FAST_MS = 19, WINDOW = 30, RISE_AFTER = 8; // windows
 
 const quat = (q: number[]) => new THREE.Quaternion(q[1], q[2], q[3], q[0]); // MuJoCo stores w first
-const PASS = new THREE.Color("#1fa3ba"), FAIL = new THREE.Color("#e66a4a"), RUN = new THREE.Color("#e3ae3c");
+const PASS = new THREE.Color("#1fa3ba"), FAIL = new THREE.Color("#e66a4a"), RUN = new THREE.Color("#e3ae3c"), PART = new THREE.Color("#5fd0e0");
 
 function softwareRenderer(renderer: THREE.WebGLRenderer) {
   const gl = renderer.getContext();
@@ -97,6 +97,9 @@ export default function Sim3D({ source, focus, focusAt, onUnavailable }: { sourc
 
     const halo = new THREE.Mesh(new THREE.RingGeometry(0.0155, 0.0185, 56), new THREE.MeshBasicMaterial({ color: RUN, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, toneMapped: false }));
     scene.add(halo);
+    const scanGroup = new THREE.Group(); // the real arm's last scan: its points, the panel and the parts by name
+    scene.add(scanGroup);
+    const partLabels = new Map<string, { ring: THREE.Mesh; label: HTMLSpanElement }>();
 
     const bodies: THREE.Group[] = [];
     const named = new Map<string, THREE.Group>();
@@ -114,6 +117,8 @@ export default function Sim3D({ source, focus, focusAt, onUnavailable }: { sourc
 
     const home = new THREE.Vector3(0.14, 0, 0.1), desired = new THREE.Vector3(), probe = new THREE.Vector3(), step = new THREE.Vector3();
     const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), v3 = new THREE.Vector3(), v3b = new THREE.Vector3(), normal = new THREE.Vector3(0, 0, 1);
+    const view = new THREE.Vector3(-0.18, 0.68, 0.43), at = new THREE.Vector3(); // view: the camera, from what it looks at
+    let tagFor: string | null = null, ringsFor: string | null = null;
     let following = true, haloFade = 0, flashUntil = 0, lastVerdict: string | null = null, lastTarget: string | null = null;
     let prev = performance.now(), lastDraw = 0, lastStamp = -1, dirty = true, draws = 0, moved = false;
     let sum = 0, count = 0, goodWindows = 0;
@@ -153,7 +158,7 @@ export default function Sim3D({ source, focus, focusAt, onUnavailable }: { sourc
 
     const reframe = () => {
       controls.target.copy(home);
-      camera.position.copy(home).add(new THREE.Vector3(-0.18, 0.68, 0.43));
+      camera.position.copy(home).add(view);
       following = true;
       dirty = true;
       setFree(false);
@@ -261,7 +266,88 @@ export default function Sim3D({ source, focus, focusAt, onUnavailable }: { sourc
       reframe();
       setReady(true);
       source.start();
+      void pollScan();
     }
+
+    const clearScan = () => {
+      scanGroup.traverse((o) => {
+        const m = o as THREE.Mesh;
+        m.geometry?.dispose();
+        (m.material as THREE.Material | undefined)?.dispose();
+      });
+      scanGroup.clear();
+      partLabels.forEach(({ label }, id) => { label.remove(); named.delete(id); });
+      partLabels.clear();
+      ringsFor = null;
+    };
+
+    /** The scan in the arm's frame, and the view moved back to take in both the arm and the panel. */
+    function showScan(data: ScanData, cloud: ArrayBuffer) {
+      clearScan();
+      const n = data.points, xyz = new Int16Array(cloud, 0, n * 3), rgb = new Uint8Array(cloud, n * 6, n * 3);
+      const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), c = new THREE.Color();
+      for (let i = 0; i < n * 3; i += 3) {
+        pos[i] = xyz[i] * 1e-4; pos[i + 1] = xyz[i + 1] * 1e-4; pos[i + 2] = xyz[i + 2] * 1e-4;
+        c.setRGB(rgb[i] / 255, rgb[i + 1] / 255, rgb[i + 2] / 255, THREE.SRGBColorSpace);
+        col[i] = c.r; col[i + 1] = c.g; col[i + 2] = c.b;
+      }
+      const points = new THREE.BufferGeometry();
+      points.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      points.setAttribute("color", new THREE.BufferAttribute(col, 3));
+      const half = THREE.MathUtils.degToRad(camera.fov / 2); // sized so neighbouring points just overlap at any distance
+      scanGroup.add(new THREE.Points(points, new THREE.PointsMaterial({ size: (data.spacing * 1.5) / Math.tan(half), vertexColors: true, toneMapped: false })));
+
+      const corners = data.panel.map((p) => new THREE.Vector3().fromArray(p));
+      const out = new THREE.Vector3().fromArray(data.normal);
+      const [a, b, c2, d] = corners.map((p) => p.clone().addScaledVector(out, -0.0005)); // just under the points
+      scanGroup.add(new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([a, b, c2, a, c2, d]),
+        new THREE.MeshBasicMaterial({ color: PART, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false, toneMapped: false })));
+      scanGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(corners),
+        new THREE.LineBasicMaterial({ color: PART, transparent: true, opacity: 0.55, toneMapped: false })));
+
+      for (const p of data.parts) {
+        const group = new THREE.Group(); // named for the part, where the halo finds the target
+        group.position.fromArray(p.pos);
+        group.quaternion.setFromUnitVectors(v3.set(0, 0, 1), v3b.fromArray(p.normal));
+        const ring = new THREE.Mesh(new THREE.RingGeometry(p.r, p.r + 0.002, 40), new THREE.MeshBasicMaterial({ color: PART, side: THREE.DoubleSide, toneMapped: false }));
+        ring.position.z = 0.001;
+        group.add(ring);
+        scanGroup.add(group);
+        named.set(p.id, group);
+        const label = document.createElement("span");
+        label.className = "simpart";
+        label.textContent = p.id;
+        el.append(label);
+        partLabels.set(p.id, { ring, label });
+      }
+
+      const sphere = new THREE.Box3().setFromPoints([...corners, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0.25)]).getBoundingSphere(new THREE.Sphere());
+      const fit = Math.min(half, Math.atan(Math.tan(half) * camera.aspect));
+      home.copy(sphere.center);
+      view.set(-0.18, 0.68, 0.43).normalize().addScaledVector(out, 0.25).normalize().multiplyScalar((sphere.radius / Math.sin(fit)) * 0.9); // from the side, a little toward the panel's face
+      if (following) reframe();
+      dirty = true;
+    }
+
+    async function pollScan() {
+      if (!source.scan) return;
+      let seen: string | null = null;
+      while (!stopped) {
+        const got: { data: ScanData; cloud: ArrayBuffer } | null = await source.scan(seen).catch(() => null);
+        if (stopped) return;
+        if (got) { seen = got.data.id; showScan(got.data, got.cloud); }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
+
+    const placeLabels = () => {
+      const small = el.clientWidth < 520; // a tile: the names would cover the panel
+      partLabels.forEach(({ label }, id) => {
+        named.get(id)!.getWorldPosition(at).project(camera);
+        label.style.opacity = small || at.z > 1 || id === tagFor ? "0" : "1"; // the halo's own tag names the target
+        label.style.transform = `translate(${((at.x + 1) / 2) * el.clientWidth}px, ${((1 - at.y) / 2) * el.clientHeight - 10}px) translate(-50%, -100%)`;
+      });
+    };
     void load().catch(() => { if (!stopped) onUnavailable(); });
 
     const applyPoses = (now: number) => {
@@ -322,6 +408,15 @@ export default function Sim3D({ source, focus, focusAt, onUnavailable }: { sourc
         const flatPad = lamberts.get(glowing);
         if (flatPad) { flatPad.emissive.copy(glowing.emissive); flatPad.emissiveIntensity = glowing.emissiveIntensity; }
       }
+      if ((f.target ?? null) !== ringsFor) { // the step's part in the run's colour
+        ringsFor = f.target ?? null;
+        partLabels.forEach(({ ring, label }, id) => {
+          (ring.material as THREE.MeshBasicMaterial).color.copy(id === ringsFor ? RUN : PART);
+          label.classList.toggle("on", id === ringsFor);
+        });
+        dirty = true;
+      }
+      tagFor = part && haloFade > 0.15 && f.label ? lastTarget : null;
       const label = tag.current;
       if (label) {
         if (part && haloFade > 0.15 && f.label) {
@@ -374,6 +469,7 @@ export default function Sim3D({ source, focus, focusAt, onUnavailable }: { sourc
       dirty = false;
       const tier = TIERS[tierIndex];
       if (tier.shadowEvery && moved && draws % tier.shadowEvery === 0) renderer.shadowMap.needsUpdate = true;
+      placeLabels();
       renderer.render(scene, camera);
       if (lastDraw && now - lastDraw < 200) govern(now - lastDraw); // a longer gap was idling, not slowness
       lastDraw = now;
@@ -389,6 +485,7 @@ export default function Sim3D({ source, focus, focusAt, onUnavailable }: { sourc
       observer.disconnect();
       source.stop();
       controls.dispose();
+      clearScan();
       const done = new Set<{ dispose(): void }>();
       scene.traverse((o) => {
         const m = o as THREE.Mesh;

@@ -221,3 +221,23 @@ def test_scene_comes_from_a_compiled_model_with_mesh_files(tmp_path):
     assert scene["moving"] == [1] and any(g["type"] == "mesh" for g in scene["geoms"]) and any(p.startswith("mesh/") for p in blobs)
     write_scene(tmp_path / "out", scene, blobs)
     assert json.loads((tmp_path / "out/scene/scene.json").read_text())["run_id"] == "r"
+
+
+def test_the_real_scan_is_its_height_map_as_points_in_the_arm_frame():
+    from rav_server.telemetry import scan_cloud
+
+    Tg = np.eye(4)
+    Tg[:3, :3] = [[0, 0, -1], [0, 1, 0], [1, 0, 0]]  # a wall facing -x
+    Tg[:3, 3] = [0.3, 0, 0.1]
+    hm = np.full((2, 3), np.nan, np.float32)
+    hm[1, 2] = 0.01
+    img = np.zeros((2, 3, 3), np.uint8)
+    img[1, 2] = [10, 20, 30]  # BGR
+    part = SimpleNamespace(id="START", kind="button", T=Tg.copy(), size=np.array([0.02, 0.02, 0.01]), meta={"radius": 0.009})
+    part.pos, part.normal = Tg[:3, 3], Tg[:3, 2]
+    scene = SimpleNamespace(heightmap=(hm, img, 0.001, (0.0, 0.0)), plane=(Tg, (0.0, 0.002, 0.0, 0.003)))
+    body, blob = scan_cloud(scene, [part], shift=np.array([0.0, 0.005, 0.0]))
+    assert body["points"] == 1
+    assert np.allclose(np.frombuffer(blob[:6], "<i2") * 1e-4, [0.29, 0.002, 0.101])  # 1 mm down the panel, 2 across, 10 out
+    assert list(blob[6:]) == [30, 20, 10]
+    assert body["parts"][0]["pos"] == [0.3, -0.005, 0.1] and body["parts"][0]["r"] == 0.009  # where the camera saw it

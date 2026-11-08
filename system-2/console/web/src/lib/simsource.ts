@@ -8,6 +8,12 @@ export interface SceneData {
 }
 export interface PoseBlend { a: ArrayLike<number>; b: ArrayLike<number>; aAt: number; bAt: number; k: number; stamp: number }
 
+/** The real arm's last scan (System 1's /scan.json), in the arm's frame, metres. cloud: int16 xyz in 0.1 mm, then RGB bytes. */
+export interface ScanData {
+  id: string; points: number; spacing: number; panel: number[][]; normal: number[];
+  parts: { id: string; kind: string; pos: number[]; normal: number[]; r: number }[];
+}
+
 /** Where the 3D view gets its model and its poses: a run happening now, or one that was recorded. */
 export interface SimSource {
   scene(stopped: () => boolean): Promise<SceneData | null>;
@@ -15,6 +21,7 @@ export interface SimSource {
   start(): void;
   stop(): void;
   pose(now: number): PoseBlend | null;
+  scan?(seen: string | null): Promise<{ data: ScanData; cloud: ArrayBuffer } | null>; // a scan other than seen, if there is one
 }
 
 const MIN_DELAY_MS = 70, MAX_DELAY_MS = 300;
@@ -31,7 +38,7 @@ export class LiveSource implements SimSource {
   private stream: EventSource | null = null;
   private data: SceneData | null = null;
   private delay = MIN_DELAY_MS;
-  constructor(private runId: string | null, private base: string = LIVE_URL) {} // no runId: System 1's telemetry, which doesn't know System 2's run ids
+  constructor(private runId: string | null, protected base: string = LIVE_URL) {} // no runId: System 1's telemetry, which doesn't know System 2's run ids
 
   async scene(stopped: () => boolean) {
     while (!stopped()) { // the sim exports its scene a moment after a run starts
@@ -64,6 +71,17 @@ export class LiveSource implements SimSource {
     const b = list[i], a = list[Math.max(i - 1, 0)];
     const span = b.at - a.at, k = span > 0 ? Math.min(1, Math.max(0, (t - a.at) / span)) : 1;
     return { a: a.v, b: b.v, aAt: 0, bAt: 0, k, stamp: i + k + b.at };
+  }
+}
+
+/** The real arm on System 1's telemetry: posed from its joint readings, with the last scan around it. */
+export class RealSource extends LiveSource {
+  constructor(base: string) { super(null, base); }
+  async scan(seen: string | null) {
+    const data = await fetch(`${this.base}/scan.json`).then((r) => r.json() as Promise<ScanData>).catch(() => null);
+    if (!data?.id || data.id === seen) return null;
+    const res = await fetch(`${this.base}/scan.bin?v=${data.id}`).catch(() => null);
+    return res?.ok ? { data, cloud: await res.arrayBuffer() } : null;
   }
 }
 
