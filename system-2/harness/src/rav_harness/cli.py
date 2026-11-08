@@ -191,18 +191,20 @@ def explore(args) -> None:
 
 
 def _survey_review(args, system1, log):
-    """The policy and responder for explore: with --survey-review, System 1 holds after its survey and the model
-    answers, with the manual if one was given."""
+    """The policy and responder for explore: with --survey-review System 1 holds after its survey, and with --review
+    after its scan, and the model answers, with the manual if one was given."""
     policy = POLICIES[args.policy]
-    if args.survey_review is None:
+    if args.survey_review is None and args.review is None:
         return policy, rule_responder
     from .manual import Manual
     from .model import make_client
     from .survey import survey_reviewer
 
-    manual = "\n\n".join(Manual(args.survey_review).pages) if args.survey_review else None
+    path = args.review or args.survey_review
+    manual = "\n\n".join(Manual(path).pages) if path else None
     client = make_client(DEFAULT_MODEL, run=log.run_id)
-    return policy.model_copy(update={"review_survey": True}), survey_reviewer(system1, client, log, manual)
+    update = {"review_survey": args.survey_review is not None, "review_scan": args.review is not None}
+    return policy.model_copy(update=update), survey_reviewer(system1, client, log, manual)
 
 
 def up(args) -> None:
@@ -308,6 +310,8 @@ def main(argv=None) -> None:
         c.add_argument("--id", default=None)
         c.add_argument("--survey-review", nargs="?", const="", default=None, metavar="MANUAL",
                        help="hold after the survey for the model to pick the panel and say what to expect, with this manual")
+        c.add_argument("--review", nargs="?", const="", default=None, metavar="MANUAL",
+                       help="hold after the scan for the model to name each part from this manual (ids become its names)")
         c.set_defaults(fn=fn)
     r = sub.choices["run"]
     r.add_argument("--product", default="Device under test")

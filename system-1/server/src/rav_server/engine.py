@@ -239,13 +239,15 @@ class RoutineEngine:
         return decision
 
     def _explore(self, r: _Routine) -> None:
-        if r.policy.review_survey:  # the robot holds here after its survey, for System 2's SurveyAnswer
-            self.robot.review = lambda measured: self._hold(r, Checkpoint(routine_id=r.id, stop="escalation", escalation=Escalation(
-                code="survey_review", tried=["survey"], measured=measured, options=["continue", "abort"])))
+        def hold(code, tried):  # the robot holds where it calls this, for System 2's answer
+            return lambda measured: self._hold(r, Checkpoint(routine_id=r.id, stop="escalation", escalation=Escalation(
+                code=code, tried=[tried], measured=measured, options=["continue", "abort"])))
+        self.robot.review = hold("survey_review", "survey") if r.policy.review_survey else None
+        self.robot.review_scan = hold("scan_review", "scan") if r.policy.review_scan else None
         try:
             scene = self.robot.perceive()
         finally:
-            self.robot.review = None
+            self.robot.review = self.robot.review_scan = None
         self.report = SceneReport(scene=scene, fallback_plan=self.robot.default_plan(scene))
         n = len(scene.controls)
         unsure = {c.id: round(c.conf, 3) for c in scene.controls if c.conf < r.policy.confidence_floor}

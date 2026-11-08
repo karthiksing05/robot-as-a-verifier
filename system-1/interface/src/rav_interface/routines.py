@@ -15,7 +15,7 @@ TOOLS = ("system_status", "scene_get", "evidence_get", "routine_start", "routine
 RoutineName = Literal["explore", "run_plan", "home"]
 StopKind = Literal["done", "checkpoint", "escalation", "safety_abort", "pipeline_error"]
 EscalationCode = Literal["step_failed", "unexpected_response", "retries_exhausted", "perception_low_confidence",
-                         "pose_unstable", "unknown_control", "survey_review"]
+                         "pose_unstable", "unknown_control", "survey_review", "scan_review"]
 RoutineState = Literal["idle", "running", "paused"]
 
 
@@ -26,6 +26,7 @@ class EscalationPolicy(Contract):
     checkpoint_every: int | None = Field(default=1, ge=1)  # steps between checkpoints; None means only at the end
     confidence_floor: float = Field(default=0.5, ge=0.0, le=1.0)  # detections below this escalate
     review_survey: bool = False  # explore holds after its survey (survey_review) for a SurveyAnswer before it scans
+    review_scan: bool = False  # and after its scan (scan_review) for each part's name and kind (Decision.labels)
 
 
 # Start with TETHERED, and loosen a setting only when the measurements hold up. The values are guesses until then.
@@ -98,6 +99,8 @@ class Decision(Contract):
     targets: list[str] = Field(default_factory=list)  # skip: drop the remaining steps on these controls
     note: str | None = None
     survey: SurveyAnswer | None = None  # continue, at a survey_review stop
+    # continue, at a scan_review stop: a part id's name and kind in the manual, or None when it isn't a control
+    labels: dict[str, ExpectedControl | None] = Field(default_factory=dict)
 
 
 class ParamSpec(Contract):

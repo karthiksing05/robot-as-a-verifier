@@ -10,7 +10,7 @@ import re
 
 from pydantic import ValidationError
 
-from rav_contracts import Checkpoint, Decision, SurveyAnswer, System1
+from rav_contracts import Checkpoint, Decision, ExpectedControl, SurveyAnswer, System1
 
 from .commands import Responder, rule_responder
 from .model import Image, Message, ModelClient
@@ -31,12 +31,22 @@ ASK = ("The photo shows surfaces {surfaces}. The dots show which points belong t
        '"also_look": ["<other places on the device with controls the robot should photograph, a few words each>"]}}')
 
 
+NAME_SYSTEM = ("A robot arm scanned an appliance's control panel. The photo is the panel straight on, with a yellow dot and an "
+               "id on each thing the scan thinks may be a control.")
+NAME_ASK = ("{manual}The ids in the photo: {ids}. For each id, say which control from the manual it is, reading the printed "
+            "labels beside the controls, or that it isn't a control (a cable, a latch, the lid, the desk). Answer with JSON "
+            'only: {{"<id>": {{"control": "<the manual\'s name, or null>", '
+            '"kind": "<button|dial|knob|toggle|slider|display|none>", "why": "<a few words>"}}}}')
+
+
 def survey_reviewer(system1: System1, client: ModelClient, log: RunLog, manual: str | None = None,
                     respond: Responder = rule_responder) -> Responder:
     """A Responder for explore: answers survey_review stops with the model, and every other stop with `respond`. A reply
     it can't read keeps System 1's own pick, and says so in the log."""
     def review(stop: Checkpoint) -> Decision:
         e = stop.escalation
+        if e is not None and e.code == "scan_review":
+            return name_parts(e.measured)
         if e is None or e.code != "survey_review":
             return respond(stop)
         m = e.measured
@@ -61,4 +71,26 @@ def survey_reviewer(system1: System1, client: ModelClient, log: RunLog, manual: 
                                                         f"picked {m['picked']}): {why} Expects {expect}; also look at "
                                                         f"{'; '.join(answer.also_look) or 'nothing else'}"})
         return Decision(survey=answer)
+
+    def name_parts(m: dict) -> Decision:
+        """scan_review: each part's name and kind from the panel map and the manual, or None for what isn't a control.
+        On the real centrifuge it named all seven candidates right, three tries in three."""
+        ids = [p["id"] for p in m["parts"]]
+        images = [Image("image/jpeg", system1.evidence_frame(ref).data_b64) for ref in m.get("frames", [])]
+        for k, image in enumerate(images):
+            (log.dir / f"scan_review_{k + 1}.jpg").write_bytes(base64.b64decode(image.data_b64))
+        text = NAME_ASK.format(manual=f"The appliance's manual:\n\n{manual}\n\n" if manual else "", ids=", ".join(ids))
+        reply = client.generate(NAME_SYSTEM, [Message("user", text, images=images)], [])
+        (log.dir / "scan_review.txt").write_text(f"{text}\n\n--- {client.model} ---\n{reply.text}\n", encoding="utf-8")
+        try:
+            said = json.loads(re.search(r"\{.*\}", reply.text, re.S).group(0))
+            labels = {i: None if not said[i].get("control") or said[i].get("kind") in (None, "none") else
+                      ExpectedControl(name=str(said[i]["control"]), kind=str(said[i]["kind"])) for i in ids if i in said}
+        except (AttributeError, ValueError, ValidationError, TypeError) as err:
+            log.emit("message", {"role": "harness", "text": f"scan review: couldn't read {client.model}'s answer ({err}), "
+                                                            "so the parts keep the scan's names"})
+            return Decision()
+        named = ", ".join(f"{i}: {'not a control' if v is None else f'{v.name} ({v.kind})'}" for i, v in labels.items())
+        log.emit("message", {"role": "harness", "text": f"scan review by {client.model}: {named}"})
+        return Decision(labels=labels)
     return review

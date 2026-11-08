@@ -13,11 +13,12 @@ import json
 import math
 import os
 import pathlib
+import re
 import sys
 from collections import Counter, OrderedDict
 from typing import Any
 
-from rav_interface import DEVICE_CONTROL, Control, Frame, Plan, SceneInventory, Step, StepTrace, StepVerdict
+from rav_interface import DEVICE_CONTROL, Control, ControlKind, Frame, Plan, SceneInventory, Step, StepTrace, StepVerdict
 
 from .actions import reposition_action
 from .robot import PipelineFailure
@@ -25,6 +26,7 @@ from .robot import PipelineFailure
 SYSTEM_1 = pathlib.Path(__file__).resolve().parents[3]
 CORE_DIR, SIM_DIR, HARDWARE_DIR = SYSTEM_1 / "core", SYSTEM_1 / "sim", SYSTEM_1 / "hardware"
 # What separates "the part is broken" from "the robot missed", from run_step's result. The engine puts the small ones in each stop.
+CONTROL_KINDS = set(ControlKind.__args__) - {"other"}  # kinds System 2 may give a part at a scan_review stop
 MEASURES = ("contact_offset_mm", "refined", "refine_shift_mm", "refine_why", "regrip_mm", "touch_mm", "landing_n", "turned_deg",
             "force_limit_n", "collisions", "lcd")
 REPOSITION_RANGE = (30.0, 30.0, 12.0)  # dx_mm, dy_mm, yaw_deg, for a device that doesn't say: world.random_placement's
@@ -60,7 +62,8 @@ def part_to_control(part: Any) -> Control:
         extra["latched"] = bool(meta["latched"])
     return Control(id=part.id, kind=kind, pos_mm=tuple(float(v) * 1000 for v in part.pos),
                    normal=tuple(float(v) for v in part.normal), size_mm=tuple(float(v) * 1000 for v in part.size),
-                   motion=part.motion, grip=part.grip, conf=float(part.score), source=meta.get("source", "scan"), **extra)
+                   motion=part.motion, grip=part.grip, conf=float(part.score), source=meta.get("source", "scan"),
+                   label=meta.get("name"), **extra)
 
 
 def _plain(value: Any) -> Any:
@@ -151,6 +154,7 @@ class PipelineRobot:
         self.stale = False  # the device moved since the last explore
         self.survey_refs: list[str] = []
         self.review = None  # set by the engine for one explore: review(measured) holds at a survey_review stop
+        self.review_scan = None  # and review_scan(measured) at a scan_review stop
         self.expected, self.also_look = [], []
         self.frames: OrderedDict[str, Frame] = OrderedDict()
         self.frame_n = 0
@@ -247,6 +251,8 @@ class PipelineRobot:
                 self.refine = pipeline.last_look(self.rig.wrist, self.plane_T, self.depth)
             if getattr(self, "inventory", None) is not None:
                 self._registered(before)
+            if self.review_scan:
+                self._review_parts()
             if self.expected:
                 self.notes.append(expected_vs_found(self.expected, self.parts))
             if self.also_look:
@@ -297,6 +303,40 @@ class PipelineRobot:
                 self.notes.append(f"System 2 would pick surface {answer.panel} as the panel; the scan keeps the survey's "
                                   f"{picked + 1}")
         self.expected, self.also_look = answer.expect, answer.also_look
+
+    def _review_parts(self) -> None:
+        """Holds at a scan_review stop with the panel map, then names and re-kinds each part as System 2 says (the manual's
+        names, read off the panel's print, become the part ids), and drops what it says isn't a control. On the real
+        centrifuge the shape rules called START and STOP knobs one scan and buttons the next; the panel's print doesn't
+        change."""
+        from dataclasses import replace
+
+        ref = self._panel_map()
+        decision = self.review_scan({"parts": [{"id": p.id, "kind": p.kind} for p in self.parts], "frames": [ref] if ref else []})
+        if decision.kind == "abort":
+            raise PipelineFailure(f"stopped after the scan: {decision.note or 'System 2 aborted'}")
+        if not decision.labels:
+            return
+        kept, dropped, renamed = [], [], []
+        for p in self.parts:
+            if p.id not in decision.labels:
+                kept.append(p)
+                continue
+            label = decision.labels[p.id]
+            if label is None or label.kind not in CONTROL_KINDS:
+                dropped.append(p.id)
+                continue
+            new_id = re.sub(r"[^A-Za-z0-9+]+", "_", label.name).strip("_") or p.id
+            while new_id in {q.id for q in kept}:
+                new_id += "_2"
+            meta = {**p.meta, "name": label.name}
+            if label.kind == "button" and "radius" not in meta:  # the press and the last look read a button's radius
+                meta["radius"] = float(min(p.size[:2])) / 2
+            kept.append(replace(p, id=new_id, kind=label.kind, meta=meta))
+            renamed.append(f"{p.id} -> {new_id} ({label.kind})")
+        self.parts = kept
+        self.notes.append(f"System 2 named the parts from the manual: {', '.join(renamed) or 'none'}"
+                          + (f"; not controls: {', '.join(dropped)}" if dropped else ""))
 
     def _registered(self, before: list) -> None:
         """With a device file: register its roots from the scan's parts and touches, and add each part the scan didn't
