@@ -25,6 +25,7 @@ WiFiClient client;
 char last[SNAPSHOT_MAX] = "";
 uint32_t sentAt = 0, joinAt = 0;
 bool joinedOnce = false;
+int lastLink = -1;
 int lastStatus = -1;
 bool pending = false;
 uint32_t polledAt = 0;
@@ -94,7 +95,15 @@ inline void update(const char *body) {
   if (pending) { pollResponse(now); return; }
   bool changed = strcmp(body, last) != 0;
   if (now - sentAt < (lastStatus == 204 && changed ? 50 : SEND_EVERY_MS)) return;
-  if (WiFi.status() != WL_CONNECTED) {
+  const bool connected = WiFi.status() == WL_CONNECTED;
+  if (connected != lastLink) {
+    lastLink = connected;
+    Serial.print(F("{\"t\":")); Serial.print(now);
+    Serial.print(F(",\"ev\":\"wifi_link\",\"v\":\""));
+    Serial.print(connected ? F("connected") : F("disconnected"));
+    Serial.println(F("\"}"));
+  }
+  if (!connected) {
     if (!joinedOnce || now - joinAt >= REJOIN_MS) join();
     sentAt = millis();
     return;

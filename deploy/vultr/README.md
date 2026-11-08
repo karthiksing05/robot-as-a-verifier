@@ -88,6 +88,17 @@ Use the top-level `firmware/` PlatformIO project for both boards. On the MC-6, w
 
 ## Smoke test
 
+Open the Arduino serial monitor at **115200 baud**. With the current firmware, `wifi_link` reports whether the board joined the hotspot. A `wifi` event with value `204` confirms that System 1 accepted an HTTPS snapshot through Vultr. The firmware reports these events on changes, so reopen the monitor and reset the board if you missed startup. A value of `0` means the board got no usable HTTP response, `401` means System 1 rejected the device credential, and `502` usually means Vultr could not reach System 1.
+
+On Vultr, run the live readout watcher with the same `RAV_TOKEN` used by the System 2 harness:
+
+```sh
+uv run rav readout --watch
+uv run rav readout mw1-01 --watch   # one device
+```
+
+`NO DATA` means System 1 has received no snapshots since startup. `FRESH` means a snapshot arrived within the last two seconds. `STALE` shows the last known values and their age. With the microwave idle, open and close its door and check that `door` changes in the watcher. Then turn off the board and check that its reading becomes `STALE`. This tests the whole path without moving the arm.
+
 From `system-2` on Vultr, with System 1 running in mock mode and the tunnel connected:
 
 ```sh

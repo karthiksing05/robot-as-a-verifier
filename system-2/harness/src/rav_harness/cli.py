@@ -254,8 +254,23 @@ def inspect_system1(args) -> None:
     try:
         if args.command == "status":
             print(client.system_status().model_dump_json(indent=2))
+        elif args.watch:
+            ids = [args.device_id] if args.device_id else client.appliance_readout()["devices"]
+            if not ids:
+                raise SystemExit("System 1 has no registered appliances.")
+            while True:
+                for device_id in ids:
+                    sample = client.appliance_readout(device_id)
+                    age = sample["age_s"]
+                    state = "NO DATA" if age is None else f"{'FRESH' if sample['fresh'] else 'STALE'} {age:.2f}s"
+                    stamp = time.strftime("%H:%M:%SZ", time.gmtime())
+                    readings = json.dumps(sample["readings"], sort_keys=True)
+                    print(f"{stamp} {device_id}  {state}  LCD={json.dumps(sample['lcd'])}  {readings}", flush=True)
+                time.sleep(1)
         else:
             print(json.dumps(client.appliance_readout(args.device_id), indent=2))
+    except KeyboardInterrupt:
+        pass
     except ToolFailed as error:
         raise SystemExit(str(error)) from error
     finally:
@@ -293,6 +308,7 @@ def main(argv=None) -> None:
         c.add_argument("--url", default="http://127.0.0.1:8780/mcp")
         if name == "readout":
             c.add_argument("device_id", nargs="?")
+            c.add_argument("--watch", action="store_true", help="poll every second for one appliance or all registered appliances")
         c.set_defaults(fn=inspect_system1)
     for name, fn, about in (("run", run, "one full run against System 1's server"), ("explore", explore, "/explore: find the controls, and print them")):
         c = sub.add_parser(name, help=about)
