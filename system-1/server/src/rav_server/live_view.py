@@ -1,4 +1,4 @@
-"""The real rig's live window, for people watching: the wrist camera's newest frame, undistorted and at half size, with
+"""The real rig's live window, for people watching: the wrist camera's newest frame, undistorted and at 1280x720, with
 each part from the last scan outlined and named where the arm's last joint reading puts it, nudged onto the frame by
 the scan's orthophoto (ortho_offset; the current step's target in green), the gripper's mask, and the status line. During a step, its last look is inset as touch._save_look drew it
 (the part as believed in white, SAM's outline yellow, the fitted circle green), with a red cross where the press aims.
@@ -14,10 +14,10 @@ import time
 import cv2
 import numpy as np
 
-SCALE = 0.5    # of the camera's frame
+SCALE = 2 / 3  # of the camera's frame: 1280x720
 INSET = 0.42   # the look's width, of the window's
 PERIOD_MS = 80
-SEARCH = 60    # px each way the scan's orthophoto is looked for round where the joints' pose puts it
+SEARCH = 80    # px each way the scan's orthophoto is looked for round where the joints' pose puts it
 PART, TARGET, PRESS = (255, 255, 0), (0, 255, 0), (0, 0, 255)  # BGR
 STAGES = ("survey", "scan", "poses", "orthophoto", "segment", "heights", "classify", "done")
 HOLD_S = 20    # the classified parts' panel stays this long after the scan
@@ -85,7 +85,7 @@ def run(backend):
 def compose(img, K, T, parts, shift, target, status, inset=None, errors=None, title="last look"):
     """Draws on img (an undistorted frame, K its intrinsics, T the camera's pose in the arm frame) in place. parts are
     the backend's, moved by shift (RealArm.part_shift) for the arm; they are drawn where the camera saw them. inset
-    goes top right, titled title."""
+    goes top left, under the status line, titled title."""
     import rgbperceive
 
     errors = set() if errors is None else errors
@@ -114,7 +114,7 @@ def compose(img, K, T, parts, shift, target, status, inset=None, errors=None, ti
     if inset is not None:
         try:
             h, w = inset.shape[:2]
-            y0, x0 = 50, img.shape[1] - w - 8
+            y0, x0 = 50, 8
             img[y0:y0 + h, x0:x0 + w] = inset
             cv2.rectangle(img, (x0 - 1, y0 - 1), (x0 + w, y0 + h), (255, 255, 255), 2)
             if title:
@@ -128,7 +128,7 @@ def compose(img, K, T, parts, shift, target, status, inset=None, errors=None, ti
 def ortho_offset(img, K, T, scene):
     """Pixels (dx, dy) to move what's drawn through pose T so it lands on img: the scan's orthophoto warped into img
     through T, then found in img within SEARCH. The joints' pose is only good to a degree or two, and off by different
-    amounts in different poses: near home it put the scan's parts 15-50 px (at this size) left of where they show.
+    amounts in different poses: near home it put the scan's parts 20-65 px (at this size) left of where they show.
     (0, 0) if the panel is mostly out of view or the best match is at the search's edge."""
     import rgbperceive
 

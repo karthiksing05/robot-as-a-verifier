@@ -49,7 +49,7 @@ SKIP_GEOMS = {"cyclorama"}  # the film's backdrop: the Console lights its own st
 REAL_ARM_HIDDEN = ("wrist_camera",)  # the sim's D405-sized camera: the real arm's is another camera, mounted elsewhere
 MESH_CELL_M = 0.0015  # vertices closer than this merge, about a fifth of the triangles and no visible change at this scale
 TEXTURE_MAX, TEXTURE_QUALITY = 1024, 84
-JPEG_QUALITY = 70
+FEED_WIDTH, JPEG_QUALITY = 1280, 80
 SCAN_POINTS = 40_000  # the real scan's height map, thinned to about this many points: ~360 kB once per scan
 _mesh_cache: dict[bytes, tuple[bytes, int, int]] = {}
 
@@ -417,8 +417,8 @@ class Telemetry:
         import cv2
 
         h, w = img.shape[:2]
-        if w > 640:
-            img = cv2.resize(img, (640, round(h * 640 / w)), interpolation=cv2.INTER_AREA)
+        if w > FEED_WIDTH:
+            img = cv2.resize(img, (FEED_WIDTH, round(h * FEED_WIDTH / w)), interpolation=cv2.INTER_AREA)
         jpeg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])[1].tobytes()
         with self.cond:
             self.frames[feed] = (self.frames.get(feed, (0, b""))[0] + 1, jpeg)
