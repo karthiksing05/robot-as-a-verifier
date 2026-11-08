@@ -161,9 +161,9 @@ class RealArm(rig.ArmBase):
         self.bus.enable_torque(ARM_JOINTS)  # after the goal: a servo turned on runs to whatever goal it last had
         # The gripper holds where it is (closed by hand before), at LeRobot's soft gripper gain and torque limit, so the
         # loose jaw can't hang below the fingertip
-        self.bus.write("Goal_Position", "gripper", self.bus.read("Present_Position", "gripper", normalize=False),
-                       normalize=False)
-        self.bus.enable_torque("gripper")
+        self.bus.sync_write("Goal_Position", self.bus.sync_read("Present_Position", ["gripper"], normalize=False),
+                            normalize=False)
+        self.bus.enable_torque(["gripper"])
         self.torque = True
         self._io()
 
