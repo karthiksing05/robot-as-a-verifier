@@ -1,0 +1,277 @@
+[
+ {
+  "s": 6.8,
+  "e": 9.98,
+  "t": "Models now write proofs that machines verify."
+ },
+ {
+  "s": 10.04,
+  "e": 13.84,
+  "t": "This October, Lean checked two AI-claimed refutations of the Exponential"
+ },
+ {
+  "s": 13.84,
+  "e": 18.22,
+  "t": "Time Hypothesis, an age-old and seemingly impossible problem."
+ },
+ {
+  "s": 18.22,
+  "e": 21.2,
+  "t": "Verification also already guards real systems."
+ },
+ {
+  "s": 21.24,
+  "e": 24.76,
+  "t": "CompCert, a proven C compiler, is qualified for avionics,"
+ },
+ {
+  "s": 24.76,
+  "e": 29.26,
+  "t": "and seL4 kept a red team from taking over a helicopter in flight."
+ },
+ {
+  "s": 29.7,
+  "e": 31.72,
+  "t": "But verification ends where software ends."
+ },
+ {
+  "s": 31.72,
+  "e": 35.28,
+  "t": "In biosafety and biosecurity, foot-and-mouth virus most likely"
+ },
+ {
+  "s": 35.28,
+  "e": 38.58,
+  "t": "escaped England's labs through long-damaged drains."
+ },
+ {
+  "s": 38.58,
+  "e": 41.82,
+  "t": "In aerospace engineering, an acoustic test shook loose fasteners"
+ },
+ {
+  "s": 41.82,
+  "e": 45.28,
+  "t": "on Webb's sunshield, part of a 29-month delay."
+ },
+ {
+  "s": 45.38,
+  "e": 48.94,
+  "t": "In mechanical and product design, Dyson built over 5,000"
+ },
+ {
+  "s": 48.94,
+  "e": 52.02,
+  "t": "prototypes before the first Dyson vacuum succeeded."
+ },
+ {
+  "s": 52.1,
+  "e": 54.84,
+  "t": "Most products are still tested by hand."
+ },
+ {
+  "s": 55.0,
+  "e": 57.94,
+  "t": "So we built RAAV, Robot as a Verifier."
+ },
+ {
+  "s": 57.94,
+  "e": 61.04,
+  "t": "RAAV tests a physical prototype against its manual and specification"
+ },
+ {
+  "s": 61.04,
+  "e": 65.02,
+  "t": "with a low-cost robot arm and reports what it measured."
+ },
+ {
+  "s": 65.4,
+  "e": 68.86,
+  "t": "Vision language action models like SmolVLA and NVIDIA's GR00T N1"
+ },
+ {
+  "s": 68.86,
+  "e": 72.44,
+  "t": "learn new tasks from demonstrations and grade themselves,"
+ },
+ {
+  "s": 72.44,
+  "e": 76.1,
+  "t": "but RAAV chooses an alternative architecture to split the work."
+ },
+ {
+  "s": 76.12,
+  "e": 79.86,
+  "t": "System 1 handles what must be exact, fast, and safe."
+ },
+ {
+  "s": 80.18,
+  "e": 83.16,
+  "t": "Perception, inverse kinematics, control, force limits,"
+ },
+ {
+  "s": 83.16,
+  "e": 85.78,
+  "t": "and verdicts from sensor readings by fixed rules."
+ },
+ {
+  "s": 85.78,
+  "e": 89.98,
+  "t": "System 2, a frontier model, handles what needs context and judgment."
+ },
+ {
+  "s": 89.98,
+  "e": 93.56,
+  "t": "Reading the manual and spec, reasoning over plans of testing, recovering"
+ },
+ {
+  "s": 93.56,
+  "e": 97.84,
+  "t": "from failed steps, and diagnosing causes and proposing CAD fixes."
+ },
+ {
+  "s": 97.84,
+  "e": 101.16,
+  "t": "Each does what it's good at, and both benefit from long lines of existing"
+ },
+ {
+  "s": 101.16,
+  "e": 104.64,
+  "t": "work and are immune to the classical failures of VLAs, which include"
+ },
+ {
+  "s": 104.64,
+  "e": 108.06,
+  "t": "failure to binding and failure for few-shot learning."
+ },
+ {
+  "s": 108.2,
+  "e": 111.6,
+  "t": "Here's revision A of our centrifuge with its manual."
+ },
+ {
+  "s": 111.7,
+  "e": 116.36,
+  "t": "System 1 surveys, scans, segments, maps, and touches the panel."
+ },
+ {
+  "s": 116.36,
+  "e": 120.26,
+  "t": "A fail scan reports back, and System 2 reruns it."
+ },
+ {
+  "s": 120.32,
+  "e": 123.46,
+  "t": "System 2 plans from the manual, and a person approves."
+ },
+ {
+  "s": 123.52,
+  "e": 128.02,
+  "t": "System 1 runs each step of the plan under a 15-newton cap, retries small"
+ },
+ {
+  "s": 128.02,
+  "e": 131.76,
+  "t": "misses within its autonomy setting, and judges by fixed rules."
+ },
+ {
+  "s": 131.76,
+  "e": 137.04,
+  "t": "When the first flip hits 16 newtons, it stopped first, resuming took a person."
+ },
+ {
+  "s": 137.14,
+  "e": 139.94,
+  "t": "When the display contradicted the manual, System 2 amended"
+ },
+ {
+  "s": 139.94,
+  "e": 143.64,
+  "t": "the plan, and code, not the model, rated the change."
+ },
+ {
+  "s": 144.08,
+  "e": 145.94,
+  "t": "Then, we encounter the lid."
+ },
+ {
+  "s": 145.94,
+  "e": 150.06,
+  "t": "Its thin fin needs a pinch the spec forbids, so System 1 refuses,"
+ },
+ {
+  "s": 150.06,
+  "e": 152.88,
+  "t": "and System 2 reports it rather than just guessing."
+ },
+ {
+  "s": 152.94,
+  "e": 155.66,
+  "t": "System 2 traces this to the handle and drafts a hooked"
+ },
+ {
+  "s": 155.66,
+  "e": 158.6,
+  "t": "lip, code checks it, and a person approves."
+ },
+ {
+  "s": 158.6,
+  "e": 160.48,
+  "t": "This unmasks a tight well."
+ },
+ {
+  "s": 160.48,
+  "e": 163.82,
+  "t": "The tube sits high, so START shows TUBE."
+ },
+ {
+  "s": 163.9,
+  "e": 165.18,
+  "t": "Rev B fixes both."
+ },
+ {
+  "s": 165.18,
+  "e": 169.4,
+  "t": "The same tests rerun, and it only counts if the score rises."
+ },
+ {
+  "s": 169.6,
+  "e": 173.92,
+  "t": "Our model has never seen this centrifuge before, and this is just the start."
+ },
+ {
+  "s": 173.92,
+  "e": 176.84,
+  "t": "Another arm could sit behind the same model setup."
+ },
+ {
+  "s": 176.84,
+  "e": 179.58,
+  "t": "Plans can come from any manual and we can use any prototype,"
+ },
+ {
+  "s": 179.58,
+  "e": 183.18,
+  "t": "and we take extra care to maintain a thoughtful human in the loop."
+ },
+ {
+  "s": 183.4,
+  "e": 186.84,
+  "t": "As AI starts designing hardware, we think every design should"
+ },
+ {
+  "s": 186.84,
+  "e": 190.0,
+  "t": "be measured this way before anyone relies on it."
+ },
+ {
+  "s": 190.02,
+  "e": 190.7,
+  "t": "RAAV."
+ },
+ {
+  "s": 191.1,
+  "e": 192.8,
+  "t": "Robot as a Verifier."
+ }
+]
