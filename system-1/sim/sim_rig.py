@@ -47,8 +47,6 @@ def make_rig(seed=None, placement="nominal", ideal=False, offsets=None, slop=Fal
         joint_offsets = np.radians(np.r_[rng.normal(0, 0.5, 4), 0])
     if stiffness:
         robot.SERVO_NM_PER_RAD = stiffness  # read by the servo model at run time
-    import rgbperceive
-    rgbperceive.GRIPPER_PX = rgbperceive.PROBE_GRIPPER_PX if effector == "probe" else rgbperceive.STOCK_GRIPPER_PX
     arm = robot.SimArm(world=w, joint_offsets=joint_offsets, realtime=realtime, slop=slop,
                        sensing=None if sensing == "perfect" else sensing, effector=effector)
     seed = seed or 0

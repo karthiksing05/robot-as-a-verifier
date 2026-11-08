@@ -44,14 +44,12 @@ import skills
 
 PARTNER_SHIFT = 0.015   # a second capture this far along the camera's y at every view: a short baseline for heights
 SAG_TOL = 0.0005        # a view is commanded again until the joint readings put the camera this close to it
-# The fixed jaw in the USB wrist frame (px), a fixed region: the arm's own geometry rendered once, standing in for
-# masking it at calibration, grown by about 30 px (a sim render of the model's camera mount; the real mount differs)
-STOCK_GRIPPER_PX = np.array([(793, 13), (798, 37), (851, 114), (903, 158), (955, 176), (1005, 168), (1053, 138), (1093, 96),
-                             (1137, 24), (1131, 0), (799, 0)], np.int32)
-# The same with the sim-only probe below the jaws, for sim_rig's effector="probe"
-PROBE_GRIPPER_PX = np.array([(1137, 0), (1137, 31), (1080, 320), (1064, 351), (1030, 375), (992, 383), (908, 381), (869, 364),
-                             (850, 344), (839, 320), (793, 31), (793, 0)], np.int32)
-GRIPPER_PX = STOCK_GRIPPER_PX  # a rig may set its own (sim_rig, hw_rig)
+# The gripper and probe in the USB wrist frame (px), a fixed region: the arm's own geometry rendered once, standing
+# in for masking it at calibration, grown by about 30 px (a sim render; redraw it from a real frame once mounted). Kept
+# for the stock gripper too: a jaw-only mask let two more features into the coffee grinder's wrist survey, and its
+# panel fit (normal z 0.93, the cutoff 0.95) failed
+GRIPPER_PX = np.array([(1137, 0), (1137, 31), (1080, 320), (1064, 351), (1030, 375), (992, 383), (908, 381), (869, 364),
+                       (850, 344), (839, 320), (793, 31), (793, 0)], np.int32)
 PX_WIDTH = 1920         # the frame width the pixel constants here are for; other sizes scale them
 # bundle adjustment
 PANEL_INSET = 0.008     # panel features come from the survey's panel rectangle shrunk this much (off the housing)
