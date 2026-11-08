@@ -9,6 +9,10 @@ System 1 and the appliances share a private hotspot. The appliances post snapsho
 3. Install the Caddyfile or add its site block to the existing configuration. Set `RAV_PUBLIC_HOST` to the DNS hostname in Caddy's service environment, validate the config with that variable set, then start or reload Caddy. Both relay listeners bind to loopback.
 4. Set `RAV_TOKEN` in the System 2 harness environment. It must match the token on System 1. Use a separate secret from the frp token and all device credentials.
 
+### Browser console
+
+From `system-2/console/web`, run `npm ci` and `VITE_CONSOLE_READ_ONLY=1 npm run build`. Install the contents of `dist/` under `/var/www/rav-console`. The hosted demo serves bundled projects and recorded runs. Live robot control and project writes require a separate authenticated backend.
+
 ## System 1
 
 Copy the tunnel token into a private local file and set `RAV_TUNNEL_TOKEN_FILE` to its absolute path. From the repository root, run the client with `uv` or install `requirements.txt` into a dedicated Python environment and run the same script directly:

@@ -9,6 +9,7 @@
 	}
 
 	handle {
-		respond 404
+		root * /var/www/rav-console
+		file_server
 	}
 }
