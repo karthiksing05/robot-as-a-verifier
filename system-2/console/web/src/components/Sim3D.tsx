@@ -115,7 +115,7 @@ export default function Sim3D({ source, focus, focusAt, onUnavailable }: { sourc
     lcdTexture.colorSpace = THREE.SRGBColorSpace;
     let lcdShown: string | null = null;
 
-    const home = new THREE.Vector3(0.14, 0, 0.1), desired = new THREE.Vector3(), probe = new THREE.Vector3(), step = new THREE.Vector3();
+    const home = new THREE.Vector3(0.14, 0, 0.1), desired = new THREE.Vector3(), grip = new THREE.Vector3(), step = new THREE.Vector3();
     const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), v3 = new THREE.Vector3(), v3b = new THREE.Vector3(), normal = new THREE.Vector3(0, 0, 1);
     const view = new THREE.Vector3(-0.18, 0.68, 0.43), at = new THREE.Vector3(); // view: the camera, from what it looks at
     let tagFor: string | null = null, ringsFor: string | null = null;
@@ -453,10 +453,10 @@ export default function Sim3D({ source, focus, focusAt, onUnavailable }: { sourc
       moved = applyPoses(now);
       if (moved) dirty = true;
       updateFocus(now, dt);
-      if (following) { // lean toward the probe, and keep the same view of the device
-        const tip = named.get("probe");
+      if (following) { // lean toward the gripper, and keep the same view of the device
+        const tip = named.get("gripper");
         desired.copy(home);
-        if (tip) { tip.getWorldPosition(probe); desired.lerp(probe, 0.3); }
+        if (tip) { tip.getWorldPosition(grip); desired.lerp(grip, 0.3); }
         step.subVectors(desired, controls.target).multiplyScalar(Math.min(1, dt * 2.2));
         if (step.lengthSq() > 1e-10) {
           controls.target.add(step);
@@ -505,7 +505,7 @@ export default function Sim3D({ source, focus, focusAt, onUnavailable }: { sourc
     <div className="sim3d" ref={host}>
       <span className="simlabel" ref={tag} />
       {!ready && <div className="simloading"><div className="sweep" /></div>}
-      {free && <button type="button" className="linkbtn simfollow" onClick={() => refollow.current()}>Follow the probe</button>}
+      {free && <button type="button" className="linkbtn simfollow" onClick={() => refollow.current()}>Follow the gripper</button>}
     </div>
   );
 }

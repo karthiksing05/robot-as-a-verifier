@@ -78,10 +78,12 @@ LC_CROSS = 0.02            # share of the force across the probe (along the tip 
 LC_NOISE_FLOOR_N = 0.05    # the cell's floor along the probe (arm.noise_axial): noise and a run's drift
 
 
-# effector="stock": the SO-101's own gripper and nothing on it, as the real arm is. The probe's rod and pad stay in the
-# model, by name, but touch nothing and can't be seen; the model file's tip site is the fixed jaw's tip, the middle of its
-# end face, and a contact on the gripper within STOCK_TIP_ZONE_M of that tip counts as the tool's, as the pad's did.
-PROBE_SITE = (0.0, 0.0, -0.025)  # effector="probe": the tip site at the pad's face, in the probe body's frame
+# effector="stock": the SO-101's own gripper and nothing on it, as the real arm is and as the model file has it. Its tip
+# site is the fixed jaw's tip, the middle of its end face, and a contact on the gripper within STOCK_TIP_ZONE_M of that
+# tip counts as the tool's. effector="probe" adds a sim-only fingertip probe: a rod and a 12 mm pad 25 mm past the jaw
+# tip along the tool axis (-z), with the tip site at the pad's face. The rod's round end stops 1 mm inside the pad.
+PROBE_POS = (-0.0079, 0.0, -0.098)  # the probe body in the gripper's frame
+PROBE_SITE = (-0.0079, 0.0, -0.123)  # the tip site at the pad's face, in the gripper's frame
 PENETRATION_TOL_M = 0.0002  # a contact the arm was already in may go on while it gets no deeper than this
 STOCK_TIP_ZONE_M = 0.03   # the fingers, shut, from their tips back to the palm
 MOVING_TIP_X = (0.0188, 0.075)  # open, the moving jaw's tip stands this far along the tip frame's x: 18.8 mm at gripper 0
@@ -126,21 +128,26 @@ def _jaw_pieces(spec):
         spec.delete(g)
 
 
-def load_model(path, slop=False, effector="probe"):
+def _add_probe(spec):
+    probe = spec.body("gripper").add_body(name="probe", pos=list(PROBE_POS))
+    tool = dict(contype=2, conaffinity=1, group=2, solref=[-15000, -150])
+    probe.add_geom(name="probe_rod", type=mujoco.mjtGeom.mjGEOM_CAPSULE, fromto=[0, 0, 0, 0, 0, -0.02], size=[0.004, 0, 0],
+                   rgba=[0.2, 0.2, 0.25, 1], **tool)
+    probe.add_geom(name="probe_pad", type=mujoco.mjtGeom.mjGEOM_CYLINDER, pos=[0, 0, -0.0235], size=[0.006, 0.0015, 0],
+                   rgba=[0.9, 0.3, 0.2, 1], friction=[0.6, 0.005, 0.0001], **tool)
+    spec.site("tip").pos = list(PROBE_SITE)
+
+
+def load_model(path, slop=False, effector="stock"):
     """Compile a scene. With slop, each arm joint gets a passive joint in series for the gear play
     (friction set to 0.1 N.m keeps it shut until a load forces it open; stiff stops keep it at
-    BACKLASH_DEG under load), and the servos get the real damping (SERVO_KV). effector: "probe" (the fingertip probe
-    and pad, a sim-only reference) or "stock" (the model file's own tip)."""
+    BACKLASH_DEG under load), and the servos get the real damping (SERVO_KV). effector: "stock" (the model file's own
+    gripper) or "probe" (the fingertip probe and pad, a sim-only reference)."""
     spec = mujoco.MjSpec.from_file(path)
     if effector == "probe":
-        spec.site("tip").pos = list(PROBE_SITE)
+        _add_probe(spec)
     if effector == "stock":
-        for name in ("probe_rod", "probe_pad"):
-            g = spec.geom(name)
-            g.contype = g.conaffinity = 0
-            g.rgba = [0, 0, 0, 0]
         _jaw_pieces(spec)
-    if effector == "stock":
         spec.actuator("gripper").forcerange = [-GRIP_TORQUE_NM, GRIP_TORQUE_NM]
     if not slop:
         return spec.compile()
@@ -188,7 +195,7 @@ class SimArm(ArmBase):
     """
 
     def __init__(self, rev="B", realtime=False, viewer=None, placement=None, world=None, joint_offsets=None,
-                 slop=False, sensing=None, effector="probe"):
+                 slop=False, sensing=None, effector="stock"):
         assert effector in ("probe", "stock") and not (effector == "stock" and sensing == "tactile"), "the stock gripper has no pad"
         self.world = world
         self.effector = effector
@@ -223,7 +230,7 @@ class SimArm(ArmBase):
         self.substeps = round(1 / (CONTROL_HZ * self.m.opt.timestep))
         self.qadr = self.ik.qadr
         self.tip = self.m.site("tip").id
-        self.probe_body = self.m.body("probe").id
+        self.probe_body = self.m.body("probe").id if effector == "probe" else -1  # the stock gripper has no probe
         self.arm_bodies = arm_bodies(self.m)
         self.jaw_bodies = {self.m.body(b).id for b in JAW_BODIES}
         self.moving_jaw = self.m.body(JAW_BODIES[1]).id
@@ -271,7 +278,8 @@ class SimArm(ArmBase):
         g = np.linspace(-PAD_SPREAD_M, PAD_SPREAD_M, 9)
         g = np.stack(np.meshgrid(g, g), -1).reshape(-1, 2)
         self.spread = g[np.linalg.norm(g, axis=1) <= PAD_SPREAD_M]
-        self.pad_r = self.m.geom("probe_pad").size[0]
+        if self.effector == "probe":
+            self.pad_r = self.m.geom("probe_pad").size[0]
 
     # --- the five calls a hardware backend would implement ---
     def read_q(self):

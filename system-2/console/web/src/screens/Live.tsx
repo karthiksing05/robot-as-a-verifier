@@ -198,7 +198,7 @@ function Running({ state, nodes, finished, send, lastTelemetry }: { state: LiveS
 
       <div className="grid3">
         <div className="panel rise" style={stagger(1)}>
-          <span className="label">Probe contact force</span>
+          <span className="label">Contact force</span>
           <LiveForce points={state.force} limit={limit} now={tel?.sim_t ?? 0} label={active ? `${active.step.id} ${active.step.skill} ${active.step.target}` : "between steps"} />
         </div>
         <div className="panel rise" style={stagger(2)}>
