@@ -57,23 +57,32 @@ pane("R", "cons", [(S["plan"], 62.0), (S["approves"], 74.6), (S["works"] - 0.2, 
 # Phase C: the eight steps, sim beside reality, each step's footage landing in its own slot
 STEPS = ["tube_pick", "tube_place", "lid_close", "POWER", "TIME+", "SPEED", "START", "STOP"]
 OVER = [60, 76, 86, 99, 103, 111, 120, 128, 136]          # overhead clip seconds at each step's boundaries
-a0, a1 = S["works"] - 0.2, S["five"]
-w = [3.0, 2.0, 2.2, 1.2, 1.6, 2.0, 2.0, 2.0]; k = (a1 - a0) / sum(w)
-V = [a0]
-for x in w: V.append(V[-1] + x * k)
+a0 = S["works"] - 0.1
+# step boundaries keyed to the spoken list (each step lights just after its word), STOP runs on under "A board inside..."
+V = [a0, T("closes", a0) - 0.6, T("closes", a0) + 0.6, T("switches", a0) + 0.7, T("presses", T("switches", a0)) + 0.6,
+     T("turns", a0) + 0.8, T("presses", T("turns", a0)) + 0.6, T("stop", T("turns", a0)) + 0.8, T("verdict", a0) - 0.45]
 S["steps"] = [round(v, 3) for v in V]
-pane("L", "over", list(zip(V, OVER)))
+CAP = 7.0  # no pane runs faster than this; a longer step keeps its last CAP x slot seconds (the action), cut at the boundary
+def capped(spans):
+    pts = []
+    for i, (c0, c1) in enumerate(spans):
+        slot = V[i + 1] - V[i]
+        pts += [(V[i], max(c0, c1 - CAP * slot)), (V[i + 1], c1)]
+    return pts
+pane("L", "over", capped(list(zip(OVER, OVER[1:]))))
 sim = json.load(open(f"{FOOT}/simdemo/sim_demo.json")) if os.path.exists(f"{FOOT}/simdemo/sim_demo.json") else None
 if sim:
-    ss = [sim["steps"][f"s{i}"] for i in range(1, 9)]
-    simpts = [(V[i], ss[i][0]) for i in range(8)] + [(V[8], ss[7][1])]
-    pane("R", "sim", simpts)
+    pane("R", "sim", capped([tuple(sim["steps"][f"s{i}"]) for i in range(1, 9)]))
+    e8 = sim["steps"]["s8"][1]
+    if V[8] < S["five"]: pane("R", "sim", [(V[8], e8), (S["five"], min(e8 + 1.4, 146.0))])
     S["sim"] = {"speed": sim.get("speed"), "revision": sim.get("revision")}
 else:
-    pane("R", "cons", [(a0, 96.0), (a1, 160.0)])  # until the sim recording exists: the Console following along
+    pane("R", "cons", [(a0, 96.0), (V[8], 160.0)])
+a1 = V[8]
+pane("L", "over", [(a1, 136.0 - 0.01), (S["five"], 136.3)]) if a1 < S["five"] else None
 # Phase D: what it found
 pane("R", "cons", [(S["five"], 166.0), (S["timeq"], 170.0), (S["suspected"], 172.0), (S["cad"] - 0.3, 174.0)])
-pane("L", "over", [(S["five"], 128.0), (S["timeq"], 136.0)])
+pane("L", "over", [(S["five"], 128.0), (S["timeq"], 136.3)])
 pane("L", "hand", [(S["timeq"], 105.5), (S["lid"] - 0.9, 110.0), (S["lid"] - 0.9, 124.3), (S["suspected"], 127.3), (S["suspected"], 82.0), (S["cad"] - 0.3, 96.0)])
 # §4: the hinge comparison (rendered by cad_render.mjs)
 if os.path.exists(SRC["hinge"]): pane("F", "hinge", [(S["hinge"] - 0.4, 0.0), (s4 - 0.3, s4 - 0.3 - S["hinge"] + 0.4)])

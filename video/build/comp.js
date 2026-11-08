@@ -121,12 +121,12 @@ function buildChalk() {
   P(poly([1320, 590], [1460, 590]), re - 0.3, 0.2); P(poly([1435, 570], [1462, 590], [1435, 610]), re - 0.1, 0.1);
   P(rectP(1500, 470, 200, 240), re, 0.35); P(rectP(1560, 455, 80, 26), re + 0.3, 0.1);
   [[1530, 530, true], [1530, 585, true], [1530, 640, false]].forEach(([x, y, ok], i) => { P(ok ? poly([x, y], [x + 12, y + 14], [x + 34, y - 12]) : poly([x, y - 10], [x + 26, y + 14]), re + 0.4 + i * 0.12, 0.08, { color: ok ? WHITE : "#e8877a" }); P(poly([x + 50, y], [x + 140, y]), re + 0.45 + i * 0.12, 0.06); });
-  X("findings · coverage · reward", 1480, 770, re + 0.5, 0.4, { size: 30, color: DIM });
+  X("findings · coverage · reward", 1470, 770, re + 0.5, 0.4, { size: 26, color: DIM });
   POINTS.push([re, 1600, 470]);
   // "our centrifuge": back to the prototype, circled, and the board gives way to the real one
   const oc = T("our", re);
-  POINTS.push([oc - 0.2, 330, 430]);
-  P(circ(335, 590, 205), oc - 0.05, 0.55, { color: YELLOW, w: 6 });
+  POINTS.push([oc - 0.55, 330, 430]);
+  P(circ(335, 590, 205), oc - 0.4, 0.4, { color: YELLOW, w: 6 });
 
   POINTS.sort((a, b) => a[0] - b[0]);
   EL.sort((a, b) => a.start - b.start);
@@ -140,7 +140,7 @@ function buildChalk() {
 function armShape(g, tip, style, alpha = 1, base = null) {
   g.innerHTML = "";
   if (alpha <= 0) return;
-  const baseX = base ?? clamp(tip[0] * 0.35 + 980, 900, 1760), shoulder = [baseX, 1010];
+  const baseX = base ?? clamp(tip[0] * 0.35 + 980, 900, 1760), shoulder = [baseX, 935];
   const wrist = [tip[0] + 40, tip[1] + 95];
   const L1 = 470, L2 = 440;
   let dx = wrist[0] - shoulder[0], dy = wrist[1] - shoulder[1], d = Math.hypot(dx, dy);
@@ -154,7 +154,7 @@ function armShape(g, tip, style, alpha = 1, base = null) {
   const link = (p, q, w) => { const ang = Math.atan2(q[1] - p[1], q[0] - p[0]), nx = -Math.sin(ang) * w / 2, ny = Math.cos(ang) * w / 2;
     svg("path", { d: `M${p[0] + nx} ${p[1] + ny}L${q[0] + nx} ${q[1] + ny}A${w / 2} ${w / 2} 0 0 0 ${q[0] - nx} ${q[1] - ny}L${p[0] - nx} ${p[1] - ny}A${w / 2} ${w / 2} 0 0 0 ${p[0] + nx} ${p[1] + ny}Z`, fill, stroke, "stroke-width": solid ? 2 : 5 }, grp); };
   const servo = (p, s) => svg("rect", { x: p[0] - s / 2, y: p[1] - s / 2, width: s, height: s, rx: 6, fill: dark, stroke: solid ? "#111" : stroke, "stroke-width": solid ? 2 : 5 }, grp);
-  svg("rect", { x: baseX - 95, y: 1010, width: 190, height: 70, rx: 8, fill, stroke, "stroke-width": solid ? 2 : 5 }, grp);
+  svg("rect", { x: baseX - 95, y: 935, width: 190, height: 70, rx: 8, fill, stroke, "stroke-width": solid ? 2 : 5 }, grp);
   link(shoulder, elbow, 54); link(elbow, wrist, 44);
   servo(shoulder, 66); servo(elbow, 56); servo(wrist, 46);
   const ga = Math.atan2(tip[1] - wrist[1], tip[0] - wrist[0]), gx = Math.cos(ga), gy = Math.sin(ga);
@@ -287,8 +287,8 @@ function drawGlobe(g, t, cx, cy, r, lon0, o = {}) {
     if (k <= 0) continue;
     const age = (t - pin.at) % 1.6;
     svg("circle", { cx: x, cy: y, r: 8 + age * 22, fill: "none", stroke: land, "stroke-width": 2, opacity: k * (1 - age / 1.6) }, g);
-    svg("circle", { cx: x, cy: y, r: 7, fill: land, opacity: k }, g);
-    if (pin.label) { const tx = svg("text", { x: x + 14, y: y - 12, fill: "#e4e6e8", "font-size": 22, "font-family": "JetBrains Mono", opacity: k }, g); tx.textContent = pin.label; }
+    svg("circle", { cx: x, cy: y, r: 7, fill: pin.hollow ? "none" : land, stroke: pin.hollow ? "#c9cdd1" : "none", "stroke-width": 2, opacity: pin.hollow ? k * 0.8 : k }, g);
+    if (pin.label) { const bg = svg("rect", { x: x + 8, y: y - 40, height: 36, rx: 3, fill: "#15181b", opacity: 0.92 * k }, g); const tx = svg("text", { x: x + 18, y: y - 15, fill: "#e4e6e8", "font-size": 22, "font-family": "JetBrains Mono", opacity: k }, g); tx.textContent = pin.label; bg.setAttribute("width", tx.getComputedTextLength() + 20); }
   }
   return pos;
 }
@@ -339,12 +339,12 @@ function buildTech() {
   SC.gate = el("div", "abs", "", SC.sys, "left:957px;top:236px;width:4px;height:450px;background:#e5604f;opacity:0;box-shadow:0 0 18px #e5604f");
   const env = (txt, c) => el("div", "abs mono", txt, SC.sys, `font-size:19px;color:#111417;background:${c};padding:6px 12px;border-radius:4px;white-space:nowrap;opacity:0;box-shadow:0 8px 24px rgba(0,0,0,.5)`);
   SC.envs = [
-    { n: env("move_joint(2, 40°)", B), t: T("motor", s4) - 0.3, y: 470, kind: "bounce" },
-    { n: env("grade_own_step(s1, pass)", B), t: T("grades", s4) - 0.2, y: 560, kind: "bounce" },
+    { n: env("move_joint(2, 40°)", B), t: T("motor", s4) - 0.3, y: 527, kind: "bounce" },
+    { n: env("grade_own_step(s1, pass)", B), t: T("grades", s4) - 0.2, y: 589, kind: "bounce" },
     { n: env("run_plan · press START", B), t: T("grades", s4) + 1.9, y: 420, kind: "through" },
   ];
   SC.stamp4 = el("div", "abs mono", "no such tool", SC.sys, "left:878px;top:700px;width:164px;text-align:center;font-size:18px;color:#ff8a7a;opacity:0");
-  SC.vla = el("div", "box", `<div class="label" style="margin-bottom:12px">instead: one network</div><div class="mono" style="font-size:26px;color:#e4e6e8">perception + reasoning + control</div>
+  SC.vla = el("div", "box", `<div class="label" style="margin-bottom:12px">VLA</div><div class="mono" style="font-size:26px;color:#e4e6e8">perception + reasoning + control</div>
     <div style="display:flex;gap:8px;margin:22px 0 14px">${Array.from({ length: 14 }, (_, i) => `<div class="reel" style="width:40px;height:30px;border:2px solid #8b9095;border-radius:3px;opacity:0;background:repeating-linear-gradient(90deg,#8b909555 0 4px,transparent 4px 10px)"></div>`).join("")}</div>
     <div class="mono" style="font-size:19px;color:#9aa0a5;line-height:1.6">SmolVLA · 50 demonstrations per task<br>GR00T N1 · 30–300 demonstrations per task</div>`, SC.sys, "left:560px;top:330px;width:800px;padding:30px 36px;box-sizing:border-box;opacity:0;background:rgba(17,20,23,.97);box-shadow:0 30px 90px rgba(0,0,0,.7)");
   SC.reels = [...SC.vla.querySelectorAll(".reel")];
@@ -364,7 +364,7 @@ function buildTech() {
   SC.feat = el("div", "abs", "", SC.cards, `left:${WIN.x}px;top:${WIN.y - 64}px;opacity:0;font:500 22px "JetBrains Mono",monospace;color:#e4e6e8;white-space:nowrap`);
   SC.cases = el("div", "abs", "", SC.cards, "left:56px;top:104px;width:640px;opacity:0");
   const group = (txt, c) => el("div", "label", txt, SC.cases, `color:${c};margin:0 0 12px`);
-  const CASES = [["proofs", "lean", "Lean", "Two AI-claimed refutations of the Exponential Time Hypothesis, checked", "Oct 2026 · still under examination", "#8fb3d9"],
+  const CASES = [["proofs", "lean", "Lean", "Two AI-claimed refutations of the Exponential Time Hypothesis, being checked in Lean", "Oct 2026 · still under examination", "#8fb3d9"],
     ["flight", "chip", "CompCert", "A compiler proven correct, qualified for ATR 42/72 avionics", "compcert.org · 2026", "#8fb3d9"],
     ["flight", "shield", "seL4", "A proven kernel on Boeing's Little Bird: a red team couldn't break out in flight", "DARPA HACMS", "#8fb3d9"],
     ["dyson", "stack", "Dyson", "", "Fast Company · May 2007", "#e38b7a"],
@@ -373,13 +373,13 @@ function buildTech() {
   SC.caseN = [];
   CASES.forEach(([w, icon, title, fact, src, c], i) => {
     if (i === 0) group("software · proven before use", "#8fb3d9");
-    if (i === 3) { const g = group("hardware · found after the fact", "#e38b7a"); g.style.marginTop = "18px"; }
+    if (i === 3) { const g = group("hardware · found after the fact", "#e38b7a"); g.style.marginTop = "18px"; SC.hwLabel = g; }
     const big = title === "Dyson";
     const body = big ? `<canvas width="500" height="150" style="display:block;margin-top:10px;width:500px;height:150px"></canvas><div class="mono" style="font-size:16px;color:#9aa0a5;margin-top:8px">one cell per prototype · DC01 · 1993 · 15 years</div>`
       : `<div class="fact" style="font:500 19px/1.35 Inter,sans-serif;color:#dfe2e5;margin-top:5px;overflow:hidden">${fact}</div>`;
     const n = el("div", "", `<svg width="${big ? 56 : 44}" height="${big ? 56 : 44}" viewBox="0 0 64 64" style="flex:none">${ICON[icon]}</svg><div><div style="display:flex;align-items:baseline;gap:14px"><span class="mich" style="font-size:${big ? 30 : 22}px;color:${c}">${title}</span><span class="mono" style="font-size:13px;color:#8b9095">${src}</span></div>${body}</div>`, SC.cases,
       `display:flex;gap:16px;align-items:flex-start;padding:${big ? "18px 22px" : "12px 18px"};margin-bottom:10px;background:rgba(21,24,27,.95);border:1.5px solid ${c}${big ? "" : "55"};border-left:${big ? 6 : 4}px solid ${c};opacity:0;${big ? "box-shadow:0 0 40px #e38b7a33" : ""}`);
-    SC.caseN.push({ n, t: T(w, s5) + (i === 2 ? 0.35 : 0), soft: i < 3, fact: n.querySelector(".fact"), grid: n.querySelector("canvas") });
+    SC.caseN.push({ n, t: (i === 0 ? T("software", s5) : i === 1 ? T("proofs", s5) : T(w, s5)) + (i === 2 ? 0.35 : 0), soft: i < 3, fact: n.querySelector(".fact"), grid: n.querySelector("canvas") });
   });
   // §5 the pan-out: a globe, the twelve appliances, the real centrifuge, System 2 in the cloud
   SC.globeSvg = svg("svg", { width: 1920, height: 1080, style: "position:absolute;left:0;top:0;opacity:0;transform-origin:960px 450px" }, SC.cards);
@@ -387,8 +387,8 @@ function buildTech() {
   SC.tunnel = svg("path", { fill: "none", stroke: "#8fb3d9", "stroke-width": 2.5, "stroke-dasharray": "9 9", opacity: 0 }, SC.globeSvg);
   SC.cloud = svg("g", { opacity: 0 }, SC.globeSvg);
   for (const [x, y, r] of [[-46, 8, 30], [-8, -14, 42], [36, 0, 34], [64, 14, 24], [-70, 18, 20]]) svg("circle", { cx: x, cy: y, r, fill: "#1b2530", stroke: "#8fb3d9", "stroke-width": 2.5 }, SC.cloud);
-  svg("rect", { x: -88, y: 14, width: 176, height: 30, fill: "#1b2530" }, SC.cloud);
-  const ct = svg("text", { x: 0, y: 12, "text-anchor": "middle", fill: "#cfe0f1", "font-size": 22, "font-family": "Michroma" }, SC.cloud); ct.textContent = "System 2";
+  svg("rect", { x: -88, y: 12, width: 176, height: 36, fill: "#1b2530" }, SC.cloud);
+  const ct = svg("text", { x: 0, y: 38, "text-anchor": "middle", fill: "#cfe0f1", "font-size": 22, "font-family": "Michroma" }, SC.cloud); ct.textContent = "System 2";
   const APPS = ["centrifuge", "coffee-grinder", "cuvette-reader", "hotplate-stirrer", "incubator", "interval-timer", "kettle-base", "label-printer", "microwave", "tube-sealer", "vortex-mixer", "wall-thermostat"];
   SC.apps = APPS.map((a, i) => { const right = i >= 6, j = i % 6; const real = a === "centrifuge" || a === "microwave";
     return { at: i * 0.09, n: el("div", "abs mono", `${a}${real ? ' <span style="color:#eebc24">· sim + real</span>' : ""}`, SC.cards,
@@ -399,7 +399,7 @@ function buildTech() {
 
 // §5: the Console sits in a window on the right; each view gets a feature label (keyed to the scenes tour's own clock)
 const WIN = { x: 748, y: 196, s: 0.594 };
-const FEATS = [[0, "Studies · every appliance, one harness"], [7.9, "Story · Rev A vs Rev B, control by control"], [14.5, "Settings · simulator or the real arm"],
+const FEATS = [[0, "Studies · every appliance, one harness"], [7.9, "Story · Rev A vs Rev B, control by control"], [14.5, "Settings · the environment each run uses"],
   [16.9, "Methodology · the model plans, sensors decide"], [20.5, "Architecture · 7 tools, no joint commands"], [24.6, "Verdicts · rules on force, travel, readings"]];
 const popDim = () => 1;
 /** Dyson's 5,127 prototypes, one cell each: red as they fill, the last one green. */
@@ -409,7 +409,7 @@ function drawPrototypes(cv, p, last) {
   g.fillStyle = "#2a2f35"; g.fillRect(0, 0, cv.width, cv.height);
   g.fillStyle = "#e5604f";
   for (let i = 0; i < Math.min(n, 5126); i++) g.fillRect((i % cols) * w + 0.5, Math.floor(i / cols) * h + 0.5, w - 1, h - 1);
-  if (last > 0) { const i = 5126, x = (i % cols) * w, y = Math.floor(i / cols) * h; g.fillStyle = "#7fd68f"; g.globalAlpha = last; g.fillRect(x - 3, y - 3, w + 6, h + 6); g.globalAlpha = 1; }
+  if (last > 0) { const i = 5126, x = (i % cols) * w, y = Math.floor(i / cols) * h; g.fillStyle = "#7fd68f"; g.globalAlpha = last; g.shadowColor = "#7fd68f"; g.shadowBlur = 16; g.fillRect(x - 6, y - 8, w + 12, h + 12); g.shadowBlur = 0; g.globalAlpha = 1; }
 }
 const APPS12 = ["centrifuge", "coffee-grinder", "cuvette-reader", "hotplate-stirrer", "incubator", "interval-timer", "kettle-base", "label-printer", "microwave", "tube-sealer", "vortex-mixer", "wall-thermostat"];
 /** §5's pull-back: 0 → 1 from "Today". The Console window shrinks onto New York as the globe comes in. */
@@ -426,7 +426,7 @@ function seekTech(t) {
   SC.sys.style.opacity = so;
   SC.sys.style.display = so > 0 ? "block" : "none";
   if (so > 0) {
-    const s1at = T("robot", s4), s2at = T("frontier", s4);
+    const s1at = T("robot", s4), s2at = T("system", T("rules", s4));
     const vla = T("vision", s4), split = T("split", s4);
     const dim = ramp(t, vla - 0.2, vla + 0.4) * (1 - ramp(t, split - 0.2, split + 0.4));
     SC.col1.style.filter = SC.col2.style.filter = SC.tools.style.filter = `brightness(${1 - 0.6 * dim})`;
@@ -434,9 +434,9 @@ function seekTech(t) {
     SC.col2.style.boxShadow = `0 0 ${40 * ramp(t, s2at - 0.2, s2at + 0.3) * (1 - ramp(t, s2at + 1.2, s2at + 2))}px #8fb3d966`;
     // rows sit dim until named, then light up with an underline, and stay lit
     for (const r of SC.rows) {
-      const on = ramp(t, r.at - 0.15, r.at + 0.25);
+      const on = ramp(t, r.at - 0.5, r.at - 0.1);
       r.n.style.opacity = 0.42 + 0.58 * on;
-      r.hl.style.transform = `scaleX(${eio(ramp(t, r.at - 0.1, r.at + 0.5))})`;
+      r.hl.style.transform = `scaleX(${eio(ramp(t, r.at - 0.45, r.at + 0.15))})`;
       r.hl.style.opacity = 1 - 0.75 * ramp(t, r.at + 1.6, r.at + 2.4);
     }
     SC.tools.style.opacity = 0.5 + 0.5 * ramp(t, T("plans", s4) - 0.2, T("plans", s4) + 0.4);
@@ -464,10 +464,14 @@ function seekTech(t) {
     const sw = T("four", s4), sim = T("simulator", s4), armT = T("arm", sim);
     SC.backendLine.style.opacity = ramp(t, sim - 0.2, sim + 0.2);
     SC.col1.querySelector(".sub").style.opacity = 1 - ramp(t, sim - 0.2, sim + 0.2);
-    SC.backendLine.innerHTML = `MuJoCo · simulator` + (t > armT - 0.1 ? `<br><span style="color:#fff">SO-101 · real arm</span>` : "");
+    SC.backendLine.innerHTML = t > armT - 0.1 ? "SO-101 · real arm" : "MuJoCo · simulator";
     const n = Math.floor((t - sw + 0.2) / 0.45); // the model cycles through the four that have run, then settles
-    SC.model.textContent = "model: " + MODELS[n >= 0 && n < 9 ? n % MODELS.length : 0];
-    show(SC.vla, ramp(t, vla - 0.2, vla + 0.4) * (1 - ramp(t, split - 0.3, split + 0.3)), 14);
+    const mi = n >= 0 && n < 9 ? n % MODELS.length : 0;
+    SC.model.textContent = "model: " + MODELS[mi];
+    for (const r of SC.rows.slice(4)) r.n.style.filter = mi ? "brightness(.35)" : "none"; // the plan and diagnosis are Haiku's
+    const tl = T("tools", s4), pu = ramp(t, tl - 0.1, tl + 0.3) * (1 - ramp(t, tl + 1.3, tl + 2.0));
+    SC.tools.style.filter = `brightness(${1 + 0.9 * pu})`;
+    { const vo = ramp(t, vla - 0.2, vla + 0.4) * (1 - ramp(t, split - 0.15, split + 0.1)); SC.vla.style.opacity = vo; SC.vla.style.transform = `translateY(${(1 - vo) * 14}px) scale(${lerp(0.96, 1, vo)})`; }
     SC.reels.forEach((r, i) => { r.style.opacity = ramp(t, vla + 0.5 + i * 0.22, vla + 0.7 + i * 0.22); });
     // our split needs a manual: manual.md lights up again
     const m = SC.rows[4], mk = ramp(t, split + 0.6, split + 1.0) * (1 - ramp(t, split + 2.4, split + 3.0));
@@ -485,7 +489,7 @@ function seekTech(t) {
   SC.globeSvg.style.opacity = go;
   if (go > 0) {
     SC.globeSvg.style.transform = `scale(${lerp(1.3, 1, eio(ramp(t, S.today + 0.1, S.today + 1.8)))})`;
-    const pins = [{ lon: -74, lat: 40.7, at: S.realc, label: "MC-6 + microwave · real arm" }, ...CITIES.map(([lon, lat], i) => ({ lon, lat, at: S.anylab + i * 0.11 }))];
+    const pins = [{ lon: -74, lat: 40.7, at: S.realc, label: "MC-6 + microwave · real arm" }, ...CITIES.map(([lon, lat], i) => ({ lon, lat, at: S.anylab + i * 0.11, hollow: true }))];
     const pos = drawGlobe(SC.globe, t, 960, 450, 300, -74 + 11 * (t - (S.today + 1.3)), { pins });
     const co = ramp(t, S.cloud - 0.2, S.cloud + 0.3), cx = 1290, cy = 150 + Math.sin(t * 1.4) * 8;
     SC.cloud.setAttribute("opacity", co); SC.cloud.setAttribute("transform", `translate(${cx} ${cy})`);
@@ -494,7 +498,8 @@ function seekTech(t) {
     else SC.tunnel.setAttribute("opacity", 0);
   }
   for (const a of SC.apps) { const k = ramp(t, S.twelve + a.at - 0.1, S.twelve + a.at + 0.25) * (1 - ramp(t, S.outro + 0.3, S.outro + 0.8)); a.n.style.opacity = k; a.n.style.transform = `translateY(${(1 - eio(k)) * 14}px)`; }
-  const hw = T("hardware", s5), dy = SC.caseN[3].t;
+  const hw = T("dyson", s5) - 0.5, dy = SC.caseN[3].t;
+  SC.hwLabel.style.opacity = ramp(t, dy - 0.35, dy);
   for (const c of SC.caseN) {
     const k = ramp(t, c.t - 0.15, c.t + 0.3); c.n.style.opacity = k; c.n.style.transform = `translateX(${(1 - eio(k)) * -24}px)`;
     if (c.fact) { const shut = c.soft ? eio(ramp(t, hw, hw + 0.6)) : 0; c.fact.style.maxHeight = `${(1 - shut) * 60}px`; c.fact.style.opacity = 1 - shut; c.fact.style.marginTop = `${5 * (1 - shut)}px`; }
@@ -524,6 +529,7 @@ function buildPanes() {
     const f = el("div", "abs", "", $("panes"), `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;overflow:hidden;background:#0b0d0f;opacity:0;display:none;${name === "F" ? "" : "border:1.5px solid #3a4046;border-radius:4px;box-shadow:0 24px 70px rgba(0,0,0,.55)"}`);
     const bg = el("img", "", null, f, "position:absolute;left:0;top:0;transform-origin:0 0;filter:blur(26px) brightness(.36) saturate(.8);display:none");
     const imgs = [0, 1, 2].map(() => el("img", "", null, f, "position:absolute;left:0;top:0;transform-origin:0 0;display:none"));
+    if (name !== "F") el("div", "abs", "", f, "left:0;right:0;top:0;height:56px;background:linear-gradient(rgba(8,10,12,.96),rgba(8,10,12,.82))");
     const lab = el("div", "abs mono", "", f, "left:14px;top:14px;font-size:16px;letter-spacing:.1em;text-transform:uppercase;color:#e9ebed;background:rgba(10,12,14,.82);padding:6px 12px;border-radius:3px;white-space:nowrap");
     const spd = el("div", "abs mono", "", f, "right:14px;top:14px;font-size:15px;color:#9aa0a5;background:rgba(10,12,14,.82);padding:6px 10px;border-radius:3px");
     const flash = el("div", "abs", "", f, "inset:0;border:3px solid #f1efe6;border-radius:4px;opacity:0");
@@ -559,7 +565,7 @@ function drawPane(P, clip, sec, speed, t) {
 function seekPanes(t) {
   const S = LAY.steps, st = S.steps, jobs = [];
   const g3 = ramp(t, S.s3 - 0.6, S.s3 + 0.2) * (1 - ramp(t, S.cad - 0.7, S.cad - 0.2));
-  const gF = ramp(t, S.hinge - 0.4, S.hinge + 0.2) * (1 - ramp(t, S.s4 - 0.6, S.s4 - 0.2));
+  const gF = ramp(t, S.hinge - 0.05, S.hinge + 0.45) * (1 - ramp(t, S.s4 - 0.6, S.s4 - 0.2));
   for (const name of ["L", "R", "F"]) {
     const P = PN[name], p = LAY.panes.find((x) => x[2] === name && x[0] <= t && t < x[1]);
     const o = p ? (name === "F" ? gF : g3) : 0;
@@ -594,7 +600,7 @@ function buildHud() {
   H.run = el("div", "abs mono", `<span style="color:${YELLOW}">●</span>&nbsp; agent-centrifuge-113400 &nbsp;·&nbsp; claude-haiku-5-5 &nbsp;·&nbsp; Nov 8, 2026, 11:34`, hud, "left:50px;top:40px;font-size:18px;color:#a9afb4;opacity:0;white-space:nowrap");
   H.ctlWrap = el("div", "abs", "", hud, "right:48px;top:32px;display:flex;gap:8px;opacity:0");
   const finds = T("finds", S.s3);
-  H.ctl = CTL.map((c, i) => { const n = el("div", "mono", c, H.ctlWrap, "font-size:16px;color:#dfe2e5;padding:6px 11px;border:1.5px solid #3a4046;background:#181b1e;border-radius:3px;opacity:0;white-space:nowrap"); return { n, at: finds + 0.15 + i * 0.13, name: c }; });
+  H.ctl = CTL.map((c, i) => { const n = el("div", "mono", `<span class="tk" style="opacity:0">✓ </span>${c}`, H.ctlWrap, "font-size:16px;color:#dfe2e5;padding:6px 11px;border:1.5px solid #3a4046;background:#181b1e;border-radius:3px;opacity:0;white-space:nowrap"); return { n, at: finds + 0.15 + i * 0.13, name: c }; });
   H.strip = el("div", "abs", "", hud, "left:48px;top:690px;width:1824px;height:70px;display:flex;gap:8px");
   H.cells = LAY.stepNames.map((nm, i) => {
     const n = el("div", "", `<div class="mono" style="font-size:13px;color:#7d8389;letter-spacing:.1em">S${i + 1}</div><div class="mono nm" style="font-size:20px;color:#e9ebed;margin-top:2px">${nm}</div><div class="mono vd" style="position:absolute;right:10px;top:8px;font-size:14px"></div><div class="bar" style="position:absolute;left:0;bottom:0;height:3px;width:100%;background:${YELLOW};transform-origin:0 50%;transform:scaleX(0)"></div>`, H.strip,
@@ -608,17 +614,19 @@ function buildHud() {
   const st = S.steps, sus = S.suspected;
   H.cards = [
     C(S.s3 + 0.5, S.plan - 0.15, BLUE, `${b("wrist camera", YELLOW)} → OWLv2 boxes → SAM masks → named controls`),
-    C(S.plan + 0.3, S.approves - 0.1, BLUE, `${b("plan-1", BLUE)} · 8 steps · claude-haiku-5-5 · 17,050 tokens in, 889 out`),
+    C(S.plan + 0.3, S.plan + 2.7, "#ff8a7a", `${b("propose_plan refused", "#ff8a7a")} · nothing seen yet → look_at_device first`),
+    C(S.plan + 2.9, S.approves - 0.1, BLUE, `${b("plan-1", BLUE)} · 8 steps · claude-haiku-5-5 · 17,050 tokens in, 889 out`),
     C(S.approves, S.works - 0.25, GREEN, `${b("✓ approved", GREEN)} · plan-1 / Karthik · the arm waited 3.3 s`),
-    C(S.works, S.board - 0.2, BLUE, `${b("real", YELLOW)} the bench, overhead &nbsp;·&nbsp; ${b("sim", BLUE)} the same 8 steps on Rev B in MuJoCo &nbsp;·&nbsp; lined up step by step`),
+    C(S.works, S.works + 4.2, BLUE, `${b("real", YELLOW)} the bench, overhead &nbsp;·&nbsp; ${b("sim", BLUE)} the same 8 steps on Rev B in MuJoCo &nbsp;·&nbsp; lined up step by step`),
+    C(S.works + 4.4, S.board - 0.15, YELLOW, `${b("POWER_switch", YELLOW)} · flip toward +1 · the display then read 4200 RPM 0:40`),
     C(S.board, S.five - 0.15, YELLOW, `MC-6 board &nbsp;${["TIME+ 0→1→0", "START 0→1→0", "STOP 0→1→0"].map((x, i) => `<span class="rd" data-at="${S.board + 0.5 + i * 0.45}" style="opacity:0;margin-left:18px;padding:3px 10px;border:1px solid ${YELLOW}66">${x}</span>`).join("")}`),
-    C(S.five, S.timeq - 0.15, GREEN, `REWARD <span class="mich rw" style="font-size:30px;color:#fff">0.00</span> &nbsp;·&nbsp; ${b("5 passed", GREEN)} · 1 untested (display)`),
+    C(S.five, S.timeq + 0.05, GREEN, `REWARD <span class="mich rw" style="font-size:30px;color:#fff">0.00</span> &nbsp;·&nbsp; display untested`),
     C(S.timeq, S.lid - 0.15, AMBER, `${b("TIME+", AMBER)} · 22.5 N, 7.2 mm · button 0→1→0 · time 0:40 → 0:40 · SPEED 2700 → 2800`),
-    C(S.lid, sus - 0.15, AMBER, `${b("START", AMBER)} · 15.8 N, 4.4 mm · button 0→1→0 · then the display:`),
-    C(sus, S.cad - 0.6, AMBER, `${b("tube_place", AMBER)} · released ${b("56.2 mm", AMBER)} above the seat`),
+    C(S.lid, sus - 0.15, AMBER, `${b("START", AMBER)} · 15.8 N, 4.4 mm · button 0→1→0 · display: ${b("LID", AMBER)}`),
+    C(sus, S.cad - 0.6, AMBER, `${b("tube_place", AMBER)} · observed · let go ${b("56.2 mm", AMBER)} above the seat · no reading changed`),
   ];
   for (const c of H.cards) c.rd = [...c.n.querySelectorAll(".rd")];
-  H.rw = H.cards[5].n.querySelector(".rw");
+  H.rw = H.cards[7].n.querySelector(".rw");
   H.two = T("two", S.five); H.tube = T("tube", sus); H.which = T("which", sus); H.flagged = T("flagged", sus);
 
   /* §4 the tube adapter, as a cross-section: the agent's fix in the sim (D36) */
@@ -635,7 +643,7 @@ function buildHud() {
     tag(120, 420, S.cad + 0.2, "#ff8a7a", "Rev A bore", "the tube stopped 8.15 mm high"),
     tag(1340, 330, H.cadAt.agent, BLUE, "CAD agent · Opus 5.5", "14 tool calls · 102 s · $0.43"),
     tag(1340, 470, S.widened + 0.2, YELLOW, "bore +0.4 mm", "45° lead-in at the mouth"),
-    tag(1340, 610, S.seated, GREEN, "seated within 0.97 mm", "0.2 mm from the designer's own fix"),
+    tag(1340, 610, S.seated - 0.45, GREEN, "seated within 0.97 mm", "0.2 mm from the designer's own fix"),
   ];
   /* §4 the hinge: labels over the render */
   const htag = (x, at, color, head, sub) => ({ at, n: el("div", "abs mono", `<div class="mich" style="font-size:26px;color:${color}">${head}</div><div style="font-size:18px;color:#c3c8cc;margin-top:8px;line-height:1.5">${sub}</div>`, hud, `left:${x}px;top:96px;opacity:0;padding:16px 22px;background:rgba(14,16,18,.86);border-top:4px solid ${color};white-space:nowrap`) });
@@ -644,11 +652,11 @@ function buildHud() {
     htag(150, hg + 0.1, "#ff8a7a", "REV A", "Onshape original<br>0.025 mm clearances · pin headed at both ends"),
     htag(1110, T("second", hg) - 0.1, GREEN, "REV B · BY THE TEAM", "0.25 mm clearance · 0.4 mm knuckle gaps<br>one-headed pin · door swings to ~145°"),
   ];
-  H.hingeFoot = el("div", "abs mono", "microwave hinge F1 · the team's meshes, Rev A and Rev B", hud, "right:48px;bottom:150px;font-size:16px;color:#8b9095;opacity:0");
+  H.hingeFoot = el("div", "abs mono", "microwave hinge F1 · the team's meshes, Rev A and Rev B", hud, "left:150px;bottom:150px;font-size:16px;color:#8b9095;opacity:0");
 }
 
 function drawCad(t) {
-  const A = H.cadAt, w = eio(ramp(t, A.widened - 0.1, A.widened + 1.3)), d = eio(ramp(t, A.retest - 0.1, A.seated));
+  const A = H.cadAt, w = eio(ramp(t, A.widened - 0.1, A.widened + 1.3)), d = eio(ramp(t, A.retest - 0.2, A.seated - 0.35));
   const cx = 960, top = 340, bot = 880, hb = lerp(84, 90, w), pin = 11 * (1 - w), c = 26 * w, R = 80;
   const seated = bot - 14, tb = lerp(seated - 114, seated, d);
   const L = cx - hb, Rr = cx + hb;
@@ -683,11 +691,12 @@ function seekHud(t) {
     const k = ramp(t, c.at, c.at + 0.3);
     c.n.style.opacity = k; c.n.style.transform = `translateY(${(1 - eio(k)) * -10}px)`;
     const live = inSteps && STEP_CTL[cur] === i;
-    const vAt = S.verdict + (3 + STEP_CTL.indexOf(i)) * 0.07, vk = t >= vAt;
-    let col = live ? YELLOW : "#3a4046", txt = c.name;
-    if (vk) { if (i === 5) { txt = "display · untested"; col = "#5d6268"; } else { txt = "✓ " + c.name; col = GREEN; } }
+    const vAt = S.verdict + Math.max(0, STEP_CTL.indexOf(i)) * 0.07, vk = t >= vAt;
+    let col = live ? YELLOW : "#3a4046";
+    if (vk) col = i === 5 ? "#5d6268" : GREEN;
     if ((i === 0 || i === 2) && t >= H.two) col = AMBER;
-    c.n.style.borderColor = col; c.n.textContent = txt;
+    c.n.style.borderColor = col; c.n.style.borderStyle = vk && i === 5 ? "dashed" : "solid";
+    c.n.querySelector(".tk").style.opacity = vk && i !== 5 ? 1 : 0; c.n.style.color = vk && i === 5 ? "#7d8389" : "#dfe2e5";
     c.n.style.boxShadow = live ? `0 0 18px ${YELLOW}66` : "none";
   });
   // the step strip
@@ -712,7 +721,7 @@ function seekHud(t) {
   const lk = ramp(t, H.which, H.which + 0.9) * g3;
   if (lk > 0) {
     const cw = (1824 - 7 * 8) / 8, x1 = 48 + cw * 1.5 + 8, x6 = 48 + cw * 6.5 + 6 * 8;
-    const d = `M${x1} 688 C${x1} 600 ${x6} 600 ${x6} 688`;
+    const d = `M${x1} 689 C${x1} 671 ${x6} 671 ${x6} 689`;
     H.link.setAttribute("d", d); const len = H.link.getTotalLength();
     H.link.style.strokeDasharray = `10 8`; H.link.setAttribute("opacity", 1);
     H.link.style.clipPath = `inset(0 ${(1 - lk) * 100}% 0 0)`;
@@ -731,7 +740,7 @@ function seekHud(t) {
     svg("circle", { cx: x, cy: y, r: 58 + Math.sin(t * 6) * 4, fill: "none", stroke: AMBER, "stroke-width": 4, opacity: k }, $("overlay"));
   }
   // §4 the insert
-  const go = ramp(t, S.cad - 0.5, S.cad + 0.2) * (1 - ramp(t, S.hinge - 0.6, S.hinge - 0.1));
+  const go = ramp(t, S.cad - 0.5, S.cad + 0.2) * (1 - ramp(t, S.hinge + 0.05, S.hinge + 0.5));
   H.cad.style.opacity = go; H.cad.style.display = go > 0 ? "block" : "none";
   if (go > 0) { drawCad(t); for (const g of H.cadTags) show(g.n, ramp(t, g.at, g.at + 0.35), 12); }
   // §4 the hinge tags
@@ -798,7 +807,7 @@ window.seek = async function (t) {
   } else jobs.push(setFrame(null));
   jobs.push(seekPanes(t));
   // chalk, from the board's opening until the turn to the real run
-  const chalkO = (t >= OPEN[0] ? 1 : 0) * (1 - ramp(t, turn + 0.6, turn + 1.6));
+  const chalkO = (t >= OPEN[0] ? 1 : 0) * (1 - ramp(t, turn + 0.55, turn + 1.05));
   $("chalklayer").style.opacity = chalkO;
   $("chalklayer").style.display = chalkO > 0 ? "block" : "none";
   if (chalkO > 0) seekChalk(t, turn);
