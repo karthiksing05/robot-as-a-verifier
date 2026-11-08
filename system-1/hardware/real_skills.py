@@ -15,7 +15,8 @@ TOGGLE_Y = 0.002
 GRIP_OPEN, GRIP_ABOVE = 0.2, 0.025  # 0.45 opened far wider than the 12 mm dial
 # the jaw tips go this far over the panel (from the dial's top they stopped short), with the knob's axis this far in from
 # the fixed jaw's tip: midway to the open moving jaw, about on the roll axis
-GRIP_FLOOR, GRIP_MID = 0.003, 0.010
+# (3 mm up, on a scan whose plane read 3 mm high under SPEED, the jaws caught only the dial's top and couldn't turn it)
+GRIP_FLOOR, GRIP_MID = 0.0, 0.010
 # the camera over the SPEED dial saw it this far uphill of the scan's position (the scan read it as a toggle's base)
 # today's scans read SPEED 0.6-2.4 mm down the slope of the buttons' row it sits in (6.7, on the hardware session's,
 # came in 4.3 mm high and the grip landed above the knob)
