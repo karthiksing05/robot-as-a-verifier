@@ -72,13 +72,13 @@ def main(argv=None) -> None:
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8780)
     ap.add_argument("--seed", type=int, default=None, help="generated device (default: preset C)")
-    ap.add_argument("--sensing", default="tactile", choices=["tactile", "loadcell", "current", "perfect"])
+    ap.add_argument("--sensing", default=None, choices=["tactile", "loadcell", "current", "perfect"], help="default: current, the servos' own, on the stock gripper; tactile, the pad, on the probe")
     ap.add_argument("--depth", action="store_true", help="the D405 pipeline: no OWLv2 or SAM download")
     ap.add_argument("--no-refine", action="store_true")
     ap.add_argument("--placement", default="nominal", choices=["nominal", "random"], help="random moves the device on the desk, drawn from the seed")
     ap.add_argument("--device", default=None, metavar="PATH", help="sim only: a device file (appliances/<name>/device.yaml) in place of a generated device")
     ap.add_argument("--rev", default="B", help="with --device: its revision, or fault choices like F1=B,F2=B,F3=A")
-    ap.add_argument("--effector", default="probe", choices=["probe", "stock"], help="sim only: the fingertip probe, or the SO-101's own gripper (pick and place)")
+    ap.add_argument("--effector", default="stock", choices=["stock", "probe"], help="the SO-101's own gripper, as the real arm has, or (sim only) the fingertip probe, kept as a reference")
     ap.add_argument("--mount", action="append", default=[], metavar="ROOT=clamped|free", help="with --device: override how a root is held to the bench. Repeatable")
     ap.add_argument("--fault", action="append", default=[], metavar="NAME[:PART]", help="sim only: plant a fault, or 'random'. Repeatable. See sim/faults.py")
     ap.add_argument("--fault-seed", type=int, default=None, help="for --fault random (default: --seed)")
@@ -92,8 +92,8 @@ def main(argv=None) -> None:
     ap.add_argument("--run-id", default=None, help="the scene's run id, which the Console matches. Default: --record-dir's name")
     args = ap.parse_args(argv)
     if args.robot != "sim" and (args.fault or args.answer_key or args.error_rate or args.error_schedule or args.placement != "nominal"
-                                or args.device or args.mount or args.effector != "probe"):
-        ap.error("--fault, --placement, --answer-key, --device, --mount, --effector and --error-* are for --robot sim only: they must never reach a real arm")
+                                or args.device or args.mount or args.effector != "stock"):
+        ap.error("--fault, --placement, --answer-key, --device, --mount, --effector probe and --error-* are for --robot sim only: they must never reach a real arm")
     if args.device and args.fault:
         ap.error("a device file's faults are its revision's parts: use --rev, not --fault")
     if any(m.count("=") != 1 or m.split("=")[1] not in ("clamped", "free") for m in args.mount):

@@ -27,6 +27,7 @@ def mods():
 
 
 def _rig(sim_rig, rev="B", **kw):
+    kw.setdefault("effector", "probe")  # the pad's tactile sensing: the stock gripper has no pad
     return sim_rig.make_rig(0, slop=True, offsets=0, stiffness=18.0, sensing="tactile", device=str(DEVICE), rev=rev, **kw)
 
 

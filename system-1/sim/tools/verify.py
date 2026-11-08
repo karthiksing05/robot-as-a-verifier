@@ -1,6 +1,6 @@
 """Check a test device in the sim, through cad_device.py and System 1's own skills. From system-1/:
 
-    uv run --extra sim python sim/tools/verify.py <id> [--only workflow,F2] [--shots]
+    uv run --extra sim python sim/tools/verify.py <id> [--only workflow,F2] [--effector stock|probe] [--shots]
 
 Reads appliances/<id>/verify.yaml (docs/device-authoring.md) and checks, each on a fresh rig:
     load      every revision in device.yaml builds, and its firmware starts
@@ -8,7 +8,9 @@ Reads appliances/<id>/verify.yaml (docs/device-authoring.md) and checks, each on
     workflow  the manual's procedure on Rev B: every step meets its expectations
     F<n>      each fault's steps meet every expectation on Rev B, and on the fault's revision first miss one at
               fails_at. So the failure is the physics or the firmware differing, not a scripted verdict.
-Writes <id>/build/verify.json and exits non-zero when anything didn't verify.
+The effector is verify.yaml's (and a step list's own), unless --effector overrides every one of them, to run the whole
+bench on one effector. Writes <id>/build/verify.json (verify.<effector>.json with --effector) and exits non-zero when
+anything didn't verify.
 """
 import argparse
 import json
@@ -168,11 +170,12 @@ def rev_for(cfg, fid, spec):
     return ",".join(f"{f}={'A' if f == fid else 'B'}" for f in cfg.get("faults", {}))
 
 
-def check(folder, only=None):
+def check(folder, only=None, override=None):
+    """override: an effector for every check, over verify.yaml's and each step list's own."""
     device = folder / "device.yaml"
     cfg = yaml.safe_load(device.read_text())
     plan = yaml.safe_load((folder / "verify.yaml").read_text())
-    effector = plan.get("effector", "probe")
+    effector = override or plan.get("effector", "stock")
     report = {}
 
     def want(name):
@@ -206,12 +209,12 @@ def check(folder, only=None):
         report["reach"] = {"ok": not bad_all, "got": got_all, "wrong": bad_all}
     if want("workflow"):
         wf = plan["workflow"]
-        at, trail = run(device, wf.get("rev", "B"), wf["steps"], wf.get("effector", effector))
+        at, trail = run(device, wf.get("rev", "B"), wf["steps"], override or wf.get("effector", effector))
         report["workflow"] = {"ok": at is None, "failed_at": at, "trail": trail}
     for fid, spec in (plan.get("faults") or {}).items():
         if not want(fid):
             continue
-        eff = spec.get("effector", effector)
+        eff = override or spec.get("effector", effector)
         try:
             b_at, b_trail = run(device, spec.get("good_rev", "B"), spec["steps"], eff)
             rev = rev_for(cfg, fid, spec)
@@ -231,11 +234,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("device", help="a folder name under appliances/")
     ap.add_argument("--only", default=None, help="comma-separated: load, reach, workflow, F1, ...")
+    ap.add_argument("--effector", default=None, choices=["stock", "probe"], help="run every check on this effector, over verify.yaml's")
     args = ap.parse_args()
     folder = DEVICES / args.device
-    report = check(folder, set(args.only.split(",")) if args.only else None)
+    report = check(folder, set(args.only.split(",")) if args.only else None, args.effector)
     (folder / "build").mkdir(exist_ok=True)
-    (folder / "build" / "verify.json").write_text(json.dumps(report, indent=1, default=str) + "\n")
+    (folder / "build" / (f"verify.{args.effector}.json" if args.effector else "verify.json")).write_text(json.dumps(report, indent=1, default=str) + "\n")
     bad = 0
     for name, r in report.items():
         line = "verified" if r["ok"] else "NOT VERIFIED"

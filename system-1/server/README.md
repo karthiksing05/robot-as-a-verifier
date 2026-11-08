@@ -30,6 +30,8 @@ These flags are for `--robot sim` only, and the server refuses them otherwise.
 
 | Flag | Does |
 |---|---|
+| `--device PATH`, `--rev R`, `--mount ROOT=clamped\|free` | A device file (`appliances/<id>/device.yaml`) at a revision, in place of a generated device |
+| `--effector stock\|probe` | `stock` (the default) is the SO-101's own gripper, the real arm's only effector, sensing by servo current. `probe` is the fingertip probe and pad, kept in the sim as a reference; a real arm refuses it |
 | `--seed N`, `--placement random` | A generated device, moved on the desk |
 | `--fault NAME[:PART]`, `--fault random`, `--fault-seed N` | A real problem in the physics or wiring, on any part of its kind. Names are in [`faults.py`](../sim/faults.py). Repeatable |
 | `--error-rate 0.05`, `--error-seed N` | The chance per action (each step attempt, each explore stage) that something goes wrong |

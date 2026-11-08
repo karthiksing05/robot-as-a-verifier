@@ -10,7 +10,7 @@ from rav_server.sim_backend import CORE_DIR, SIM_DIR
 
 
 def test_sim_only_flags_are_refused_for_anything_else():
-    for flags in (["--fault", "stuck_button"], ["--error-rate", "0.05"], ["--answer-key", "x"], ["--placement", "random"], ["--error-schedule", "1:slow_arm"]):
+    for flags in (["--fault", "stuck_button"], ["--error-rate", "0.05"], ["--answer-key", "x"], ["--placement", "random"], ["--error-schedule", "1:slow_arm"], ["--effector", "probe"]):
         with pytest.raises(SystemExit):
             main(["--robot", "mock", *flags])
 
@@ -57,7 +57,8 @@ def test_the_table_matches_the_pipeline(core):
 def _rig(core, seed=None):
     from rav_server.sim_backend import SimBackend
 
-    return SimBackend(seed=seed, depth=True, sensing="perfect", slop=False, refine=False)
+    # the probe: the generated devices' faults were measured with it, and these check the faults, not the gripper
+    return SimBackend(seed=seed, depth=True, sensing="perfect", slop=False, refine=False, effector="probe")
 
 
 def _truth_setup(backend):

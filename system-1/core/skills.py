@@ -63,6 +63,8 @@ def move_line(arm, p_to, axis, speed):
 
 def go_home(arm):
     arm.status = "home"
+    if getattr(arm, "touching", None) and hasattr(arm, "retreat_from_contact"):
+        arm.retreat_from_contact()  # left touching the scene (a stop): straight off it first, then home
     move_joints(arm, arm.home_q)
 
 

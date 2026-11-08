@@ -376,14 +376,15 @@ class SimBackend(PipelineRobot):
 
     is_sim = True
 
-    def __init__(self, seed: int | None = None, sensing: str = "tactile", slop: bool = True, stiffness: float = 18.0,
+    def __init__(self, seed: int | None = None, sensing: str | None = None, slop: bool = True, stiffness: float = 18.0,
                  depth: bool = False, refine: bool = True, placement: str = "nominal", faults: tuple[str, ...] = (),
                  fault_seed: int | None = None, answer_key: str | os.PathLike | None = None, device: str | os.PathLike | None = None,
-                 rev: str = "B", effector: str = "probe", mounts: dict | None = None):
+                 rev: str = "B", effector: str = "stock", mounts: dict | None = None):
         """device: a device file (sim/cad_device.py) in place of a generated device, with rev, its revision or fault
-        choices ("A", "F1=B,F2=B,F3=A"): its faults are its parts, so `faults` must be empty. effector: "probe" or
-        "stock" (the SO-101's own gripper, for pick and place). mounts: {root: "clamped" | "free"} over the file's."""
+        choices ("A", "F1=B,F2=B,F3=A"): its faults are its parts, so `faults` must be empty. effector: "stock"
+        (the SO-101's own gripper, the real arm's only effector) or "probe" (the fingertip probe, a sim-only reference). mounts: {root: "clamped" | "free"} over the file's."""
         on_path(CORE_DIR, SIM_DIR)
+        sensing = sensing or ("tactile" if effector == "probe" else "current")  # the stock gripper has no pad: the servos' current
         import faults as fault_module
         import sim_rig
 

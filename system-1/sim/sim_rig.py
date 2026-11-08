@@ -9,13 +9,14 @@ import world
 
 
 def make_rig(seed=None, placement="nominal", ideal=False, offsets=None, slop=False, stiffness=None, sensing="perfect",
-             depth=False, stereo=False, realtime=False, device=None, rev="B", effector="probe", mounts=None):
+             depth=False, stereo=False, realtime=False, device=None, rev="B", effector="stock", mounts=None):
     """seed: a generated device (None: preset C), moved on the desk with placement="random". ideal: no sensor noise and
     no joint error. offsets: joint calibration error, uniform in +-offsets deg on all five joints (default N(0, 0.5 deg)
     on four). stiffness: robot.SERVO_NM_PER_RAD, for slop. sensing: "perfect", "current", "tactile" or "loadcell" (all
     but perfect need slop). depth: a D405 on the wrist and the phone for the survey, else the USB wrist camera alone.
     device: a device file (cad_device.py) instead of a generated device, with rev: its revision or fault choices.
-    effector: "probe" (the fingertip probe and pad) or "stock" (the SO-101's own gripper alone, as the real arm is).
+    effector: "stock" (the SO-101's own gripper alone, as the real arm is) or "probe" (the fingertip probe and pad, kept
+    as a sim-only reference).
     mounts: {root: "clamped" | "free"} over the device file's."""
     rng = np.random.default_rng(seed or 0)  # the same placement and joint offsets every run
     if device:

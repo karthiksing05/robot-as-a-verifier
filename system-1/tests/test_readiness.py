@@ -232,7 +232,7 @@ def run_on_sim(*flags: str, expect_failure: bool = True, hold_s: float = 0.0) ->
 @pytest.mark.parametrize("flags", [("--fault", "stuck_button"), ("--seed", "3", "--fault", "random", "--fault-seed", "2")])
 def test_readiness_on_the_sim_depth_route(flags):
     pytest.importorskip("mujoco")
-    saw = run_on_sim("--depth", *flags)
+    saw = run_on_sim("--depth", "--effector", "probe", *flags)  # the boundary, not the gripper: on the probe the plan's steps all act
     assert "failed" in saw["verdicts"].values() and saw["frames"]
 
 
@@ -269,7 +269,7 @@ def test_a_device_moved_with_no_warning_shows_up_as_pose_unstable(tmp_path):
     """Nothing says it moved: only the corrections each step needs. The numbers come with the stop, and a new explore recovers."""
     pytest.importorskip("mujoco")
     key = tmp_path / "key.json"
-    server = Server("--depth", "--answer-key", str(key), "--error-schedule", "5:device_moved_silent", "--error-seed", "4")
+    server = Server("--depth", "--effector", "probe", "--answer-key", str(key), "--error-schedule", "5:device_moved_silent", "--error-seed", "4")
 
     async def go(tools: Tools):
         scene = await tools.explore()

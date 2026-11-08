@@ -167,6 +167,19 @@ STOCK_TIP = TipShape("stock", sum((_rect(*[v * 1e-3 for v in r]) for r in (
     (-9.3, 24.9, -7.4, 7.1, 20.0), (-12.6, 26.7, -8.1, 7.7, 30.0))), []))
 
 
+# The same gripper opened for a sideways push (affordances: flips and turns). The fixed jaw alone pushes, with its flat
+# inner face (x = +3 mm, from its tip to 8 mm back), and the moving jaw stands open on the part's far side, so the part
+# sits between them. Measured off the jaws' collision pieces in the tip site's frame, at the gripper's JAW_PUSH_OPEN.
+STOCK_JAW = TipShape("stock_jaw", sum((_rect(*[v * 1e-3 for v in r]) for r in (
+    (-2.7, 3.0, -3.4, 2.9, 0.0), (-3.4, 3.0, -4.4, 4.0, 3.0), (-4.5, 3.0, -5.4, 4.9, 6.0), (-5.4, 1.8, -5.8, 5.4, 8.0),
+    (-6.3, 0.1, -6.2, 5.9, 11.0), (-7.8, -2.8, -7.1, 6.6, 16.0), (-13.3, -0.7, -8.3, 7.9, 30.0))), []))
+JAW_PUSH_OPEN = 0.0      # gripper joint (rad): the jaws' inner faces 15.8 mm apart at their tips
+JAW_PUSH_SHUT = -0.17    # and shut again, as the stock tip is otherwise used
+STOCK_JAW_OPEN = TipShape("stock_moving", sum((_rect(*[v * 1e-3 for v in r]) for r in (
+    (18.8, 25.2, -3.8, 3.6, -1.0), (18.8, 25.9, -4.6, 4.5, 3.0), (18.8, 27.6, -5.4, 5.3, 6.0), (21.8, 30.0, -6.3, 6.1, 11.0),
+    (20.8, 32.5, -7.0, 6.8, 16.0), (22.8, 35.9, -8.1, 7.2, 30.0))), []))
+
+
 def tip_shape(arm):
     return getattr(arm, "tip_shape", PROBE_TIP)
 

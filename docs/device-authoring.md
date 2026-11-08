@@ -351,12 +351,13 @@ Verify from `system-1/`:
 ```
 uv run --extra sim python sim/tools/verify.py <id>            # everything
 uv run --extra sim python sim/tools/verify.py <id> --only F2  # one check
+uv run --extra sim python sim/tools/verify.py <id> --effector stock  # every check on the stock gripper, over verify.yaml's
 ```
 
 ### `verify.yaml`
 
 ```yaml
-effector: stock                 # stock (the real gripper, needed for pick and place) or probe
+effector: stock                 # stock (the real arm's only effector, and the default) or probe (sim-only reference)
 reach: {reachable: [button_1, ...], unreachable: [dial_1]}
 # a revision whose geometry differs gets its own lists, checked on that revision:
 # reach: {reachable: [...], unreachable: [...], revs: {A: {reachable: [button_1], unreachable: [dial_1]}}}
@@ -382,7 +383,7 @@ faults:
 - `{move_device: {dx_mm, dy_mm, yaw_deg}}`, the operator moving the device
 - `{reach: [ids]}`
 
-**Effectors.** A fault entry may set its own `effector`. `pick` and `place` need `stock`. On the centrifuge, `hook_pull` only works with `probe`, because the stock gripper hits the lid. Make each fault's steps test that fault alone, with the effector its skills need. Switch sensors read with the power off, so a button fault doesn't need the power switch.
+**Effectors.** The real arm is a stock SO-101 with its own gripper and nothing else, so `stock` is the default and the effector that matters. The fingertip probe stays in the sim only as a reference. A fault entry may set its own `effector`, and `verify.py --effector` overrides them all. `pick` and `place` need `stock`. On the centrifuge, `hook_pull` only works with `probe`, because the stock gripper hits the lid. Make each fault's steps test that fault alone, with the effector its skills need. Switch sensors read with the power off, so a button fault doesn't need the power switch.
 
 **Fault names.** A fault key that isn't in `device.yaml`, such as `F3p`, is a second check of a fault. Give it an explicit `rev`.
 

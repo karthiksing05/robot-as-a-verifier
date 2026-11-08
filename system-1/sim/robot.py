@@ -82,7 +82,10 @@ LC_NOISE_FLOOR_N = 0.05    # the cell's floor along the probe (arm.noise_axial):
 # model, by name, but touch nothing and can't be seen; the tip site moves to the fixed jaw's tip, the middle of its end
 # face, and a contact on the gripper within STOCK_TIP_ZONE_M of that tip counts as the tool's, as the pad's did.
 STOCK_TIP = (-0.003, 0.0, -0.0064)  # in the probe body's frame: the fixed jaw's tip
+PENETRATION_TOL_M = 0.0002  # a contact the arm was already in may go on while it gets no deeper than this
 STOCK_TIP_ZONE_M = 0.03   # the fingers, shut, from their tips back to the palm
+MOVING_TIP_X = (0.0188, 0.075)  # open, the moving jaw's tip stands this far along the tip frame's x: 18.8 mm at gripper 0
+                                # rad, 75 mm more per rad (its inner face; core/manipulate.py JAW_GAP is the gap to it)
 STOCK_SHUT = -0.17  # gripper joint, shut: the jaws' tips 2 mm apart
 JAW_BODIES = ("gripper", "moving_jaw_so101_v1")
 
@@ -224,11 +227,13 @@ class SimArm(ArmBase):
         self.probe_body = self.m.body("probe").id
         self.arm_bodies = arm_bodies(self.m)
         self.jaw_bodies = {self.m.body(b).id for b in JAW_BODIES}
+        self.moving_jaw = self.m.body(JAW_BODIES[1]).id
         self.held = set()  # bodies the jaws may touch: what a pick is holding or about to hold
         self.force_log = []  # (t, newtons)
         self.status = "idle"
 
         self.seen_collisions = set()
+        self.touching = {}  # contacts outside the tool, and the shallowest each has been since it began (see _worse)
         self.home_q, *_ = self.ik.solve(np.array([0.2, 0.0, 0.14]), np.array([0.7, 0, -0.7]), np.zeros(5))
         self.target = self.home_q - self.q_off  # true joint angles the servos aim for
         self.d.qpos[self.qadr] = self.home_q - self.q_off
@@ -423,12 +428,14 @@ class SimArm(ArmBase):
         if self.d.warning[mujoco.mjtWarning.mjWARN_BADQACC].number:
             raise SafetyStop("simulation went unstable (MuJoCo reset itself); restart with 'reset'")
         self.force_log.append((self.d.time, f))
-        hits = self.collisions()
+        hits = self._hits()
         self.seen_collisions.update(hits)
-        if f > HARD_FORCE_CAP_N or hits:
+        worse = self._worse(hits)
+        if f > HARD_FORCE_CAP_N or worse:
             self._back_off()
+            self.touching = {k: dist for k, (dist, _) in self._hits().items()}  # where the stop left it: free to leave
             raise SafetyStop(f"tip force {f:.1f} N over hard cap {HARD_FORCE_CAP_N} N" if f > HARD_FORCE_CAP_N
-                             else f"arm hit the rig: {', '.join(hits)}")
+                             else f"arm hit the rig: {', '.join(sorted(worse))}")
         if self.on_tick:
             self.on_tick(self)
         if self.realtime:
@@ -475,11 +482,15 @@ class SimArm(ArmBase):
         b1, b2 = self.m.geom_bodyid[c.geom1], self.m.geom_bodyid[c.geom2]
         if self.probe_body in (b1, b2):
             return self.probe_body
-        if self.effector == "stock":  # either jaw, near the tip: shut, they are one fingertip
+        if self.effector == "stock":  # either jaw, near its tip: shut, they are one fingertip
             for g in self.jaw_bodies:
-                if g in (b1, b2) and (b2 if b1 == g else b1) not in self.held and \
-                        np.linalg.norm(self.d.contact[i].pos - self.d.site_xpos[self.tip]) < STOCK_TIP_ZONE_M:
-                    return g
+                if g in (b1, b2) and (b2 if b1 == g else b1) not in self.held:
+                    tip = self.d.site_xpos[self.tip]
+                    if g == self.moving_jaw:  # open, the moving jaw's own tip, out along x
+                        x = self.d.site_xmat[self.tip].reshape(3, 3)[:, 0]
+                        tip = tip + max(0.0, MOVING_TIP_X[0] + MOVING_TIP_X[1] * self.jaw()) * x
+                    if np.linalg.norm(self.d.contact[i].pos - tip) < STOCK_TIP_ZONE_M:
+                        return g
         return None
 
     def contact_force_vec(self):
@@ -524,7 +535,12 @@ class SimArm(ArmBase):
 
     def collisions(self):
         """Arm parts other than the probe touching the scene."""
-        hits = set()
+        return sorted(self._hits())
+
+    def _hits(self):
+        """{"arm part->what it touches": the deepest contact's distance (m, negative: how far in), with its normal pointing
+        away from the scene}, over the arm's contacts that aren't the tool's."""
+        hits = {}
         for i in range(self.d.ncon):
             c = self.d.contact[i]
             b1, b2 = self.m.geom_bodyid[c.geom1], self.m.geom_bodyid[c.geom2]
@@ -533,5 +549,40 @@ class SimArm(ArmBase):
                     if (arm_b in self.jaw_bodies and other in self.held) or self._tool(i) is not None:
                         continue
                     g = c.geom2 if other == b2 else c.geom1
-                    hits.add(f"{self.m.body(arm_b).name}->{self.m.geom(g).name or self.m.body(other).name}")
-        return sorted(hits)
+                    k = f"{self.m.body(arm_b).name}->{self.m.geom(g).name or self.m.body(other).name}"
+                    out = c.frame[:3] * (1.0 if arm_b == b2 else -1.0)  # MuJoCo's normal points from geom1 to geom2
+                    if k not in hits or c.dist < hits[k][0]:
+                        hits[k] = (float(c.dist), out)
+        return hits
+
+    def _worse(self, hits):
+        """The contacts in hits that are new, or deeper than they have been since they began (by PENETRATION_TOL_M). An
+        arm left touching the scene by a stop may move while that only lessens: before, every move home from a hook_pull
+        that left the wrist camera on the kettle stopped again, and nothing could recover. Updates self.touching."""
+        worse = [k for k, (dist, _) in hits.items() if k not in self.touching or dist < self.touching[k] - PENETRATION_TOL_M]
+        self.touching = {k: max(dist, self.touching.get(k, dist)) if k not in worse else dist for k, (dist, _) in hits.items()}
+        return worse
+
+    def retreat_from_contact(self, step=0.001, most=0.03, then=0.03):
+        """Move the tip straight away from whatever the arm touches (outside the tool), along the contacts' normals, a
+        step at a time until nothing touches or `most` is gone, then `then` further the same way: just clear, the move
+        home swung the wrist camera straight back onto the kettle. Returns how far it moved (m). The sim's: the real
+        arm doesn't feel its links touch anything."""
+        moved, hits = 0.0, self._hits()
+        at, axis = self.ik.fk(self.cmd)  # from the command, as a line: steps from the joint readings sat in the servos' dead band
+        q, away, clear = self.cmd, None, None
+        while moved < (most if clear is None else clear + then):
+            if hits:
+                away = sum(out for _, out in hits.values())
+                away /= max(np.linalg.norm(away), 1e-9)
+            elif clear is None:
+                clear = moved
+            if away is None:
+                break
+            at = at + step * away
+            q, *_ = self.ik.solve(at, axis, q, iters=50)
+            self.send(q)
+            self.tick()
+            moved += step
+            hits = self._hits()
+        return moved
