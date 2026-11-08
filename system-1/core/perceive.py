@@ -1110,7 +1110,9 @@ def _probe_model(arm):
 def _probe_shift(arm, pts):
     """The translation that moves the probe as a wrist frame sees it (pts: the frame's points nearer
     than PROBE_CROP) onto where forward kinematics puts it: the wrist camera's calibration error at
-    the probe, by point-to-plane fitting. None if too little of the probe shows."""
+    the probe, by point-to-plane fitting. None if too little of the probe shows, or the arm has none."""
+    if mujoco.mj_name2id(arm.m, mujoco.mjtObj.mjOBJ_GEOM, "probe_pad") < 0:
+        return None
     M, Mn = _probe_model(arm)
     tree, t = cKDTree(M), np.zeros(3)
     for _ in range(10):

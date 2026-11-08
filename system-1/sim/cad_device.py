@@ -2,7 +2,7 @@
 everything about a device is in its YAML (see appliances/*/device.yaml).
 
     w = build_cad_world("appliances/centrifuge/device.yaml", rev="A")   # or rev="F1=B,F2=B,F3=A"
-    arm = robot.SimArm(world=w, slop=True, sensing="tactile")           # arm.app is its firmware
+    arm = robot.SimArm(world=w, slop=True, sensing="tactile", effector="probe")  # arm.app is its firmware
     parts = w.truth(arm.m, arm.d)                                       # sim truth, as features.Part
     w.set_root_pose(arm.m, arm.d, "centrifuge", dx=0.01, dy=-0.02, yaw_deg=5)   # move it, at any time
 

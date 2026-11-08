@@ -46,6 +46,7 @@ STAGE_OF = {"survey": "SURVEY", "views": "SURVEY", "scan": "SCAN", "poses": "SEG
 
 SKIP_GEOM_GROUPS = {3}  # the arm's collision copies of its visual meshes
 SKIP_GEOMS = {"cyclorama"}  # the film's backdrop: the Console lights its own studio
+REAL_ARM_HIDDEN = ("wrist_camera",)  # the sim's D405-sized camera: the real arm's is another camera, mounted elsewhere
 MESH_CELL_M = 0.0015  # vertices closer than this merge, about a fifth of the triangles and no visible change at this scale
 TEXTURE_MAX, TEXTURE_QUALITY = 1024, 84
 JPEG_QUALITY = 70
@@ -82,17 +83,17 @@ def moving_bodies(model) -> list[int]:
     return [b for b in range(model.nbody) if model.body_weldid[b] != 0 and b != helper]
 
 
-def build_scene(model, data, run_id: str) -> tuple[dict, dict[str, tuple[str, bytes]]]:
+def build_scene(model, data, run_id: str, hide: tuple[str, ...] = ()) -> tuple[dict, dict[str, tuple[str, bytes]]]:
     """The compiled model for the browser, and its files as {path: (type, bytes)}. It reads only what MuJoCo compiled, so
-    any device works, generated or loaded from CAD meshes."""
+    any device works, generated or loaded from CAD meshes. hide: bodies whose geoms are left out."""
     import cv2
     import mujoco
 
     used_meshes, used_tex, geoms = set(), set(), []
-    helper = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "target")
+    skip = {mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, b) for b in ("target", *hide)}
     for g in range(model.ngeom):
         name = model.geom(g).name
-        if int(model.geom_group[g]) in SKIP_GEOM_GROUPS or name in SKIP_GEOMS or int(model.geom_bodyid[g]) == helper:
+        if int(model.geom_group[g]) in SKIP_GEOM_GROUPS or name in SKIP_GEOMS or int(model.geom_bodyid[g]) in skip:
             continue
         mesh, mat = int(model.geom_dataid[g]), int(model.geom_matid[g])
         if int(model.geom_type[g]) == mujoco.mjtGeom.mjGEOM_MESH:
@@ -331,7 +332,7 @@ class Telemetry:
         arm.on_tick = on_tick
         return robot
 
-    def _export(self, arm: Any = None) -> None:
+    def _export(self, arm: Any = None, hide: tuple[str, ...] = ()) -> None:
         """Reads a scratch copy, so that exporting can't touch the run's own state."""
         arm = self.arm if arm is None else arm
         if not hasattr(arm, "m"):
@@ -343,7 +344,7 @@ class Telemetry:
             d = mujoco.MjData(m)
             d.qpos[:] = arm.d.qpos
             mujoco.mj_kinematics(m, d)
-            scene, blobs = build_scene(m, d, self.run_id)
+            scene, blobs = build_scene(m, d, self.run_id, hide)
             self.moving = list(scene["moving"])
         except Exception:
             traceback.print_exc()
@@ -394,7 +395,7 @@ class Telemetry:
         list: a scan, System 2's names for its parts, or a flip."""
         def follow():
             shown = None
-            self._export(arm)
+            self._export(arm, REAL_ARM_HIDDEN)
             while not self.closed.wait(1 / POSE_FPS):
                 try:
                     if parts() is not shown:
