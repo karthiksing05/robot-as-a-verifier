@@ -422,7 +422,7 @@
       "date": "2026-11-07",
       "kind": "eval",
       "test_set": "Scored with the symptom rule (added 2026-11-07, applied to every model, the baseline and every earlier round): a finding counts for a fault when a failing check on it reads where the fault shows, on the step the device's own verify check fails at, and quotes the manual. The four models on two generated sim devices (seeds 7 and 13, depth route), one run each, with a random planted fault (fault seeds 7001 and 13001) and a 5% chance per action that the arm or the world misbehaves (error seed 1). The rule-based baseline ran on the same set. Every model got the same devices and faults. Errors were then drawn from a running count of actions, so models that planned differently met different errors: every model run drew one error, and both baseline runs drew a device move. Coverage tops out at 94% because device 7's knob needs a pinch grip, which the robot's turn skill doesn't take: every model reported it as untestable.",
-      "spend": "570,906 tokens across the four models (no Cortex prices set, so no dollar figure).",
+      "spend": "570,906 tokens across the four models.",
       "takeaway": "All four models found both planted faults, against none for the rule baseline, which stopped at a device move it can't plan around. Grok re-explored after a real device move and finished the plan. The differences were in judgment: Haiku made up a 20 mm travel limit and reported a working slider as wrong feedback; GPT-5.4 made up a contact-offset bound and got the slider called intermittent; Haiku pushed a jammed door again at 12 N and hit the 15 N safety cap, then homed correctly. Grok took about 10 s a turn, against 2 to 5 s for the others.",
       "cost": {
         "tokens": 570906,
@@ -1996,6 +1996,330 @@
           ],
           "baseline": false,
           "reasoning": "Off in these rounds; available with adaptive thinking"
+        }
+      ]
+    },
+    {
+      "id": "3c",
+      "title": "Rev A with check-back enforced",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "eval",
+      "test_set": "Scored with the symptom rule. Round 3's devices and seeds (Rev A, 5% robot errors, seed 1), the same prompt for every model, with three changes: check-back is enforced (every step that changes something checks the device's outputs, not only the part it moved; a group of changes is followed by an observe step that reads earlier results back; plans without this are refused with what's missing; the run ends with a closing look compared with the first, and the differences go in the report); record_hypothesis takes the full schema and repairs near misses, keeping its checklist out of the conversation; and the per-run token limit is 600k. Partial: the token cap stopped the models after tube-sealer, kettle-base and interval-timer, so label-printer and wall-thermostat have only the baseline. Ran from the frozen copy of 2026-11-07 19:53:38 EST.",
+      "spend": "5.36M tokens across the four models, 3.0 AI credits (about $6.01 at an assumed $2 per credit).",
+      "takeaway": "On the three devices it ran, faults found went from 15 to 16 of 28 against round 3 and faults called passed halved, 14 to 7, with no false findings. Sonnet found 6 of 7 (4 in round 3), including all three kettle-base faults; Haiku 4 of 7; GPT-5.4 and Grok 3 each, and Grok still called 4 passed. Check-back refused 18 plans, in 11 of 12 runs, before they moved anything; 31 output checks failed on steps where the part did move, and 7 of 60 read-backs failed. Most closing looks found the device left changed (left powered on, or holding a refusal message), and only one run put it back as it found it. The cost about doubled: 3.0 credits against 1.5 for the same runs in round 3, and four runs hit the 600k token limit. Every model's first record_hypothesis call was accepted, where in round 3b nearly all failed.",
+      "cost": {
+        "tokens": 5355925,
+        "credits": 3.0065,
+        "usd": 6.013
+      },
+      "rows": [
+        {
+          "model": "claude-haiku-5-5",
+          "runs": 3,
+          "score": 0.074,
+          "faults_found": 4,
+          "faults_planted": 7,
+          "false_findings": 0,
+          "coverage": 0.722,
+          "recovered": 2,
+          "recovery_tries": 3,
+          "tokens": 1478698,
+          "turns": 68,
+          "median_turn_s": 4.34,
+          "tool_errors": 18,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 1,
+          "recoveries": 1,
+          "wall_s": 416.6,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)"
+          ],
+          "missed": [
+            "001-claude-haiku-5-5-tube-sealer-A: missed F3",
+            "006-claude-haiku-5-5-kettle-base-A: missed F2",
+            "006-claude-haiku-5-5-kettle-base-A: missed F3"
+          ],
+          "credits": 0.0643,
+          "usd": 0.1286,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "001-claude-haiku-5-5-tube-sealer-A",
+              "calls": 19,
+              "tokens": 375390,
+              "credits": 0.0146,
+              "usd": 0.0292
+            },
+            {
+              "run": "006-claude-haiku-5-5-kettle-base-A",
+              "calls": 28,
+              "tokens": 619890,
+              "credits": 0.0274,
+              "usd": 0.0548
+            },
+            {
+              "run": "011-claude-haiku-5-5-interval-timer-A",
+              "calls": 21,
+              "tokens": 483418,
+              "credits": 0.0223,
+              "usd": 0.0445
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "runs": 3,
+          "score": 0.167,
+          "faults_found": 6,
+          "faults_planted": 7,
+          "false_findings": 0,
+          "coverage": 0.917,
+          "recovered": 2,
+          "recovery_tries": 2,
+          "tokens": 1064674,
+          "turns": 55,
+          "median_turn_s": 5.82,
+          "tool_errors": 12,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 3,
+          "wall_s": 406.5,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)"
+          ],
+          "missed": [
+            "012-claude-sonnet-5-5-interval-timer-A: missed F2"
+          ],
+          "credits": 0.8129,
+          "usd": 1.6258,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "002-claude-sonnet-5-5-tube-sealer-A",
+              "calls": 17,
+              "tokens": 297217,
+              "credits": 0.2048,
+              "usd": 0.4097
+            },
+            {
+              "run": "007-claude-sonnet-5-5-kettle-base-A",
+              "calls": 21,
+              "tokens": 432761,
+              "credits": 0.3508,
+              "usd": 0.7016
+            },
+            {
+              "run": "012-claude-sonnet-5-5-interval-timer-A",
+              "calls": 17,
+              "tokens": 334696,
+              "credits": 0.2573,
+              "usd": 0.5146
+            }
+          ],
+          "baseline": false,
+          "reasoning": "Off in these rounds; available with adaptive thinking"
+        },
+        {
+          "model": "openai-gpt-5.4",
+          "runs": 3,
+          "score": 0.167,
+          "faults_found": 3,
+          "faults_planted": 7,
+          "false_findings": 0,
+          "coverage": 0.667,
+          "recovered": 2,
+          "recovery_tries": 3,
+          "tokens": 1335295,
+          "turns": 61,
+          "median_turn_s": 5.6,
+          "tool_errors": 16,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 7,
+          "wall_s": 654.5,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)"
+          ],
+          "missed": [
+            "003-openai-gpt-5.4-tube-sealer-A: missed F3",
+            "008-openai-gpt-5.4-kettle-base-A: missed F2",
+            "008-openai-gpt-5.4-kettle-base-A: missed F3",
+            "013-openai-gpt-5.4-interval-timer-A: missed F2"
+          ],
+          "credits": 1.2363,
+          "usd": 2.4726,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "003-openai-gpt-5.4-tube-sealer-A",
+              "calls": 15,
+              "tokens": 170236,
+              "credits": 0.153,
+              "usd": 0.3059
+            },
+            {
+              "run": "008-openai-gpt-5.4-kettle-base-A",
+              "calls": 23,
+              "tokens": 612033,
+              "credits": 0.6421,
+              "usd": 1.2841
+            },
+            {
+              "run": "013-openai-gpt-5.4-interval-timer-A",
+              "calls": 23,
+              "tokens": 553026,
+              "credits": 0.4412,
+              "usd": 0.8823
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "grok-4.7",
+          "runs": 3,
+          "score": 0.472,
+          "faults_found": 3,
+          "faults_planted": 7,
+          "false_findings": 0,
+          "coverage": 0.778,
+          "recovered": 1,
+          "recovery_tries": 3,
+          "tokens": 1477258,
+          "turns": 91,
+          "median_turn_s": 4.82,
+          "tool_errors": 11,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 9,
+          "wall_s": 1060.7,
+          "errors_drawn": [
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "dropped_frame (scan)",
+            "pipeline_fault (boil_retest on button_1)",
+            "slow_arm (see_off on display_1)"
+          ],
+          "missed": [
+            "004-grok-4.7-tube-sealer-A: missed F3",
+            "009-grok-4.7-kettle-base-A: missed F2",
+            "009-grok-4.7-kettle-base-A: missed F3",
+            "014-grok-4.7-interval-timer-A: missed F2"
+          ],
+          "credits": 0.893,
+          "usd": 1.786,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "004-grok-4.7-tube-sealer-A",
+              "calls": 20,
+              "tokens": 261843,
+              "credits": 0.1697,
+              "usd": 0.3395
+            },
+            {
+              "run": "009-grok-4.7-kettle-base-A",
+              "calls": 34,
+              "tokens": 606106,
+              "credits": 0.3712,
+              "usd": 0.7424
+            },
+            {
+              "run": "014-grok-4.7-interval-timer-A",
+              "calls": 37,
+              "tokens": 609309,
+              "credits": 0.3521,
+              "usd": 0.7043
+            }
+          ],
+          "baseline": false,
+          "reasoning": "None returned"
+        },
+        {
+          "model": "rules",
+          "runs": 5,
+          "score": 0.617,
+          "faults_found": 3,
+          "faults_planted": 12,
+          "false_findings": 0,
+          "coverage": 0.767,
+          "recovered": 0,
+          "recovery_tries": 0,
+          "tokens": 0,
+          "turns": 0,
+          "median_turn_s": null,
+          "tool_errors": 0,
+          "crashes": 0,
+          "reasoning_chars": 0,
+          "noise_flags": 0,
+          "recoveries": 0,
+          "wall_s": 83.0,
+          "errors_drawn": [],
+          "missed": [
+            "005-rules-tube-sealer-A: missed F3",
+            "010-rules-kettle-base-A: missed F1",
+            "010-rules-kettle-base-A: missed F2",
+            "010-rules-kettle-base-A: missed F3",
+            "015-rules-interval-timer-A: missed F1",
+            "015-rules-interval-timer-A: missed F2",
+            "016-rules-label-printer-A: missed F3",
+            "017-rules-wall-thermostat-A: missed F2",
+            "017-rules-wall-thermostat-A: missed F3"
+          ],
+          "credits": 0,
+          "usd": 0.0,
+          "unpriced_calls": 0,
+          "per_run": [
+            {
+              "run": "005-rules-tube-sealer-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "010-rules-kettle-base-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "015-rules-interval-timer-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "016-rules-label-printer-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            },
+            {
+              "run": "017-rules-wall-thermostat-A",
+              "calls": 0,
+              "tokens": 0,
+              "credits": 0,
+              "usd": 0.0
+            }
+          ],
+          "baseline": true,
+          "reasoning": null
         }
       ]
     },

@@ -820,3 +820,18 @@ def test_a_plan_without_check_back_is_refused_and_the_run_closes_with_a_look_com
 def test_check_back_is_in_the_prompt_and_on_by_default():
     assert AgentConfig().check_back and AgentConfig().max_tokens == 600_000
     assert "Check back" in prompts.SYSTEM and "closing look" in prompts.SYSTEM
+
+
+def test_the_starting_state_is_only_what_was_read_before_anything_changed():
+    from types import SimpleNamespace
+    from rav_harness.toolbelt import ToolBelt
+    belt = SimpleNamespace(own={}, first_readings={}, changed_any=False, changes_since_look=0, closing_tried=False, side_effects=[],
+                           checkback={"checkbacks_run": 0, "checkbacks_failed": 0, "output_checks_failed": 0})
+    def note(step, lcd, change=None):
+        trace = StepTrace(step=step.id, readout_change=change or {}, measures={"lcd": lcd})
+        verdict = StepVerdict(step=step.id, target=step.target, status="passed", reason="r", channel="R" if change else None)
+        ToolBelt._note_checkback(belt, step, step.target, verdict, SimpleNamespace(checks=[]), trace)
+    note(_step("o1", "observe", "d1", "lcd"), "READY")
+    note(_step("s1", "press", "c1", "lcd"), "BUSY", {"R": [0, 1]})
+    note(_step("o2", "observe", "d1", "lcd"), "DONE")
+    assert belt.first_readings == {"lcd": "READY", "R": 0} and belt.checkback["checkbacks_run"] == 2 and belt.changes_since_look == 1

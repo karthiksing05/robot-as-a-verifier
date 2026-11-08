@@ -126,6 +126,20 @@
       "takeaway": "Not a comparison: one model on one device."
     },
     {
+      "id": "3c",
+      "title": "Rev A with check-back enforced",
+      "status": "done",
+      "date": "2026-11-07",
+      "kind": "eval",
+      "folders": [
+        "eval-1107-195851"
+      ],
+      "test_set": "Scored with the symptom rule. Round 3's devices and seeds (Rev A, 5% robot errors, seed 1), the same prompt for every model, with three changes: check-back is enforced (every step that changes something checks the device's outputs, not only the part it moved; a group of changes is followed by an observe step that reads earlier results back; plans without this are refused with what's missing; the run ends with a closing look compared with the first, and the differences go in the report); record_hypothesis takes the full schema and repairs near misses, keeping its checklist out of the conversation; and the per-run token limit is 600k. Partial: the token cap stopped the models after tube-sealer, kettle-base and interval-timer, so label-printer and wall-thermostat have only the baseline. Ran from the frozen copy of 2026-11-07 19:53:38 EST.",
+      "fault_scenarios": [],
+      "spend": "5.36M tokens across the four models, 3.0 AI credits (about $6.01 at an assumed $2 per credit).",
+      "takeaway": "On the three devices it ran, faults found went from 15 to 16 of 28 against round 3 and faults called passed halved, 14 to 7, with no false findings. Sonnet found 6 of 7 (4 in round 3), including all three kettle-base faults; Haiku 4 of 7; GPT-5.4 and Grok 3 each, and Grok still called 4 passed. Check-back refused 18 plans, in 11 of 12 runs, before they moved anything; 31 output checks failed on steps where the part did move, and 7 of 60 read-backs failed. Most closing looks found the device left changed (left powered on, or holding a refusal message), and only one run put it back as it found it. The cost about doubled: 3.0 credits against 1.5 for the same runs in round 3, and four runs hit the 600k token limit. Every model's first record_hypothesis call was accepted, where in round 3b nearly all failed."
+    },
+    {
       "id": "4",
       "title": "The centrifuge, Rev A and Rev B",
       "status": "planned",

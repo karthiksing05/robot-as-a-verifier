@@ -127,6 +127,7 @@ class ToolBelt:
         self.first_state: dict[str, Any] | None = None  # the first completed look
         self.first_readings: dict[str, Any] = {}  # each reading as first seen, before anything changed it
         self.changes_since_look = 0
+        self.changed_any = False
         self.closing_tried = False
         self.closing_nudged = False
         self.side_effects: list[str] = []
@@ -497,7 +498,7 @@ class ToolBelt:
         for channel, values in trace.readout_change.items():  # what each reading was before anything changed it
             if values:
                 self.first_readings.setdefault(channel, values[0])
-        if not cb.changes(step):
+        if not cb.changes(step) and not self.changed_any:  # a read before anything changed is the starting state; one after isn't
             snapshot = trace.measures.get("readings")
             for channel, value in (snapshot.items() if isinstance(snapshot, dict) else []):
                 self.first_readings.setdefault(channel, value)
@@ -509,6 +510,7 @@ class ToolBelt:
             self.checkback["checkbacks_run"] += 1
             self.checkback["checkbacks_failed"] += bool(failed & outputs)
         elif cb.changes(step) and verdict.status != "inconclusive":
+            self.changed_any = True
             self.changes_since_look += 1
             self.closing_tried = False
             self.checkback["output_checks_failed"] += bool(failed & outputs) and verdict.status == "passed"  # it moved, and the device showed it wrong

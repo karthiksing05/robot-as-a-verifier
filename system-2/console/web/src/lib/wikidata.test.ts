@@ -9,12 +9,13 @@ const committed = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "../
 describe("model results", () => {
   it("reads the committed file: every finished round but the partial one has four models and the baseline", () => {
     const r = loadResults(committed);
-    expect(r.rounds.map((x) => [x.id, x.status])).toEqual([["1", "done"], ["2", "done"], ["2b", "done"], ["2c", "done"], ["3", "done"], ["3b", "done"], ["3m", "done"], ["4", "planned"]]);
+    expect(r.rounds.map((x) => [x.id, x.status])).toEqual([["1", "done"], ["2", "done"], ["2b", "done"], ["2c", "done"], ["3", "done"], ["3b", "done"], ["3m", "done"], ["3c", "done"], ["4", "planned"]]);
     const all = ["claude-haiku-5-5", "claude-sonnet-5-5", "openai-gpt-5.4", "grok-4.7", "rules"];
     for (const round of r.rounds.slice(0, 6)) expect(round.rows.map((x) => x.model)).toEqual(all);
     expect(r.rounds[6].rows.map((x) => x.model)).toEqual(["claude-haiku-5-5"]);
     expect(r.rounds[0].rows.filter((x) => !x.baseline).every((x) => x.score === 1)).toBe(true);
-    expect(r.rounds[7].rows).toEqual([]);
+    expect(r.rounds[7].rows.map((x) => x.model)).toEqual(all);
+    expect(r.rounds[8].rows).toEqual([]);
   });
 
   it("says when a round can't rank the models on score", () => {
@@ -45,7 +46,7 @@ describe("model results", () => {
         expect(row.per_run.length).toBe(row.runs);
       }
     }
-    expect(r.rounds[7].cost).toBeNull();
+    expect(r.rounds[8].cost).toBeNull();
     expect(fmtCredits(0.004)).toBe("<0.01");
     expect(fmtUsd(5.0082)).toBe("$5.01");
     expect(fmtUsd(null)).toBe("–");
