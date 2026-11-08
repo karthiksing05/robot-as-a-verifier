@@ -56,6 +56,7 @@ TOUCH_BAND = 0.004      # a touch this close to where the floor should be is the
 END_ZONE, END_SPEED = 0.004, 0.003  # creep through the last 4 mm of a push, so an end stop isn't hit hard
 ARC_END_ZONE, ARC_END_SPEED = math.radians(8), 0.001  # and through a turn's last 8 deg, slower: a knob coasts
 PRESS_SEARCH_MM = 4.0   # and the stock fingertip tries again this far off each way
+PRESS_RELOOKS = 2       # or, on an arm with relook (the real one), looks again and presses there this many times
 PRESS_TRAVEL = 0.004    # a press stops on force or this far past first contact: no CAD travel
 LANDED_N = 1.0          # force on the pad that ends a descent
 LOW_N = 2.0             # mid-push, a force off the panel above this and above the resistance: the pad is too low
@@ -1255,6 +1256,15 @@ def _press(arm, p, limit, label):
 
     g = _poke(arm, p, limit, label)
     if tip_shape(arm).round or moved():
+        return g
+    relook = getattr(arm, "relook", None)
+    if relook is not None:  # the real arm: up, the last look again, and a press where it says, not a blind search
+        for k in range(PRESS_RELOOKS):
+            g2 = _poke(arm, relook(p), limit, f"{label} (look again {k + 1})")
+            g2["peak"] = max(g["peak"], g2["peak"])
+            g = g2
+            if moved():
+                break
         return g
     n, x = p.normal, p.x
     y = np.cross(n, x)

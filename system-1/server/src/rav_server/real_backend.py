@@ -97,6 +97,7 @@ class RealBackend(PipelineRobot):
                     q = look(arm, shifted(p, -shift))
                     return shifted(q, shift) if q.meta.get("refined") else p
                 self.refine = refine
+                self.arm.relook = lambda part: refine(self.arm, part)  # a missed press looks again (affordances._press)
         import real_skills
         # toggles as press_part flips them: the swing snapped to the panel's slope, the push lowered onto the lever
         self.parts = [real_skills.slope_swing(copy.deepcopy(p)) if p.kind == "toggle" and "tip" in p.meta else p
