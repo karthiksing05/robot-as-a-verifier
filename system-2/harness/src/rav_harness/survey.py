@@ -10,7 +10,7 @@ import re
 
 from pydantic import ValidationError
 
-from rav_contracts import Checkpoint, Decision, ExpectedControl, SurveyAnswer, System1
+from rav_contracts import Checkpoint, Decision, ExpectedControl, MissedControl, SurveyAnswer, System1
 
 from .commands import Responder, rule_responder
 from .manual import Manual
@@ -39,9 +39,14 @@ NAME_ASK = ("{manual}The ids in the photo: {ids}. For each id, say which control
             "labels beside the controls. A faint or unreadable label is no reason to leave a control unnamed: name it "
             "from where it sits in the manual's layout (its order along the panel, its colour and shape) next to the "
             "controls you did name. A dot on a switch's lever (a metal bat that may point up or down from its base) is "
-            "that switch. Or say it isn't a control (a cable, a latch, the lid, the desk). Answer with JSON "
-            'only: {{"<id>": {{"control": "<the manual\'s name, or null>", '
-            '"kind": "<button|dial|knob|toggle|slider|display|none>", "why": "<a few words>"}}}}')
+            "that switch. Or say it isn't a control (a cable, a latch, the lid, the desk). Then list each control the "
+            "manual names (or a lid's lip, a handle) that you can see in the photo but that has no id on it, with the pixel of its centre (the photo "
+            "is {size} pixels, x from the left, y from the top), and, if you can judge it, how far its top stands "
+            "above the panel. Answer with JSON only: "
+            '{{"<id>": {{"control": "<the manual\'s name, or null>", '
+            '"kind": "<button|dial|knob|toggle|slider|display|none>", "why": "<a few words>"}}, '
+            '"missed": [{{"control": "<the manual\'s name>", "kind": "<button|dial|knob|toggle|slider|handle>", '
+            '"x": <pixel>, "y": <pixel>, "height_mm": <number or null>}}]}}')
 
 
 def part_namer(system1: System1, log: RunLog, manual: Manual) -> Responder:
@@ -86,21 +91,26 @@ def survey_reviewer(system1: System1, client: ModelClient, log: RunLog, manual: 
         """scan_review: each part's name and kind from the panel map and the manual, or None for what isn't a control.
         On the real centrifuge it named all seven candidates right, three tries in three."""
         ids = [p["id"] for p in m["parts"]]
-        images = [Image("image/jpeg", system1.evidence_frame(ref).data_b64) for ref in m.get("frames", [])]
+        frames = [system1.evidence_frame(ref) for ref in m.get("frames", [])]
+        images = [Image("image/jpeg", f.data_b64) for f in frames]
         for k, image in enumerate(images):
             (log.dir / f"scan_review_{k + 1}.jpg").write_bytes(base64.b64decode(image.data_b64))
-        text = NAME_ASK.format(manual=f"The appliance's manual:\n\n{manual}\n\n" if manual else "", ids=", ".join(ids))
+        text = NAME_ASK.format(manual=f"The appliance's manual:\n\n{manual}\n\n" if manual else "", ids=", ".join(ids),
+                               size=f"{frames[0].width}x{frames[0].height}" if frames else "unknown")
         reply = client.generate(NAME_SYSTEM, [Message("user", text, images=images)], [])
         (log.dir / "scan_review.txt").write_text(f"{text}\n\n--- {client.model} ---\n{reply.text}\n", encoding="utf-8")
         try:
             said = json.loads(re.search(r"\{.*\}", reply.text, re.S).group(0))
             labels = {i: None if not said[i].get("control") or said[i].get("kind") in (None, "none") else
                       ExpectedControl(name=str(said[i]["control"]), kind=str(said[i]["kind"])) for i in ids if i in said}
-        except (AttributeError, ValueError, ValidationError, TypeError) as err:
+            missed = [MissedControl(name=str(x["control"]), kind=str(x["kind"]), x=x["x"], y=x["y"],
+                                    height_mm=x.get("height_mm")) for x in said.get("missed") or [] if x.get("control")]
+        except (AttributeError, ValueError, ValidationError, TypeError, KeyError) as err:
             log.emit("message", {"role": "harness", "text": f"scan review: couldn't read {client.model}'s answer ({err}), "
                                                             "so the parts keep the scan's names"})
             return Decision()
         named = ", ".join(f"{i}: {'not a control' if v is None else f'{v.name} ({v.kind})'}" for i, v in labels.items())
+        named += "".join(f"; missed {x.name} ({x.kind}) at pixel {x.x:.0f}, {x.y:.0f}" for x in missed)
         log.emit("message", {"role": "harness", "text": f"scan review by {client.model}: {named}"})
-        return Decision(labels=labels)
+        return Decision(labels=labels, missed=missed)
     return review

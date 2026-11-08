@@ -26,7 +26,7 @@ class EscalationPolicy(Contract):
     checkpoint_every: int | None = Field(default=1, ge=1)  # steps between checkpoints; None means only at the end
     confidence_floor: float = Field(default=0.5, ge=0.0, le=1.0)  # detections below this escalate
     review_survey: bool = False  # explore holds after its survey (survey_review) for a SurveyAnswer before it scans
-    review_scan: bool = False  # and after its scan (scan_review) for each part's name and kind (Decision.labels)
+    review_scan: bool = False  # and after its scan (scan_review) for each part's name and kind (Decision.labels) and what it missed
 
 
 # Start with TETHERED, and loosen a setting only when the measurements hold up. The values are guesses until then.
@@ -83,6 +83,13 @@ class ExpectedControl(Contract):
     kind: str  # a ControlKind when it is one
 
 
+class MissedControl(ExpectedControl):
+    """A control the scan missed, marked on the scan_review stop's panel map: x, y are pixels in that image."""
+    x: float
+    y: float
+    height_mm: float | None = None  # its top above the panel, used only where the scan has no height there
+
+
 class SurveyAnswer(Contract):
     """System 2's answer to a survey_review stop. panel picks one of the stop's numbered candidate surfaces (None keeps
     System 1's pick). expect is what the manual says the device has: System 1 compares the scan with it and says where
@@ -101,6 +108,7 @@ class Decision(Contract):
     survey: SurveyAnswer | None = None  # continue, at a survey_review stop
     # continue, at a scan_review stop: a part id's name and kind in the manual, or None when it isn't a control
     labels: dict[str, ExpectedControl | None] = Field(default_factory=dict)
+    missed: list[MissedControl] = Field(default_factory=list)  # and controls it missed: System 1 adds them (source "model")
 
 
 class ParamSpec(Contract):

@@ -34,6 +34,9 @@ REPOSITION_RANGE = (30.0, 30.0, 12.0)  # dx_mm, dy_mm, yaw_deg, for a device tha
 VIEW_RETRIES = 3  # a camera that gives no frame is asked again this many times per view,
 SCAN_RETRY_BUDGET = 6  # and this many times in one explore, before the scan gives up as a pipeline_error
 FRAME_WIDTH, FRAME_QUALITY, FRAMES_KEPT, SURVEY_FRAMES = 640, 80, 300, 4
+# a part System 2 adds at a scan_review (Decision.missed): its width by kind, and the most a height map reading there may
+# stand off the panel to be believed (a clear lid reads at any height)
+MISSED_WIDTH, MISSED_MAX_H = {"button": 0.015, "knob": 0.025, "dial": 0.025, "handle": 0.03}, 0.04
 
 
 def on_path(*dirs):
@@ -65,6 +68,42 @@ def part_to_control(part: Any) -> Control:
                    normal=tuple(float(v) for v in part.normal), size_mm=tuple(float(v) * 1000 for v in part.size),
                    motion=part.motion, grip=part.grip, conf=float(part.score), source=meta.get("source", "scan"),
                    label=meta.get("name"), **extra)
+
+
+def missed_part(m: Any, scene: Any, image_wh: tuple[int, int], parts: list = ()) -> Any:
+    """A MissedControl (a pixel on the panel map, image_wh its size) as a features.Part on the panel, its top at the height
+    map's highest reading within its radius. Where that's missing, on the bare panel or far off it, its top is System 2's
+    height_mm, else the median of the other parts of its kind, else the panel itself: meta["height"] says which ("scan",
+    "model", "others" or "panel"). A press planned from the panel would come down fast onto a 13 mm button."""
+    import numpy as np
+    import features
+    import perceive
+
+    hm, _, cell, origin = scene.heightmap
+    g = perceive.Grid(scene.plane[0], cell, origin)
+    w = MISSED_WIDTH.get(m.kind, 0.02)
+    rc = np.array([m.y * hm.shape[0] / image_wh[1], m.x * hm.shape[1] / image_wh[0]])
+    (i, j), k = np.round(rc).astype(int), max(1, round(w / 2 / cell))
+    near = hm[max(0, i - k):i + k + 1, max(0, j - k):j + k + 1]
+    h = float(np.nanmax(near)) if np.isfinite(near).any() else math.nan
+    like = [float(p.size[2]) for p in parts if p.kind == m.kind]
+    if 0.001 < h < MISSED_MAX_H:
+        how = "scan"
+    elif m.height_mm is not None:
+        h, how = min(max(m.height_mm / 1000, 0.0), MISSED_MAX_H), "model"
+    elif like:
+        h, how = float(np.median(like)), "others"
+    else:
+        h, how = 0.0, "panel"
+    o, n = g.point(rc, h), g.n
+    T = features.frame(o, n, features.canonical_x(g.T[:3, 1], n))
+    motion = {"button": "translation", "knob": "rotation", "dial": "rotation", "handle": "rotation"}.get(m.kind, "")
+    meta = {"name": m.name, "source": "model", "height": how, "pixel": (round(m.x), round(m.y))}
+    if m.kind == "button":
+        meta["radius"] = w / 2
+    elif m.kind in ("knob", "dial"):
+        meta.update(knob_radius=w / 2, knob_height=h)
+    return features.Part("", m.kind, T, np.array([w, w, h]), motion, -n if m.kind == "button" else n, o, score=0.5, meta=meta)
 
 
 def _plain(value: Any) -> Any:
@@ -320,7 +359,7 @@ class PipelineRobot:
                                      + [{"id": p.id, "kind": "unconfirmed"} for p in unconfirmed], "frames": [ref] if ref else []})
         if decision.kind == "abort":
             raise PipelineFailure(f"stopped after the scan: {decision.note or 'System 2 aborted'}")
-        if not decision.labels:
+        if not decision.labels and not decision.missed:
             return
         kept, dropped, renamed = [], [], []
         maybe = {p.id for p in unconfirmed}  # by id: Parts hold arrays, so == between them is ambiguous
@@ -353,9 +392,25 @@ class PipelineRobot:
                 meta["radius"] = float(min(p.size[:2])) / 2
             kept.append(replace(p, id=new_id, kind=label.kind, meta=meta))
             renamed.append(f"{p.id} -> {new_id} ({label.kind})")
+        added, skipped = [], []
+        image = self.frames.get(ref) if ref else None
+        for m in decision.missed if image is not None else []:  # not held to rgbperceive.ROW_MAX: only the scan's are
+            if m.kind not in MISSED_WIDTH:  # a toggle's lever or a slider's slot can't be read off one pixel
+                skipped.append(f"{m.name} ({m.kind})")
+                continue
+            p = missed_part(m, self.scene, (image.width, image.height), kept)
+            p.id = re.sub(r"[^A-Za-z0-9+]+", "_", m.name).strip("_") or f"{m.kind}_model"
+            while p.id in {q.id for q in kept}:
+                p.id += "_2"
+            kept.append(p)
+            added.append(f"{p.id} ({m.kind}, height {p.meta['height']}: {p.size[2] * 1000:.0f} mm)")
         self.parts = kept
-        self.notes.append(f"System 2 named the parts from the manual: {', '.join(renamed) or 'none'}"
-                          + (f"; not controls: {', '.join(dropped)}" if dropped else ""))
+        if decision.labels:
+            self.notes.append(f"System 2 named the parts from the manual: {', '.join(renamed) or 'none'}"
+                              + (f"; not controls: {', '.join(dropped)}" if dropped else ""))
+        if added or skipped:
+            self.notes.append(f"System 2 added what the scan missed, from the panel map: {', '.join(added) or 'none'}"
+                              + (f"; seen but not added: {', '.join(skipped)}" if skipped else ""))
 
     def _registered(self, before: list) -> None:
         """With a device file: register its roots from the scan's parts and touches, and add each part the scan didn't
