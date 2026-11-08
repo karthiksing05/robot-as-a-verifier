@@ -265,7 +265,7 @@ def plan_views(arm, surv):
     views, q0 = [], arm.home_q.copy()
     for du, dv in VIEW_LOOKS:
         look = c - du * down + dv * left
-        for tilt in VIEW_TILTS:
+        for tilt in VIEW_TILTS if getattr(arm, "view_tilts", None) is None else arm.view_tilts:
             view = aim = -n * math.cos(tilt) - down * math.sin(tilt)
             for _ in range(3):
                 q, ok, err, _ = arm.ik.solve(look - arm.standoff * aim, view, q0, site=site)

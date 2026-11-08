@@ -219,6 +219,7 @@ class ArmBase:
     The arm keeps W, zero, axis_est and est_vec up to date, and has axial_sensor and tip_force()."""
     table_z, workspace, standoff = TABLE_Z, WORKSPACE, STANDOFF
     stall_m, guard_speed = None, 0.0  # see affordances._guarded
+    view_tilts = None  # radians, perceive.plan_views' tilts when set (default perceive.VIEW_TILTS)
 
     def _fit(self, tau, zero=None):
         # 5 joint torques, 3 force components: least squares (wrist_roll turns about the probe, so carries none). A fit
