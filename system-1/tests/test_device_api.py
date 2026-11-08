@@ -75,6 +75,17 @@ def test_board_credentials_are_scoped_to_one_id():
     assert readouts["mc6-01"].readings == {"lid": 1}
 
 
+def test_appliance_listener_is_separate_from_mcp():
+    readout = http_readout.HttpReadout("mw1")
+    app = build_app(RoutineEngine(MockRobot, "mock"), "127.0.0.1", TOKEN,
+                    {"mw1": readout}, {"mw1": KEY}, device_port=8782)
+    c = TestClient(app)
+    board = {"Authorization": f"Bearer {KEY}", "Host": "127.0.0.1:8782"}
+    assert c.post("http://127.0.0.1:8780/readout/mw1", json={"door": 1}, headers=board).status_code == 404
+    assert c.post("http://127.0.0.1:8782/readout/mw1", json={"door": 1}, headers=board).status_code == 204
+    assert c.post("http://127.0.0.1:8782/mcp", json={}, headers={"Authorization": f"Bearer {TOKEN}"}).status_code == 404
+
+
 def test_refuses_to_start_without_a_separate_key_off_loopback():
     with pytest.raises(SystemExit, match="RAV_DEVICE_KEY"):
         client(key=None)

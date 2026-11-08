@@ -1,6 +1,6 @@
 # System 2 on Vultr
 
-System 1 opens one outbound WSS connection to Vultr. The relay multiplexes TCP connections over it, forwarding Vultr's `127.0.0.1:8780` to `127.0.0.1:8780` on System 1. The harness uses its regular Streamable HTTP MCP client. Caddy terminates TLS on 443 and exposes `/tunnel` and appliance snapshot POSTs. Appliance HTTPS POSTs reuse Bayan's readout protocol and cross the same tunnel to System 1. MCP calls enter through the VPS loopback port.
+System 1 and the appliances share a private hotspot. The appliances post snapshots directly to System 1 on port 8782. System 1 opens one outbound WSS connection to Vultr, where Caddy terminates TLS on 443 and exposes `/tunnel`. The relay forwards Vultr's `127.0.0.1:8780` to System 1's `127.0.0.1:8780` for the harness's existing Streamable HTTP MCP client.
 
 ## Vultr
 
@@ -19,19 +19,21 @@ uv run --no-project --with-requirements deploy/vultr/requirements.txt python dep
 
 The client retries after a connection loss. A dropped connection can interrupt an in-flight MCP call. Check the robot's status after reconnecting before deciding whether to repeat a command.
 
-Set `RAV_TOKEN` and `RAV_DEVICE_KEYS` in the System 1 server environment. The latter is a JSON object mapping each stable device ID to its own random 32–128 character URL-safe credential. Start with the mock robot from `system-1`:
+Join the hotspot and find System 1's IPv4 address on that network. Set `RAV_TOKEN` and `RAV_DEVICE_KEYS` in the System 1 server environment. The latter is a JSON object mapping each stable device ID to its own random 32–128 character URL-safe credential. Start with the mock robot from `system-1`, substituting the actual address:
 
 ```powershell
-uv run rav-server --robot mock --telemetry-port 0
+uv run rav-server --robot mock --telemetry-port 0 --device-host 192.168.43.10
 ```
 
-For a supervised hardware run use `--robot real --arm-port COM5 --calibration <file> --readout http --readout-device mc6-01` with the actual port, calibration and device ID. The selected appliance supplies the real robot's readout. Other registered appliances remain available for inspection. System 1 must have a fresh snapshot before it can use the selected appliance's data.
+Allow inbound TCP 8782 on System 1 for the hotspot network if its firewall blocks it. The hotspot must allow its clients to talk to each other. If the hotspot changes System 1's address, update `--device-host` and the boards' `RAV_HOST`.
+
+For a supervised hardware run keep `--device-host` and use `--robot real --arm-port COM5 --calibration <file> --readout http --readout-device mc6-01` with the actual port, calibration and device ID. The selected appliance supplies the real robot's readout. Other registered appliances remain available for inspection. System 1 must have a fresh snapshot before it can use the selected appliance's data.
 
 ## Appliances
 
-For each board, copy [the secrets example](../../firmware/firmware/arduino_secrets.h.example) to `arduino_secrets.h` beside its sketch in `firmware/MC6_firmware` or `firmware/MW1_firmware`. Set the campus IoT SSID and password, DNS hostname, and that board's ID and credential. The sketch uses the Uno R4 WiFi TLS client and the Wi-Fi firmware's CA bundle. Check campus enrollment and the board's ability to reach the Vultr hostname before arming the robot. Use `mc6` and `mw1_r4_wifi` as the PlatformIO build and upload targets. A serial `wifi` event with value `204` means the snapshot was accepted.
+For each board, copy [the secrets example](../../firmware/firmware/arduino_secrets.h.example) to `arduino_secrets.h` beside its sketch in `firmware/MC6_firmware` or `firmware/MW1_firmware`. Set the hotspot SSID and password, System 1's hotspot IP and port 8782, and that board's ID and credential. The board sends HTTP over the private hotspot, so keep that network password-protected and use credentials scoped to device readout. Use `mc6` and `mw1_r4_wifi` as the PlatformIO build and upload targets. A serial `wifi` event with value `204` means System 1 accepted the snapshot.
 
-The firmware sends complete, flat JSON snapshots on changes and periodically. Short transitions can fall between sends. Wi-Fi join and TLS connect can block the firmware loop, especially during outages. Bench-check button and sensor timing with Wi-Fi enabled before using it in a run.
+The firmware sends complete, flat JSON snapshots on changes and periodically. Short transitions can fall between sends. Joining Wi-Fi or opening a connection can block the firmware loop, especially during outages. Bench-check button and sensor timing with Wi-Fi enabled before using it in a run.
 
 ## Smoke test
 
@@ -43,13 +45,12 @@ uv run rav readout
 uv run rav readout mc6-01
 ```
 
-Send a test snapshot through Caddy with the registered device credential, or power up the board:
+Send a test snapshot from a machine on the hotspot with the registered device credential, or power up the board:
 
 ```sh
-curl -fsS "https://${RAV_PUBLIC_HOST}/readout/mc6-01" \
+curl -fsS "http://${SYSTEM1_HOTSPOT_IP}:8782/readout/mc6-01" \
   -H "Authorization: Bearer ${MC6_KEY}" -H 'Content-Type: application/json' \
   --data '{"speed":1000,"lid":1,"LCD":"READY"}'
-uv run rav readout mc6-01
 ```
 
-Expect `fresh: true` while a board is posting, and `false` after two seconds without updates. For a single manual POST, verify the sample values even if the CLI starts after the freshness window. The same key should receive 401 on a different device's POST route. Public `/mcp` should return 404. Disconnect and reconnect the System 1 tunnel, then run `rav status` again. This checks the connection without moving the arm.
+Run `uv run rav readout mc6-01` on Vultr. Expect `fresh: true` while a board is posting, and `false` after two seconds without updates. For a single manual POST, verify the sample values even if the CLI starts after the freshness window. The same key should receive 401 on a different device's POST route. Public `/mcp` and `/readout/mc6-01` should return 404. Stop the tunnel and confirm the board still gets 204. Reconnect and run `rav status` again.

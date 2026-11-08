@@ -12,7 +12,9 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 import hmac
+from ipaddress import IPv4Address
 import json
 import os
 import re
@@ -26,6 +28,7 @@ from .mcp_server import build_server
 from .telemetry import Telemetry
 
 LOOPBACK = {"localhost", "127.0.0.1", "::1"}
+DEVICE_PORT = 8782
 
 
 class RequireToken:
@@ -102,18 +105,20 @@ def enable_torque(robot, confirmed: bool) -> None:
 def readout_url(args) -> str | None:
     if args.readout != "http":
         return None
+    if args.device_host:
+        return f"http://{args.device_host}:{DEVICE_PORT}/readout/{args.readout_device}"
     host = socket.gethostname() if args.host in ("0.0.0.0", "::") else args.host
     return f"http://{host}:{args.port}/readout/{args.readout_device}"
 
 
 def build_app(engine: RoutineEngine, host: str, token: str | None, readouts: dict | None = None,
-              device_key: str | dict[str, str] | None = None):
+              device_key: str | dict[str, str] | None = None, device_port: int | None = None):
     """The MCP app behind RAV_TOKEN, and with readouts ({device: HttpReadout}) the boards' /readout/<device> beside it,
     behind RAV_DEVICE_KEY (device_api.py)."""
     if host not in LOOPBACK and not token:
         raise SystemExit(f"refusing to listen on {host} without a token: set RAV_TOKEN")
-    if readouts and host not in LOOPBACK and not device_key:
-        raise SystemExit(f"refusing to take device readings on {host} without a key: set RAV_DEVICE_KEY")
+    if readouts and (host not in LOOPBACK or device_port is not None) and not device_key:
+        raise SystemExit("refusing to expose device readouts without a key: set RAV_DEVICE_KEYS or RAV_DEVICE_KEY")
     keys = device_key.values() if isinstance(device_key, dict) else (device_key,) if device_key else ()
     if token and token in keys:
         raise SystemExit("RAV_DEVICE_KEY must differ from RAV_TOKEN: the boards should never hold the key that moves the arm")
@@ -124,7 +129,14 @@ def build_app(engine: RoutineEngine, host: str, token: str | None, readouts: dic
     security = None if host in LOOPBACK else TransportSecuritySettings(enable_dns_rebinding_protection=False)
     app = mcp.streamable_http_app(host=host, transport_security=security)
     app = RequireToken(app, token) if token else app
-    return Router(devices, app) if devices else app
+    return Router(devices, app, device_port) if devices else app
+
+
+def bind_listener(host, port):
+    try:
+        return socket.create_server((host, port), family=socket.AF_INET6 if ":" in host else socket.AF_INET)
+    except OSError as e:
+        raise SystemExit(f"can't listen on {host}:{port}: {e}") from e
 
 
 def device_keys(raw: str) -> dict[str, str]:
@@ -172,11 +184,21 @@ def main(argv=None) -> None:
                          "--readout-port, or a board POSTing to /readout/<--readout-device> over WiFi (RAV_DEVICE_KEY)")
     ap.add_argument("--readout-port", help="real, --readout serial: the Pico's serial port, such as COM7")
     ap.add_argument("--readout-device", help="real, --readout http: the board's name in its URL, such as mw1")
+    ap.add_argument("--device-host", help=f"System 1's hotspot IPv4 address for the appliance listener on port {DEVICE_PORT}")
     args = ap.parse_args(argv)
     token = os.environ.get("RAV_TOKEN")
     keys = device_keys(raw) if (raw := os.environ.get("RAV_DEVICE_KEYS")) is not None else None
     if keys is not None and (not token or token in keys.values() or (args.readout_device and args.readout_device not in keys)):
         ap.error("RAV_DEVICE_KEYS requires a separate RAV_TOKEN and a key for --readout-device")
+    if args.device_host:
+        try:
+            address = IPv4Address(args.device_host)
+        except ValueError:
+            ap.error("--device-host requires a hotspot IPv4 address")
+        if not address.is_private or address.is_unspecified or address.is_reserved:
+            ap.error("--device-host requires a specific private IPv4 address")
+        if not keys or args.host not in LOOPBACK or args.port == DEVICE_PORT:
+            ap.error("--device-host requires RAV_DEVICE_KEYS, loopback MCP and an MCP port other than 8782")
     if args.robot == "real" and (args.depth or not (args.arm_port and args.calibration)):
         ap.error("--robot real needs --arm-port and --calibration, and has no depth camera for --depth")
     if args.readout != "operator" and args.robot != "real":
@@ -207,18 +229,20 @@ def main(argv=None) -> None:
             from http_readout import HttpReadout
             for name in keys.keys() - readouts.keys():
                 readouts[name] = HttpReadout(name, track_events=False)
-        app = build_app(engine, args.host, token, readouts, keys or os.environ.get("RAV_DEVICE_KEY"))
-        try:  # before torque: a port in use would otherwise stop the server, and drop the arm, right after the yes
-            sock = socket.create_server((args.host, args.port), family=socket.AF_INET6 if ":" in args.host else socket.AF_INET)
-        except OSError as e:
-            raise SystemExit(f"can't listen on {args.host}:{args.port}: {e}")
-        if real:
-            enable_torque(real, args.enable_torque)
-        watching = telemetry.serve(args.telemetry_port) if args.telemetry_port else 0
-        print(f"System 1 ({args.robot}) waiting on http://{args.host}:{args.port}/mcp" + (f", telemetry on http://127.0.0.1:{watching}" if watching else ""))
-        if args.readout_device:
-            print(f"device readout: {args.readout_device} POSTs to {readout_url(args)}. No step runs until it does")
-        Server(uvicorn.Config(app, log_level="warning"), engine, real).run(sockets=[sock])
+        app = build_app(engine, args.host, token, readouts, keys or os.environ.get("RAV_DEVICE_KEY"),
+                        DEVICE_PORT if args.device_host else None)
+        with ExitStack() as listeners:  # bind both before enabling torque
+            sockets = [listeners.enter_context(bind_listener(args.host, args.port))]
+            if args.device_host:
+                sockets.append(listeners.enter_context(bind_listener(args.device_host, DEVICE_PORT)))
+                print(f"Appliances POST to http://{args.device_host}:{DEVICE_PORT}/readout/<device-id>")
+            if real:
+                enable_torque(real, args.enable_torque)
+            watching = telemetry.serve(args.telemetry_port) if args.telemetry_port else 0
+            print(f"System 1 ({args.robot}) waiting on http://{args.host}:{args.port}/mcp" + (f", telemetry on http://127.0.0.1:{watching}" if watching else ""))
+            if args.readout_device:
+                print(f"device readout: {args.readout_device} POSTs to {readout_url(args)}. No step runs until it does")
+            Server(uvicorn.Config(app, log_level="warning"), engine, real).run(sockets=sockets)
     finally:
         try:
             engine.shutdown()  # the worker closes the robot once the routine stops

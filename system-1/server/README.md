@@ -17,6 +17,8 @@ What System 2 talks to. It runs routines on a robot and reports [stops](../../do
 
 **The real arm:** `rav-server --robot real --arm-port COM5 --calibration <lerobot-calibrate's file>` builds the rig once at startup with torque off, then asks at the terminal before turning torque on (`--enable-torque` skips the question). The operator answers what each test step did at the same terminal. Ctrl+C stops the arm where it is, then turns torque off as the server stops. It has only run against the fake bus (`tests/test_real_backend.py`).
 
+For the private hotspot setup, `--device-host <System 1 hotspot IP>` serves the appliances on port 8782 and keeps MCP on loopback. See the [Vultr setup](../../deploy/vultr/README.md#system-1).
+
 Before a real arm is useful it needs:
 
 - The appliance's firmware. `--readout serial --readout-port COM7` reads its Pico over USB (`hardware/pico_readout.py`), and `--readout http --readout-device mw1` takes the same snapshots POSTed over WiFi to `/readout/mw1` with `RAV_DEVICE_KEY` (`hardware/http_readout.py`, [`device_api.py`](src/rav_server/device_api.py); the format is in [the firmware README](../subjects/appliance/firmware/README.md#over-wifi)). `affordances` reads either during a slide or turn, but both have only run against stand-ins. Without `--readout`, `RealBackend` uses `OperatorReadout`, which asks the operator once a step ends.

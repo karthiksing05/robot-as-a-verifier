@@ -45,7 +45,7 @@ cd system-2 && uv sync && uv run rav run                                       #
 
 To reach System 1 on another machine, start the server with `RAV_TOKEN=<secret>` and `--host 0.0.0.0`, then run `RAV_TOKEN=<secret> uv run rav run --url http://<its address>:8780/mcp`.
 
-For System 1 on campus Wi-Fi and System 2 on Vultr, see [the reverse WebSocket setup](deploy/vultr/README.md).
+For System 1 and the appliances on a private hotspot with System 2 on Vultr, see [the reverse WebSocket setup](deploy/vultr/README.md).
 
 Each run writes `system-2/runs/<id>/events.jsonl` and `report.json`. The Console renders those files.
 

@@ -1,9 +1,8 @@
-// HTTPS snapshot publishing for the UNO R4 WiFi. USB operation requires no secrets file.
+// Post snapshots directly to System 1 on the private hotspot.
 #pragma once
 
 #define RAV_WIFI 1
 #include <WiFiS3.h>
-#include <WiFiSSLClient.h>
 
 namespace rav {
 constexpr size_t SNAPSHOT_MAX = 320;
@@ -11,7 +10,7 @@ const uint32_t SEND_EVERY_MS = 500;
 const uint16_t TIMEOUT_MS = 300;   // a slow reply mustn't hold up the buttons for long
 const uint32_t REJOIN_MS = 10000;  // WiFi.begin blocks for a few seconds: don't retry it every loop
 
-WiFiSSLClient client;
+WiFiClient client;
 char last[SNAPSHOT_MAX] = "";
 uint32_t sentAt = 0, joinAt = 0;
 bool joinedOnce = false;

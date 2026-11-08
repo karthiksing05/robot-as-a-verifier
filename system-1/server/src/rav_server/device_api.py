@@ -75,10 +75,20 @@ class DeviceApi:
 class Router:
     """/readout/... to the boards' DeviceApi, everything else to the MCP app behind RAV_TOKEN."""
 
-    def __init__(self, devices, app):
+    def __init__(self, devices, app, device_port=None):
         self.devices, self.app = devices, app
+        self.device_port = device_port
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] == "http" and scope["path"].startswith(PREFIX):
-            return await self.devices(scope, receive, send)
+        if scope["type"] == "http":
+            readout = scope["path"].startswith(PREFIX)
+            if self.device_port is not None:
+                # ASGI's server address comes from the accepted socket, independent of the Host header.
+                on_device_port = scope["server"][1] == self.device_port
+                if readout != on_device_port:
+                    await send({"type": "http.response.start", "status": 404, "headers": []})
+                    await send({"type": "http.response.body", "body": b""})
+                    return
+            if readout:
+                return await self.devices(scope, receive, send)
         await self.app(scope, receive, send)
