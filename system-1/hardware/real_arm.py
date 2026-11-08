@@ -134,8 +134,9 @@ class RealArm(rig.ArmBase):
     # taken off every part along the panel, in the arm frame: on Nov 8 presses aimed at the camera's position landed 3-5 mm
     # up the slope from the cap's centre and slid further up. 5.4 mm clicked TIME+ (2 and 3 landed high, 8 on the lower
     # edge). Hand touches read more, but the arm flexes under a hand; the last look agrees with the scan to 1-3.5 mm
-    # And 3 mm toward +y (START's side): presses landed toward SPEED, and a 4 mm search that way clicked 3 misses of 4
-    part_shift = np.array([-0.0054, 0.003, -0.00225])
+    # Run 52 (no last look): STOP clicked first, START only on the 4 mm search toward -y and TIME+ on the one down the
+    # slope, so the +3 mm toward +y is gone and 2.4 mm more is taken down the slope (x reaches it at 0.68 per mm)
+    part_shift = np.array([-0.009, 0.0, -0.00225])
     # presses come in 40% of the way from the panel's normal to straight down: along the normal the jaw slid off a tilted
     # button's cap, halfway the gripper met the panel's lower edge first. A second last look 18 mm out leaves less travel
     # to err. TIME+ clicked with these (Nov 8)
