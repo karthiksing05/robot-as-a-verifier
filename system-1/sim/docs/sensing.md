@@ -21,13 +21,13 @@ The ideal sensor is the sim's default because it's the easiest way to develop sk
 
 ### Servos only (`current`)
 
-A bus servo is a position controller: it pushes harder the further its shaft sits from its goal. So the gap between goal and present position, measured in encoder counts (the servo's position sensor has 4096 counts per turn), tells you its torque. The rig reads that gap on every servo 100 times a second. It subtracts what its own model says holding up and moving the arm costs, and turns the rest into a force at the fingertip through the arm's geometry.
+A bus servo is a position controller: it pushes harder the further its shaft sits from its goal. So the gap between goal and present position, measured in encoder counts (the servo's position sensor has 4096 counts per turn), tells you its torque. The rig reads that gap on every servo 50 times a second. It subtracts what its own model says holding up and moving the arm costs, and turns the rest into a force at the fingertip through the arm's geometry.
 
 Three things make this hard:
 
 - **Gear friction.** The gearbox's friction is modelled from a published bench measurement of these servos (Rhoban's BAM project), at about 0.28 times the load held and 0.43 times when moving slowly. It hides small pushes, and while joints move it reads as a push that isn't there. So skills zero the estimate once the arm is creeping toward a part, and ignore it until then.
 - **Noise of about 2.5 N.** Every contact threshold has to sit above that, so the fingertip presses harder than it needs to.
-- **Impacts shorter than one 10 ms reading never reach it.** The arm's own inertia absorbs a very short knock before the servos feel it. Speeds near contact are kept low for that reason.
+- **Impacts shorter than one 20 ms reading never reach it.** The arm's own inertia absorbs a very short knock before the servos feel it. Speeds near contact are kept low for that reason.
 
 It also sometimes reads a contact near the panel with nothing touching. When the robot touches bare panel to find its plane, a touch that lands more than 6 mm from the camera's plane is thrown out and retried. The camera's plane was at most 5.5 mm off on 74 test devices, and these false touches put the plane 7 to 23 mm off.
 

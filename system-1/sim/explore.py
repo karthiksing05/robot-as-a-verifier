@@ -7,14 +7,14 @@
     python explore.py --slop --offsets 2                soft servos with gear play, +-2 deg joint offsets
     python explore.py --slop --stiffness 18             softer servos (robot.SERVO_NM_PER_RAD)
     python explore.py --slop --sensing current          no force sensor: contact estimated from the servos
-    python explore.py --slop --sensing tactile          a SensX 25 pressure pad on the probe's face, servos across it
-    python explore.py --slop --sensing loadcell         a load cell behind the probe (HX711, 80 Hz), servos across it
+    python explore.py --slop --sensing tactile --effector probe    a SensX 25 pad on the sim-only probe, servos across it
+    python explore.py --slop --sensing loadcell --effector probe   a load cell behind the probe (HX711, 80 Hz)
     python explore.py --no-refine                       act on the scanned parts without a last look
     python explore.py --depth [--stereo]                the earlier pipeline, with a D405 depth camera on the wrist
-    python explore.py --slop --sensing tactile --real-driver   driven through real_arm.RealArm on a simulated motor bus
+    python explore.py --slop --sensing current --real-driver   driven through real_arm.RealArm on a simulated motor bus
 
-By default the robot has what the team's rig has: an iPhone on a tripod, a cheap USB RGB camera on the
-wrist (no depth) and the probe's sense of contact. STAGES runs the story: intro; survey (the phone) and
+By default the robot has what the team's rig has: a cheap USB RGB camera on the wrist (no depth) and the
+stock gripper, its shut jaws the fingertip. STAGES runs the story: intro; survey (the wrist camera) and
 scan (a USB frame at each wrist view and a partner 15 mm aside), by rgbperceive.perceive_rgb; segment (the
 camera poses, the orthophoto assembling on the panel, OWLv2's boxes and SAM's outlines); map (plane-sweep
 heights, then each part's kind and why); touch (touch.touch_plane taps bare panel for the plane in the
