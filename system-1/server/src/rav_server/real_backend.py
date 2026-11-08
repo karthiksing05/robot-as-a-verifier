@@ -167,6 +167,7 @@ class RealBackend(PipelineRobot):
 
         self._clamp()  # each step starts with the jaws shut: a skill that needs them open opens them itself
         prev, self.last_skill = self.last_skill, step.skill
+        self.prev_skill = prev  # microwave_skills.execute reads it too
         p = next((q for q in self.parts if q.id == step.target), None)
         if self.appliance == "microwave" and step.skill in self.MICROWAVE_SKILLS:
             return self._microwave_step(step, p)

@@ -39,7 +39,9 @@ PRESS_DEPTH = 0.004    # and command this far in past it: the cap travels 1.5 mm
 PRESS_DEPTH_REAL = 0.012  # the real arm gives under load (the centrifuge's presses needed 20 mm): a guess, untested
 PRESS_TILTS = (0, 10, 20, 30)  # the tool this far below level (deg), flattest first that reaches. The push stays level
 PRESS_SPEED, PRESS_HOLD_S = 0.008, 0.3  # at 15 mm/s the sim's cap bottomed and the force jumped past 15 N in a tick
+PRESS_SPEED_REAL, PRESS_HOLD_REAL = 0.03, 0.15  # real: 8 mm/s was slow; the force stop (PRESS_N_REAL) guards the last of it
 PRESS_SLOW, PRESS_SLOW_FROM = 0.003, 0.006  # and slower over the last of the way: START at 8 mm/s did it on the stiffer arm
+PRESS_SLOW_REAL = 0.012  # real, over that last 6 mm
 PRESS_N = 6.0          # sim: stop pushing at this over the estimate's noise (the cap bottoms at 3 N)
 PRESS_N_REAL = 20.0    # real: stop pushing past this (tared), short of PRESS_DEPTH_REAL: it overpressed going the whole way
 
@@ -187,13 +189,15 @@ def press(arm, p, R, depth=None):
     bias = _approach(arm, label, out, a, q0)
     arm.status = f"{label}: in"
     # the bias following the sag: held as at the approach, the softer sim arm's tip rose 8 mm going 24 mm in, over the cap
-    slow = lambda k: PRESS_SLOW if (legs[0][1][k] - p.pos) @ n < PRESS_SLOW_FROM else None  # noqa: E731
-    _, why, peak = _go(arm, legs[0][1], legs[0][2], PRESS_SPEED, bias, None if arm.stall_m else PRESS_N + arm.noise_n, slow, follow=True,
+    real = bool(arm.stall_m)
+    speed, hold, last = (PRESS_SPEED_REAL, PRESS_HOLD_REAL, PRESS_SLOW_REAL) if real else (PRESS_SPEED, PRESS_HOLD_S, PRESS_SLOW)
+    slow = lambda k: last if (legs[0][1][k] - p.pos) @ n < PRESS_SLOW_FROM else None  # noqa: E731
+    _, why, peak = _go(arm, legs[0][1], legs[0][2], speed, bias, None if arm.stall_m else PRESS_N + arm.noise_n, slow, follow=True,
                        force_max=PRESS_N_REAL if arm.stall_m else None)
-    _hold(arm, PRESS_HOLD_S)
+    _hold(arm, hold)
     affordances._unwind(arm, bias)
     arm.status = f"{label}: out"
-    _go(arm, [out], [a], PRESS_SPEED * 2, bias)
+    _go(arm, [out], [a], speed * 2, bias)
     return {"verdict": "done", "reason": f"pressed {p.id} level, {depth * 1000:.0f} mm in past its face, tool {tilt} deg down"
             + (f", stopped early: {why}" if why else ""), "peak_force_n": round(peak, 2), "tilt_deg": tilt}
 
@@ -379,7 +383,9 @@ def execute(robot, step, p):
     arm = robot.arm
     if p is None:
         return {"verdict": "REFUSED", "reason": f"no part called {step.target}"}
-    if not robot.at_home:
+    # press after press goes straight from one button to the next, the tip 20 mm off the panel: home is a detour
+    straight = step.skill == "mw_press" and getattr(robot, "prev_skill", None) == "mw_press"
+    if not robot.at_home and not straight:
         skills.go_home(arm)
     arm.status = "between steps"  # an operator readout takes its baseline here, with nothing to ask
     before, n_ev, t0 = dict(arm.app.readings), len(arm.app.events), time.monotonic()
