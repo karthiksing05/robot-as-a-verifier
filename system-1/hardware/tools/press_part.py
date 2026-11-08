@@ -24,6 +24,19 @@ import real_arm  # noqa: E402
 import skills  # noqa: E402
 
 
+# where the scan puts parts minus where the jaw tip really is on them, in the arm frame: START and STOP touched by hand
+# on Nov 8 read (+4.5, -0.5, +1.5) and (+7, -1, +3.5) mm off the scan, so the camera's leftover offset is taken off
+SHIFT = np.array([-0.006, 0.0005, -0.0025])
+
+
+def shift(p):
+    if p is not None and not p.meta.get("shifted"):
+        p.T = p.T.copy()
+        p.T[:3, 3] += SHIFT
+        p.meta["shifted"] = True
+    return p
+
+
 def main(argv=None, ask=input):
     args = argv or sys.argv[1:]
     port, cal, target = args[:3]
@@ -32,7 +45,9 @@ def main(argv=None, ask=input):
     if part is None:
         print(f"No {target} in the last scan: it has {[p.id for p in scene.parts]}")
         return
-    print(f"{target}: {part.kind} at {np.round(part.pos * 1000)} mm")
+    for p in scene.parts:
+        shift(p)
+    print(f"{target}: {part.kind} at {np.round(part.pos * 1000)} mm (after the {np.round(SHIFT * 1000, 1)} mm correction)")
     rig = hw_rig.make_rig(port, cal)
     arm = rig.arm
     arm.app = real_arm.OperatorReadout(arm, ask=ask)  # the same prompt as the rest, so a script can answer it
@@ -47,8 +62,11 @@ def main(argv=None, ask=input):
         try:
             skills.go_home(arm)
             look = None if "--no-look" in args else pipeline.last_look(rig.wrist, scene.plane[0])
+            if look is not None:
+                look0 = look
+                look = lambda arm, p: shift(look0(arm, p))  # the camera's offset is in the last look's answer too
             r = affordances.run_step(arm, scene.parts, {"skill": "press", "target": target}, None, look)
-            for k in ("verdict", "reason", "stop", "contact_offset_mm", "travel_mm", "refined", "duration_s"):
+            for k in ("verdict", "reason", "stop", "contact_offset_mm", "travel_mm", "refined", "refine_why", "refine_shift_mm", "duration_s"):
                 print(f"  {k}: {r.get(k)}")
             print(f"  last look: {({k: v for k, v in part.meta.items() if 'refine' in k}) or 'not used'}")
             skills.go_home(arm)
