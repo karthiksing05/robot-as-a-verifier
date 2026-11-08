@@ -134,16 +134,16 @@ class RealArm(rig.ArmBase):
     # taken off every part along the panel, in the arm frame: on Nov 8 presses aimed at the camera's position landed 3-5 mm
     # up the slope from the cap's centre and slid further up. 5.4 mm clicked TIME+ (2 and 3 landed high, 8 on the lower
     # edge). Hand touches read more, but the arm flexes under a hand; the last look agrees with the scan to 1-3.5 mm
-    # Run 52 (no last look): STOP clicked first, START only on the 4 mm search toward -y and TIME+ on the one down the
-    # slope, so the +3 mm toward +y is gone and 2.4 mm more is taken down the slope (x reaches it at 0.68 per mm)
-    part_shift = np.array([-0.009, 0.0, -0.00225])
+    # Run 54: 2.4 mm more down the slope (x reaches it at 0.68 per mm); with no +y, all three buttons clicked only on the
+    # 4 mm search toward +y, so the 3 mm toward +y stays
+    part_shift = np.array([-0.009, 0.003, -0.00225])
     # presses come in 40% of the way from the panel's normal to straight down: along the normal the jaw slid off a tilted
     # button's cap, halfway the gripper met the panel's lower edge first. A second last look 18 mm out leaves less travel
     # to err. TIME+ clicked with these (Nov 8)
     press_down = 0.4
     look_close = None  # a second look 18 mm out failed its check on START twice, and costs an extra in and out
     # presses go to a fixed depth: stall contact ended START's press 2.8 mm in, before it clicked
-    press_depth = 0.015  # 7 mm left STOP short; at 9 the buttons registered but went down visibly shallow; 12 still light
+    press_depth = 0.020  # 7 mm left STOP short; at 9 the buttons registered but went down visibly shallow; 12 still light; 15 missed board reads
 
     def __init__(self, bus, app=None, pad=None, pace=True):
         self.bus, self.pad, self.pace = bus, pad, pace
