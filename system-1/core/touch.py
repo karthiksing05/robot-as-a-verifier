@@ -31,6 +31,7 @@ Only buttons and door pads are refined (see REFINED).
 """
 import math
 import os
+import pickle
 import time
 from dataclasses import replace
 
@@ -92,6 +93,8 @@ SEARCH_M = 0.006        # SAM's box grows this much all round when its first out
                         # from where it was scanned)
 FIT_TRIM = 0.0015       # outline points further than this from the fitted circle are something else
 MIN_EDGE = 30           # outline points needed for a fit
+FIT_FROM_OUTLINE = False  # start the far-rim fit from the middle of SAM's outline, not the believed centre (hw_rig)
+SHIFT_MAX = None        # a look this far from the scan is a neighbour (default SEARCH_M)
 LOOK_DIR = None         # a folder: each look's frame is saved there with SAM's outline and the fitted circle drawn
 
 
@@ -416,14 +419,14 @@ def _round(p):
     return None
 
 
-def _fit(q, toward, r):
+def _fit(q, toward, r, c=None):
     """(centre (in-plane, m), radius, None) of the circle that best fits outline points q (cast at the top's
     height), or (None, None, why). Only the rim facing away from the camera counts: on the near side the outline
     is the foot of the part's side and the shadow it casts. The radius is fitted too, since a radius off by d
     would move a centre fitted to a far arc alone by d; one under SHRINK r or over r + RADIUS_TOL (r: the
     scan's) means SAM outlined something else. Points far from the circle (a neighbour, the probe's shadow) are
-    dropped in steps down to FIT_TRIM."""
-    c, rr = np.zeros(2), r
+    dropped in steps down to FIT_TRIM. c: where to start the fit (default the believed centre, 0)."""
+    c, rr = (np.zeros(2) if c is None else c), r
     for trim in (np.inf, np.inf, 3 * FIT_TRIM, 2 * FIT_TRIM, FIT_TRIM, FIT_TRIM, FIT_TRIM):
         d = q - c
         dist = np.linalg.norm(d, axis=1)
@@ -474,7 +477,8 @@ def locate(f, p, plane, sam, seen=None):
         X = T[:3, 3] + ray * (((c0 + top * n - T[:3, 3]) @ n) / (ray @ n))[:, None]  # on the plane at the top
         away = (c0 - T[:3, 3]) @ uv
         q = (X - c0) @ uv
-        c, rr, why = _fit(q, away / max(np.linalg.norm(away), 1e-9), r)
+        # the far rim is picked relative to the fit's start: from a belief 8 mm off, it was a few stray points beside STOP
+        c, rr, why = _fit(q, away / max(np.linalg.norm(away), 1e-9), r, np.median(q, axis=0) if FIT_FROM_OUTLINE else None)
         seen.update(box=box, mask=mask, believed=silhouette(c0, r)[:48], circle=None)
         if c is None:
             continue
@@ -486,7 +490,7 @@ def locate(f, p, plane, sam, seen=None):
     return None, f"{p.id}: {why}"
 
 
-def _save_look(f, p, seen, said):
+def _save_look(f, p, plane, seen, said):
     """The look's frame in LOOK_DIR with SAM's prompt box (blue), the part as believed (white), SAM's outline (yellow)
     and the fitted circle (green), and what came of it. The folder ignores itself in git."""
     os.makedirs(LOOK_DIR, exist_ok=True)
@@ -506,7 +510,10 @@ def _save_look(f, p, seen, said):
     for color, width in (((0, 0, 0), 6), ((255, 255, 255), 2)):
         cv2.putText(img, (said if said.startswith(p.id) else f"{p.id}: {said}")[:110], (12, 40), cv2.FONT_HERSHEY_SIMPLEX,
                     0.9, color, width)
-    cv2.imwrite(os.path.join(LOOK_DIR, f"{time.strftime('%H%M%S')}_{p.id}.jpg"), img)
+    name = os.path.join(LOOK_DIR, f"{time.strftime('%H%M%S')}_{p.id}")
+    cv2.imwrite(name + ".jpg", img)
+    with open(name + ".pkl", "wb") as fh:  # the frame as taken (pose and K too), the part and plane: to replay locate()
+        pickle.dump((f, p, plane), fh)
 
 
 def make_refine(wrist, plane, sam=None):
@@ -524,11 +531,11 @@ def make_refine(wrist, plane, sam=None):
         f, seen = wrist.capture(), {}
         pos, why = locate(f, p, plane, sam, seen)
         shift = 0.0 if pos is None else float(np.linalg.norm(pos - p.pos))
-        if shift > SEARCH_M:
+        if shift > (SHIFT_MAX or SEARCH_M):
             why = f"the outline SAM found is {shift * 1000:.1f} mm from where {p.id} should be: a neighbour"
         if LOOK_DIR:
             try:  # evidence must never stop a look
-                _save_look(f, p, seen, why or f"refined: moved {shift * 1000:.1f} mm")
+                _save_look(f, p, plane, seen, why or f"refined: moved {shift * 1000:.1f} mm")
             except Exception as e:  # noqa: BLE001
                 print(f"couldn't save the look: {type(e).__name__}: {e}")
         if why:
