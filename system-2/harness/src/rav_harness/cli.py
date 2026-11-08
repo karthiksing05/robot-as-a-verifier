@@ -136,14 +136,24 @@ def _show_steps(event) -> None:
             print(f"  {s['id']}: {s['skill']} {s['target']} {s.get('params') or ''}")
 
 
-def _only(targets: str | None):
-    """The rule-based plan cut to the steps on these controls, such as a single press."""
-    if not targets:
+def _only(targets: str | None, angle: float | None = None):
+    """The rule-based plan cut to the steps on these controls, such as a single press. With angle, each knob or dial is
+    turned once, by that many degrees (+ counter-clockwise seen from the front), in place of the plan's turn and back."""
+    if not targets and angle is None:
         return rule_planner
-    keep = set(targets.split(","))
+    keep = set(targets.split(",")) if targets else None
 
     def planner(request, scene, fallback):
-        steps = [s for s in fallback.steps if s.target in keep]
+        steps, turned = [], set()
+        for s in fallback.steps:
+            if keep is not None and s.target not in keep:
+                continue
+            if angle is not None and s.skill == "turn":
+                if s.target in turned:
+                    continue
+                turned.add(s.target)
+                s = s.model_copy(update={"params": {**s.params, "angle": angle}})
+            steps.append(s)
         if not steps:
             raise SystemExit(f"the plan has no step on {targets}. The scan found: {', '.join(c.id for c in scene.controls)}")
         return fallback.model_copy(update={"steps": steps})
@@ -159,7 +169,7 @@ def run(args) -> None:
         log = RunLog(run_id, args.runs, on_event=_show_steps if real else None)
         policy, respond = _survey_review(args, system1, log)
         try:
-            _print(run_test(system1, request, log, planner=_only(args.only), approve=_person_here if real else auto_approve,
+            _print(run_test(system1, request, log, planner=_only(args.only, args.angle), approve=_person_here if real else auto_approve,
                             policy=policy, respond=respond))
         finally:
             _save_frames(system1, system1.scene_get().scene.frames, log.dir / "frames")
@@ -316,6 +326,8 @@ def main(argv=None) -> None:
     r = sub.choices["run"]
     r.add_argument("--product", default="Device under test")
     r.add_argument("--only", default=None, metavar="CONTROL,...", help="run only the plan's steps on these controls, such as button_1")
+    r.add_argument("--angle", type=float, default=None, metavar="DEG",
+                   help="turn each knob or dial once by this much (+ counter-clockwise seen from the front), such as -60")
     a = sub.add_parser("agent", help="one run with the frontier model at the controls, on a running server (sim: plans auto-approve)")
     a.add_argument("--url", default="http://127.0.0.1:8780/mcp")
     a.add_argument("--id", default=None)

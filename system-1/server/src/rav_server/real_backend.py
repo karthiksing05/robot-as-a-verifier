@@ -4,12 +4,14 @@ thread at startup, and the engine's worker then uses this backend. close() takes
 rested when torque went on, then turns torque off, unless Ctrl+C already stopped it mid-motion."""
 from __future__ import annotations
 
+import copy
+import math
 import pickle
 import threading
 import time
 from dataclasses import replace
 
-from .sim_backend import CORE_DIR, HARDWARE_DIR, PipelineRobot, on_path
+from .sim_backend import CORE_DIR, HARDWARE_DIR, PipelineRobot, map_verdict, on_path
 
 
 LAST_SCAN = "last_scan.pkl"  # in the folder rav-server runs in
@@ -99,7 +101,52 @@ class RealBackend(PipelineRobot):
                     q = look(arm, p)
                     return shifted(q, shift) if q.meta.get("refined") else q
                 self.refine = refine
+        import real_skills
+        # toggles as press_part flips them: the swing snapped to the panel's slope, the push lowered onto the lever
+        self.parts = [real_skills.slope_swing(copy.deepcopy(p)) if p.kind == "toggle" and "tip" in p.meta else p
+                      for p in self.parts]
         return self.current_scene()
+
+    def execute(self, step):
+        """Flips and knob turns as the hardware session ran them on the real centrifuge (real_skills), which
+        affordances' own can't do on this arm (its jaws don't open for them); everything else as PipelineRobot. The
+        operator says whether the device changed, which gives the verdict."""
+        p = next((q for q in self.parts if q.id == step.target), None)
+        if step.skill not in ("flip", "turn") or p is None:
+            return super().execute(step)
+        import real_skills
+        import skills
+
+        if not self.at_home:
+            skills.go_home(self.arm)
+        self.arm.status = "between steps"  # reading the device here sets its baseline, with nothing to ask
+        before, n_ev, t0 = dict(self.arm.app.readings), len(self.arm.app.events), time.monotonic()
+        angle = float(step.params.get("angle", 60.0))  # degrees, + counter-clockwise seen from the front
+        try:
+            if step.skill == "flip":
+                real_skills.flip(self.arm, p, self.parts)
+            else:
+                real_skills.grip_turn(self.arm, p, self.plane_T, math.radians(angle), self.rig.wrist)
+        except RuntimeError as e:  # no plan or out of reach
+            r = {"verdict": "REFUSED", "reason": f"{p.id}: {e}"}
+        else:
+            self.at_home = False
+            new = [ch for _, ch, _ in self.arm.app.events[n_ev:]] + [
+                ch for ch, v in self.arm.app.readings.items() if before.get(ch) != v]
+            ch = new[0] if new else None
+            if step.skill == "flip" and ch:  # it went over: it now leans the other way, so a flip back pushes from there
+                n, v = p.normal, p.meta["tip"] - p.pos
+                q = copy.deepcopy(p)
+                q.meta = {**p.meta, "tip": p.pos + 2 * (v @ n) * n - v}
+                q.T[:3, :2] *= -1
+                self.parts = [q if x.id == p.id else x for x in self.parts]
+            what = f"{p.id} switches {ch}" if step.skill == "flip" else f"turning {p.id} {angle:+g} deg changes {ch}"
+            r = {"verdict": "PASS" if ch else "FAIL", "reason": what if ch else "nothing changed on the device",
+                 "channel": ch, "stop": "done", "duration_s": round(time.monotonic() - t0, 1)}
+        trace, verdict = map_verdict(step, r)
+        ref = self._snap(f"{step.id}, at {step.target}, after the step")
+        trace.frames = [ref] if ref else []
+        return trace, verdict
 
     def close(self) -> None:
         with self.closing:  # the engine's worker and main.py both close it: one goes home, the other waits
