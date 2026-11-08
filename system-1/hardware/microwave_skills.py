@@ -56,6 +56,7 @@ PULL_DEG = 45.0        # default: open this far. Past ~50 deg the leaf comes in 
 PULL_SPEED, UNLATCH_SPEED, UNLATCH_DEG = 0.02, 0.006, 5.0  # m/s along the arc; slower through the latch
 PULL_LAG = 0.025       # the tip this far behind its command: the door won't come (the sim's force estimate read 14.6 N
                        # on the latch alone, near its 15 N cap; Rev A's seized hinge needs 20 N at the bar)
+PULL_N_REAL = 20.0     # real arm: stop the pull past this (tared; ~3.5 N noise moving slowly), or a held door drags the box
 IN_LAG = 0.008         # going in to the bar, the tip this far behind its command has met something (the sim's force
                        # estimate read 7.6 N in free air there)
 
@@ -98,17 +99,18 @@ def _radial(at, tilt_deg):
     return math.cos(t) * r - math.sin(t) * np.array([0.0, 0.0, 1.0])
 
 
-def _go(arm, pts, axes, speed, bias, limit=None, slow=None, along=True, lag_max=None, follow=False):
+def _go(arm, pts, axes, speed, bias, limit=None, slow=None, along=True, lag_max=None, follow=False, force_max=None):
     """The tip through pts (one tool axis each) at speed, the bias held. limit (N): on an arm whose force estimate is
     trusted (no stall_m: the sim) it stops once the estimate passes it, on the real arm the stall does
     (affordances._stall). slow(i) -> a slower speed for the leg into point i, or None. Returns (index of the last
     point reached, why it stopped short or None, peak N). along: the force along the tool (a push), else its whole
     size (a pull, which the estimate along the tool reads as nothing). lag_max (m), on any arm: stop once the tip
     falls this far behind its command, as when what it pulls won't come. follow: the bias follows the sag as it
-    changes along the way (manipulate._line), in place."""
+    changes along the way (manipulate._line), in place. force_max (N), on any arm: stop once the force estimate (tared at
+    the start) passes it, as when a held door drags the whole appliance along instead of opening."""
     q, peak = arm.cmd - bias, 0.0
-    guard = limit is not None
-    stall = affordances._stall(arm) if guard and arm.stall_m else None
+    guard = limit is not None or force_max is not None
+    stall = affordances._stall(arm) if limit is not None and arm.stall_m else None
     if guard:
         arm.tare()
     try:
@@ -133,8 +135,10 @@ def _go(arm, pts, axes, speed, bias, limit=None, slow=None, along=True, lag_max=
                 peak = max(peak, f)
                 if stall is not None and stall((to - arm.tip_pose()[0]) @ m)[0]:
                     return k - 1, "stalled", peak
-                if guard and stall is None and f > limit:
+                if limit is not None and stall is None and f > limit:
                     return k - 1, f"met {f:.1f} N", peak
+                if force_max is not None and f > force_max:
+                    return k - 1, f"pulled {f:.1f} N, over the {force_max:g} N limit: stopped before it dragged the appliance", peak
                 lag = float(np.linalg.norm(to - arm.tip_pose()[0]))
                 if lag_max and lag > lag_max:
                     return k - 1, f"fell {lag * 1000:.0f} mm behind its path at {f:.1f} N", peak
@@ -261,7 +265,8 @@ def open_door(arm, p, R, angle=PULL_DEG, nudge=(0.0, 0.0, 0.0)):
     _jaws(arm, 0)
     arm.status = f"{label}: pull"
     slow = lambda i: UNLATCH_SPEED if ths[i] <= UNLATCH_DEG else None  # noqa: E731
-    k_end, why, peak = _go(arm, legs[1][1], legs[1][2], PULL_SPEED, bias, None, slow, along=False, lag_max=PULL_LAG)
+    k_end, why, peak = _go(arm, legs[1][1], legs[1][2], PULL_SPEED, bias, None, slow, along=False, lag_max=PULL_LAG,
+                           force_max=PULL_N_REAL if getattr(arm, "stall_m", None) else None)
     if why:  # held: stop pulling before anything else, or the force builds on while it waits
         affordances._unwind(arm, bias)
     _hold(arm, 0.3)  # the arm catches up with its sag before its reading is taken
