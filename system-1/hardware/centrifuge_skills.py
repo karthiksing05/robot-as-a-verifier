@@ -21,7 +21,7 @@ from safety import SafetyStop
 LID_LIP = (-20.0, 0.0, 27.0)       # handle_1, the lid's lip
 RACK_LIP = (56.9, 144.0, 1.2)      # handle_2, the rack cover's lip
 TUBE = (38.5, 175.0, -19.0)        # tube_1's collar top, in rack position 2
-WELL_A = (-61.0, -6.5, -14.7)      # where that collar top sits once the tube is seated in well A; nudged from the CAD's (-67, -13) by real places (Nov 8)
+WELL_A = (-70.0, -6.5, -14.7)      # where that collar top sits once the tube is seated in well A; nudged from the CAD's (-67, -13) by real places: forward is away from the arm (Nov 8)
 # each cover's hinge from its lip (mm) and its axis (opening is + about it), and where it rests open (deg)
 COVERS = {"lid": dict(lip=LID_LIP, hinge=(-82.5, 0.0, -5.0), axis=(0.0, -1.0, 0.0), rest=105.0),
           "rack": dict(lip=RACK_LIP, hinge=(-42.5, 35.7, 5.0), axis=(-0.64, -0.77, 0.0), rest=105.0)}
