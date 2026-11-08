@@ -1,0 +1,251 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build MW-1 (Uno R4 WiFi)",
+      "type": "process",
+      "command": "pio",
+      "args": [
+        "run",
+        "-e",
+        "mw1_r4_wifi"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "windows": {
+        "command": "${env:USERPROFILE}\\.platformio\\penv\\Scripts\\platformio.exe"
+      }
+    },
+    {
+      "label": "Upload MW-1 (Uno R4 WiFi)",
+      "type": "process",
+      "command": "pio",
+      "args": [
+        "run",
+        "-e",
+        "mw1_r4_wifi",
+        "-t",
+        "upload",
+        "--upload-port",
+        "${input:mw1Port}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "windows": {
+        "command": "${env:USERPROFILE}\\.platformio\\penv\\Scripts\\platformio.exe"
+      }
+    },
+    {
+      "label": "Monitor MW-1 (115200 baud)",
+      "type": "process",
+      "command": "pio",
+      "args": [
+        "device",
+        "monitor",
+        "--baud",
+        "115200",
+        "--port",
+        "${input:mw1Port}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "windows": {
+        "command": "${env:USERPROFILE}\\.platformio\\penv\\Scripts\\platformio.exe"
+      }
+    },
+    {
+      "label": "Calibrate MW-1 door light sensor",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "-u",
+        "tools/calibrate_mw1_door.py",
+        "${input:mw1Port}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "windows": {
+        "command": "python"
+      }
+    },
+    {
+      "label": "Calibrate MW-1 physical buttons and update source",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "-u",
+        "tools/calibrate_mw1_buttons.py",
+        "${input:mw1Port}",
+        "--apply"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "windows": {
+        "command": "python"
+      }
+    },
+    {
+      "label": "Observe MW-1 raw button inputs",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "-u",
+        "tools/calibrate_mw1_buttons.py",
+        "${input:mw1Port}",
+        "--observe",
+        "60"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "windows": {
+        "command": "python"
+      }
+    },
+    {
+      "label": "Check MW-1 LCD over serial",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "tools/check_mw1_display.py",
+        "${input:mw1Port}",
+        "--output",
+        ".pio/mw1-display-check.jsonl"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "windows": {
+        "command": "python"
+      }
+    },
+    {
+      "label": "Build MC-6 (Uno R4 WiFi)",
+      "type": "process",
+      "command": "pio",
+      "args": [
+        "run",
+        "-e",
+        "mc6"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "windows": {
+        "command": "${env:USERPROFILE}\\.platformio\\penv\\Scripts\\platformio.exe"
+      }
+    },
+    {
+      "label": "Upload MC-6 (Uno R4 WiFi)",
+      "type": "process",
+      "command": "pio",
+      "args": [
+        "run",
+        "-e",
+        "mc6",
+        "-t",
+        "upload",
+        "--upload-port",
+        "${input:mc6Port}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "windows": {
+        "command": "${env:USERPROFILE}\\.platformio\\penv\\Scripts\\platformio.exe"
+      }
+    },
+    {
+      "label": "Calibrate MC-6 physical buttons and update source",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "-u",
+        "tools/calibrate_mc6_buttons.py",
+        "${input:mc6Port}",
+        "--apply"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "windows": {
+        "command": "python"
+      }
+    },
+    {
+      "label": "Monitor MC-6 A1 sensor",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "-u",
+        "tools/monitor_mc6_a1.py",
+        "${input:mc6Port}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "windows": {
+        "command": "python"
+      }
+    },
+    {
+      "label": "Calibrate MC-6 lid and tube sensors",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "-u",
+        "tools/calibrate_mc6_sensors.py",
+        "${input:mc6Port}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "windows": {
+        "command": "python"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "mc6Port",
+      "type": "promptString",
+      "description": "MC-6 USB serial port (connect the centrifuge board)",
+      "default": "COM7"
+    },
+    {
+      "id": "mw1Port",
+      "type": "promptString",
+      "description": "MW-1 USB serial port (check PlatformIO device list after reconnecting)",
+      "default": "COM6"
+    }
+  ]
+}

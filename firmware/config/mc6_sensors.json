@@ -1,0 +1,104 @@
+{
+  "device": "MC-6",
+  "port": "COM7",
+  "pins": {
+    "lid": "A1"
+  },
+  "scope": "lid_only",
+  "ignored_pins": [
+    "A2"
+  ],
+  "result": {
+    "t": 13342,
+    "ev": "lightcal",
+    "stage": "saved",
+    "saved": 1,
+    "tube_required": 0,
+    "tube_saved": 0,
+    "lid": {
+      "clear": 763,
+      "shaded": 561,
+      "lo": 641,
+      "hi": 682
+    },
+    "tube": {
+      "clear": 0,
+      "shaded": 0,
+      "lo": 0,
+      "hi": 0
+    },
+    "host_at": "2026-11-08T08:21:45.822461+00:00"
+  },
+  "storage": "board EEPROM",
+  "trace": ".pio/mc6-sensor-calibration-events.jsonl",
+  "complete": true,
+  "verification": {
+    "usb_serial": "1051DB2BA4DC",
+    "board": "Arduino Uno R4 WiFi",
+    "final_status": {
+      "t": 75198,
+      "ev": "hb",
+      "power": 0,
+      "btn_start": 0,
+      "btn_stop": 0,
+      "btn_time": 0,
+      "pot_raw": 0,
+      "lid": 1,
+      "lid_raw": 560,
+      "lid_cal": 763,
+      "tube": 0,
+      "tube_raw": 0,
+      "tube_cal": 0,
+      "tube_valid": 0,
+      "tube_required": 0,
+      "rpm": 1000,
+      "time": 30,
+      "remaining": 30,
+      "state": "OFF",
+      "reason": "",
+      "display": [
+        "",
+        ""
+      ],
+      "light": "off",
+      "segment": 0,
+      "calibrating": 0,
+      "oled_present": 1,
+      "oled_pending": 0,
+      "i2c": "software",
+      "i2c_us": 20,
+      "cal_saved": 1,
+      "button_test": 0,
+      "host_at": "2026-11-08T08:22:47.718602+00:00"
+    },
+    "calibration_status": {
+      "t": 75233,
+      "ev": "lightcal",
+      "stage": "idle",
+      "saved": 1,
+      "tube_required": 0,
+      "tube_saved": 0,
+      "lid": {
+        "clear": 763,
+        "shaded": 561,
+        "lo": 641,
+        "hi": 682
+      },
+      "tube": {
+        "clear": 0,
+        "shaded": 0,
+        "lo": 0,
+        "hi": 0
+      },
+      "host_at": "2026-11-08T08:22:47.739764+00:00"
+    },
+    "button_pins": {
+      "btn_start": 2,
+      "btn_stop": 10,
+      "btn_time": 12,
+      "btn_power": 5
+    },
+    "firmware_sha256": "3fbac82dd6e9904dff6af5e7bf17708e71fca4dffb544f6945734a1effe9d378",
+    "oled_upright_user_confirmed": true
+  }
+}

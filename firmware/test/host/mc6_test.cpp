@@ -1,0 +1,150 @@
+#include "support.h"
+#include "../../MC6_firmware/MC6_firmware.ino"
+
+void step(uint32_t ms = 1) { fakeNow += ms; loop(); }
+void press(uint8_t pin) {
+  pins[pin] = LOW; step(); step(20);
+  pins[pin] = HIGH; step(); step(20);
+}
+void send(const char *s) { Serial.input = s; while (Serial.available()) serialPoll(fakeNow); }
+
+int main() {
+  assert(!requireTubePresent); // Current physical configuration ignores A2.
+  requireTubePresent = true;  // Exercise the optional full configuration too.
+  initPins(); fakeI2C.enabled = true; fakeI2C.devices[0x3D] = true; fakeI2C.needsStop = true; setup();
+  for (int i = 0; i < 200; ++i) step();
+  assert(!calibrating && lid.level == 700 && tube.level == 700 && state == OFF);
+  step(300); assert(oledPresent && oled.getU8x8()->address == (0x3D << 1));
+  assert(oled.flip == 1 && PIN_LID == A1 && PIN_TUBE == A2);
+  assert(pinModes[PIN_LID] == INPUT && pinModes[PIN_TUBE] == INPUT);
+  for (uint8_t pin : BUTTON_SCAN_PINS) assert(pin != PIN_LID && pin != PIN_TUBE);
+  for (int i = 0; i < 180; ++i) oledPoll();
+  assert(oledClearTile == 128 && !oledRows && fakeI2C.starts == fakeI2C.stops);
+  fakeI2C.nackData = true; oledRows = 3; oledPoll(); assert(!oledPresent);
+  fakeI2C.nackData = false; send("oled\n"); assert(oledPresent);
+  fakeI2C.heldClock = true;
+  uint32_t before = fakeMicros; assert(!Mc6I2c::probe(0x3D));
+  assert(Mc6I2c::error == Mc6I2c::CLOCK_TIMEOUT && fakeMicros - before < 3000);
+  fakeI2C.heldClock = false; send("oled\n"); assert(oledPresent);
+  analogs[PIN_LID] = 385; step(20); assert(!lid.shaded);
+  analogs[PIN_LID] = 384; step(20); assert(lid.shaded);
+  analogs[PIN_LID] = 490; step(20); assert(lid.shaded);
+  analogs[PIN_LID] = 491; step(20); assert(!lid.shaded);
+  analogs[PIN_LID] = 700;
+  pins[PIN_TIME] = LOW; step(); step(19); assert(!timeButton.held);
+  step(); assert(timeButton.held);
+  pins[PIN_TIME] = HIGH; step(); step(20); assert(!timeButton.held);
+  press(PIN_TIME); assert(setTime == 30); contains("\"ev\":\"btn_time\",\"v\":1");
+  pins[PIN_POWER] = LOW; step(); step(20); step(120);
+  assert(state == READY && rpm == 1000 && setTime == 30);
+  press(PIN_START); assert(state == REFUSED && reason == LID);
+  analogs[PIN_LID] = 100; step(20); assert(state == READY);
+  press(PIN_START); assert(state == REFUSED && reason == TUBE);
+  step(120); analogs[PIN_TUBE] = 100; step(20); assert(state == READY);
+  step(120); press(PIN_TIME); assert(setTime == 40);
+  press(PIN_STOP); assert(setTime == 30);
+  setSeconds(590); press(PIN_TIME); press(PIN_TIME); assert(setTime == MAX_TIME);
+  press(PIN_STOP); assert(setTime == DEFAULT_TIME);
+  // A sticky STOP stays pressed, produces no repeat and remains in the snapshot.
+  pins[PIN_STOP] = LOW; step(); step(20); Serial.output.clear();
+  step(100); assert(stopButton.held); noEvent("\"ev\":\"btn_stop\"");
+  heartbeat(); contains("\"btn_stop\":1");
+  pins[PIN_STOP] = HIGH; step(); step(20);
+  analogs[PIN_SPEED] = 1023; step(20); assert(rpm == 6000);
+  analogs[PIN_SPEED] = 512; step(20); assert(rpm == 3500);
+  analogs[PIN_SPEED] = 522; step(20); assert(rpm == 3500);
+  analogs[PIN_SPEED] = 530; step(20); assert(rpm == 3600);
+  press(PIN_START); assert(state == RUNNING);
+  bool savedTube = tube.shaded; uint16_t savedRaw = tube.raw;
+  analogs[PIN_TUBE] = 700; analogs[PIN_SPEED] = 0; step(1000);
+  assert(remaining == 29 && rpm == 3600 && tube.shaded == savedTube && tube.raw == savedRaw && !tubeValid);
+  analogs[PIN_LID] = 700; step(20); assert(state == REFUSED && reason == LID);
+  contains("abort:LID");
+  analogs[PIN_LID] = 100; analogs[PIN_TUBE] = 100; step(120); step(120);
+  press(PIN_START); assert(state == RUNNING); press(PIN_STOP); assert(state == READY && remaining == setTime);
+  step(120); setSeconds(2); press(PIN_START); step(2000); assert(state == DONE && remaining == 0);
+  step(DONE_MS); assert(state == READY && remaining == 2);
+  // Rollover must not shorten a run or stall debounce/countdown.
+  step(120); fakeNow = UINT32_MAX - 500; setSeconds(2); press(PIN_START);
+  assert(state == RUNNING); step(1000); assert(remaining == 1); step(1000); assert(state == DONE);
+  send("PiNg\r\n"); contains("\"ev\":\"pong\"");
+  send("xxxxxxxxxxxxxxxxxxxx\nstatus\n"); contains("unknown command"); contains("\"ev\":\"hb\"");
+  send("reset\n"); assert(state == READY && setTime == 30 && rpm == 1000);
+  step(120); press(PIN_START); assert(state == RUNNING);
+  analogs[PIN_LID] = analogs[PIN_TUBE] = 700; send("cal\n"); assert(calibrating && state == READY);
+  send("calstop\n"); assert(!calibrating);
+  send("cal\n"); assert(calStage == WAIT_OPEN);
+  press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(calStage == WAIT_CLOSED);
+  analogs[PIN_LID] = 650; press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(calStage == WAIT_TUBE);
+  analogs[PIN_TUBE] = 640; press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(!calibrating && calSaved && lid.low == 670 && lid.high == 680 && tube.low == 664 && tube.high == 676);
+  assert(lid.shaded && tube.shaded);
+  unsigned writes = EEPROM.writes;
+  CalRecord saved; EEPROM.get(0, saved);
+  assert(saveCalibration(saved) && EEPROM.writes == writes);
+  calSaved = false; assert(loadCalibration() && calSaved);
+  CalRecord corrupt = saved; corrupt.checksum ^= 1; EEPROM.put(0, corrupt);
+  assert(!loadCalibration()); EEPROM.put(0, saved);
+  analogs[PIN_LID] = 680; step(20); assert(lid.shaded);
+  analogs[PIN_LID] = 681; step(20); assert(!lid.shaded);
+  analogs[PIN_LID] = 670; step(20); assert(!lid.shaded);
+  analogs[PIN_LID] = 669; step(20); assert(lid.shaded);
+  writes = EEPROM.writes;
+  send("cal\n"); analogs[PIN_LID] = 700; press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  analogs[PIN_LID] = 680; press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(calFailed && calStage == WAIT_OPEN && EEPROM.writes == writes && lid.level == 700 && lid.shadedLevel == 650);
+  press(PIN_STOP); assert(!calibrating);
+  send("cal\n"); analogs[PIN_LID] = analogs[PIN_TUBE] = 700; press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  analogs[PIN_LID] = 650; press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  analogs[PIN_TUBE] = 680; press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(calFailed && calStage == WAIT_OPEN && EEPROM.writes == writes && tube.shadedLevel == 640);
+  send("calstop\n");
+  pins[PIN_POWER] = HIGH; step(); step(20); assert(state == OFF && colour == BLACK);
+  pins[PIN_POWER] = LOW; step(); step(20); step(120);
+  assert(state == READY && rpm == DEFAULT_RPM && setTime == DEFAULT_TIME);
+  send("buttons\n"); assert(buttonTest);
+  press(PIN_TIME); press(PIN_START); assert(state == READY && setTime == DEFAULT_TIME);
+  pins[8] = LOW; step(); step(20); assert(buttonInputMask() & (uint32_t(1) << 8));
+  pins[8] = HIGH; step(); step(20);
+  heartbeat(); contains("\"button_test\":1"); contains("\"ev\":\"input\"");
+  send("normal\n"); assert(!buttonTest && pinModes[8] == INPUT);
+  requireLidClosed = requireTubePresent = false;
+  analogs[PIN_LID] = analogs[PIN_TUBE] = 700; step(120); press(PIN_START);
+  assert(state == RUNNING && !lid.shaded);
+  step(1000); assert(state == RUNNING && remaining == DEFAULT_TIME - 1);
+  requireLidClosed = true; step(); assert(state == REFUSED && reason == LID);
+  press(PIN_STOP); requireLidClosed = false; requireTubePresent = true;
+  step(120); press(PIN_START); assert(state == REFUSED && reason == TUBE);
+  requireLidClosed = true;
+  send("raw\n"); contains("\"ev\":\"raw\""); contains("\"a2\":700");
+  requireTubePresent = false;
+  unsigned tubeReads = analogReads[PIN_TUBE];
+  send("cal\n"); analogs[PIN_LID] = 700; press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  analogs[PIN_LID] = 650; press(PIN_START);
+  for (int i = 0; i < 200; ++i) step();
+  assert(!calibrating && calSaved && !tubeCalSaved && !tubeValid && lid.shaded);
+  CalRecord lidOnly; EEPROM.get(0, lidOnly);
+  assert(lidOnly.flags == 0 && validCalibration(lidOnly));
+  assert(loadCalibration() && calSaved && !tubeCalSaved);
+  assert(analogReads[PIN_TUBE] == tubeReads);
+  press(PIN_START); assert(state == RUNNING);
+  step(500); assert(state == RUNNING && analogReads[PIN_TUBE] == tubeReads);
+  analogs[PIN_LID] = 700; step(20); assert(state == REFUSED && reason == LID);
+  analogs[PIN_LID] = 650; step(120); assert(state == READY);
+  requireTubePresent = true; step(120); press(PIN_START);
+  assert(state == REFUSED && reason == TUBE && !tubeValid); // Needs its own calibration if re-enabled.
+  requireTubePresent = false;
+  heartbeat(); contains("\"tube_required\":0");
+  finish("MC-6");
+}
