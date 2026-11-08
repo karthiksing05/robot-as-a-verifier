@@ -131,6 +131,9 @@ class RealBackend(PipelineRobot):
             if step.skill == "flip" and "tip" not in p.meta:  # the review derives a lever for a switch read as a knob
                 raise RuntimeError("the scan didn't measure its lever (no tip), so there's no push to plan")
             if step.skill == "flip":
+                toward = step.params.get("toward")  # "up" or "down": the operator's word over the scan's lean
+                if toward in ("up", "down") and (p.x[2] > 0) != (toward == "down"):  # the plan pushes against p.x
+                    p = self._mirrored(p)
                 real_skills.flip(self.arm, p, self.parts)
             else:
                 real_skills.grip_turn(self.arm, p, self.plane_T, math.radians(angle), self.rig.wrist)
@@ -142,10 +145,7 @@ class RealBackend(PipelineRobot):
                 ch for ch, v in self.arm.app.readings.items() if before.get(ch) != v]
             ch = new[0] if new else None
             if step.skill == "flip" and ch:  # it went over: it now leans the other way, so a flip back pushes from there
-                n, v = p.normal, p.meta["tip"] - p.pos
-                q = copy.deepcopy(p)
-                q.meta = {**p.meta, "tip": p.pos + 2 * (v @ n) * n - v}
-                q.T[:3, :2] *= -1
+                q = self._mirrored(p)
                 self.parts = [q if x.id == p.id else x for x in self.parts]
             what = f"{p.id} switches {ch}" if step.skill == "flip" else f"turning {p.id} {angle:+g} deg changes {ch}"
             r = {"verdict": "PASS" if ch else "FAIL", "reason": what if ch else "nothing changed on the device",
@@ -154,6 +154,15 @@ class RealBackend(PipelineRobot):
         ref = self._snap(f"{step.id}, at {step.target}, after the step")
         trace.frames = [ref] if ref else []
         return trace, verdict
+
+    @staticmethod
+    def _mirrored(p):
+        """Toggle p leaning the other way: its tip mirrored through the panel's normal at the hinge."""
+        n, v = p.normal, p.meta["tip"] - p.pos
+        q = copy.deepcopy(p)
+        q.meta = {**p.meta, "tip": p.pos + 2 * (v @ n) * n - v}
+        q.T[:3, :2] *= -1
+        return q
 
     def _press_with_photo(self, step):
         """PipelineRobot.execute, saving the wrist camera's frame at the bottom of each press (and retry) next to the

@@ -142,10 +142,11 @@ def _show_steps(event) -> None:
             print(f"  {s['id']}: {s['skill']} {s['target']} {s.get('params') or ''}")
 
 
-def _only(targets: str | None, angle: float | None = None):
+def _only(targets: str | None, angle: float | None = None, flip_first: str | None = None):
     """The rule-based plan cut to the steps on these controls, such as a single press. With angle, each knob or dial is
-    turned once, by that many degrees (+ counter-clockwise seen from the front), in place of the plan's turn and back."""
-    if not targets and angle is None:
+    turned once, by that many degrees (+ counter-clockwise seen from the front), in place of the plan's turn and back.
+    flip_first ("up" or "down") is the way the first flip of each switch pushes, whatever lean the scan read."""
+    if not targets and angle is None and flip_first is None:
         return rule_planner
     keep = [k.lower() for k in targets.split(",")] if targets else None
 
@@ -154,7 +155,7 @@ def _only(targets: str | None, angle: float | None = None):
         return any(t == k or t.startswith(k + "_") for k in keep)
 
     def planner(request, scene, fallback):
-        steps, turned = [], set()
+        steps, turned, flipped = [], set(), set()
         for s in fallback.steps:
             if keep is not None and not wanted(s.target):
                 continue
@@ -163,6 +164,9 @@ def _only(targets: str | None, angle: float | None = None):
                     continue
                 turned.add(s.target)
                 s = s.model_copy(update={"params": {**s.params, "angle": angle}})
+            if flip_first and s.skill == "flip" and s.target not in flipped:
+                flipped.add(s.target)
+                s = s.model_copy(update={"params": {**s.params, "toward": flip_first}})
             steps.append(s)
         if not steps:
             raise SystemExit(f"the plan has no step on {targets}. The scan found: {', '.join(c.id for c in scene.controls)}")
@@ -179,7 +183,7 @@ def run(args) -> None:
         log = RunLog(run_id, args.runs, on_event=_show_steps if real else None)
         policy, respond = _survey_review(args, system1, log)
         try:
-            _print(run_test(system1, request, log, planner=_only(args.only, args.angle), approve=_operator_ran_it if real else auto_approve,
+            _print(run_test(system1, request, log, planner=_only(args.only, args.angle, args.flip_first), approve=_operator_ran_it if real else auto_approve,
                             policy=policy, respond=respond, rescan=not args.reuse_scan))
         finally:
             _save_frames(system1, system1.scene_get().scene.frames, log.dir / "frames")
@@ -339,6 +343,8 @@ def main(argv=None) -> None:
     r.add_argument("--reuse-scan", action="store_true", help="test the scene System 1 holds from its last scan, without scanning again")
     r.add_argument("--angle", type=float, default=None, metavar="DEG",
                    help="turn each knob or dial once by this much (+ counter-clockwise seen from the front), such as -60")
+    r.add_argument("--flip-first", choices=("up", "down"), default=None,
+                   help="push each switch's first flip this way (the second flips it back), whatever lean the scan read")
     a = sub.add_parser("agent", help="one run with the frontier model at the controls, on a running server (sim: plans auto-approve)")
     a.add_argument("--url", default="http://127.0.0.1:8780/mcp")
     a.add_argument("--id", default=None)
