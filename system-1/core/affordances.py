@@ -1116,10 +1116,15 @@ def _press(arm, p, limit, label):
     mm) a press that moved no reading tries again PRESS_SEARCH_MM off each way across the face, until one does. The arm's
     own error at the test devices (5-7 mm) is more than a 10 mm cap's radius: on the wall thermostat, 2 presses in 5
     landed on the cap's rounded rim or the bezel and held at the limit with the button unmoved. Where a press can't tell
-    the rim from a stuck button, all five fail, and a stuck button is still a FAIL."""
-    before = dict(arm.app.readings)
+    the rim from a stuck button, all five fail, and a stuck button is still a FAIL. A reading counts as moved if it logged
+    a change during the press, as _judge's does: a momentary button reads 0 -> 1 -> 0 and is back by the end."""
+    before, n_ev = dict(arm.app.readings), len(arm.app.events)
+
+    def moved():
+        return len(arm.app.events) > n_ev or arm.app.readings != before
+
     g = _poke(arm, p, limit, label)
-    if tip_shape(arm).round or arm.app.readings != before:
+    if tip_shape(arm).round or moved():
         return g
     n, x = p.normal, p.x
     y = np.cross(n, x)
@@ -1131,7 +1136,7 @@ def _press(arm, p, limit, label):
         g2["peak"] = max(g["peak"], g2["peak"])
         g2["search_mm"] = [round(float(v) * PRESS_SEARCH_MM, 1) for v in (d @ x, d @ y)]
         g = g2
-        if arm.app.readings != before:
+        if moved():
             break
     return g
 
@@ -1313,7 +1318,10 @@ def _judge(skill, p, params, g, app, before, seq, logged, known):
                                   f"{math.degrees(need):.0f} deg that takes: something else turned it (the pad "
                                   f"slipping off the fin?), so which way it went is unknown"), None
         cmd = math.copysign(1, params["to"] - p.state if skill == "slide" else params["angle"])
-        first = seq[ch][1]  # the way the push moved it: a dial can slip back a detent as the pad lets go
+        # the way the push moved it: its furthest reading from the start. Not the last (a dial can slip back a detent as
+        # the pad lets go) nor the first (a regrip at the start of a turn backed a pot 2-3 deg, and read the other way)
+        vals = seq[ch][1:]
+        first = (max(vals, key=lambda v: abs(v - was)) if all(isinstance(v, (int, float)) for v in [was, *vals]) else vals[0])
         sign = math.copysign(1, first - was) * cmd
         how = "raises" if first > was else "lowers"
         found = (f"pushing {p.id} toward {'+' if cmd > 0 else '-'}x {how} {ch}" if skill == "slide"
