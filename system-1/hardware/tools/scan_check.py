@@ -8,6 +8,7 @@ gripper mask outlined), then what the segmentation found: every candidate outlin
 Put the device in front of the arm first, its panel 22-26 cm out and facing the arm (tilted back about 45 deg reaches
 best). The scan needs the panel's printing for features: a plain panel fails the survey.
 """
+import logging
 import os
 import pickle
 import sys
@@ -16,6 +17,8 @@ import time
 
 import cv2
 import numpy as np
+
+logging.getLogger("torch.distributed.elastic.multiprocessing.redirects").setLevel(logging.ERROR)  # Windows noise
 
 HARDWARE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path[:0] = [HARDWARE, os.path.join(HARDWARE, "..", "core")]
@@ -77,7 +80,6 @@ def main(argv=None, ask=input):
     os.makedirs(out, exist_ok=True)
     import segmodels
     threading.Thread(target=lambda: (segmodels.owl(), segmodels.sam_boxes()), daemon=True).start()  # load while it moves
-    ask("Connecting turns torque off on every motor, and the arm goes limp. Support it, then press Enter: ")
     rig = hw_rig.make_rig(port, cal)
     arm, wrist = rig.arm, rig.wrist
     try:

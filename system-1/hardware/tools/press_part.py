@@ -6,11 +6,14 @@ torque goes off. Don't move the device between scan_check and this.
     python tools/press_part.py COM11 CAL.json button_1
     python tools/press_part.py COM11 CAL.json button_1 --no-look
 """
+import logging
 import os
 import pickle
 import sys
 
 import numpy as np
+
+logging.getLogger("torch.distributed.elastic.multiprocessing.redirects").setLevel(logging.ERROR)  # Windows noise
 
 HARDWARE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path[:0] = [HARDWARE, os.path.join(HARDWARE, "..", "core")]
@@ -29,7 +32,6 @@ def main(argv=None, ask=input):
         print(f"No {target} in the last scan: it has {[p.id for p in scene.parts]}")
         return
     print(f"{target}: {part.kind} at {np.round(part.pos * 1000)} mm")
-    ask("Connecting turns torque off on every motor, and the arm goes limp. Support it, then press Enter: ")
     rig = hw_rig.make_rig(port, cal)
     arm = rig.arm
     try:
