@@ -141,12 +141,16 @@ def _only(targets: str | None, angle: float | None = None):
     turned once, by that many degrees (+ counter-clockwise seen from the front), in place of the plan's turn and back."""
     if not targets and angle is None:
         return rule_planner
-    keep = set(targets.split(",")) if targets else None
+    keep = [k.lower() for k in targets.split(",")] if targets else None
+
+    def wanted(target):  # POWER matches POWER_switch: the model names a part as the manual does, which can run on
+        t = target.lower()
+        return any(t == k or t.startswith(k + "_") for k in keep)
 
     def planner(request, scene, fallback):
         steps, turned = [], set()
         for s in fallback.steps:
-            if keep is not None and s.target not in keep:
+            if keep is not None and not wanted(s.target):
                 continue
             if angle is not None and s.skill == "turn":
                 if s.target in turned:
