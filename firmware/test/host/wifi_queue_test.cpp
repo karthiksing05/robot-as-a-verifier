@@ -35,4 +35,13 @@ int main() {
   fakeNow = 1070;
   rav::update(released, 0);
   assert((rav::client.posts == std::vector<std::string>{released, pressed, released}));
+
+  rav::client.reply = "HTTP/1.1 401 Unauthorized\r\n\r\n";
+  fakeNow = 1080;
+  rav::update(released, 0);
+  assert(rav::lastStatus == 401);
+  const auto statusCalls = WiFi.statusCalls;
+  for (fakeNow = 1081; fakeNow < 31080; ++fakeNow) rav::update(released, 0);
+  assert(rav::client.posts.size() == 3);
+  assert(WiFi.statusCalls - statusCalls <= 60);
 }

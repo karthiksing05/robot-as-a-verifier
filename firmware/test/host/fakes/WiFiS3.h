@@ -3,7 +3,8 @@
 
 constexpr int WL_CONNECTED = 3;
 struct FakeWiFi {
-  int status() const { return WL_CONNECTED; }
+  unsigned statusCalls = 0;
+  int status() { ++statusCalls; return WL_CONNECTED; }
   void setTimeout(unsigned long) {}
   void begin(const char *, const char *) {}
 };

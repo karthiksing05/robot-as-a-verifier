@@ -17,6 +17,7 @@ const uint32_t SEND_EVERY_MS = 500;
 const uint16_t TIMEOUT_MS = RAV_USE_TLS ? 1500 : 300;
 const uint16_t CONNECT_TIMEOUT_MS = 1200;
 const uint32_t RETRY_POST_MS = 5000;
+const uint32_t MAX_RETRY_POST_MS = 30000;
 const uint32_t REJOIN_MS = 15000;
 constexpr uint8_t EDGE_QUEUE_SIZE = 8;
 const uint32_t EDGE_MAX_AGE_MS = 2000;
@@ -28,6 +29,8 @@ WiFiClient client;
 #endif
 char last[SNAPSHOT_MAX] = "";
 uint32_t sentAt = 0, joinAt = 0;
+uint32_t linkCheckedAt = 0;
+uint32_t retryPostMs = 0;
 bool joinedOnce = false;
 int lastLink = -1;
 int lastStatus = -1;
@@ -74,7 +77,14 @@ inline void complete(int status) {
     --edgeCount;
   }
   pendingEdge = false;
-  if (status != 204) client.stop();
+  if (status == 204) {
+    retryPostMs = 0;
+  } else {
+    client.stop();
+    sentAt = millis();
+    if (status == 401 || status == 403) retryPostMs = MAX_RETRY_POST_MS;
+    else retryPostMs = retryPostMs ? min(retryPostMs * 2, MAX_RETRY_POST_MS) : RETRY_POST_MS;
+  }
   if (status != lastStatus) {
     lastStatus = status;
     Serial.print(F("{\"t\":")); Serial.print(millis());
@@ -131,21 +141,27 @@ inline void update(const char *body, uint8_t buttons) {
   const char *outgoing = edgeCount ? edges[edgeHead].body : body;
   bool changed = edgeCount || strcmp(outgoing, last) != 0;
   if (now - sentAt < (lastStatus == 204 && changed ? 50 : SEND_EVERY_MS)) return;
-  const bool connected = WiFi.status() == WL_CONNECTED;
-  const bool linkChanged = connected != lastLink;
-  if (linkChanged) {
-    lastLink = connected;
-    Serial.print(F("{\"t\":")); Serial.print(now);
-    Serial.print(F(",\"ev\":\"wifi_link\",\"v\":\""));
-    Serial.print(connected ? F("connected") : F("disconnected"));
-    Serial.println(F("\"}"));
+  bool linkChanged = false;
+  // WiFi.status() is a synchronous modem command. Poll it at heartbeat rate,
+  // including while a failed POST is waiting to retry.
+  if (lastLink < 0 || now - linkCheckedAt >= SEND_EVERY_MS) {
+    const bool connected = WiFi.status() == WL_CONNECTED;
+    linkCheckedAt = millis();
+    linkChanged = connected != lastLink;
+    if (linkChanged) {
+      lastLink = connected;
+      Serial.print(F("{\"t\":")); Serial.print(now);
+      Serial.print(F(",\"ev\":\"wifi_link\",\"v\":\""));
+      Serial.print(connected ? F("connected") : F("disconnected"));
+      Serial.println(F("\"}"));
+    }
   }
-  if (!connected) {
+  if (!lastLink) {
     if (!joinedOnce || now - joinAt >= REJOIN_MS) join();
     sentAt = millis();
     return;
   }
-  if (!linkChanged && lastStatus != -1 && lastStatus != 204 && now - sentAt < RETRY_POST_MS) return;
+  if (!linkChanged && now - sentAt < retryPostMs) return;
   strcpy(last, outgoing);  // each sketch builds its snapshot in a SNAPSHOT_MAX byte buffer
   pendingEdge = edgeCount != 0;
   pending = post(outgoing, strlen(outgoing));
