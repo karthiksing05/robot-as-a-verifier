@@ -102,9 +102,9 @@ class RealBackend(PipelineRobot):
             self.parts = [shifted(p, shift) for p in self.parts]
             look = self.refine
             if look is not None:
-                def refine(arm, p):
-                    q = look(arm, p)
-                    return shifted(q, shift) if q.meta.get("refined") else q
+                def refine(arm, p):  # the look from the scan's position: from the shifted one its checks spent the shift
+                    q = look(arm, shifted(p, -shift))
+                    return shifted(q, shift) if q.meta.get("refined") else p
                 self.refine = refine
         import real_skills
         # toggles as press_part flips them: the swing snapped to the panel's slope, the push lowered onto the lever
