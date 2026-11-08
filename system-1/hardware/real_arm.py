@@ -108,7 +108,9 @@ class RealArm(rig.ArmBase):
     # the middle row, three views 50 mm apart. A view sees the panel clear of the gripper from 30 mm to one side of its
     # middle to 56 mm to the other, so only one end control (POWER, SPEED at +-50 mm) gets two views, which a height
     # needs. Five views 25 mm apart fixed that but fitted a panel plane tilted 10 mm across SPEED (4 of 49 features on it)
-    view_looks = [(0.0, -0.05), (0.0, 0.0), (0.0, 0.05)]
+    # and the row 50 mm up the slope, walked as a snake (each move to a neighbour; a jump across the panel hit the box):
+    # every control gets a second view ~20 deg apart, which POWER's thin lever needs to be measured
+    view_looks = [(0.0, -0.05), (0.0, 0.0), (0.0, 0.05), (0.05, 0.05), (0.05, 0.0), (0.05, -0.05)]
     tip_clear = 0.02  # the jaw tip may come this close to the panel in a scan view: at 30 mm the views at one end failed by 1-3 mm
     # wrist_roll at home, so views and presses start from it: -90 deg puts the camera on top of the gripper, centred,
     # instead of 7 cm to its side (same views in reach); the gripper then sits along the bottom of the picture
