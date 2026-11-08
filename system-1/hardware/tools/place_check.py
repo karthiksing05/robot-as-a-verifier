@@ -21,6 +21,21 @@ from rig import CONTROL_HZ, SafetyStop  # noqa: E402
 
 SPOTS_M = [(0, 0), (0.04, 0), (-0.04, 0), (0, 0.04), (0, -0.04), (0, 0)]  # around the middle, then the middle again
 UP = np.array([0.0, 0.0, 1.0])
+TILT = np.radians(30)  # straight down is out of the wrist's reach at 26 cm; 20-40 deg reaches every spot
+N = np.array([-np.sin(TILT), 0.0, np.cos(TILT)])  # touches come in along -N, leaning forward
+MAX_TURN_DEG = 90  # refuse a plan that turns any joint further than this from where the arm is
+
+
+def plan(arm, points):
+    """Joint angles for each (label, tip position), pointing along -N, or the first that the IK can't reach."""
+    rows, q = [], arm.read_q()
+    for label, p in points:
+        q, ok, err, _ = arm.ik.solve(p, -N, q)
+        rows.append((label, p, q, err))
+        if not ok:
+            return rows, f"{label} is out of reach ({err * 1000:.0f} mm short)"
+    turn = max(np.degrees(np.abs(r[2] - arm.read_q()).max()) for r in rows)
+    return rows, (f"a joint would turn {turn:.0f} deg from here (limit {MAX_TURN_DEG})" if turn > MAX_TURN_DEG else "")
 
 
 def tip_now(arm):
@@ -42,9 +57,20 @@ def main(argv=None, bus=None, ask=input):
             "press Enter: ")
         mid = tip_now(arm)
         print(f"Surface middle with the arm limp: {np.round(mid * 1000, 1)} mm")
-        ask("Lift the arm 3 to 5 cm straight up and hold it there, not folded tight. Press Enter: ")
-        if ask(f"The arm will touch the surface {len(SPOTS_M)} times, 4 cm apart, slowly. Is it clear? Type yes to "
-               f"go: ").strip() != "yes":
+        ask("Lift the arm 3 to 5 cm and tip the gripper forward a little, not folded tight. Hold it and press Enter: ")
+        floor = arm.workspace[2][0] + 0.002  # the creep may not aim below the workspace floor
+        bottom = max(-0.05, (floor - mid[2]) / N[2] - 0.03)
+        points = [("search start", mid + (0.03 + touch.skills.APPROACH_M) * N), ("search end", mid + (0.03 + bottom) * N)]
+        points += [(f"spot {k + 1}", mid + [dx, dy, 0] + touch.skills.APPROACH_M * N) for k, (dx, dy) in enumerate(SPOTS_M)]
+        rows, why = plan(arm, points)
+        print("Planned poses (tip mm; joints deg: pan lift elbow wflex roll):")
+        for label, p, q, err in rows:
+            print(f"  {label:12s} tip {np.round(p * 1000)}  joints {np.round(np.degrees(q))}")
+        if why:
+            print(f"Not moving: {why}.")
+            return
+        if ask(f"The arm will touch the surface {len(SPOTS_M) + 1} times, leaning {np.degrees(TILT):.0f} deg forward, "
+               f"slowly. Do those joint angles look sane, and is it clear? Type yes to go: ").strip() != "yes":
             print("Not moved.")
             return
         arm.enable(confirm=True)
@@ -52,16 +78,14 @@ def main(argv=None, bus=None, ask=input):
         try:
             # The limp reading isn't where the arm under torque finds the surface (the offsets were fitted under load),
             # so the first touch creeps a long way down from 3 cm over it, and the rest start from where it landed
-            floor = arm.workspace[2][0] + 0.002  # the creep may not aim below the workspace floor
-            s, why = touch.touch(arm, mid + 0.03 * UP, UP, top=0.015, bottom=max(-0.05, floor - mid[2] - 0.03),
-                                 label="place_check")
+            s, why = touch.touch(arm, mid + 0.03 * N, N, top=0.015, bottom=bottom, label="place_check")
             if s is None:
                 raise SafetyStop(f"no surface found near the middle: {why}")
             print(f"Surface found under torque at z {s[2] * 1000:.1f} mm ({(s[2] - mid[2]) * 1000:+.1f} vs limp)")
             mid = np.r_[mid[:2], s[2]]
             for dx, dy in SPOTS_M:
                 at = mid + np.array([dx, dy, 0.0])
-                s, why = touch.touch(arm, at, UP, top=0.01, bottom=-0.015, label="place_check")
+                s, why = touch.touch(arm, at, N, top=0.01, bottom=-0.015, label="place_check")
                 print(f"  at {np.round(at[:2] * 1000)} mm: " + (f"contact z {s[2] * 1000:6.1f} mm "
                       f"({(s[2] - mid[2]) * 1000:+.1f} vs the first touch)" if s is not None else why), flush=True)
                 hits.append(s)
