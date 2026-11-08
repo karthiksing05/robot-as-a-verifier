@@ -1,121 +1,71 @@
 # Demo video script
 
-**Draft 8, Nov 8.** About 535 spoken words, never faster than 2.55 words a second in any section, so it can be read at a natural pace. Numbers are written the way they're spoken, so the counts are honest. Shots, freeze frames and timing are in [storyboard.md](storyboard.md).
+**Draft 9, Nov 8, for a re-record.** Karthik records this as a new voiceover, and the video is rebuilt to his recording. About 340 spoken words in roughly 2:45, never faster than about 2.4 words a second; the last section is slower, under the B-roll.
 
-**Length: 3:39** (Draft 7 ran 3:55). This draft is a wording pass: every fact, step and alternative path from Draft 7 is still here, said in fewer words. The ETH line gained a short phrase on why the result matters, which costs about 6 s. Wording alone doesn't reach 3:20; the last section of this file says what would have to go.
+**What changed from Draft 8 (the recorded take):**
+- **New order:** RAAV first, with a demo of what it can do. Then the two-system design, with VLAs only as an aside. Then why it matters, over the Console's behind-the-scenes screens and tools.
+- **Much less exposition.** The formal-methods and field examples shrink to one short section near the end. ETH, CompCert, seL4, Pirbright, Webb and Dyson each get a phrase, not a sentence.
+- **Visuals don't repeat the voice.** On-screen text carries numbers, names and sources the voice doesn't say, never the spoken sentence. The captions carry the words.
+- **The chalk arm points; it doesn't write.** Drawings appear on their own, and the arm points at each part as it's mentioned.
 
-**What changed from Draft 7:**
-- Sections 3, 5, 6 and 7 are tighter: merged sentences, no repeated setup, fewer words per fact. Spoken words fell from 579 to 535.
-- The ETH line says what ETH is and why a refutation would matter: "a bet that some problems stay exponentially hard, which whole shelves of lower bounds rest on".
-- Nothing was dropped. The cut list from Draft 7 is retired.
+**Footage rule:** every robot shot is MuJoCo (sim) and carries a `SIMULATION` tag. The demo uses the Rev A run recorded from the Console on Nov 8 (`agent-centrifuge-043919`, Claude Sonnet 5.5) and the Rev B run (`agent-centrifuge-045535`).
 
-The voiceover carries the argument. The pictures move it along and show the evidence. During the freeze frames on robot footage the voice stays on the story; the overlays document what the robot is doing, and the voice doesn't read them out. Tool names and dates the voice can't fit go on screen as small source lines.
+| § | Section | Time | Words |
+|---|---|---|---|
+| 1 | Cold open | 0:00–0:12 | 0 |
+| 2 | What RAAV is | 0:12–0:29 | 40 |
+| 3 | The demo | 0:29–1:27 | 138 |
+| 4 | Two systems | 1:27–2:12 | 106 |
+| 5 | Why it matters | 2:12–2:45 | 57 |
+| | **Total** | 2:45 | **341** |
 
-**Footage rule:** for now, every robot shot is rendered in MuJoCo (sim). Nothing has run on the real arm yet. We will probably edit the cut and re-record those shots with real footage later. Until then, sim footage carries a `SIMULATION` tag in the corner the whole time it's on screen. Real footage that's sped up carries `REAL FOOTAGE · N×` with its true speed.
-
-**Audio:** Karthik will record the voiceover himself as an mp3, and the music is coming from him too. Until they arrive, every audio item here and in the storyboard is a placeholder. The timings below assume a natural read at these word rates; **the final cut will be re-timed to his recording**, so treat every timestamp as a target, not a lock.
-
-**Look:** rustic chalk for the problem and the stakes (sections 1 to 3), a designed transition at 1:01 on "So we built RAAV", then the Console's crisp, technical look for the product and the ending (sections 4 to 7).
-
-| § | Section | Time | Seconds | Words | Words/s | Draft 7 → 8 words |
-|---|---|---|---|---|---|---|
-| 1 | Cold open | 0:00–0:06 | 6 | 0 | – | – |
-| 2 | Verification works, in software | 0:06–0:31 | 25 | 62 | 2.48 | 47 → 62 |
-| 3 | Where verification stops | 0:31–1:01 | 30 | 76 | 2.53 | 83 → 76 |
-| 4 | Robot As A Verifier | 1:01–1:13 | 12 | 29 | 2.42 | 29 → 29 |
-| 5 | Two systems | 1:13–2:02 | 49 | 123 | 2.51 | 135 → 123 |
-| 6 | One centrifuge, step by step | 2:02–3:07 | 65 | 165 | 2.54 | 188 → 165 |
-| 7 | What it shows, and where it scales | 3:07–3:39 | 32 | 80 | 2.50 | 97 → 80 |
-| | **Total** | | 219 | **535** | 2.44 | 579 → 535 |
-
-Word counts are spoken words. Hyphenated words count once per part ("foot-and-mouth" is three), numbers count as said ("twenty-nine-month" is three), and "GR00T N1" ("groot en-one") and "System 1" count as two. RAAV is named at 1:01, and the first robot footage is on screen at 1:04.
+Timings assume a natural read; the cut follows the recording.
 
 ---
 
-## 1. Cold open · 0:00–0:06
+## 1. Cold open · 0:00–0:12
 
-*No voiceover. A green chalkboard covered in buzzwords around one big question mark. Karthik walks in and erases it. The music starts on the last stroke. (Raw take: `video/real-world-assets/intro.MOV`, played at 1.75×; see storyboard shot 1.)*
-
----
-
-## 2. Verification works, in software · 0:06–0:31
-
-> Models now write proofs that machines verify. This October, Lean checked two AI-claimed refutations of the Exponential Time Hypothesis, an age-old and seemingly impossible problem. Verification also already guards real systems: CompCert, a proven C compiler, is qualified for avionics, and seL4 kept a red team from taking over a helicopter in flight.
-
-*The chalk arm draws as it talks: `ETH: 2^εn ?` with a Lean ✓, then two plaques, CompCert and seL4, each with where it's used. A ledger of the other tools and results runs along the bottom edge.*
-
-*Say "seL4" as "ess-ee-ell-four".*
+*No voiceover. The take (`intro.MOV`), cropped to center the question mark: Karthik erases the buzzwords (1.75×), then writes RAAV over the question mark (2×). The camera's own push-in lands on RAAV, held for a beat, then it dissolves into the chalkboard. The music starts as the last letter is drawn.*
 
 ---
 
-## 3. Where verification stops · 0:31–1:01
+## 2. What RAAV is · 0:12–0:29
 
-> But verification ends where software ends.
->
-> In biosafety and biosecurity, foot-and-mouth virus most likely escaped England's labs through long-damaged drains.
->
-> In aerospace engineering, an acoustic test shook loose fasteners on Webb's sunshield, part of a twenty-nine-month delay.
->
-> In mechanical and product design, Dyson built over five thousand prototypes before the first Dyson vacuum succeeded.
->
-> Most products are still tested by hand.
+> This is RAAV, Robot As A Verifier. Give it a prototype and its manual, and a low-cost robot arm tests every control it can find, then reports what it measured. Here it is on a centrifuge it has never seen.
 
-*The arm draws the `software | hardware` line, then a CAD box of the centrifuge with a crossed-out pinch on its lid. Then one panel per field, each headed with its field's name, `BIOSAFETY & BIOSECURITY`, `AEROSPACE ENGINEERING`, `MECHANICAL & PRODUCT DESIGN`, with what happened and the source in small chalk under each. Last, a hand pressing buttons beside a clipboard.*
+*The chalkboard: a prototype and a manual feed an arm, which feeds a report. The chalk SO-101 points at each as it's named. On "a centrifuge it has never seen", the board turns into the Console's look and the first sim footage.*
 
 ---
 
-## 4. Robot As A Verifier · 1:01–1:13
+## 3. The demo · 0:29–1:27
 
-> So we built RAAV, Robot As A Verifier. RAAV tests a physical prototype against its manual and specification with a low-cost robot arm, and reports what it measured.
+> First it surveys the panel with one wrist camera, finds each control, and touches it to pin down exactly where it is. A model reads the manual and drafts a test plan, and a person approves it before anything moves.
+>
+> Then the arm runs the plan. Every press is capped in force, and every verdict comes from sensor readings, not from the model. When the display didn't match the manual, the run stopped, and the plan was amended. When the lid handle needed a pinch grip the spec rules out, the robot refused to guess and reported it.
+>
+> From there, RAAV is built to trace a fault to its part in CAD, propose a fix for a person to approve, and test the new revision with the same plan. A fix only counts if the score goes up.
 
-*The turn happens on "So we built RAAV": the chalk arm becomes the rendered SO-101 and the board becomes the Console's grid. The thesis sentence types under the title. Then the first sim footage: the arm at the centrifuge, the manual beside it.*
+*Robot footage with the step rail along the top and freeze frames at each beat. The cards show what the voice doesn't say: the force cap (15 N), the display reading against the manual's text, the amendment's approval level, and the refusal's exact reason. Then Design Analysis for the CAD fix, and the Rev B run.*
 
 ---
 
-## 5. Two systems · 1:13–2:02
+## 4. Two systems · 1:27–2:12
 
-> Vision-language-action models like SmolVLA and NVIDIA's GR00T N1 learn new tasks from demonstrations and grade themselves.
+> Under the hood, RAAV is two systems. System 1 is the robot: perception, inverse kinematics, control, force limits and the verdict rules. System 2 is a frontier model that reads the manual, plans, recovers from failed steps and diagnoses causes.
 >
-> RAAV splits the work. System 1 handles what must be exact, fast and safe: perception, inverse kinematics, control, force limits, and verdicts from sensor readings by fixed rules. System 2, a frontier model, handles what needs context and judgment: reading the manual and spec, reasoning over plans of testing, recovering from failed steps, and diagnosing causes and proposing CAD fixes.
+> The model never sends a motor command or grades its own work, so it can be swapped for a better one, and System 1's limits hold whatever it says.
 >
-> Each does what it's good at, and both benefit from long lines of existing work and are immune to the classical failures of VLAs.
+> Vision-language-action models fold all of this into one network, so each new task needs new demonstrations. Our split needs a manual instead. Its limit: a new kind of control still needs a new skill in System 1.
 
-*A brief motion graphic of one box, `perception + reasoning + control`, fed by demo reels, splits into `SYSTEM 1 · exact, fast, safe` and `SYSTEM 2 · context and judgment`. Each half fills with its jobs, with seven tool lines between them. One freeze frame shows a plan crossing the line. Then the model's name swaps between four frontier models while System 1's limits stay fixed.*
+*A diagram, not a list of the spoken words: two columns joined by the seven tool lines. Small labels name what the voice doesn't: OWLv2 and SAM for perception, the 15 N cap, the four models that have run (cycling), the approval levels. The VLA aside is a small single box off to one side, with SmolVLA and GR00T N1 and their demonstration counts, then dimmed.*
 
 ---
 
-## 6. One centrifuge, step by step · 2:02–3:07
+## 5. Why it matters · 2:12–2:45
 
-> Here's Rev A of our centrifuge, with its manual.
->
-> System 1 surveys, scans, segments, maps and touches the panel; a failed scan reports back, and System 2 reruns it.
->
-> System 2 plans from the manual; a person approves.
->
-> System 1 runs each step under a fifteen-newton cap, retries small misses within its autonomy setting, and judges by fixed rules. When the first flip hit sixteen newtons, it stopped first; resuming took a person.
->
-> When the display contradicted the manual, System 2 amended the plan, and code, not the model, rated the change.
->
-> Then the lid: its thin fin needs a pinch the spec forbids, so System 1 refuses and System 2 reports it rather than guessing.
->
-> System 2 traces it to the handle and drafts a hook lip; code checks it, and a person approves. That unmasks a tight well: the tube sits high, so START shows TUBE. Rev B fixes both; the same tests rerun, and it only counts if the score rises.
+> Why does this matter? Software already has verification: Lean now checks AI-written proofs, and proven code like CompCert and seL4 guards aircraft. Hardware has nothing like it, so failures surface late, in biosafety labs, in spacecraft, in thousands of prototypes. As AI starts designing hardware, every design should be measured like this before anyone relies on it.
 
-*Robot footage (MuJoCo sim, tagged) with a freeze frame at each step (storyboard FR1–FR8). The voice tells the story; the overlays carry the numbers.*
-
-*What each line rests on (details in the checks table):*
-- *Survey to touch, the failed scan and its rerun, the 16.4 N safety stop, and the amendment after the display mismatch all happened in a recorded sim run of Claude Sonnet 5.5 on Rev A (`system-2/runs/eval-1107-232000/002-claude-sonnet-5-5-centrifuge-A`). That run auto-approved its plan and its safety resume, since it was sim-only.*
-- *The lid refusal, the tube sitting high with START showing `TUBE`, and Rev B's lid opening come from the device's verification checks in the sim (`appliances/centrifuge/build/verify.stock.json`).*
-- *The hook lip in Rev B was drawn by the team. The analyst and the CAD checks are built, but proposing a patch from a run on this device hasn't been shown yet.*
-
----
-
-## 7. What it shows, and where it scales · 3:07–3:39
-
-> Our model has NEVER seen this centrifuge before, and this is just the start. Another arm could sit behind the same setup, plans can come from any manual, and we take extra care to maintain a thoughtful human in the loop.
->
-> As AI starts designing hardware, we think every design should be measured this way before anyone relies on it.
-
-*Console B-roll under the first paragraph, each named piece highlighted as it's said: the seven-tool bus, the manual feeding a plan, the approval-level ladder, a CAD check on a STEP assembly, the model picker. Then a quiet title card, **RAAV · ROBOT AS A VERIFIER**, with the team and MakeCU 2026 under it. No slogan.*
+*Behind the scenes, scrolling through the Console: Studies with every appliance, a run's log, Change Review, Revision History and Design Analysis. Small source chips pass by as each field is named: `Lean · ETH refutations checked, Oct 2026`, `CompCert · ATR 42/72 avionics`, `seL4 · DARPA HACMS Little Bird`, `Pirbright, 2007`, `JWST · 29-month delay`, `Dyson · 5,127 prototypes`. Then the title card: RAAV · ROBOT AS A VERIFIER.*
 
 ---
 
@@ -123,43 +73,22 @@ Word counts are spoken words. Hyphenated words count once per part ("foot-and-mo
 
 | Line | Holds because | Watch for |
 |---|---|---|
-| "Models now write proofs that machines verify" | Our framing, backed by the ETH line that follows and by AlphaProof (source 12) | Framing. Don't claim models write all proofs |
-| "This October, Lean checked two claimed refutations of the Exponential Time Hypothesis" | Impagliazzo, Paturi and Williams' examination post (Oct 26); MathWorld's ETH entry lists both preprints (OpenAI and Anthropic) and says independent specialist confirmation hadn't been reported as of Nov 1 | Keep "claimed" until the community confirms. Re-check the day before recording. The Lean checks cover the formal statements; the step to the usual machine model is still informal |
-| "a bet that some problems stay exponentially hard, which whole shelves of lower bounds rest on" | ETH (Impagliazzo and Paturi, 2001) says 3-SAT has no subexponential-time algorithm (source 3). Lokshtanov, Marx and Saurabh's survey "Lower bounds based on the Exponential Time Hypothesis" covers the lower bounds for exact and parameterized algorithms that are proved by assuming ETH or its stronger form, SETH (source 32) | "Bet" and "whole shelves" are informal on purpose. Don't say "all of complexity theory" or that P vs NP depends on it: ETH is stronger than P ≠ NP, and refuting it wouldn't settle P vs NP |
-| "Verification already guards real systems: CompCert, a proven C compiler, is qualified for avionics" | The core of CompCert is "proved correct in Coq". Qualified in 2026 for the ATR 42/72 Multi-Function Computer New Generation, "developed by AbsInt with guidance from Airbus". MTU qualified it in Nov 2017 for engine control software in emergency-generator diesel engines for civil nuclear plants. Airbus engineers evaluated it for DO-178 level A flight control software (ERTS 2012) (sources 17–19) | The 2012 Airbus paper is an evaluation, not production use. Say "avionics" for the ATR qualification |
-| "seL4 kept a red team from taking over a helicopter in flight" | DARPA HACMS: on Boeing's Unmanned Little Bird, a red team given the camera partition couldn't expand access or disrupt operations, also in flight with two pilots at the controls; seL4 "prevented the cyber attack from compromising the flight mission" (sources 20–22) | DARPA's case study doesn't name seL4; the seL4 Foundation page does. The red team was handed one partition, so don't say "unhackable" |
-| On-screen ledger (shot 3) | TLA+ at AWS (10 systems, a 35-step DynamoDB bug); Mathlib; the Liquid Tensor Experiment (July 14, 2022); AlphaProof (28 of 42 at IMO 2024, in Lean); the Four Colour Theorem in Coq (2005); Coq renamed Rocq (March 2025); seL4's proof in Isabelle/HOL (2009); DeepMind's fluid singularities (Sept 2025); weight-space programming (MIT CSAIL, Nov 2026) (sources 4–6, 12–16, 20, 23) | AlphaProof's IMO problems were "manually translated" into formal language first. No Mathlib count on screen. Never write that the fluid work solved Navier–Stokes. **Karthik to confirm the weight-space reading** |
-| "But verification ends where software ends" | Our argument. seL4's proof itself assumes the hardware is correct (Klein et al., 2009) | Framing |
-| "no proof says whether a CAD lid will open" | Our argument; the on-screen pinch cites ADA Standards §309.4 (one hand, no tight grasping, pinching or wrist twisting, 5 lbf at most) | "A CAD lid" means a lid in a CAD model. §309.4 is a US rule for operable parts in buildings. Use it as the reason the rule exists, not as "the law requires" |
-| "In biosafety and biosecurity, foot-and-mouth virus most likely escaped England's Pirbright labs through long-damaged drains" | HSE final report on the 2007 outbreak at Pirbright, Surrey: "evidence of long term damage and leakage, including cracked pipes, tree roots breaching pipework, and unsealed manholes"; a breached effluent pipe was the most likely source (source 24) | Keep "most likely": HSE couldn't say which of the two labs on the site was responsible. Contaminated soil reached the farms on contractors' vehicles. The year is on screen, not in the voice |
-| "In aerospace engineering, an acoustic test shook loose fasteners on Webb's sunshield, part of a twenty-nine-month delay" | Spaceflight Now on the 2018 Independent Review Board: "The fasteners came loose during an acoustic test"; the board's 29-month delay had "five factors: human errors, embedded problems, lack of experience in areas such as the sunshield…", costing about $1 billion (source 26) | "Part of" is deliberate: the fasteners were one of several problems behind the delay. Other reports call it a vibration test; this wording follows source 26 |
-| "In mechanical and product design, Dyson built over five thousand prototypes before the first Dyson vacuum succeeded" | Dyson: "the 15 years and 5,127 prototypes it took before the first model, DC01, would ultimately prove successful in 1993" (source 25) | Earlier licensed designs (the G-Force, 1986) were sold first. "The first Dyson vacuum" means DC01, the first under the Dyson brand |
-| "Most products are still tested by hand" | `docs/product.md`: products are still tested by people pressing buttons and taking notes | Our claim. Don't add a statistic |
-| "RAAV tests a physical prototype against its manual and specification with a low-cost robot arm, and reports what it measured" | `docs/product.md`: the inputs are the product, its manual, an optional spec and CAD; the outputs are bug reports with evidence, a coverage report and a reward | The thesis sentence. "Specification" covers the optional spec (rules like "usable with no thumbs"). Today the arm is in MuJoCo |
-| "Vision-language-action models like SmolVLA and NVIDIA's GR00T N1 learn new tasks from demonstrations" | SmolVLA: real-world tasks on SO-100 and SO-101 used 50 demonstrations each; users fine-tune from `smolvla_base` on their own data. GR00T N1: post-trained "on datasets corresponding to each single embodiment", 30 to 300 demonstrations per task in simulation (sources 29–31) | Don't say they can't generalize. SmolVLA runs on our arm family, so expect "why not SmolVLA?" |
-| "and grade themselves" | Our argument, from `docs/product.md`: "Whatever proposes a plan or a design has no say in how it's judged" | GR00T N1 names its own modules "System 2" and "System 1", but they're "jointly trained end-to-end" (source 30); say so on screen |
-| System 1 and System 2 lines (section 5) | `docs/system-boundary.md`: the split table, no motor tool, verdict rules in System 1, approval levels set by plain code, parameters clamped, holds safe if System 2 is unreachable; `docs/journey.md` §11–12 for the four models | OWLv2 and SAM are learned models that don't generate; the doc calls System 1 "almost no generative AI". "Guarantees" means limits enforced in code, not a formal proof. "A manual, not new demonstrations" holds while a device's controls fit the existing skills |
-| "Here's Rev A of our centrifuge, with its manual" | `appliances/centrifuge/` (`manual.md`, `gallery.md`): Rev A carries F2 and F3 | |
-| "System 1 surveys, scans, segments, maps and touches the panel" | The pipeline on the Methodology page (`Wiki.tsx`): Survey, Scan, Segment (OWLv2 boxes, SAM outlines), Map, Touch; `docs/system-boundary.md` puts all of it in System 1 | |
-| "a failed scan reports back, and System 2 reruns it" | The Sonnet 5.5 run on Rev A: the first `explore` ended in a `pipeline_error` stop, and the second completed (`events.jsonl`, seq 16 and 23) | That run had injected errors on. The rerun was started by the harness after the model looked at the stop; say "System 2", not "the model decided" |
-| "System 2 plans from the manual; a person approves" | Same run: `read_manual` pages 1 and 2, `record_hypothesis` with 35 properties, `propose_plan`, `approval_needed` for the plan. Rule: "A person approves a plan before it runs" (`docs/system-boundary.md`) | In that run the approval was "auto (sim)": eval runs auto-approve, and only mocks and sim may. Show the Console's approval card from a live run, not that log line |
-| "System 1 runs each step under a fifteen-newton cap, retries small misses within its autonomy setting, and judges by fixed rules" | 15 N hard cap (`docs/decisions.md` D34; Methodology page); retries per step: Tethered 0, Balanced 2, Autonomous 4 (`docs/system-boundary.md`); verdict rules in System 1 | Steps may ask for at most 14 N (D31) |
-| "When the first flip hit sixteen newtons, it stopped first; resuming took a person" | Same run, seq 49–57: `safety_abort`, "SafetyStop: tip force 16.4 N over hard cap 15.0 N"; "resuming after a safety stop needs a person" (level 3) | The resume was auto-approved in sim. The model then re-explored ("device may have moved") |
-| "When the display contradicted the manual, System 2 amended the plan, and code, not the model, rated the change" | Same run, seq 85–94: an `unexpected_response` escalation on the power step, the display read `1000rpm  0:30` where the manual says `1000 RPM 0:30`; then `plan_amended` at level 1 (notify). Levels are assigned by plain code (`docs/system-boundary.md`) | The mismatch is real: the firmware's display format differs from the manual (`gallery.md`). The product doc counts a manual mismatch as a finding in itself |
-| "Then the lid: its thin fin needs a pinch the spec forbids, so System 1 refuses and System 2 reports it rather than guessing" | F2. `verify.stock.json`: on Rev A, `hook_pull` on the lid handle is REFUSED, "handle_1 needs a pinch grip; the no-thumbs rule allows only the fingertip pad". Refused parts are reported, never escalated (`docs/system-boundary.md`); "refused and reported, never guessed at" (Methodology page) | **Neither recorded model run on the centrifuge tested the lid**: Haiku 5.5 skipped `handle_1` and missed F2, and Sonnet 5.5's plan had no lid step. Until a model run plans it, show the verification check (tagged), or prompt the run with the spec's no-thumbs rule |
-| "System 2 traces it to the handle and drafts a hook lip; code checks it, and a person approves" | The analyst (`system-2/harness/.../analyst.py`) goes from a finding to a root cause and one CAD patch; the generic CAD checks include "a pull control catches the fingertip when it pulls, so nothing needs a pinch"; a person approves (`system-2/cad/README.md`) | **Not shown on this device yet**: the Methodology page lists "Proposing real CAD patches from a run" under "Not done yet". Rev B's hook lip was drawn by the team. On screen, label the morph as Rev B, not as the model's output |
-| "That unmasks a tight well: the tube sits high, so START shows TUBE" | F3, masked by F2. `verify.stock.json`, check F3s on M1 (lid fixed, well still tight): START is refused and the display shows `TUBE` | In the sim the tube is set in the well by the check itself. The stock gripper's `pick` misses the tube so far (F3p, and the Rev B workflow fails at `pick`). Don't show the arm loading the tube |
-| "Rev B fixes both; the same tests rerun, and it only counts if the score rises" | `verify.stock.json`: on Rev B the lid's `hook_pull` passes ("handle_1 swung to 100 deg") and well A seats the tube; the fix loop keeps a patch only if the reward rises (`README.md`, `system-2/cad/README.md`) | Rev B hasn't been printed. Rev B's full manual workflow doesn't pass yet in the sim, because of the tube pick. Show the lid re-test, not a full green run |
-| "Nothing in this run was written for the centrifuge, and each piece extends" | `docs/journey.md` §10: no device names, layouts or fault types in prompts or harness code, a test fails on a match, and devices differ only by data | The sim needs the device's own data files (`device.yaml`) to simulate it; that's the world, not the tester |
-| "Another arm could sit behind the same seven tools" | `docs/system-boundary.md`: System 2 reaches System 1 only through seven tools; `rig.Rig` makes sim and real interchangeable (`docs/frontier-integration.md`) | "Could": no second arm has been run |
-| "plans come from any manual" | `docs/product.md`: the manual is the expected input, and the planner scaffolds a test plan from it | |
-| "approval levels set how much a person reviews" | `docs/system-boundary.md`: levels 0 to 3 and the Tethered / Balanced / Autonomous presets | |
-| "the CAD checks take any STEP assembly" | `system-2/cad/README.md`: "Generic robot-centred checks, on any STEP assembly of named parts"; `LocalCadBackend` works offline on any product as a STEP assembly | The parts need names. The Onshape backend hasn't run on the real document yet |
-| "and better models drop in as they arrive" | The model is a config value; four models ran through the same harness (`docs/journey.md` §11) | |
-| "Next comes the real arm, then lab instruments and assistive devices" | `docs/journey.md` "Next": the real arm; `docs/product.md` pitch framings | Stated as next steps, not done |
-| "As AI starts designing hardware, we think every design should be measured this way before anyone relies on it" | Our view, stated as one | |
-| Real arm | Not run on the real arm yet. Every robot shot is MuJoCo for now | Until it is, every robot clip is sim and tagged so |
-
+| "tests every control it can find, then reports what it measured" | `docs/product.md`: inputs are the product, its manual, an optional spec and CAD; outputs are findings with evidence, coverage and a reward | |
+| "a centrifuge it has never seen" | `docs/journey.md` §10: no device names, layouts or fault types in prompts or harness code | The sim needs the device's own data files; that's the world, not the tester |
+| "surveys … finds each control, and touches it" | Survey, Scan, Segment (OWLv2, SAM), Map and Touch run in System 1 (`docs/system-boundary.md`); all happened in the Rev A run | |
+| "a person approves it before anything moves" | The Rev A run: the plan check refused the first plan, the model fixed it, and Karthik clicked Approve in the Console | |
+| "Every press is capped in force" | 15 N hard cap; steps ask for at most 14 N (`docs/decisions.md` D31, D34) | |
+| "When the display didn't match the manual, the run stopped, and the plan was amended" | The Rev A run: step s1 stopped on `unexpected_response` (display read `1000rpm  0:30`, manual says `1000 RPM 0:30`), then a plan amendment at level 0 | The model itself calls it a wording mismatch, not a fault |
+| "When the lid handle needed a pinch grip the spec rules out, the robot refused to guess and reported it" | The Rev A run, step s7: skipped by System 1 before the arm moved, "handle_1 needs a pinch grip; the no-thumbs rule allows only the fingertip pad"; the model's summary has a no-thumbs finding | The rule reached the model only because it was typed into the Console's message box: the harness doesn't pass a project's rules yet (`service.py`, Joseph's code) |
+| "RAAV is built to trace a fault to its part in CAD, propose a fix …" | The analyst and CAD checks exist (`system-2/cad/README.md`) | "Is built to": a patch proposed from a run hasn't been shown yet. Rev B's hook lip was drawn by the team |
+| "test the new revision with the same plan" | The Rev B run (`agent-centrifuge-045535`) | In that run the lid was skipped for another reason ("no skill is known for this kind of part"). Show Rev B's lid opening from the verification check |
+| "A fix only counts if the score goes up" | The fix loop keeps a patch only if the reward rises (`system-2/cad/README.md`) | |
+| System 1 / System 2 lines | `docs/system-boundary.md` | "Limits" means limits enforced in code, not a proof |
+| "each new task needs new demonstrations" | SmolVLA: 50 demonstrations per real task; GR00T N1: 30–300 per task in sim (sources 29–31) | Don't say VLAs can't generalize |
+| "a new kind of control still needs a new skill in System 1" | Skills are code in System 1; the Rev B run skipped the lid because no skill fit it | |
+| "Lean now checks AI-written proofs" | The two claimed ETH refutations were checked in Lean (sources 1–2) | Still "claimed": community confirmation pending |
+| "proven code like CompCert and seL4 guards aircraft" | CompCert qualified for the ATR 42/72 avionics computer (2026); seL4 on the HACMS Little Bird helicopter (sources 17–22) | |
+| "failures surface late, in biosafety labs, in spacecraft, in thousands of prototypes" | Pirbright 2007 (most likely a damaged drain), JWST fasteners in a 2018 acoustic test, Dyson's 5,127 prototypes (sources 24–26) | Chips carry the specifics |
 
 ## Sources
 
@@ -201,24 +130,3 @@ Cited in the voiceover or on screen. Each was opened while writing this draft (n
 Repo sources for the walkthrough are named in the checks table: `docs/product.md`, `docs/system-boundary.md`, `docs/journey.md`, `docs/decisions.md`, `system-2/cad/README.md`, the Methodology page (`system-2/console/web/src/screens/Wiki.tsx`), `appliances/centrifuge/` (`gallery.md`, `source/faults.md`, `verify.yaml`, `build/verify.stock.json`) and the recorded run `system-2/runs/eval-1107-232000/`.
 
 Background only, not cited in the voiceover: Long et al., "CheckManual", CVPR 2025, robots reading appliance manuals (https://arxiv.org/abs/2506.09343). It's why we say "test plans from the manual", not "the first robot to read a manual".
-
-## Questions for Karthik
-
-1. **Length:** 3:39 after the wording pass. Keep it, or drop content to reach 3:20 (options below)?
-2. **The lid in a model run:** neither recorded model run planned a lid test, so the lid beat currently rests on the device's verification check. Do you want a fresh run (with the spec's no-thumbs rule in the request) before filming?
-3. **The CAD step:** the analyst and CAD checks are built, but a patch proposed from a run on the centrifuge hasn't been shown. Keep "System 2 traces it to the handle and drafts a hook lip" with Rev B labelled as the team's drawing, or soften it to "is built to draft a fix"?
-4. **"Weight space programming":** I took it to mean the MIT CSAIL "Sparks of Weight-Space Programming" post (Nov 2, 2026). It's an on-screen ledger line only. Is that what you meant?
-5. **ETH:** the refutation claims are still under examination. Keep it with "claimed", or swap in AlphaProof's IMO silver, which is settled?
-6. **SmolVLA:** naming it invites "why not just fine-tune SmolVLA?". The next lines answer it. Happy with that, or on screen only?
-7. **Your read:** every shot gets re-cut to your mp3. If a line feels long to say, tell us which and we'll cut it rather than speed you up.
-
-## Reaching 3:20
-
-Wording alone took the video from 3:55 to 3:39. Another 19 s means dropping about 48 spoken words of content. Nothing here is applied, since Karthik wants every fact kept. If he changes his mind, these cost the least:
-
-| Could drop | From | Saves |
-|---|---|---|
-| The VLA sentence (the split still stands without it) | § 5 | 8 s |
-| "Each does what it's good at." | § 5 | 2 s |
-| The amendment sentence (the safety stop already shows a person being pulled in, and the levels are on screen in shot 21) | § 6 | 7 s |
-| "and it only counts if the score rises" | § 6 | 3 s |
