@@ -49,6 +49,26 @@ NAME_ASK = ("{manual}The ids in the photo: {ids}. For each id, say which control
             '"x": <pixel>, "y": <pixel>, "height_mm": <number or null>}}]}}')
 
 
+DISPLAY_SYSTEM = "You read the small display of an appliance from a photo a robot arm's wrist camera took of it."
+DISPLAY_ASK = ("The photo is cut around the display and turned upright: a screen in a dark window, with printing on the "
+               "panel around it. Read only the lit text on the screen, exactly; not the printing. It shows a speed and "
+               "a time on two lines (\"1000 RPM\", \"0:30\") or a word (DONE, LID, TUBE), and the window's top edge may "
+               "hide the top line. Write a character you can't make out as ?, and a line you can't see as ?: never "
+               'guess a digit. Answer with JSON only: {"lines": ["<each line of text on the screen, top to bottom>"], '
+               '"dark": <true if the screen shows nothing lit>}')
+
+
+def read_display(client: ModelClient, image_b64: str) -> str:
+    """What a photo of a display shows, its lines joined by two spaces as the MC-6's board sends its LCD: "1000 RPM  0:30",
+    "" if dark. Raises ValueError on a reply it can't read."""
+    reply = client.generate(DISPLAY_SYSTEM, [Message("user", DISPLAY_ASK, images=[Image("image/jpeg", image_b64)])], [])
+    try:
+        said = json.loads(re.search(r"\{.*\}", reply.text, re.S).group(0))
+        return "" if said.get("dark") else "  ".join(" ".join(str(line).split()) for line in said["lines"])
+    except (AttributeError, KeyError, TypeError, ValueError) as e:
+        raise ValueError(f"couldn't read {client.model}'s answer: {reply.text[:200]}") from e
+
+
 def part_namer(system1: System1, log: RunLog, manual: Manual) -> Responder:
     """The scan review as rav explore --review runs it, for a model run on the real arm: the default model names the parts."""
     return survey_reviewer(system1, make_client(DEFAULT_MODEL, run=log.run_id), log, "\n\n".join(manual.pages))
