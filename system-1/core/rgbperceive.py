@@ -66,6 +66,7 @@ ROW_MAX = None          # m: parts and rejected candidates further than this alo
                         # dropped, for a panel whose controls sit in one row (hw_rig)
 SAVE_CAPS = None        # a file the survey and captures go to before the vision stages, to replay with analyse (hw_rig)
 SURVEY_TRIES = 1        # surveys to take until one passes SURVEY_CHECK (hw_rig)
+SURVEY_RETRY_PAN = (0.0, 0.07, -0.07)  # rad added to every survey view's pan on the 2nd, 3rd... try
 SURVEY_CHECK = None     # (panel normal's z range, fewest points on the panel plane, shortest panel side's longer one, m)
 PROGRESS = None         # PROGRESS(what, **info) gets each stage and intermediate product as it comes (live_view draws them)
 
@@ -162,14 +163,26 @@ def perceive_rgb(arm, phone, wrist, on_stage=None, on_frame=None, on_survey=None
 
     stage("survey")
     if phone is None:
-        for k in range(SURVEY_TRIES):
-            scene.survey = survey_wrist(arm, wrist)
-            why = survey_doubt(scene.survey)
-            if not why:
-                break
-            print(f"  survey {k + 1} of {SURVEY_TRIES}: {why}")
-        else:
-            raise RuntimeError(f"no survey to trust in {SURVEY_TRIES} tries: {why}")
+        base = getattr(arm, "survey_dq", None)
+        try:
+            for k in range(SURVEY_TRIES):
+                if k:  # a retry from the same poses saw the same panel the same way: pan the views a little
+                    pan = SURVEY_RETRY_PAN[k % len(SURVEY_RETRY_PAN)]
+                    arm.survey_dq = [(dq[0] + pan, *dq[1:]) for dq in (base if base is not None else SURVEY_DQ)]
+                try:
+                    scene.survey = survey_wrist(arm, wrist)
+                    why = survey_doubt(scene.survey)
+                except ValueError as e:  # no panel among the surfaces found: another look may find it
+                    if k == SURVEY_TRIES - 1:
+                        raise
+                    why = str(e)
+                if not why:
+                    break
+                print(f"  survey {k + 1} of {SURVEY_TRIES}: {why}")
+            else:
+                raise RuntimeError(f"no survey to trust in {SURVEY_TRIES} tries: {why}")
+        finally:
+            arm.survey_dq = base
         if on_survey:  # it may pick another of the survey's candidate surfaces (use_panel) before the views are planned
             on_survey(scene.survey)
     else:
