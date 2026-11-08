@@ -39,12 +39,13 @@ NAME_ASK = ("{manual}The ids in the photo: {ids}. For each id, say which control
             "labels beside the controls. A faint or unreadable label is no reason to leave a control unnamed: name it "
             "from where it sits in the manual's layout (its order along the panel, its colour and shape) next to the "
             "controls you did name. A dot on a switch's lever (a metal bat that may point up or down from its base) is "
-            "that switch. Or say it isn't a control (a cable, a latch, the lid, the desk). Then list each control the "
+            "that switch. A door's handle (a bar or grip on the door) is kind handle, named Handle: the robot opens the door "
+            "by it. Or say it isn't a control (a cable, a latch, the lid, the desk). Then list each control the "
             "manual names (or a lid's lip, a handle) that you can see in the photo but that has no id on it, with the pixel of its centre (the photo "
             "is {size} pixels, x from the left, y from the top), and, if you can judge it, how far its top stands "
             "above the panel. Answer with JSON only: "
             '{{"<id>": {{"control": "<the manual\'s name, or null>", '
-            '"kind": "<button|dial|knob|toggle|slider|display|none>", "why": "<a few words>"}}, '
+            '"kind": "<button|dial|knob|toggle|slider|display|handle|none>", "why": "<a few words>"}}, '
             '"missed": [{{"control": "<the manual\'s name>", "kind": "<button|dial|knob|toggle|slider|handle>", '
             '"x": <pixel>, "y": <pixel>, "height_mm": <number or null>}}]}}')
 
