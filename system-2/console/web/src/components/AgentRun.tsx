@@ -4,16 +4,16 @@ import { isPaused, pendingApproval, planRows, runOf, stateLine, telemetryOf, tim
 import type { StepTrace, StepVerdict } from "../lib/contracts";
 import { useAppSession } from "../lib/context";
 import { coverageOf, rewardOf, statusOfControl, type Run } from "../lib/runs";
-import type { ToolCall } from "../lib/trace";
 import { Feeds } from "./Feeds";
 import { ForceChart } from "./ForceChart";
+import { Markdown } from "./Markdown";
 import { TraceSummary } from "./ModelTrace";
+import { Checklist, StepsTable, Tool } from "./ToolView";
 import { CountUp, Pill } from "./ui";
 
 export type Send = (path: string, body?: object) => void;
 
 const seconds = (ms: number | null | undefined) => (ms == null ? null : ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`);
-const argLine = (args: Record<string, unknown>) => Object.entries(args).map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`).join(" ");
 const normalize = (points: [number, number][]): [number, number][] => points.map(([t, n]) => [t - points[0][0], n]);
 const SPEEDS: [number, string][] = [[1, "1x"], [4, "4x"], [8, "8x"], [0, "Max"]];
 const VERDICT_WORD: Record<string, string> = { passed: "Passed", failed: "Failed", intermittent: "Intermittent", observed: "Observed", skipped: "Skipped", inconclusive: "Inconclusive" };
@@ -90,12 +90,14 @@ function Entry({ item, send, onOpen }: { item: TimelineItem; send?: Send; onOpen
     case "stop": return <p className="tlline"><span className="tltag">Stop</span>{item.code ?? item.stop}{item.target ? ` on ${item.target}` : ""}<span className="muted"> / {item.routine}</span></p>;
     case "step": return <StepRow item={item} onOpen={onOpen} />;
     case "approval": return <ApprovalRow item={item} send={send} />;
-    case "plan": return <details className="tlplan"><summary><span className="tltag">Plan</span>{item.plan.plan_id}, {item.plan.steps.length} steps</summary><ol>{item.plan.steps.map((s) => <li key={s.id} className="mono">{s.id} {s.skill} {s.target}{Object.keys(s.params).length ? ` ${argLine(s.params)}` : ""}{s.quote && <em> “{s.quote}”</em>}</li>)}</ol></details>;
+    case "plan": return <details className="tlplan" open><summary><span className="tltag">Plan</span>{item.plan.plan_id}, {item.plan.steps.length} steps</summary><StepsTable steps={item.plan.steps as unknown as Record<string, unknown>[]} /></details>;
     case "amended": return <p className="tlline"><span className="tltag">Plan changed</span>{item.why || `${item.steps.length} steps left`}<span className="muted"> / level {item.level}{item.by ? `, ${item.by}` : ""}</span></p>;
     case "message":
       if (item.role === "user") return <div className="tloperator"><span className="label">{item.by ?? "Operator"}</span><p>{item.text}</p></div>;
-      if (item.asks) return <div className="tlasks"><span className="label">The model asks</span><p>{item.text}</p></div>;
-      return <p className={`tlline ${item.role === "model" ? "" : "muted"}`}><span className="tltag">{item.role}</span>{item.text}</p>;
+      if (item.asks) return <div className="tlasks"><span className="label">The model asks</span><Markdown text={item.text} /></div>;
+      if (item.role === "model") return <div className="tlsummary"><span className="label">The model's summary</span><Markdown text={item.text} /></div>;
+      if (item.checklist) return <details className="tlplan"><summary className="muted"><span className="tltag">{item.role}</span>{item.text}</summary><Checklist checklist={item.checklist} /></details>;
+      return <p className="tlline muted"><span className="tltag">{item.role}</span>{item.text}</p>;
     case "check": return <p className="tlline"><span className="tltag">Check</span><b className="mono">{item.target}</b> {item.failed.map((c) => `${c.metric} ${c.op} ${String(c.value ?? "")}, got ${String(c.actual ?? "nothing")}`).join("; ")}<span className="muted"> / {item.counted ? "counts against it" : `not counted: ${item.why}`}</span></p>;
     case "steer": return <p className="tlline"><span className="tltag">{item.steer}</span>{item.target ? `${item.target}. ` : ""}{item.note}<span className="muted">{item.by ? ` / ${item.by}` : ""}</span></p>;
     case "scene": return <p className="tlline"><span className="tltag">Found</span>{item.scene.controls.length} controls: <span className="mono">{item.scene.controls.map((c) => c.id).join(", ")}</span></p>;
@@ -113,27 +115,16 @@ function Turn({ item }: { item: Extract<TimelineItem, { kind: "turn" }> }) {
       {item.thought && (
         <details open>
           <summary className="label">Reasoning summary</summary>
-          <p className="tlthought">{item.thought.trim().split(/\*\*(.+?)\*\*/).map((part, i) => (i % 2 ? <b key={i}>{part}</b> : part))}{item.streaming && !item.text && <i className="tlcaret" />}</p>
+          <Markdown text={item.thought} className="md tlthought" />
+          {item.streaming && !item.text && <i className="tlcaret" />}
         </details>
       )}
-      {item.text && <p>{item.text}{item.streaming && <i className="tlcaret" />}</p>}
+      {item.text && <Markdown text={item.text} />}
+      {item.streaming && item.text && <i className="tlcaret" />}
       {t?.error && <p className="terror">{t.error}</p>}
       {item.calls.map((c) => <Tool key={c.id} call={c} />)}
       {meta && <span className="tmeta">{meta}</span>}
     </div>
-  );
-}
-
-function Tool({ call: c }: { call: ToolCall }) {
-  const args = argLine(c.args);
-  const open = !c.ok || undefined;
-  return (
-    <details className={`tltool ${c.ok ? "" : "bad"}`} open={open}>
-      <summary><b className="mono">{c.tool}</b>{args && <span className="mono muted tlargs"> {args}</span>}<span className="tmeta">{[c.ok ? null : c.error_kind, c.caller === "model" ? null : c.caller, seconds(c.duration_ms)].filter(Boolean).join(" / ")}</span></summary>
-      {c.error && <p className="terror">{c.error}</p>}
-      {Object.keys(c.args).length > 0 && <pre>{JSON.stringify(c.args, null, 2)}</pre>}
-      {c.result && <pre>{JSON.stringify(c.result, null, 2)}</pre>}
-    </details>
   );
 }
 
