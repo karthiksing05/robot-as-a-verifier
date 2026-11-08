@@ -15,7 +15,9 @@ TOGGLE_Y = 0.002
 GRIP_ABOVE = 0.025
 # the jaws open to the knob's width plus GRIP_SPARE a side, its axis midway between them: a fixed 0.2 opening (about a
 # 20 mm gap: 10 mm in from the fixed jaw was midway) fit the first 12 mm dial, not the 27 mm one that replaced it
-GRIP_SPARE, GAP_PER_OPEN, GRIP_MAX_OPEN = 0.004, 0.1, 0.6  # m; m of jaw gap per unit of opening; the most it opens
+# 0.15 m of gap per unit, not the model's 0.1: the tube's 0.3 opened far wider than its 18 mm collar, and centring it took
+# 15 mm from the fixed jaw at 0.2 (Nov 8). At 0.1 the 27 mm dial's grip opened ~52 mm and the jaws came down beside it
+GRIP_SPARE, GAP_PER_OPEN, GRIP_MAX_OPEN = 0.004, 0.15, 0.6  # m; m of jaw gap per unit of opening; the most it opens
 # the jaw tips go this far over the panel (from the dial's top they stopped short), with the knob's axis this far in from
 # the fixed jaw's tip: midway to the open moving jaw, about on the roll axis
 # (3 mm up, on a scan whose plane read 3 mm high under SPEED, the jaws caught only the dial's top and couldn't turn it)
