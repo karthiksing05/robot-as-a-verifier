@@ -263,7 +263,7 @@ def plan_views(arm, surv):
     site, cam = arm.m.site("wrist_cam").id, arm.m.camera("wrist_cam").id
     fk = mujoco.MjData(arm.m)
     views, q0 = [], arm.home_q.copy()
-    for du, dv in VIEW_LOOKS:
+    for du, dv in VIEW_LOOKS if getattr(arm, "view_looks", None) is None else arm.view_looks:
         look = c - du * down + dv * left
         for tilt in VIEW_TILTS if getattr(arm, "view_tilts", None) is None else arm.view_tilts:
             view = aim = -n * math.cos(tilt) - down * math.sin(tilt)

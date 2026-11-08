@@ -52,6 +52,9 @@ PX_WIDTH = 1920         # the frame width the pixel constants here are for; othe
 # bundle adjustment
 PANEL_INSET = 0.008     # panel features come from the survey's panel rectangle shrunk this much (off the housing)
 FK_TOL_PX = 135         # a pair whose panel matches land this far from where the believed poses put them: a wild fit
+FLAT_BUTTONS = False    # a round, button-sized outline is a button even when its height reads flat (hw_rig sets it:
+                        # the real buttons' dark glossy tops gave the height sweep too little texture on some scans)
+BUTTON_DIAM = (0.012, 0.030)
 MIN_TRACKS = 30         # fewer panel feature tracks than this (a plain panel): keep the believed poses
 # reprojection noise; prior on each pose's correction. On the real remote photos (system-1/arm/camera/pose_test.py)
 # a 1 deg, 3 mm prior corrected 1 deg, 3 mm errors to 0.15 mm median height error, against 0.27 with 0.25 deg, 0.5 mm
@@ -928,6 +931,9 @@ def classify(cands, hm, img):
                 kind, score = "unknown", 0.0
             if kind != "pad" and score > pick[1]:
                 pick = (kind, score, why, r)
+        w = perceive.region(c["mask"], hm, CELL)["width"]
+        if FLAT_BUTTONS and pick[0] == "unknown" and c["round"] >= 0.95 and BUTTON_DIAM[0] <= w <= BUTTON_DIAM[1]:
+            pick = ("button", 0.5, f"round, {w * 1000:.0f} mm across, height not measured", c["readings"][0])
         door = _pad(c, hm, img)
         if door and door[2] > pick[1]:
             pick = ("door", door[2], door[3], door[:2])

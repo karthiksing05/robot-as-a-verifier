@@ -36,6 +36,7 @@ def make_rig(arm_port, calibration, app=None, pad=None, readout_port=None):
             g = json.load(open(GRIPPER_PX))
             rgbperceive.GRIPPER_PX = np.round(np.array(g["gripper_px"]) * rgbperceive.PX_WIDTH / g["width"]).astype(np.int32)
             print(f"Gripper mask from {os.path.normpath(GRIPPER_PX)}")
+        rgbperceive.FLAT_BUTTONS = True  # see rgbperceive.FLAT_BUTTONS
     except BaseException:
         arm.close()  # no readout or no camera: let the serial ports go
         raise
