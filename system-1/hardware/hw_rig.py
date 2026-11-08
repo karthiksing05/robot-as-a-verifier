@@ -11,6 +11,7 @@ import os
 
 import numpy as np
 
+import perceive
 import pico_readout
 import real_arm
 import real_wrist
@@ -37,6 +38,9 @@ def make_rig(arm_port, calibration, app=None, pad=None, readout_port=None):
             rgbperceive.GRIPPER_PX = np.round(np.array(g["gripper_px"]) * rgbperceive.PX_WIDTH / g["width"]).astype(np.int32)
             print(f"Gripper mask from {os.path.normpath(GRIPPER_PX)}")
         rgbperceive.FLAT_BUTTONS = True  # see rgbperceive.FLAT_BUTTONS
+        # the real toggle's bushing stands 9-14 mm and SAM outlines it at 61-81 mm2, outside the sim switch's 2.5-6 mm base
+        # and 100 mm2 minimum (a 6 mm floor keeps the cable bundle out)
+        perceive.RULES["toggle"].update(plateau=(0.006, 0.016), area=(50e-6, 400e-6))
     except BaseException:
         arm.close()  # no readout or no camera: let the serial ports go
         raise
