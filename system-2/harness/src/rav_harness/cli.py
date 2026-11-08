@@ -11,7 +11,7 @@ import time
 from rav_contracts import POLICIES, TestRequest
 
 from .commands import explore as explore_command
-from .loop import fix_and_retest, run_test
+from .loop import auto_approve, fix_and_retest, robot_may_auto_approve, rule_planner, run_test
 from .mock import mock_analyst, mock_system_1
 from .model import DEFAULT_MODEL, MODELS
 from .runlog import RunLog
@@ -121,12 +121,40 @@ def _connect(args):
     return McpSystem1(args.url)
 
 
+def _person_here(kind: str, ref: str) -> str | None:
+    """On a real arm, the person at this terminal approves each plan and change, after seeing its steps."""
+    return "terminal" if input(f"Approve {kind} {ref} on the real arm? Type yes: ").strip().lower() == "yes" else None
+
+
+def _show_steps(event) -> None:
+    if event.type in ("plan_ready", "plan_amended"):
+        for s in event.payload.get("steps") or []:
+            print(f"  {s['id']}: {s['skill']} {s['target']} {s.get('params') or ''}")
+
+
+def _only(targets: str | None):
+    """The rule-based plan cut to the steps on these controls, such as a single press."""
+    if not targets:
+        return rule_planner
+    keep = set(targets.split(","))
+
+    def planner(request, scene, fallback):
+        steps = [s for s in fallback.steps if s.target in keep]
+        if not steps:
+            raise SystemExit(f"the plan has no step on {targets}. The scan found: {', '.join(c.id for c in scene.controls)}")
+        return fallback.model_copy(update={"steps": steps})
+    return planner
+
+
 def run(args) -> None:
     run_id = args.id or f"run-{int(time.time())}"
     request = TestRequest(request_id=run_id, product=args.product)
     system1 = _connect(args)
     try:
-        _print(run_test(system1, request, RunLog(run_id, args.runs), policy=POLICIES[args.policy]))
+        real = not robot_may_auto_approve(system1.system_status().robot)
+        log = RunLog(run_id, args.runs, on_event=_show_steps if real else None)
+        _print(run_test(system1, request, log, planner=_only(args.only), approve=_person_here if real else auto_approve,
+                        policy=POLICIES[args.policy]))
     finally:
         system1.close()
 
@@ -151,7 +179,7 @@ def up(args) -> None:
 
 
 def agent(args) -> None:
-    """One model run on a running server, with plans auto-approved: sim only."""
+    """One model run on a running server, with plans auto-approved on the sim and approved at this terminal on a real arm."""
     from .agent import run_agent, sim_auto_approve
     from .manual import Manual
     from .model import make_client
@@ -159,8 +187,10 @@ def agent(args) -> None:
     run_id = args.id or f"agent-{int(time.time())}"
     system1 = _connect(args)
     try:
-        report = run_agent(system1, TestRequest(request_id=run_id, product=args.product), RunLog(run_id, args.runs), make_client(args.model, args.fallback, effort=args.effort, run=run_id),
-                           approve=sim_auto_approve, manual=Manual(args.manual) if args.manual else None)
+        real = not robot_may_auto_approve(system1.system_status().robot)
+        log = RunLog(run_id, args.runs, on_event=_show_steps if real else None)
+        report = run_agent(system1, TestRequest(request_id=run_id, product=args.product), log, make_client(args.model, args.fallback, effort=args.effort, run=run_id),
+                           approve=_person_here if real else sim_auto_approve, manual=Manual(args.manual) if args.manual else None)
     finally:
         system1.close()
     _print(report)
@@ -244,6 +274,7 @@ def main(argv=None) -> None:
         c.set_defaults(fn=fn)
     r = sub.choices["run"]
     r.add_argument("--product", default="Device under test")
+    r.add_argument("--only", default=None, metavar="CONTROL,...", help="run only the plan's steps on these controls, such as button_1")
     a = sub.add_parser("agent", help="one run with the frontier model at the controls, on a running server (sim: plans auto-approve)")
     a.add_argument("--url", default="http://127.0.0.1:8780/mcp")
     a.add_argument("--id", default=None)

@@ -37,6 +37,10 @@ def auto_approve(kind: str, ref: str) -> str:
     return "auto (mock)"
 
 
+def robot_may_auto_approve(robot: str) -> bool:
+    return robot in ("sim", "mock", "fake")
+
+
 @dataclass
 class Steering:
     """The command queue the Console writes to. The loop drains it each time System 1 is holding at a boundary."""
@@ -114,6 +118,8 @@ def run_test(system1: System1, request: TestRequest, log: RunLog, planner: Plann
     Steering applies whenever System 1 is holding, so how often that is depends on the policy. Only `stop` reaches a
     routine between stops."""
     steering = steering or Steering()
+    if approve is auto_approve and not robot_may_auto_approve(robot := system1.system_status().robot):
+        raise PermissionError(f"plans on {robot} must be approved by a person")
     log.emit("run_started", request)
     scene, fallback = explore(system1, log, policy, respond)
     log.emit("scene_ready", scene.model_copy(update={"controls": [c for c in scene.controls if c.id != DEVICE_CONTROL]}))

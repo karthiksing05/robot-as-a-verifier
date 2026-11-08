@@ -82,6 +82,16 @@ def test_unapproved_plan_never_moves_the_arm(tmp_path):
     assert not [e for e in read_events(log.path) if e.type == "step_started"]
 
 
+def test_auto_approval_is_refused_before_a_real_arm_moves(tmp_path):
+    class Real(FakeSystem1):
+        def system_status(self):
+            return super().system_status().model_copy(update={"robot": "real"})
+    system1 = Real(MockBackend("A"))
+    with pytest.raises(PermissionError):
+        run_test(system1, REQUEST, RunLog("r", tmp_path))
+    assert system1.routines == 0
+
+
 def test_a_patch_that_does_not_match_the_file_is_refused(params):
     patch = CADPatch(file="x", revision_from="A", revision_to="B",
                      changes=[ParamChange(param="button_clearance[1]", from_value=0.99, to_value=0.4)])

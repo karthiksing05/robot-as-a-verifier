@@ -14,7 +14,7 @@ from typing import Any
 from rav_contracts import EscalationPolicy, Report, SteerCommand, TestRequest
 
 from . import prompts
-from .loop import Approver, Steering
+from .loop import Approver, Steering, robot_may_auto_approve
 from .manual import Manual
 from .model import Image, Message, ModelClient, ModelError, ModelReply, ToolResult, Unavailable
 from .runlog import RunLog
@@ -40,10 +40,6 @@ class AgentConfig:
 def sim_auto_approve(kind: str, ref: str) -> str:
     """For evals on the sim only, and recorded on the run. run_agent refuses it for a real robot."""
     return "auto (sim)"
-
-
-def robot_may_auto_approve(robot: str) -> bool:
-    return robot in ("sim", "mock", "fake")
 
 
 def _images_out(messages: list[Message]) -> list[dict]:
