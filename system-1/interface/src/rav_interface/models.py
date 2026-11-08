@@ -21,6 +21,8 @@ Skill = Literal[
     "press_hold",
     # system-1/core/manipulate.py, offered only by a rig that can do them (SystemStatus.actions says which)
     "hook_pull", "pick", "place",
+    # system-1/hardware/centrifuge_skills.py: the real arm's MC-6 lid, rack cover and tube, offered by RealBackend
+    "lid_open", "lid_close", "rack_open", "rack_close", "tube_pick", "tube_place",
     # move the whole device on the desk: a normal step, on the control called DEVICE_CONTROL
     "reposition",
     # no motion: read a display or light with the camera

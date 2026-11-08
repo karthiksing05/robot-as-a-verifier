@@ -9,7 +9,7 @@ import shutil
 import tempfile
 import time
 
-from rav_contracts import POLICIES, TestRequest
+from rav_contracts import POLICIES, Step, TestRequest
 
 from .commands import explore as explore_command, rule_responder
 from .loop import auto_approve, fix_and_retest, robot_may_auto_approve, rule_planner, run_test
@@ -142,10 +142,13 @@ def _show_steps(event) -> None:
             print(f"  {s['id']}: {s['skill']} {s['target']} {s.get('params') or ''}")
 
 
-def _only(targets: str | None, angle: float | None = None, flip_first: str | None = None):
+def _only(targets: str | None, angle: float | None = None, flip_first: str | None = None, skill: str | None = None,
+          params: list[str] | None = None):
     """The rule-based plan cut to the steps on these controls, such as a single press. With angle, each knob or dial is
     turned once, by that many degrees (+ counter-clockwise seen from the front), in place of the plan's turn and back.
-    flip_first ("up" or "down") is the way the first flip of each switch pushes, whatever lean the scan read."""
+    flip_first ("up" or "down") is the way the first flip of each switch pushes, whatever lean the scan read. With
+    skill (comma-separated, such as tube_pick,tube_place), those skills in turn on each of these controls instead, with
+    params ("name=value") on every step."""
     if not targets and angle is None and flip_first is None:
         return rule_planner
     keep = [k.lower() for k in targets.split(",")] if targets else None
@@ -155,6 +158,14 @@ def _only(targets: str | None, angle: float | None = None, flip_first: str | Non
         return any(t == k or t.startswith(k + "_") for k in keep)
 
     def planner(request, scene, fallback):
+        if skill:
+            given = {k: float(v) for k, v in (p.split("=") for p in params or [])}
+            on = [c.id for c in scene.controls if keep is None or wanted(c.id)]
+            steps = [Step(id=f"s{i + 1}", skill=sk, target=t, params=given)
+                     for i, (sk, t) in enumerate((sk, t) for sk in skill.split(",") for t in on)]
+            if not steps:
+                raise SystemExit(f"no control matches {targets}. The scan found: {', '.join(c.id for c in scene.controls)}")
+            return fallback.model_copy(update={"steps": steps})
         steps, turned, flipped = [], set(), set()
         for s in fallback.steps:
             if keep is not None and not wanted(s.target):
@@ -183,7 +194,7 @@ def run(args) -> None:
         log = RunLog(run_id, args.runs, on_event=_show_steps if real else None)
         policy, respond = _survey_review(args, system1, log)
         try:
-            _print(run_test(system1, request, log, planner=_only(args.only, args.angle, args.flip_first), approve=_operator_ran_it if real else auto_approve,
+            _print(run_test(system1, request, log, planner=_only(args.only, args.angle, args.flip_first, args.skill, args.param), approve=_operator_ran_it if real else auto_approve,
                             policy=policy, respond=respond, rescan=not args.reuse_scan))
         finally:
             _save_frames(system1, system1.scene_get().scene.frames, log.dir / "frames")
@@ -444,6 +455,9 @@ def main(argv=None) -> None:
                    help="turn each knob or dial once by this much (+ counter-clockwise seen from the front), such as -60")
     r.add_argument("--flip-first", choices=("up", "down"), default=None,
                    help="push each switch's first flip this way (the second flips it back), whatever lean the scan read")
+    r.add_argument("--skill", default=None, metavar="SKILL,...", help="with --only: run these skills on those controls in "
+                   "place of the plan, such as --only STOP --skill lid_open (the real arm's centrifuge skills)")
+    r.add_argument("--param", action="append", default=None, metavar="NAME=VALUE", help="with --skill, on every step, such as dz_mm=5")
     a = sub.add_parser("agent", help="one run with the frontier model at the controls, on a running server (sim: plans auto-approve)")
     a.add_argument("--url", default="http://127.0.0.1:8780/mcp")
     a.add_argument("--id", default=None)

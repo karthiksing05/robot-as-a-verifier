@@ -16,6 +16,7 @@ from rav_server.sim_backend import CORE_DIR, SIM_DIR, PipelineRobot, on_path
 
 class SimBusBackend(real_backend.RealBackend):
     device = None  # a device file (--sim-device) in place of preset C, at revision A
+    http_readout, stage = None, "idle"  # the sim's readout, not a board's
 
     def __init__(self, arm_port, calibration, refine=True, **_):
         on_path(CORE_DIR, SIM_DIR)

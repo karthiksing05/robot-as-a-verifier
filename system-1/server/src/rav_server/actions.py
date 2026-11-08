@@ -32,6 +32,25 @@ def manipulate_actions(stock_gripper: bool, open_deg: float = 105.0) -> list[Act
         _force(6.0)], about="the pad under the handle's lip, swung about its hinge. A handle that needs a pinch grip is refused")]
 
 
+def centrifuge_actions() -> list[ActionSpec]:
+    """The real arm's MC-6 skills past its panel (hardware/centrifuge_skills.py). Each aims at STOP (a button target)
+    plus a fixed offset, or at the part itself, nudged by dx/dy/dz_mm in the device's frame."""
+    nudge = [ParamSpec(name=f"d{a}_mm", min=-40.0, max=40.0, default=0.0, unit="mm", about=f"aim this far {way}")
+             for a, way in (("x", "toward the arm"), ("y", "to the right, seen from the arm"), ("z", "up"))]
+    angle = ParamSpec(name="angle", min=10.0, max=105.0, default=100.0, unit="deg",
+                      about="how far to swing it. Past 90 it falls onto its stop; short of that it falls shut when let go")
+    stop = ["button", "knob"]  # scans have read STOP as either
+    covers = [*stop, "handle"]
+    return [
+        ActionSpec(skill="lid_open", kinds=covers, params=[angle, *nudge], about="the fixed jaw in under the lid's lip, swung up about its hinge. Target STOP (the lip is a fixed offset from it) or the lip"),
+        ActionSpec(skill="lid_close", kinds=covers, params=nudge, about="over the open lid's top edge, drawn back past vertical, let fall shut"),
+        ActionSpec(skill="rack_open", kinds=covers, params=[angle, *nudge], about="as lid_open, on the rack cover's lip"),
+        ActionSpec(skill="rack_close", kinds=covers, params=nudge, about="as lid_close, on the rack cover"),
+        ActionSpec(skill="tube_pick", kinds=stop, params=nudge, about="jaws open down round tube 1's collar in the rack, shut, lift it clear. Target STOP"),
+        ActionSpec(skill="tube_place", kinds=[*stop, "well"], params=nudge, about="the held tube lowered into well A until it stops or seats, let go, lifted out. Says how far above the seat it let go"),
+    ]
+
+
 ACTIONS = [
     ActionSpec(skill="press", kinds=["button"], params=[_force(6.0)], about="push along the part's normal, until the force limit or 4 mm past first contact"),
     ActionSpec(skill="flip", kinds=["toggle"], params=[_force(5.0), ParamSpec(
