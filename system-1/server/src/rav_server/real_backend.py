@@ -131,8 +131,8 @@ class RealBackend(PipelineRobot):
             if step.skill == "flip" and "tip" not in p.meta:  # the review derives a lever for a switch read as a knob
                 raise RuntimeError("the scan didn't measure its lever (no tip), so there's no push to plan")
             if step.skill == "flip":
-                toward = step.params.get("toward")  # "up" or "down": the operator's word over the scan's lean
-                if toward in ("up", "down") and (p.x[2] > 0) != (toward == "down"):  # the plan pushes against p.x
+                toward = step.params.get("toward")  # +1 up the slope, -1 down: the operator's word over the scan's lean
+                if toward and (p.x[2] > 0) != (toward < 0):  # the plan pushes against p.x
                     p = self._mirrored(p)
                 real_skills.flip(self.arm, p, self.parts)
             else:

@@ -166,7 +166,7 @@ def _only(targets: str | None, angle: float | None = None, flip_first: str | Non
                 s = s.model_copy(update={"params": {**s.params, "angle": angle}})
             if flip_first and s.skill == "flip" and s.target not in flipped:
                 flipped.add(s.target)
-                s = s.model_copy(update={"params": {**s.params, "toward": flip_first}})
+                s = s.model_copy(update={"params": {**s.params, "toward": 1.0 if flip_first == "up" else -1.0}})
             steps.append(s)
         if not steps:
             raise SystemExit(f"the plan has no step on {targets}. The scan found: {', '.join(c.id for c in scene.controls)}")

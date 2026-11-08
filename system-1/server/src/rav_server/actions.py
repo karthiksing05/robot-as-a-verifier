@@ -34,7 +34,8 @@ def manipulate_actions(stock_gripper: bool, open_deg: float = 105.0) -> list[Act
 
 ACTIONS = [
     ActionSpec(skill="press", kinds=["button"], params=[_force(6.0)], about="push along the part's normal, until the force limit or 4 mm past first contact"),
-    ActionSpec(skill="flip", kinds=["toggle"], params=[_force(5.0)], about="push the lever across to its other side"),
+    ActionSpec(skill="flip", kinds=["toggle"], params=[_force(5.0), ParamSpec(
+        name="toward", min=-1.0, max=1.0, nonzero=True, about="+1 pushes up the panel's slope, -1 down, whatever lean the scan measured; left out, the measured lean decides")], about="push the lever across to its other side"),
     ActionSpec(skill="slide", kinds=["slider"], params=[
         ParamSpec(name="to", required=True, min=0.0, max=1.0, about="where to leave the knob along its travel. It refuses at run time if the knob is already there"),
         _force(5.0)], about="push the knob along its slot"),
