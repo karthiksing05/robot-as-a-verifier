@@ -28,13 +28,14 @@ FLIP_BEHIND, FLIP_ON = 0.015, 0.003  # 6 mm back still came down on the lever ti
 
 
 def slope_swing(p):
-    """A toggle's swing turned to the panel's slope or across it, whichever the scan's is nearer: the scan read the
-    POWER lever's 36 deg off the slope it swings along, and a push that far off can slide off the lever's side."""
+    """A toggle's swing turned to the panel's slope: the scan read the POWER lever's 36 deg off the slope it swings
+    along, and a push that far off can slide off the lever's side."""
     n, x = p.normal, p.x
     down = np.cross(n, np.cross([0.0, 0.0, -1.0], n))
     down /= np.linalg.norm(down)
-    across = np.cross(n, down)
-    snap = max((down, -down, across, -across), key=lambda a: a @ x)
+    # up or down the slope only, as the manual's POWER (up = ON): a lever read leaning 3.3 mm across and 1.8 up was
+    # flipped across, toward START, and refused for want of room
+    snap = max((down, -down), key=lambda a: a @ x)
     p.T = p.T.copy()
     p.T[:3, :3] = np.c_[snap, np.cross(n, snap), n]
     y = np.array([0.0, 1.0, 0.0]) - n[1] * n
