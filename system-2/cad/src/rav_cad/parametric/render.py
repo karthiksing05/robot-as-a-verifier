@@ -17,7 +17,7 @@ VIEWS = {"iso": (28, -60), "front": (5, -90), "top": (89, -90)}
 
 
 def _tris(shape, tol=0.4):
-    verts, tris = shape.tessellate(tol, 0.3)
+    verts, tris = shape.copy().tessellate(tol, 0.3)     # a copy: meshing stores the mesh on the shape it's given
     v = np.array([p.toTuple() for p in verts])
     return v[np.array(tris)] if len(tris) else np.zeros((0, 3, 3))
 
@@ -60,6 +60,38 @@ def render(b: Built, path: str | Path, highlight: set[str] = frozenset(), views=
         ax.view_init(*VIEWS[view])
         ax.set_axis_off()
         ax.set_title(f"{b.spec.name} rev {b.spec.rev} - {view}", fontsize=10)
+    fig.tight_layout()
+    path = Path(path)
+    fig.savefig(path)
+    plt.close(fig)
+    return path
+
+
+def render_parts(parts: dict, path: str | Path, highlight=frozenset(), fixed=frozenset(), title: str = "",
+                 views=("iso", "front", "top")) -> Path:
+    """Render any product given as named solids: fixed body grey, highlighted (changed) parts red, the rest blue."""
+    groups = []
+    for name, s in parts.items():
+        color = COLORS["changed"] if name in highlight else COLORS["shell"] if name in fixed else COLORS["insert"]
+        t = _tris(s, 0.8 if name in fixed else 0.4)
+        if len(t):
+            groups.append((t, color))
+    allv = np.concatenate([g[0].reshape(-1, 3) for g in groups])
+    lo, hi = allv.min(0), allv.max(0)
+    mid, r = (lo + hi) / 2, (hi - lo).max() / 2
+    tris = np.concatenate([g[0] for g in groups])
+    cols = np.concatenate([_shade(g[0], g[1]) for g in groups])
+    fig = plt.figure(figsize=(6 * len(views), 6), dpi=110)
+    for i, view in enumerate(views):
+        ax = fig.add_subplot(1, len(views), i + 1, projection="3d")
+        ax.add_collection3d(Poly3DCollection(tris, facecolors=cols, edgecolor="none"))
+        ax.set_xlim(mid[0] - r, mid[0] + r)
+        ax.set_ylim(mid[1] - r, mid[1] + r)
+        ax.set_zlim(mid[2] - r, mid[2] + r)
+        ax.set_box_aspect((1, 1, 1))
+        ax.view_init(*VIEWS[view])
+        ax.set_axis_off()
+        ax.set_title(f"{title} - {view}".strip(" -"), fontsize=10)
     fig.tight_layout()
     path = Path(path)
     fig.savefig(path)

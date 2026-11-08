@@ -1,0 +1,94 @@
+{
+  "run_id": "centrifuge-revA",
+  "product": "MC-6 mini centrifuge (simulated run)",
+  "revision": "A",
+  "summary": "4 of 7 controls passed, 3 failed, 0 inconclusive, 0 skipped. Reward 0.57.",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "medium",
+      "target": "lid",
+      "label": "accessibility",
+      "what_happened": "no allowed skill moved it: a flat push reached 6 N with 0.5 mm of travel, and the hook lifted 6 mm without catching anything (pinching isn't allowed); no lid event",
+      "manual_says": null,
+      "user_impact": null,
+      "concept": null,
+      "step_ids": [
+        "s2"
+      ],
+      "event_seqs": [
+        12
+      ],
+      "evidence": [
+        "s2 force trace",
+        "s2 serial log"
+      ],
+      "confirmed": true
+    },
+    {
+      "id": "F2",
+      "severity": "medium",
+      "target": "well_A",
+      "label": "wrong_behavior",
+      "what_happened": "the tube rested 8.5 mm above where it seats; no tube event; Start then showed TUBE",
+      "manual_says": null,
+      "user_impact": null,
+      "concept": null,
+      "step_ids": [
+        "s3"
+      ],
+      "event_seqs": [
+        16
+      ],
+      "evidence": [
+        "s3 force trace",
+        "s3 serial log"
+      ],
+      "confirmed": true
+    },
+    {
+      "id": "F3",
+      "severity": "high",
+      "target": "stop",
+      "label": "stuck",
+      "what_happened": "reached the 6 N limit after 0.04 mm of travel; no btn_stop event",
+      "manual_says": null,
+      "user_impact": null,
+      "concept": null,
+      "step_ids": [
+        "s5"
+      ],
+      "event_seqs": [
+        23
+      ],
+      "evidence": [
+        "s5 force trace",
+        "s5 serial log"
+      ],
+      "confirmed": true
+    }
+  ],
+  "coverage": {
+    "detected": 7,
+    "passed": [
+      "power",
+      "start",
+      "time",
+      "dial"
+    ],
+    "failed": [
+      "lid",
+      "well_A",
+      "stop"
+    ],
+    "observed": [],
+    "inconclusive": [],
+    "skipped": {}
+  },
+  "reward": {
+    "value": 0.5714,
+    "control_coverage": 1.0,
+    "pass_rate": 0.5714,
+    "formula": "control_coverage x pass_rate_on_covered"
+  }
+}

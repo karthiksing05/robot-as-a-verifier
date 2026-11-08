@@ -10,6 +10,7 @@ import tempfile
 import time
 from dataclasses import replace
 
+import cv2
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -25,6 +26,7 @@ import rig  # noqa: E402
 import robot  # noqa: E402
 import sensors  # noqa: E402
 import skills  # noqa: E402
+import vision  # noqa: E402
 import world  # noqa: E402
 from robot import ARM_JOINTS, SafetyStop  # noqa: E402
 
@@ -182,6 +184,24 @@ def test_arm_check_reads_and_moves_one_joint():
           f"back to {moved[-1, 2]:+.2f}, others within {np.abs(np.delete(moved, 2, axis=1)).max():.3f} deg")
 
 
+def test_hand_eye_solve_finds_a_moved_camera():
+    # tools/hand_eye.solve on the board's corners as seen from a camera turned 1 deg and moved 2 mm off the model's
+    # wrist_cam, with exact joint angles and 0.2 px of noise. tests/hand_eye_check.py runs the whole tool on the sim.
+    import hand_eye
+    import hand_eye_check as hc
+    arm, K, corners = hc.clean_arm(), sensors.USB_CAL_K, vision.BOARD.getChessboardCorners()
+    rng, views = np.random.default_rng(0), []
+    for q in hc.board_poses(arm, K, sensors.USB_RES, 15, rng):
+        p = (np.linalg.inv(hand_eye.fk(arm, q) @ hc.T_MOUNT) @ vision.T_BASE_BOARD @ np.c_[corners, np.ones(24)].T)[:3]
+        img = (K @ (p / p[2]))[:2].T + rng.normal(0, 0.2, (24, 2))
+        _, r, t = cv2.solvePnP(corners, img, K, None, flags=cv2.SOLVEPNP_IPPE)
+        board = vision._T(cv2.Rodrigues(r)[0], t.ravel())
+        views.append(dict(hand=hand_eye.fk(arm, q), board=board, obj=corners, img=img))
+    deg, mm = hc.off_by(hand_eye.solve(views, K)[0], hc.T_MOUNT)
+    assert deg < 0.03 and mm < 0.1, (deg, mm)
+    print(f"  found the 1 deg, 2 mm move to within {deg:.3f} deg and {mm:.3f} mm")
+
+
 def test_tick_paced_at_control_hz():
     w, sim, bus, arm = _setup(pace=True)
     with arm:
@@ -196,7 +216,7 @@ def test_tick_paced_at_control_hz():
 def test_operator_readout_judges_presses():
     w, sim, bus, arm = _setup()
     answers, asked = ["BTN1", ""], []
-    arm.app = real_arm.OperatorReadout(arm, {"BTN1": 0}, ask=lambda prompt: asked.append(prompt) or answers[len(asked) - 1])
+    arm.app = real_arm.OperatorReadout(arm, ask=lambda prompt: asked.append(prompt) or answers[len(asked) - 1])
     parts = w.truth(sim.m, sim.d)
     step = {"skill": "press", "target": "button_1"}
     with arm:

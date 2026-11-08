@@ -11,9 +11,9 @@ never returns a frame taken while the arm was still moving. It captures at 1920x
 
 Each frame is undistorted with the ChArUco calibration (system-1/arm/camera/camera_out/calib.json, from
 camera_test.py calib), scaled to the capture size, so it is a pinhole image that claims K, as the sim's frames do.
-The pose is forward kinematics of the joint readings at the model's wrist_cam, times T_hand_eye (identity until the
-mount is measured). On the SO-101 that pose is only good to about a degree, too coarse for the plane sweep, which
-needs each photo's pose to about 0.1 deg (system-1/arm/camera/results.md).
+The pose is forward kinematics of the joint readings at the model's wrist_cam, times T_hand_eye from HAND_EYE, which
+tools/hand_eye.py writes (identity until the mount is measured). On the SO-101 that pose is only good to about a
+degree, too coarse for the plane sweep, which needs each photo's pose to about 0.1 deg (system-1/arm/camera/results.md).
 """
 import json
 import os
@@ -31,6 +31,7 @@ from rig import Frame, _cv_pose
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CALIB = os.path.join(HERE, "..", "arm", "camera", "camera_out", "calib.json")
+HAND_EYE = os.path.join(os.path.dirname(CALIB), "hand_eye.json")
 FFMPEG = os.environ.get("FFMPEG") or shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
 NOT_IT = ("integrated", "pixel", "obs", "virtual")  # the laptop's own camera, a phone's, virtual ones
 SIZE = (1920, 1080)
@@ -113,7 +114,12 @@ class WristCamera:
         self.arm, self.m = arm, arm.m
         self.cam = arm.m.camera("wrist_cam").id
         self.fk = mujoco.MjData(self.m)
-        self.T_hand_eye = np.eye(4) if T_hand_eye is None else np.asarray(T_hand_eye, float)
+        if T_hand_eye is None:
+            found = os.path.exists(HAND_EYE)
+            T_hand_eye = json.load(open(HAND_EYE))["T_hand_eye"] if found else np.eye(4)
+            print(f"WristCamera: mount from {os.path.normpath(HAND_EYE)}" if found else
+                  f"WristCamera: no {os.path.normpath(HAND_EYE)}, so the mount is the model's")
+        self.T_hand_eye = np.asarray(T_hand_eye, float)
         self.K, dist = load_calib(size[0], calib)
         self.maps = cv2.initUndistortRectifyMap(self.K, dist, None, self.K, tuple(size), cv2.CV_16SC2)
         self.grab = Capture(size)

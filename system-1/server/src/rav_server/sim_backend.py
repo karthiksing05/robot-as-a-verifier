@@ -232,6 +232,8 @@ class PipelineRobot:
         except OSError:  # a driver, not perception: we can't be sure the arm is safe
             raise
         except Exception as e:
+            if getattr(self.arm, "torque", True) is False:  # the real arm was stopped (Ctrl+C): a driver stop, not perception
+                raise
             raise PipelineFailure(f"{type(e).__name__}: {e}") from e
         self.at_home = False  # the scan and touches left the arm over the device
         self.stale = False

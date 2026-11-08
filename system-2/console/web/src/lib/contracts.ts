@@ -122,7 +122,7 @@ export interface CadSource {
 }
 
 export interface CadEdit {
-  op: "variable" | "update_feature" | "add_feature" | "delete_feature";
+  op: "variable" | "update_feature" | "add_feature" | "delete_feature" | "write_part" | "reset_part";
   target: string;
   summary: string;
 }

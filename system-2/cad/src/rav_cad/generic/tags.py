@@ -38,7 +38,7 @@ import pathlib
 import re
 from dataclasses import dataclass, field
 
-SKILLS = ("press", "pull", "slide", "turn")
+SKILLS = ("press", "pull", "slide", "turn", "place")
 _SUFFIX = re.compile(r"\s*<\d+>$")
 
 
@@ -62,21 +62,27 @@ def _unit(v: tuple[float, float, float], what: str) -> tuple[float, float, float
 
 @dataclass(frozen=True)
 class Motion:
-    type: str                                   # "slide" or "revolve"
-    axis: tuple[float, float, float]            # unit; slide direction when operated, or the hinge axis
+    type: str                                   # "slide", "revolve" or "place"
+    axis: tuple[float, float, float]            # unit; slide or place direction, or the hinge axis
     travel: float = 0.0                         # mm, for slide
     point: tuple[float, float, float] | None = None   # a point on the hinge axis, for revolve
     degrees: float = 0.0                        # for revolve
+    seat: tuple[float, float, float] | None = None   # place: a point the part's leading end must reach
 
     @classmethod
     def parse(cls, d: dict, where: str) -> Motion:
         kind = d.get("type")
+        axis = lambda: _unit(_vec(d.get("axis"), f"{where}.axis"), f"{where}.axis")  # noqa: E731
         if kind == "slide":
-            return cls("slide", _unit(_vec(d.get("axis"), f"{where}.axis"), f"{where}.axis"), travel=float(d.get("travel", 0)))
+            return cls("slide", axis(), travel=float(d.get("travel", 0)))
         if kind == "revolve":
-            return cls("revolve", _unit(_vec(d.get("axis"), f"{where}.axis"), f"{where}.axis"),
-                       point=_vec(d.get("point"), f"{where}.point"), degrees=float(d.get("degrees", 0)))
-        raise ValueError(f"{where}.type must be slide or revolve, got {kind!r}")
+            return cls("revolve", axis(), point=_vec(d.get("point"), f"{where}.point"), degrees=float(d.get("degrees", 0)))
+        if kind == "place":
+            # e.g. a tube lowered into its well: axis [0, 0, -1], seat = a point at the height its tip must reach
+            if d.get("seat") is None:
+                raise ValueError(f"{where}.seat is needed for place: a point the part's leading end must reach")
+            return cls("place", axis(), seat=_vec(d["seat"], f"{where}.seat"))
+        raise ValueError(f"{where}.type must be slide, revolve or place, got {kind!r}")
 
 
 @dataclass(frozen=True)
@@ -91,6 +97,9 @@ class Control:
     approach: tuple[float, float, float] | None = None   # direction the fingertip travels to reach the contact
     pull: tuple[float, float, float] | None = None       # pull only: the direction the fingertip pulls to open it
     fit: tuple[str, str] | None = None
+    probe_d: float | None = None               # the tool that touches this control, if not the fingertip (a hook jaw)
+    actuates: tuple[str, ...] = ()             # what the control drives (its switch, the pot): its motion may touch these
+    slide_in: bool = False                     # pull: start at `contact`, slide along `approach` until touching, then pull
 
 
 @dataclass(frozen=True)
@@ -102,6 +111,16 @@ class Tags:
     min_clearance: float = 0.3
     min_wall: float = 1.2
     source: dict = field(default_factory=dict)  # document ids and anything else the backend keeps here
+    ignore_suffixes: tuple[str, ...] = ()       # e.g. ("_revA", "_revB"): revision tags in part names
+
+    def normalize(self, parts: dict) -> dict:
+        """Part names as the tag file uses them: 'bezel_stop_revA' -> 'bezel_stop' when '_revA' is ignored."""
+        def base(name: str) -> str:
+            for s in self.ignore_suffixes:
+                if name.endswith(s):
+                    return name[: -len(s)]
+            return name
+        return {base(n): s for n, s in parts.items()}
 
     @classmethod
     def from_dict(cls, d: dict) -> Tags:
@@ -124,15 +143,18 @@ class Tags:
             unit = lambda key: _unit(_vec(c[key], f"{where}.{key}"), f"{where}.{key}") if c.get(key) is not None else None  # noqa: E731
             controls[cid] = Control(
                 id=cid, skill=skill, parts=parts,
-                reprintable=tuple(clean_name(p) for p in c.get("reprintable") or parts),
+                # an explicit empty list means nothing of this control may change (a bought switch)
+                reprintable=tuple(clean_name(p) for p in (c["reprintable"] if "reprintable" in c else parts)),
                 moving=moving, motion=Motion.parse(c["motion"], f"{where}.motion") if c.get("motion") else None,
                 contact=_vec(c["contact"], f"{where}.contact") if c.get("contact") is not None else None,
-                approach=unit("approach"), pull=unit("pull"), fit=fit)
+                approach=unit("approach"), pull=unit("pull"), fit=fit,
+                probe_d=float(c["probe_d"]) if c.get("probe_d") is not None else None,
+                actuates=tuple(clean_name(p) for p in c.get("actuates") or []), slide_in=bool(c.get("slide_in")))
         printer = d.get("printer") or {}
         return cls(controls=controls, fixed=tuple(clean_name(p) for p in d.get("fixed") or []),
                    bed=_vec(printer.get("bed", (220, 220, 250)), "printer.bed"), fingertip_d=float(d.get("fingertip_d", 12.0)),
                    min_clearance=float(d.get("min_clearance", 0.3)), min_wall=float(d.get("min_wall", 1.2)),
-                   source=dict(d.get("source") or {}))
+                   source=dict(d.get("source") or {}), ignore_suffixes=tuple(d.get("ignore_suffixes") or ()))
 
     @classmethod
     def load(cls, path: str | pathlib.Path) -> Tags:
@@ -150,5 +172,5 @@ class Tags:
         """Part names the tag file uses that the CAD doesn't have. Empty means the file matches the model."""
         used = set(self.fixed)
         for c in self.controls.values():
-            used |= set(c.parts) | set(c.reprintable) | set(c.moving) | set(c.fit or ())
+            used |= set(c.parts) | set(c.reprintable) | set(c.moving) | set(c.fit or ()) | set(c.actuates)
         return sorted(used - names)
