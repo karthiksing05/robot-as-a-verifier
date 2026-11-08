@@ -224,6 +224,7 @@ def main(argv=None) -> None:
     telemetry = Telemetry(args.speed, args.record_dir, args.run_id)
     make = make_robot(args)
     real = make() if args.robot == "real" else None  # the backend make_robot built, torque still off
+    telemetry.real = real is not None
     engine = RoutineEngine(lambda: telemetry.instrument(make()), robot_name=args.robot)
     telemetry.status_fn = engine.status
     try:

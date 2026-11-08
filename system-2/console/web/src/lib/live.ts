@@ -16,6 +16,7 @@ export interface Telemetry {
   stage: string;
   status: string;
   rate: number;
+  real?: boolean;  // the real arm: no speeds to offer
   feeds: string[];
   force: [number, number][];
   paused: boolean;

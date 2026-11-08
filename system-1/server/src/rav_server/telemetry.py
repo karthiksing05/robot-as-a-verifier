@@ -237,6 +237,7 @@ class Telemetry:
         self.frames: dict[str, tuple[int, bytes]] = {}
         self.watching: dict[str, int] = {}  # viewers per stream: "poses", "telemetry" and each camera
         self.speed = float(speed)
+        self.real = False  # the real arm runs in real time: the Console offers no speeds
         self.meta = {"run_id": self.run_id, "product": "", "stages": list(RGB_STAGES), "route": ""}
         self.stage, self.substage, self.step = "", None, None
         self.status, self.sim_t, self.lcd, self.probe_n = "", 0.0, [], 0.0
@@ -507,7 +508,7 @@ class Telemetry:
             for i in range(0, len(new), stride):  # the peak of each slice, so a short spike isn't lost
                 part = new[i:i + stride]
                 force.append([round(part[-1][0], 3), round(max(f for _, f in part), 3)])
-        body = {"wall": round(time.monotonic(), 2), "sim_t": round(self.sim_t, 2), "stage": self.stage, "status": self.status, "rate": self.speed,
+        body = {"wall": round(time.monotonic(), 2), "sim_t": round(self.sim_t, 2), "stage": self.stage, "status": self.status, "rate": self.speed, "real": self.real,
                 "feeds": self.feeds, "force": force, "paused": self._paused(), "step": self.step, "substage": self.substage,
                 "lcd": self.lcd, "probe_n": round(self.probe_n, 2)}
         line = json.dumps(body, separators=(",", ":"))

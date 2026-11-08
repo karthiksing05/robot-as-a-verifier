@@ -42,7 +42,7 @@ export function AgentRun({ state, send, bar, sim = true, over = false }: { state
         <h1 className="title">{run.product}</h1>
         <span className="mono muted">{[state.meta?.model, run.id].filter(Boolean).join(" / ")}</span>
         <span className="spacer" />
-        {telemetry && !finished && state.tel && <div className="seg" role="group" aria-label="Sim speed">{SPEEDS.map(([rate, word]) => <button key={rate} type="button" aria-pressed={state.tel!.rate === rate} onClick={() => void liveCommand("/speed", { rate }, telemetry)}>{word}</button>)}</div>}
+        {telemetry && !finished && state.tel && !state.tel.real && <div className="seg" role="group" aria-label="Sim speed">{SPEEDS.map(([rate, word]) => <button key={rate} type="button" aria-pressed={state.tel!.rate === rate} onClick={() => void liveCommand("/speed", { rate }, telemetry)}>{word}</button>)}</div>}
         {finished && send && <a className="btn ghost" href={`#/run/${run.id}`}>Open this run</a>}
       </div>
       {bar}
