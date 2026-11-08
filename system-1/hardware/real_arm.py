@@ -106,7 +106,7 @@ class RealArm(rig.ArmBase):
         self.controls, self.seen_collisions, self.force_log, self.status = {}, set(), [], "idle"
         self.sensing = "tactile" if pad else "current"
         self.axial_sensor = pad is not None
-        self.noise_n = 0.75  # arm_check --noise at rest, tared: 0.08-0.63 N worst over 5 s at three poses (sim: 2.5)
+        self.noise_n = rig.SENSED_NOISE_N  # arm_check --noise: 0.6 N worst at rest, but up to 3.5 N moving at 20 mm/s
         self.noise_axial = pad.noise_n if pad else self.noise_n
         self.raw, self.qs, self.zero = [], [], np.zeros(len(ARM_JOINTS))
         self.W, self.axis_est, self.est_vec = np.zeros((len(ARM_JOINTS), 3)), np.zeros(3), np.zeros(3)
