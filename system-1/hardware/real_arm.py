@@ -96,7 +96,7 @@ class RealArm(rig.ArmBase):
     workspace = np.array([[0.05, 0.42], [-0.25, 0.25], [0.005, 0.35]])
     # camera to panel: the jaw tip sits ~11 cm in front of the camera. At 17 cm (after a survey 15 mm off drove the jaw into
     # the buttons at 14) presses needed 2-3 searches and the dial's rim went unseen; surveys are now checked (hw_rig)
-    standoff = 0.155  # 14 cm ran the jaw into the POWER lever twice in a row; 15.5 keeps the tip 38 mm off on every move
+    standoff = 0.16  # 14 and 15.5 cm brought the jaw to the POWER lever; 16 keeps the tip 43 mm off on every move
     # The force estimate drifts 2.5-10 N along the fingertip in free air on any downward move (tools/creep_log.py, Nov 7),
     # so guarded moves take contact as a stall instead, as tools/press_check.py does, at a speed that tracks smoothly
     # (at 2 mm/s the tip stick-slips)
@@ -113,7 +113,7 @@ class RealArm(rig.ArmBase):
     # six evenly 25 mm apart across the row: the camera swings toward the base and moves ~19 mm a step, so this puts two
     # cameras where POWER (at the panel's end) is clear of the gripper in both photos; one camera left its lever unmeasured
     view_looks = [(0.0, d) for d in (-0.0625, -0.0375, -0.0125, 0.0125, 0.0375, 0.0625)]
-    tip_clear = 0.03  # the jaw tip may come this close to the panel in a scan view: over the ~21 mm POWER lever
+    tip_clear = 0.035  # the jaw tip may come this close to the panel in a scan view: over the ~21 mm POWER lever
     # wrist_roll at home, so views and presses start from it: -90 deg puts the camera on top of the gripper, centred,
     # instead of 7 cm to its side (same views in reach); the gripper then sits along the bottom of the picture
     home_roll = np.radians(-90)  # camera on top; +90 (under) pointed the survey away from the panel
