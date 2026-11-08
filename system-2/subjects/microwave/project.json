@@ -3,10 +3,26 @@
   "name": "MW-1 mock microwave",
   "summary": "A mock countertop microwave: five push buttons (TIME, POWER, STOP, +30s, START), a 16x2 LCD with a coloured backlight, a buzzer, and a side-hinged door with a D-handle and a latch read by a door sensor.",
   "kind": "sim",
-  "sim": { "path": "appliances/microwave/device.yaml", "rev": "A", "revs": ["A", "B"] },
+  "sim": {
+    "path": "appliances/microwave/device.yaml",
+    "rev": "A",
+    "revs": [
+      "A",
+      "B"
+    ]
+  },
   "manual": "appliances/microwave/manual.md",
-  "products": ["MW-1 mock microwave (sim)"],
-  "rules": ["Usable with no thumbs"],
+  "real": {
+    "runs": [
+      "real-mw"
+    ]
+  },
+  "products": [
+    "MW-1 mock microwave (sim)"
+  ],
+  "rules": [
+    "Usable with no thumbs"
+  ],
   "split": "dev",
   "created": "2026-11-07"
 }
