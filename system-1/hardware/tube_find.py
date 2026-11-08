@@ -72,7 +72,7 @@ def locate(frames, colour):
     why. Every pair of blobs from photos taken at different poses proposes a point between Z_RANGE; the one that the
     most photos agree with (a blob's ray within INLIER of it) wins, refined on those. The rack's orange tape and STOP's
     cap are real objects too, so one-at-a-time pruning kept them: a vote doesn't, as the collar is in more photos."""
-    seen = [(i, [ray(f, uv) for _, uv in blobs(f, colour)]) for i, f in enumerate(frames)]
+    seen = [(i, [(*ray(f, uv), a) for a, uv in blobs(f, colour)]) for i, f in enumerate(frames)]
     seen = [(i, rs) for i, rs in seen if rs]
     if len(seen) < 2:
         return None, None, f"{colour} collar in {len(seen)} of {len(frames)} photos: it needs two"
@@ -84,16 +84,17 @@ def locate(frames, colour):
                 continue
             for r1 in ra:
                 for r2 in rb:
-                    x, _ = nearest([r1, r2])
+                    x, _ = nearest([r1[:2], r2[:2]])
                     if not Z_RANGE[0] < x[2] < Z_RANGE[1] or (x - r1[0]) @ r1[1] < 0 or (x - r2[0]) @ r2[1] < 0:
                         continue
                     inl = [min(rs, key=lambda r: off(r, x)) for _, rs in seen]
                     inl = [r for r in inl if off(r, x) < INLIER]
-                    if best is None or len(inl) > len(best):
+                    # by blob area, not count: the tape's folded edge (a sliver) out-voted the collar 6 to 5 (Nov 8)
+                    if best is None or sum(r[2] for r in inl) > sum(r[2] for r in best):
                         best = inl
     if best is None or len(best) < 3:
         return None, None, f"no point {Z_RANGE[0] * 1000:.0f}-{Z_RANGE[1] * 1000:.0f} mm up that 3 photos' {colour} blobs agree on"
-    x, spread = nearest(best)
+    x, spread = nearest([r[:2] for r in best])
     if spread > MAX_SPREAD:
         return None, None, f"the {colour} collar's rays spread {spread * 1000:.0f} mm over {len(best)} photos"
     return x, spread, ""
