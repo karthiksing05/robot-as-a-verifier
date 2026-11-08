@@ -68,7 +68,7 @@ Timings assume a natural read; the cut follows the recording.
 
 ## 6. Why it matters, and the close · 2:00–2:46
 
-> Why does this matter? Software already has verification, from AI-written proofs to flight code. Hardware has nothing like it. In James Dyson's words, "I made 5,127 prototypes of my vacuum before I got it right. There were 5,126 failures." Biosafety labs and spacecraft tell the same story: in hardware, failures surface late.
+> Why does this matter? Software already has verification, from AI-written proofs to flight code. Hardware has nothing like it. In James Dyson's words, "I made 5,127 prototypes of my vacuum before I got it right. There were 5,126 failures." Important fields like biosafety and space development tell the same story: in hardware, failures surface late.
 >
 > Today, RAAV runs on twelve appliance designs in simulation and a real centrifuge, with its planner in the cloud. Any lab with a low-cost arm could do the same.
 >

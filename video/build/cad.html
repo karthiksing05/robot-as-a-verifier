@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Hinge revisions</title>
+<style>html, body { margin: 0; background: #111417; overflow: hidden; } #stage { width: 1920px; height: 1080px; }</style>
+<script type="importmap">{ "imports": { "three": "/system-2/console/web/node_modules/three/build/three.module.js", "three/addons/": "/system-2/console/web/node_modules/three/examples/jsm/" } }</script>
+</head>
+<body>
+<div id="stage"></div>
+<script type="module">
+// The MW-1 door hinge, Rev A (Onshape original: 0.025 mm clearances, fuses when printed) beside Rev B (0.25 mm, 0.4 mm
+// knuckle gaps, one-headed pin). Rev A's door leaf strains and stays put; Rev B's swings open to 145°. Frame-stepped.
+import * as THREE from "three";
+import { STLLoader } from "three/addons/loaders/STLLoader.js";
+const W = 1920, H = 1080;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setPixelRatio(1); renderer.setClearColor(0x111417);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.getElementById("stage").appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(28, W / H, 1, 2000);
+scene.add(new THREE.HemisphereLight(0xdfe8f2, 0x1a1d20, 1.4));
+const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(120, 160, 200); scene.add(key);
+const rim = new THREE.DirectionalLight(0x8fb3d9, 1.2); rim.position.set(-160, 60, -120); scene.add(rim);
+const AXIS = new THREE.Vector3(66.9, -119.9, 110.0); // the pin's axis, vertical in the device frame
+const loader = new STLLoader();
+const load = (url) => new Promise((ok, no) => loader.load(url, ok, undefined, no));
+const base = "/appliances/microwave/build/";
+const mat = (c, e = 0x000000) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, metalness: 0.05, emissive: e });
+const rigs = {};
+async function rig(rev, x) {
+  const root = new THREE.Group(); root.rotation.x = -Math.PI / 2; root.position.x = x; scene.add(root); // device z up → three y up
+  const hold = new THREE.Group(); hold.position.copy(AXIS).multiplyScalar(-1); root.add(hold);
+  const wall = new THREE.Mesh(await load(`${base}meshes_rev${rev}/hinge1_wall_leaf_rev${rev}.stl`), mat(0x9aa3ab));
+  const pin = new THREE.Mesh(await load(`${base}meshes_rev${rev}/hinge1_pin_rev${rev}.stl`), mat(0xeebc24));
+  hold.add(wall, pin);
+  const pivot = new THREE.Group(); pivot.position.copy(AXIS); hold.add(pivot);
+  const doorMat = mat(0xe9e4d8);
+  const door = new THREE.Mesh(await load(`${base}meshes_rev${rev}/hinge1_door_leaf_rev${rev}.stl`), doorMat);
+  door.position.copy(AXIS).multiplyScalar(-1); pivot.add(door);
+  rigs[rev] = { root, pivot, doorMat, pinMat: pin.material };
+}
+const eio = (x) => { x = Math.min(1, Math.max(0, x)); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const ramp = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
+window.DUR = 7.6;
+window.seek = (t) => {
+  // Rev B swings open, then eases back to rest open; Rev A strains a few degrees and shudders back
+  const open = 145 * eio(ramp(t, 3.4, 5.2)) - 35 * eio(ramp(t, 6.4, 7.4));
+  rigs.B.pivot.rotation.z = -open * Math.PI / 180;
+  const strain = ramp(t, 0.9, 1.5) * (1 - ramp(t, 3.2, 3.8));
+  rigs.A.pivot.rotation.z = -(3.5 * strain + Math.sin(t * 46) * 0.8 * strain) * Math.PI / 180;
+  rigs.A.doorMat.emissive.setRGB(0.55 * strain * (0.6 + 0.4 * Math.sin(t * 9)), 0.06 * strain, 0.04 * strain);
+  rigs.B.doorMat.emissive.setRGB(0.02 * ramp(t, 3.4, 3.9), 0.22 * ramp(t, 3.4, 3.9) * (1 - ramp(t, 5.4, 6.4)), 0.08 * ramp(t, 3.4, 3.9) * (1 - ramp(t, 5.4, 6.4)));
+  // a slow, steady orbit
+  const az = (18 + 16 * (t / window.DUR)) * Math.PI / 180, el = 20 * Math.PI / 180, r = 140;
+  cam.position.set(Math.sin(az) * Math.cos(el) * r, Math.sin(el) * r + 6, Math.cos(az) * Math.cos(el) * r);
+  cam.lookAt(4, 0, 0);
+  renderer.render(scene, cam);
+};
+window.ready = (async () => { await rig("A", -30); await rig("B", 30); window.seek(0); return true; })();
+</script>
+</body>
+</html>

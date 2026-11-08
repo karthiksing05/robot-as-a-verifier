@@ -1,0 +1,173 @@
+{
+ "speed": 1.0,
+ "run_id": null,
+ "revision": "B",
+ "effector": "stock",
+ "fps": 30,
+ "resolution": "1920x1080",
+ "frames": 4387,
+ "duration_s": 146.233,
+ "steps": {
+  "s1": [
+   1.0,
+   16.9
+  ],
+  "s2": [
+   17.5,
+   39.38
+  ],
+  "s3": [
+   39.98,
+   52.86
+  ],
+  "s4": [
+   53.46,
+   75.76
+  ],
+  "s5": [
+   76.36,
+   89.2
+  ],
+  "s6": [
+   89.8,
+   118.56
+  ],
+  "s7": [
+   119.16,
+   131.76
+  ],
+  "s8": [
+   132.36,
+   144.1
+  ]
+ },
+ "stills_clip_t": {
+  "s1": 8.95,
+  "s2": 28.44,
+  "s3": 46.42,
+  "s4": 64.61,
+  "s5": 82.78,
+  "s6": 104.18,
+  "s7": 125.46,
+  "s8": 138.23
+ },
+ "results": {
+  "s1": {
+   "label": "tube_pick",
+   "sim_skill": "pick tube_1",
+   "verdict": "OBSERVED",
+   "reason": "holding tube_1, tool 70 deg below level: the jaws stopped at 0.5 deg, squeezing at 1.50 N.m, 75 mm up",
+   "state": "dark",
+   "lcd": "",
+   "ring": "off",
+   "changed": [],
+   "what_happened": "Physical success: tube_1 lifted from the rack, held 75 mm up (verdict OBSERVED: pick changes no reading)."
+  },
+  "s2": {
+   "label": "tube_place (well A)",
+   "sim_skill": "place tube_1",
+   "verdict": "FAIL",
+   "reason": "tube_1 into well_1, and no reading changed: let go 31.6 mm above where it seats and let it fall",
+   "state": "dark",
+   "lcd": "",
+   "ring": "off",
+   "changed": [],
+   "what_happened": "Physical success: released 31.6 mm above the seat and it fell into well A. Verdict FAIL only because POWER is still off, so no reading can change; tube_raw_1 reads 1 once the lid closes / power comes on."
+  },
+  "s3": {
+   "label": "lid_close",
+   "sim_skill": "hook_pull handle_1",
+   "verdict": "PASS",
+   "reason": "handle_1 swung to 0 deg: tube_raw_1 0 -> 1",
+   "state": "dark",
+   "lcd": "",
+   "ring": "off",
+   "changed": [
+    "tube_raw_1"
+   ],
+   "what_happened": "Lid pulled over its top edge and down to 0 deg (lid shut); tube_raw_1 0->1."
+  },
+  "s4": {
+   "label": "flip POWER up",
+   "sim_skill": "flip toggle_1",
+   "verdict": "PASS",
+   "reason": "toggle_1 switches lid (0 -> 1); also changed: power, tube",
+   "state": "ready",
+   "lcd": "1000rpm  0:30",
+   "ring": "white",
+   "changed": [
+    "lid",
+    "power",
+    "tube"
+   ],
+   "what_happened": "POWER on: ready, white ring, LCD '1000rpm  0:30'. Skill attributes the change to 'lid' because powering up reveals lid/tube readings at the same time."
+  },
+  "s5": {
+   "label": "press TIME+",
+   "sim_skill": "press button_3",
+   "verdict": "PASS",
+   "reason": "button_3 drives btn_time (0 -> 1 -> 0); also changed: time",
+   "state": "ready",
+   "lcd": "1000rpm  0:40",
+   "ring": "white",
+   "changed": [
+    "btn_time",
+    "time"
+   ],
+   "what_happened": "TIME+ press: time 30->40 s, LCD '1000rpm  0:40'."
+  },
+  "s6": {
+   "label": "turn SPEED -60",
+   "sim_skill": "turn dial_1",
+   "verdict": "PASS",
+   "reason": "turning dial_1 -60 deg raises speed (1000 -> 1100 -> 1200 -> 1300 -> 1400 -> 1500 -> 1600 -> 1700 -> 1800 -> 1900)",
+   "state": "ready",
+   "lcd": "1900rpm  0:40",
+   "ring": "white",
+   "changed": [
+    "speed"
+   ],
+   "what_happened": "SPEED dial -60 deg: 1000 -> 1900 rpm (verify.yaml's workflow expects 2000-2400 for the same turn; here it landed at 1900)."
+  },
+  "s7": {
+   "label": "press START",
+   "sim_skill": "press button_1",
+   "verdict": "PASS",
+   "reason": "button_1 drives btn_start (0 -> 1 -> 0); also changed: run",
+   "state": "running",
+   "lcd": "1900rpm  0:38",
+   "ring": "blue",
+   "changed": [
+    "btn_start",
+    "run"
+   ],
+   "what_happened": "START: running, blue ring, countdown started (LCD '1900rpm  0:38')."
+  },
+  "s8": {
+   "label": "press STOP",
+   "sim_skill": "press button_2",
+   "verdict": "PASS",
+   "reason": "button_2 drives btn_stop (0 -> 1 -> 0); also changed: run",
+   "state": "ready",
+   "lcd": "1900rpm  0:40",
+   "ring": "white",
+   "changed": [
+    "btn_stop",
+    "run"
+   ],
+   "what_happened": "STOP: run stopped, back to ready, white ring, LCD '1900rpm  0:40'."
+  }
+ },
+ "camera": {
+  "lookat_m": [
+   0.25,
+   0.04,
+   -0.03
+  ],
+  "distance_m": 0.74,
+  "azimuth_deg": 32.0,
+  "elevation_deg": -54.0,
+  "note": "MuJoCo free camera in the arm frame: behind and to the right of the arm (-x,-y), looking down at ~54 deg over the arm at the centrifuge and rack"
+ },
+ "notes": "No harness run: driven directly through System 1's own sim skills via sim/tools/verify.py's Bench (the same runner as appliances/centrifuge/verify.yaml's workflow), Rev B, stock gripper, sensing current, no camera perception (sim truth part poses). run_id is null: no rav run folder exists; events.jsonl next to this file has step_started/step_finished in clip seconds (== sim seconds since t0). Before clip t=0 the rack cover and lid were set open to 105 deg as a fixture (as verify.yaml does); clip 0-1.0 s is the arm at home, no survey/scan. 0.6 s hold between steps, 1.5 s tail after s8. Real-arm skill names map to sim skills: tube_pick->pick tube_1, tube_place->place tube_1 into well_1 drop_mm 30, lid_close->hook_pull handle_1 angle 0, POWER->flip toggle_1 (no toward param in sim; it starts off so the flip turns it on), TIME+->press button_3, SPEED->turn dial_1 -60, START->press button_1, STOP->press button_2. Sim tubes have no coloured collars: tube_1 (rack position 2 from the verify workflow) stands in for the real red-collar tube. Rendered with MuJoCo's offscreen renderer (system-1/sim/viz.py), not the Console's Sim3D replay, so the look differs from clean_3d.mp4. Deterministic: two identical runs gave identical results and frame counts. Stills are the frame at each step's midpoint."
+}

@@ -5,7 +5,7 @@ import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 const [, , mode, ...rest] = process.argv;
-const URL = "http://127.0.0.1:8898/video/build/comp.html";
+const URL = "http://127.0.0.1:8898/video/build/" + (process.env.PAGE ?? "comp.html");
 const b = await chromium.launch({ channel: "chrome", headless: true, args: ["--force-device-scale-factor=1"] });
 const p = await b.newPage({ viewport: { width: 1920, height: 1080 } });
 p.on("pageerror", (e) => console.error("pageerror", e.message));
