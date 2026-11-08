@@ -1,0 +1,217 @@
+# Written by make_tags.py from the Rev A model and brief.md only. See its docstring.
+source:
+  document: https://cad.onshape.com/documents/f335bb6e102733c5e25581ae/w/5dab1273c066933478475a67
+  assembly: 5bab0e7f50c9ff71e448f5f0
+  part_studio: 6675bf254e69f8145767c98f
+  tested_version: aafdeeee04919de1f4768e2e
+ignore_suffixes:
+- _revA
+- _revB
+printer:
+  bed:
+  - 220
+  - 220
+  - 250
+fingertip_d: 12.0
+min_clearance: 0.3
+min_wall: 1.2
+fixed:
+- base_plate
+- side_panel_L
+- side_panel_R
+- control_face
+- front_panel
+- top_panel
+- rotor_plate
+- gusset_L
+- gusset_R
+- pico_frame
+- lid
+- rack_base
+- rack_middle
+- rack_top
+- rack_end_L
+- rack_end_R
+- rack_back_strip
+- rack_cover
+controls:
+  power:
+    skill: slide
+    parts:
+    - ref_toggle
+    reprintable: []
+    contact:
+    - 53.634
+    - -45.0
+    - 87.775
+    approach:
+    - -0.707
+    - -0.0
+    - -0.707
+  start:
+    skill: press
+    parts:
+    - bezel_start
+    - cap_start
+    moving:
+    - cap_start
+    motion:
+      type: slide
+      axis:
+      - -0.707
+      - -0.0
+      - -0.707
+      travel: 0.25
+    contact:
+    - 45.683
+    - -22.86
+    - 79.683
+    approach:
+    - -0.707
+    - -0.0
+    - -0.707
+    fit:
+    - cap_start
+    - bezel_start
+    actuates:
+    - ref_switch_start
+  stop:
+    skill: press
+    parts:
+    - bezel_stop
+    - cap_stop
+    moving:
+    - cap_stop
+    motion:
+      type: slide
+      axis:
+      - -0.707
+      - -0.0
+      - -0.707
+      travel: 0.25
+    contact:
+    - 45.683
+    - 0.0
+    - 79.683
+    approach:
+    - -0.707
+    - -0.0
+    - -0.707
+    fit:
+    - cap_stop
+    - bezel_stop
+    actuates:
+    - ref_switch_stop
+  time:
+    skill: press
+    parts:
+    - bezel_time
+    - cap_time
+    moving:
+    - cap_time
+    motion:
+      type: slide
+      axis:
+      - -0.707
+      - -0.0
+      - -0.707
+      travel: 0.25
+    contact:
+    - 45.683
+    - 22.86
+    - 79.683
+    approach:
+    - -0.707
+    - -0.0
+    - -0.707
+    fit:
+    - cap_time
+    - bezel_time
+    actuates:
+    - ref_switch_time
+  dial:
+    skill: turn
+    parts:
+    - dial_knob
+    moving:
+    - dial_knob
+    motion:
+      type: revolve
+      point:
+      - 50.64
+      - 44.052
+      - 83.596
+      axis:
+      - 0.707
+      - 0.0
+      - 0.707
+      degrees: 270
+    contact:
+    - 54.337
+    - 44.052
+    - 87.293
+    approach:
+    - -0.707
+    - -0.0
+    - -0.707
+    actuates:
+    - ref_pot
+  lid:
+    skill: pull
+    parts:
+    - lid
+    - lid_handle
+    - lid_hinge_leaf
+    - lid_sensor_tab
+    reprintable:
+    - lid_handle
+    - lid_hinge_leaf
+    - lid_sensor_tab
+    moving:
+    - lid
+    - lid_handle
+    - lid_hinge_leaf
+    - lid_sensor_tab
+    motion:
+      type: revolve
+      point:
+      - -56.5
+      - 0.0
+      - 102.0
+      axis:
+      - 0
+      - -1
+      - 0
+      degrees: 105
+    slide_in: true
+    contact:
+    - 60.0
+    - 0.0
+    - 104.0
+    approach:
+    - -1
+    - 0
+    - 0
+    pull:
+    - 0
+    - 0
+    - 1
+  well_A:
+    skill: place
+    parts:
+    - well_insert_A
+    - tube_1
+    reprintable:
+    - well_insert_A
+    moving:
+    - tube_1
+    motion:
+      type: place
+      axis:
+      - 0
+      - 0
+      - -1
+      seat:
+      - -21.0
+      - -13.0
+      - 16.298

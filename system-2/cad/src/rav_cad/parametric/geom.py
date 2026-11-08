@@ -43,8 +43,14 @@ def overlap_volume(a: cq.Shape, b: cq.Shape) -> float:
 
 
 def signature(s: cq.Shape) -> tuple:
-    """Cheap geometric fingerprint, used to tell which parts a patch actually changed."""
-    bb = s.BoundingBox()
+    """Cheap geometric fingerprint, used to tell which parts a patch actually changed. The box comes from the exact
+    geometry, never a mesh: tessellating a shape (render, STL export) stores a mesh on it, which would shift CadQuery's
+    default box and make an untouched part look changed."""
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+    box = Bnd_Box()
+    BRepBndLib.AddOptimal_s(s.wrapped, box, False, False)
+    bb = cq.BoundBox(box)
     c = s.Center()                                         # catches a pocket that moved but kept its size
     return tuple(round(x, 4) for x in (s.Volume(), s.Area(), bb.xlen, bb.ylen, bb.zlen, c.x, c.y, c.z))
 

@@ -214,7 +214,7 @@ def test_fix_loop_with_the_model_analyst_and_the_params_file(tmp_path):
     log = read_events(tmp_path / "t-revA" / "events.jsonl")
     turns = [e.payload for e in log if e.type == "model_turn"]
     assert len(turns) == 2 and {t["stage"] for t in turns} == {"ANALYZE"} and [t["step"] for t in turns] == ["s2", "s4"]
-    assert (tmp_path / "t-revA" / "model" / "turn-1.json").exists()
+    assert list((tmp_path / "t-revA" / "model").glob("*turn-1.json"))
 
 
 # --- the CLI analyst, scripted ---------------------------------------------------------------------------------------

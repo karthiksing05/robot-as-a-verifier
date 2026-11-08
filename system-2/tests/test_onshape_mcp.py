@@ -22,7 +22,7 @@ def tag_file(tmp_path_factory):
 @pytest.fixture
 def tools(tag_file, tmp_path):
     fake = FakeOnshape()
-    backend = OnshapeBackend(tag_file, client=fake, out_dir=tmp_path / "out")
+    backend = OnshapeBackend(tag_file, client=fake, out_dir=tmp_path / "out", cache_dir=tmp_path / "cache")
     ws = backend.open_branch("fix door")
     session = CadSession(backend, ws, tmp_path / "analyst", target="door", verify_with=["s4"])
     server = build_server(session)
@@ -127,3 +127,36 @@ def test_added_and_deleted_features_are_recorded(tools):
     assert added["status"] == "OK"
     call("delete_feature", feature_id=added["feature"])
     assert [e.op for e in session.edits] == ["add_feature", "delete_feature"]
+
+
+def test_a_session_spends_few_onshape_calls(tag_file, tmp_path):
+    """Onshape rate-limits the feature-tree endpoint tightly and caps a free account at 2,500 calls a year, so a
+    session reads the tree once, re-reads it only after its own edits, and checks versions with the cheap call."""
+    import collections
+
+    class Counting(FakeOnshape):
+        def __init__(self):
+            super().__init__()
+            self.count = collections.Counter()
+
+        def __getattribute__(self, name):
+            attr = object.__getattribute__(self, name)
+            if callable(attr) and not name.startswith("_") and name not in ("edit", "count"):
+                object.__getattribute__(self, "count")[name] += 1
+            return attr
+
+    fake = Counting()
+    backend = OnshapeBackend(tag_file, client=fake, out_dir=tmp_path / "out", cache_dir=tmp_path / "cache")
+    ws = backend.open_branch("fix door")
+    s = CadSession(backend, ws, tmp_path / "analyst", target="door")
+    s.list_controls()
+    s.get_features("handle")
+    s.get_features()
+    s.get_feature("FdoorHandle")
+    s.update_feature("FdoorHandle", {"style": "bar"})
+    s.get_features()
+    assert s.check()["ok"]
+    s.submit_fix(root_cause="x", confidence=0.5, hypotheses=[], evidence=[], predicted="x")
+    assert fake.count["get_features"] == 2            # once before the edit, once after it
+    assert fake.count["current_microversion"] == 3    # around the check's export, and at submit
+    assert fake.count["export_step"] == 2             # the branch, and the tested version once (then cached)
