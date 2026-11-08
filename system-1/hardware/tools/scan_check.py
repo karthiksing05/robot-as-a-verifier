@@ -51,24 +51,24 @@ class Live(threading.Thread):
 
 
 def results_image(scene):
-    """The scan's straight-on view of the panel (its orthophoto) with every candidate's outline, red for the parts it
-    kept (named) and grey for the ones it rejected."""
-    if scene.heightmap is None or scene.plane is None:
+    """The scan's most straight-on close-up (one real photo: a blend of several doubles anything that stands proud)
+    with every candidate's outline, red for the parts it kept (named) and grey for the ones it rejected."""
+    if not scene.frames or scene.plane is None:
         return None
-    _, img, cell, (u0, v0) = scene.heightmap
-    inv = np.linalg.inv(scene.plane[0])
+    n = scene.plane[0][:3, 2]
+    f = max(scene.frames, key=lambda f: -f.T_base_cam[:3, 2] @ n)  # camera looking most squarely at the panel
+    img, inv = f.rgb.copy(), np.linalg.inv(f.T_base_cam)
 
     def px(P):
-        q = (inv @ np.c_[P, np.ones(len(P))].T)[:3].T
-        return (np.c_[(q[:, 1] - v0) / cell, (q[:, 0] - u0) / cell] * 2).astype(np.int32)
-    out = cv2.resize(img, None, fx=2, fy=2)
+        c = (inv @ np.c_[P, np.ones(len(P))].T)[:3]
+        return (f.K @ (c / c[2]))[:2].T.astype(np.int32)
     for b in scene.blobs:
         if b.get("outline") is not None and len(b["outline"]):
-            cv2.polylines(out, [px(np.asarray(b["outline"]))], True, (0, 0, 255) if b.get("part") else (170, 170, 170), 2)
+            cv2.polylines(img, [px(np.asarray(b["outline"]))], True, (0, 0, 255) if b.get("part") else (170, 170, 170), 3)
     for p in scene.parts:
-        c, r = px(p.pos[None])[0]
-        cv2.putText(out, p.id, (int(c) + 10, int(r) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-    return out
+        u, v = px(p.pos[None])[0]
+        cv2.putText(img, p.id, (int(u) + 15, int(v) - 15), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 0, 255), 3)
+    return cv2.resize(img, None, fx=0.5, fy=0.5)
 
 
 def main(argv=None, ask=input):
