@@ -18,7 +18,7 @@ s3 = T("first"); s4 = T("under"); s5 = T("why")
 S = dict(s2=T("this"), never=T("never"), s3=s3, s4=s4, s5=s5,
          wrist=T("wrist", s3), finds=T("finds", s3), touches=T("touches", s3), model=T("model", s3), then=T("then", s3),
          display=T("when", s3), lid=T("when", T("amended", s3)), there=T("there", s3), test=T("test", T("approve", s3)),
-         software=T("software", s5), hardware=T("hardware", s5), as_=T("as", T("thousands", s5)), end=T("relies", s5) + 1.4)
+         software=T("software", s5), hardware=T("hardware", s5), as_=T("as", T("prototypes", s5)), end=T("relies", s5) + 1.4)
 S["lidui"] = T("refused", S["lid"])
 t1x = lambda clean_t: clean_t * 2 - 300  # clean_3d_test_1x covers sim 300–485 s at 1x; clean_3d is sim ÷ 2
 SEG = []  # [from, to, clip, clip_start, speed, hold, zoom]
@@ -26,8 +26,9 @@ def seg(a, b, clip, c0, speed=1.0, hold=None, zoom=None): SEG.append([round(a, 3
 def warp(clip, pts):
     for (a, ca), (b, cb) in zip(pts, pts[1:]): seg(a, b, clip, ca, (cb - ca) / (b - a))
 
-# §1 the cold open: erase at 1.75×, write RAAV at 2×, then the take's own push-in at 2×
-COLD = [(0.0, 6.0, 0.0, 1.75), (6.0, 10.25, 10.5, 2.0), (10.25, 13.4, 21.0, 1.6)]
+# §1 the cold open: erase at 1.75×, write RAAV at 2×, walk off, the take's own push-in, then hold its last look at RAAV
+RAAV_AT = 25.2  # source second the handwritten-RAAV cutout (raav_hand.png) was taken from
+COLD = [(0.0, 6.0, 0.0, 1.75), (6.0, 10.25, 10.5, 2.0), (10.25, 11.6, 19.0, 1.48), (11.6, 13.9, 21.0, (RAAV_AT - 21.0) / 2.3), (13.9, 15.2, RAAV_AT, 0.0)]
 for a, b, c0, sp in COLD: seg(a, b, "intro", c0, sp)
 # Tours: scripted Console sessions (tour.mjs), each click logged. Each is time-warped so its clicks land on their cues.
 def tour(name):

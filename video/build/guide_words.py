@@ -4,8 +4,8 @@
 """
 import json, re
 s = open("../script.md").read()
-START = {"2.": 12.6, "3.": 29.0, "4.": 87.0, "5.": 132.0}
-END = {"2.": 28.4, "3.": 86.4, "4.": 131.4, "5.": 158.0}  # each section is fitted into its window
+START = {"2.": 15.4, "3.": 30.6, "4.": 87.0, "5.": 132.0}
+END = {"2.": 30.2, "3.": 86.4, "4.": 131.4, "5.": 149.0}  # each section is fitted into its window
 RATE = 2.35  # words a second, before pauses
 words = []
 for sec in re.split(r"\n## ", s):
