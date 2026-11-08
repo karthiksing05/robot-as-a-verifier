@@ -29,6 +29,7 @@ or slider knob, or None; subs: SAM's sub-part masks; flap and pad for a door)}, 
 import functools
 import math
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 
 import cv2
@@ -51,6 +52,7 @@ GRIPPER_PX = np.array([(793, 13), (798, 37), (851, 114), (903, 158), (955, 176),
 PX_WIDTH = 1920         # the frame width the pixel constants here are for; other sizes scale them
 # bundle adjustment
 PANEL_INSET = 0.008     # panel features come from the survey's panel rectangle shrunk this much (off the housing)
+THREADS = 4             # captures (SIFT) and candidates (height sweep) at once: cv2 and numpy let go of the GIL
 FK_TOL_PX = 135         # a pair whose panel matches land this far from where the believed poses put them: a wild fit
 FLAT_BUTTONS = False    # real-rig rules (hw_rig sets it): round button-sized outlines are buttons even when their height
                         # reads flat (dark glossy tops give the sweep little texture) or knob-tall, and extra views
@@ -162,7 +164,8 @@ def analyse(scene, caps, stage, more=None):
         caps = caps + extra
         poses, _, how = adjust(caps, scene.survey, held=poses)
     stage("heights")
-    cands = [sweep_part(c, caps, poses, Tg) for c in cands]
+    with ThreadPoolExecutor(THREADS) as ex:
+        cands = list(ex.map(lambda c: sweep_part(c, caps, poses, Tg), cands))
     fix, Tg = panel_fix(cands, Tg, shape)  # from here heights and the grid are on the panel the sweep sees
     cands = [measure(c, fix, poses, Tg, best) for c in cands]
     stage("classify")
@@ -239,12 +242,8 @@ def survey_wrist(arm, wrist, on_frame=None):
         views.append(dict(q=q, T=perceive._camera_pose(arm, fk, cam, q), ok=True, why=""))
     caps = scan(arm, wrist, views, on_frame)
     poses = [c.frame.T_base_cam for c in caps]
-    sift, feats = cv2.SIFT_create(4000), []
-    for c in caps:
-        mask = np.full(c.frame.rgb.shape[:2], 255, np.uint8)
-        cv2.fillPoly(mask, [_gripper(c.frame.rgb.shape[1])], 0)
-        kp, des = sift.detectAndCompute(cv2.cvtColor(c.frame.rgb, cv2.COLOR_BGR2GRAY), mask)
-        feats.append((np.float32([k.pt for k in kp]).reshape(-1, 2), des))
+    with ThreadPoolExecutor(THREADS) as ex:
+        feats = list(ex.map(lambda c: _sift(c.frame, np.full(c.frame.rgb.shape[:2], 255, np.uint8)), caps))
     tracks = _pair_tracks(feats)
     X = np.array([_triangulate(caps, poses, t) for t in tracks]).reshape(-1, 3)
     lim = SURVEY_REPROJ_PX * caps[0].frame.rgb.shape[1] / PX_WIDTH if caps else 0
@@ -322,19 +321,23 @@ def _exp(w, t):
 
 def _features(caps, survey):
     """SIFT keypoints and descriptors per capture, inside the survey's panel rectangle and off the gripper."""
-    sift = cv2.SIFT_create(4000)
     T, (u0, u1, v0, v1) = survey["panel"], survey["extent"]
     a = PANEL_INSET
     rect = T[:3, 3] + np.array([[u0 + a, v0 + a], [u1 - a, v0 + a], [u1 - a, v1 - a], [u0 + a, v1 - a]]) @ T[:3, :2].T
-    out = []
-    for c in caps:
-        f = c.frame
+
+    def panel(f):
         mask = np.zeros(f.rgb.shape[:2], np.uint8)
-        cv2.fillPoly(mask, [np.round(_project(f.K, f.T_base_cam, rect)[0]).astype(np.int32)], 255)
-        cv2.fillPoly(mask, [_gripper(f.rgb.shape[1])], 0)
-        kp, des = sift.detectAndCompute(cv2.cvtColor(f.rgb, cv2.COLOR_BGR2GRAY), mask)
-        out.append((np.float32([k.pt for k in kp]).reshape(-1, 2), des))
-    return out
+        return _sift(f, cv2.fillPoly(mask, [np.round(_project(f.K, f.T_base_cam, rect)[0]).astype(np.int32)], 255))
+    with ThreadPoolExecutor(THREADS) as ex:
+        return list(ex.map(lambda c: panel(c.frame), caps))
+
+
+def _sift(f, mask):
+    """SIFT keypoints (Nx2 pixels) and descriptors of frame f inside mask, off the gripper. A detector per call, so
+    frames can run on threads."""
+    cv2.fillPoly(mask, [_gripper(f.rgb.shape[1])], 0)
+    kp, des = cv2.SIFT_create(4000).detectAndCompute(cv2.cvtColor(f.rgb, cv2.COLOR_BGR2GRAY), mask)
+    return np.float32([k.pt for k in kp]).reshape(-1, 2), des
 
 
 def _tracks(caps, feats, survey):

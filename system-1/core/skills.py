@@ -37,7 +37,8 @@ def move_joints(arm, q_goal):
     p0, _ = arm.ik.fk(q0)
     p1, _ = arm.ik.fk(q_goal)
     # 1.6x because a cosine profile peaks at pi/2 of its mean speed
-    T = max(1.6 * np.linalg.norm(p1 - p0) / TIP_SPEED, np.max(np.abs(q_goal - q0)) / JOINT_SPEED, 0.2)
+    T = max(1.6 * np.linalg.norm(p1 - p0) / (arm.tip_speed or TIP_SPEED), np.max(np.abs(q_goal - q0)) / JOINT_SPEED,
+            0.2)
     if arm.sensing and not arm.stall_m:  # the servo estimate has no inertia: a 12 mm move in 0.2 s read as 18 N and stopped the arm
         T = max(T, SENSED_MOVE_S)
     n = max(1, int(T * CONTROL_HZ))

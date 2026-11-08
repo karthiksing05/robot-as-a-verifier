@@ -118,15 +118,16 @@ def _rotate(v, k, th):
 
 def _approach(arm, pos, axis, label, q0=None):
     """Move the tip to pos, pointing along axis, then command the pose again by however far the joint readings
-    fell short, until they are within SAG_TOL of it: gravity sags STS3215 servos about 10 mm at the tip, one
-    round leaves about 1.2 mm (friction), two about 0.25. q0 seeds the IK (default the command), and so sets the
-    wrist roll. Returns the pose and the bias, command minus reading, that holds the arm on poses near it."""
+    fell short, until they are within SAG_TOL of it, at most arm.sag_tries times: gravity sags STS3215 servos about
+    10 mm at the tip, one round leaves about 1.2 mm (friction), two about 0.25. q0 seeds the IK (default the
+    command), and so sets the wrist roll. Returns the pose and the bias, command minus reading, that holds the arm on
+    poses near it."""
     arm.status = f"{label}: approach"
     q, ok, err, _ = arm.ik.solve(pos, axis, arm.cmd if q0 is None else q0)
     if not ok:  # the solver's best guess can point the arm anywhere: an unreachable touch swung the real arm away
         raise SafetyStop(f"{label}: the approach is out of reach (best IK is {err * 1000:.0f} mm off)")
     skills.move_joints(arm, q)
-    for _ in range(3):
+    for _ in range(arm.sag_tries):
         if np.linalg.norm(arm.ik.fk(q)[0] - arm.tip_pose()[0]) < SAG_TOL:
             break
         skills.move_joints(arm, arm.cmd + q - arm.read_q())
@@ -608,11 +609,18 @@ def _aim(p):
     return p.pos - max(p.meta.get("pad_radius", PAD_R) - PAD_R, 0.0) * p.x if p.kind == "door" else p.pos
 
 
+def _press_axis(arm, p):
+    """The way a press comes in from (unit, out of the panel): the part's normal, tilted toward straight up by
+    arm.press_down (0 along the normal, 1 straight down). From above, the real jaw slid off a tilted button's cap less."""
+    a = (1 - arm.press_down) * p.normal + arm.press_down * np.array([0.0, 0.0, 1.0])
+    return a / np.linalg.norm(a)
+
+
 def _poke(arm, p, limit, label, settle=0.0, retreat=0.03):
     """skills.py's guarded push along -normal, with no CAD travel and the approach's bias on every command:
     from 30 mm out, creep in until limit or PRESS_TRAVEL past first contact, retreat, then wait `settle`
-    seconds."""
-    n, aim = p.normal, _aim(p)
+    seconds. It comes in along _press_axis; first contact is still measured along the normal."""
+    n, aim = _press_axis(arm, p), _aim(p)
     pre = aim + skills.APPROACH_M * n
     q, bias = _approach(arm, pre, -n, label)
     arm.status = f"{label}: guarded push"
@@ -665,7 +673,7 @@ def _poke(arm, p, limit, label, settle=0.0, retreat=0.03):
     for _ in range(int(settle * CONTROL_HZ)):
         arm.send(arm.cmd)
         arm.tick()
-    off = None if contact is None else round(float((contact - aim) @ n) * 1000, 1)
+    off = None if contact is None else round(float((contact - aim) @ p.normal) * 1000, 1)
     lo, hi = skills.CONTACT_OFFSET_OK_MM
     missed = None
     if off is None:
@@ -728,9 +736,9 @@ def _check(arm, p, step, parts=()):
     else:
         if skill == "push_latch" and not p.meta["latched"]:
             return f"{p.id} is already open", None, None
-        q = arm.cmd
-        for pt in (_aim(p) + skills.APPROACH_M * p.normal, _aim(p) - PRESS_TRAVEL * p.normal):
-            q, ok, err, _ = arm.ik.solve(pt, -p.normal, q)
+        q, a = arm.cmd, _press_axis(arm, p)
+        for pt in (_aim(p) + skills.APPROACH_M * a, _aim(p) - PRESS_TRAVEL * a):
+            q, ok, err, _ = arm.ik.solve(pt, -a, q)
             if not ok:
                 return f"{p.id} is out of reach: best IK is {err * 1000:.1f} mm off", None, None
     if isinstance(plan, str):
@@ -742,7 +750,8 @@ def _refine(arm, p, plan, refine, label, result):
     """refine(arm, p) from the step's approach pose (30 mm out from a press, over a sideways push's start);
     notes in result whether it found the part and how far it moved it."""
     if plan is None:
-        _approach(arm, _aim(p) + skills.APPROACH_M * p.normal, -p.normal, label)
+        a = _press_axis(arm, p)  # where the press starts from
+        _approach(arm, _aim(p) + skills.APPROACH_M * a, -a, label)
     else:
         _approach(arm, plan.path(0, None)[0] + HOVER * plan.n, -plan.n, label, plan.qs[0])
     arm.status = f"{label}: refine"

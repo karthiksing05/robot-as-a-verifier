@@ -109,9 +109,10 @@ class RealArm(rig.ArmBase):
     # wrist_roll at home, so views and presses start from it: -90 deg puts the camera on top of the gripper, centred,
     # instead of 7 cm to its side (same views in reach); the gripper then sits along the bottom of the picture
     home_roll = np.radians(-90)  # camera on top; +90 (under) pointed the survey away from the panel
-    # Free moves (skills.move_joints) at twice the sim's cap: the joints still peak under 1.8 rad/s, inside MAX_STEP_RAD,
+    # Free moves (skills.move_joints) at 1.5x the sim's cap (0.2 read 35 N on the servo estimate going home and tripped
+    # the hard cap). The joints peak well inside MAX_STEP_RAD,
     # and a cosine profile arrives at rest. Guarded moves keep guard_speed.
-    tip_speed = 0.2
+    tip_speed = 0.15
     # one re-command of an approach pose: the press is by stall and the last look's pose is from the joint readings, so
     # the ~1.2 mm one round leaves doesn't matter, and each further round cost 0.7 s
     sag_tries = 1
