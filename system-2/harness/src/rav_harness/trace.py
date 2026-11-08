@@ -61,7 +61,7 @@ class Tracer:
         if raw is not None:
             folder = self.log.dir / "model"
             folder.mkdir(exist_ok=True)
-            (folder / f"{turn_id}.json").write_text(json.dumps(raw, indent=2, default=str) + "\n")
+            (folder / f"{turn_id}.json").write_text(json.dumps(raw, indent=2, default=str) + "\n", encoding="utf-8")
             path = f"model/{turn_id}.json"
         self.log.emit("model_turn", ModelTurn(id=turn_id, model=model, stage=self.stage, step=self.step, raw=path,
                                               error_kind=error_kind, layer=layer_of(error_kind), **fields).model_dump(mode="json"))

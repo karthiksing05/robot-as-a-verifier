@@ -19,7 +19,7 @@ class RunLog:
         self.run_id, self.dir = run_id, pathlib.Path(root) / run_id
         self.dir.mkdir(parents=True, exist_ok=True)
         self.path = self.dir / "events.jsonl"
-        self.path.write_text("")
+        self.path.write_text("", encoding="utf-8")
         self.seq, self.t0, self.on_event = 0, time.monotonic(), on_event
         self.wall0 = time.time()
         self._lock = threading.Lock()       # analysts may run in parallel and log to the same run
@@ -34,14 +34,14 @@ class RunLog:
         with self._lock:
             self.seq += 1
             event = RunEvent(seq=self.seq, t=round(time.monotonic() - self.t0, 3), run_id=self.run_id, type=type_, payload=body)
-            with self.path.open("a") as f:
+            with self.path.open("a", encoding="utf-8") as f:
                 f.write(event.model_dump_json() + "\n")
         if self.on_event:
             self.on_event(event)
         return event
 
     def write_report(self, report: Report) -> None:
-        (self.dir / "report.json").write_text(report.model_dump_json(indent=2) + "\n")
+        (self.dir / "report.json").write_text(report.model_dump_json(indent=2) + "\n", encoding="utf-8")
 
 
 def read_events(path: str | pathlib.Path) -> list[RunEvent]:
