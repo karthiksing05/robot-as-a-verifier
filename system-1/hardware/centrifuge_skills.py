@@ -21,7 +21,7 @@ from safety import SafetyStop
 LID_LIP = (-20.0, 0.0, 27.0)       # handle_1, the lid's lip
 RACK_LIP = (56.9, 144.0, 1.2)      # handle_2, the rack cover's lip
 TUBE = (38.5, 175.0, -19.0)        # tube_1's collar top, in rack position 2
-WELL_A = (-70.0, -6.5, -14.7)      # where that collar top sits once the tube is seated in well A; nudged from the CAD's (-67, -13) by real places: forward is away from the arm (Nov 8)
+WELL_A = (-73.0, -6.5, -14.7)      # where that collar top sits once the tube is seated in well A; nudged from the CAD's (-67, -13) by real places: forward is away from the arm (Nov 8)
 # each cover's hinge from its lip (mm) and its axis (opening is + about it), and where it rests open (deg)
 COVERS = {"lid": dict(lip=LID_LIP, hinge=(-82.5, 0.0, -5.0), axis=(0.0, -1.0, 0.0), rest=105.0),
           "rack": dict(lip=RACK_LIP, hinge=(-42.5, 35.7, 5.0), axis=(-0.64, -0.77, 0.0), rest=105.0)}
@@ -54,7 +54,7 @@ PAN_XY = np.array([0.0388, 0.0])      # the pan axis, arm frame (manipulate.PAN_
 ABOVE = 0.05                          # a pick starts this far over its grip
 LIFT = 0.12                           # and lifts this far: at 70 mm the 55 mm tube hit the rack going home (Nov 8)
 PLACE_ABOVE = 0.10                    # a place starts this far over the seat, and lowers until the arm stalls: at 80 the tube clipped the well's rim (Nov 8)
-PLACE_DROP = 0.015                    # let go this far over the seat: lowered all the way, it went in too far (Nov 8)
+PLACE_DROP = 0.025                    # let go this far over the seat: lowered all the way, it went in too far (Nov 8)
 PLACE_IN_BACK, PLACE_IN_UP = 0.05, 0.03  # and comes in to that start from this far nearer the arm and higher, clear of the rim
 SPEED, ARC_SPEED, GUARD_SPEED = 0.06, 0.04, 0.025  # m/s: twice the first guesses, which were slow for the demo
 GUARD_N = 5.0                         # with no stall sensing (the sim bus), a guarded move stops at this
