@@ -3,9 +3,9 @@
     client = make_client("claude-haiku-5-5", run="run-1")  # every call it makes goes on the ledger
     reply = client.generate(system, messages, tools, on_delta)
 
-A provider's reply is kept as it came (ModelReply.raw_message) and sent back unchanged, because Gemini returns a 400 when
-a tool-call turn comes back without its thought signature. Keys come from .env at the repo root, are held only in the
-client's request headers, and are never logged, saved with a turn, or passed to System 1.
+A provider's reply is kept as it came (ModelReply.raw_message) and sent back unchanged: Claude's thinking blocks carry a
+signature the API checks when they come back. Keys come from .env at the repo root, are held only in the client's
+request headers, and are never logged, saved with a turn, or passed to System 1.
 """
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ import json
 import os
 import pathlib
 import random
-import re
 import time
 import urllib.error
 import urllib.request
@@ -21,10 +20,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 DEFAULT_MODEL = "claude-haiku-5-5"
 MODELS = ("claude-haiku-5-5", "claude-sonnet-5-5", "openai-gpt-5.4", "grok-4.7")  # all on Snowflake Cortex
-SKIP_SIGNATURE = "skip_thought_signature_validator"  # Gemini's documented value for a call another model wrote
 REPO = pathlib.Path(__file__).resolve().parents[4]
 MAX_WAIT_S = 90.0  # a quota that resets later than this isn't worth waiting for: try the next model
 
@@ -114,13 +111,16 @@ def read_env(name: str, path: pathlib.Path | None = None) -> str | None:
     return None
 
 
-def _retry_delay(body: str) -> float | None:
-    m = re.search(r'"retryDelay":\s*"([\d.]+)s"', body)
-    return float(m.group(1)) if m else None
+def _retry_after(headers) -> float | None:
+    """Seconds from a standard Retry-After header, when the provider sends one."""
+    try:
+        return float(headers.get("Retry-After")) if headers and headers.get("Retry-After") else None
+    except (TypeError, ValueError):
+        return None
 
 
 class Http:
-    """Pacing and backoff, shared by the providers. The free tier allows only a few requests a minute."""
+    """Pacing and backoff, shared by the providers. RAV_MODEL_MIN_INTERVAL_S sets the gap between requests."""
 
     def __init__(self, min_interval_s: float | None = None, retries: int = 5, sleep: Callable[[float], None] = time.sleep,
                  timeout_s: float = 180.0):
@@ -144,7 +144,7 @@ class Http:
                 text = e.read().decode("utf-8", "replace")
                 short = _short_error(text)
                 if e.code == 429:
-                    asked = _retry_delay(text)
+                    asked = _retry_after(e.headers)
                     if asked is not None and asked > MAX_WAIT_S:
                         raise Unavailable(f"{name}: out of quota, resets in {asked:.0f} s") from None
                     if attempt == self.retries:
@@ -169,113 +169,6 @@ def _short_error(text: str) -> str:
         return json.loads(text)["error"]["message"][:300]
     except (ValueError, KeyError, TypeError):
         return text[:300]
-
-
-# --- Gemini ----------------------------------------------------------------------------------------
-
-def _gemini_schema(schema: dict) -> dict:
-    out: dict[str, Any] = {}
-    for key, value in schema.items():
-        if key == "type":
-            out["type"] = str(value).upper()
-        elif key == "properties":
-            out["properties"] = {k: _gemini_schema(v) for k, v in value.items()}
-        elif key == "items":
-            out["items"] = _gemini_schema(value)
-        elif key in ("description", "enum", "required", "minimum", "maximum"):
-            out[key] = value
-    return out
-
-
-def _gemini_parts(chunks: list[dict]) -> list[dict]:
-    """A stream's parts as one message: neighbouring plain text joined, anything with a signature left exactly as it came."""
-    parts: list[dict] = []
-    for p in chunks:
-        last = parts[-1] if parts else None
-        joinable = "text" in p and "thoughtSignature" not in p
-        if joinable and last and "text" in last and "thoughtSignature" not in last and bool(last.get("thought")) == bool(p.get("thought")):
-            last["text"] += p["text"]
-        else:
-            parts.append(dict(p))
-    return parts
-
-
-class GeminiClient:
-    def __init__(self, model: str = DEFAULT_MODEL, key: str | None = None, http: Http | None = None, base_url: str = GEMINI_URL,
-                 max_output_tokens: int = 8192):
-        self.model, self.base_url, self.max_output_tokens = model, base_url.rstrip("/"), max_output_tokens
-        self._key = key or read_env("GEMINI_API_KEY")
-        if not self._key:
-            raise ModelError("GEMINI_API_KEY isn't set (.env at the repo root)")
-        self.http = http or Http()
-
-    def _contents(self, messages: list[Message]) -> list[dict]:
-        contents = []
-        for m in messages:
-            if m.role == "assistant":
-                raw = m.reply.raw_message
-                if m.reply.model != self.model:  # a signature only means something to the model that wrote it
-                    raw = {**raw, "parts": [{**p, "thoughtSignature": SKIP_SIGNATURE} if "thoughtSignature" in p else p
-                                            for p in raw["parts"] if not p.get("thought")]}
-                contents.append(raw)
-                continue
-            parts: list[dict] = []
-            for r in m.results:
-                response = {"name": r.call.name, "response": r.content}
-                if r.call.id:
-                    response["id"] = r.call.id
-                parts.append({"functionResponse": response})
-            if m.text:
-                parts.append({"text": m.text})
-            for image in m.images:
-                if image.caption:
-                    parts.append({"text": image.caption})
-                parts.append({"inlineData": {"mimeType": image.mime, "data": image.data_b64}})
-            contents.append({"role": "user", "parts": parts})
-        return contents
-
-    def request_body(self, system: str, messages: list[Message], tools: list[ToolSpec]) -> dict:
-        body: dict[str, Any] = {
-            "systemInstruction": {"parts": [{"text": system}]}, "contents": self._contents(messages),
-            "generationConfig": {"maxOutputTokens": self.max_output_tokens, "thinkingConfig": {"includeThoughts": True}},
-        }
-        if tools:
-            body["tools"] = [{"functionDeclarations": [{"name": t.name, "description": t.description, "parameters": _gemini_schema(t.parameters)}
-                                                       for t in tools]}]
-        return body
-
-    def generate(self, system: str, messages: list[Message], tools: list[ToolSpec], on_delta: Delta | None = None) -> ModelReply:
-        start = time.monotonic()
-        url = f"{self.base_url}/{self.model}:streamGenerateContent?alt=sse"
-        response = self.http.open(url, self.request_body(system, messages, tools), {"x-goog-api-key": self._key}, self.model)
-        chunks: list[dict] = []
-        finish, usage = None, {}
-        try:
-            with response:
-                for line in response:
-                    if not line.startswith(b"data:"):
-                        continue
-                    event = json.loads(line[5:])
-                    usage = event.get("usageMetadata", usage)
-                    candidates = event.get("candidates") or []
-                    if not candidates:
-                        continue
-                    finish = candidates[0].get("finishReason", finish)
-                    for part in candidates[0].get("content", {}).get("parts", []):
-                        chunks.append(part)
-                        if on_delta and part.get("text"):
-                            on_delta("thought" if part.get("thought") else "text", part["text"])
-        except (OSError, ValueError) as e:
-            raise Unavailable(f"{self.model}: the stream broke: {type(e).__name__}: {e}") from e
-        parts = _gemini_parts(chunks)
-        calls = [ToolRequest(p["functionCall"].get("id") or "", p["functionCall"]["name"], p["functionCall"].get("args") or {})
-                 for p in parts if "functionCall" in p]
-        return ModelReply(model=self.model, text="".join(p["text"] for p in parts if "text" in p and not p.get("thought")),
-                          thinking="".join(p["text"] for p in parts if "text" in p and p.get("thought")), calls=calls,
-                          stop_reason={"MAX_TOKENS": "max_tokens", "STOP": "stop"}.get(finish, (finish or "").lower() or None),
-                          tokens_in=usage.get("promptTokenCount"), tokens_out=usage.get("candidatesTokenCount"),
-                          tokens_thinking=usage.get("thoughtsTokenCount"), tokens_cached=usage.get("cachedContentTokenCount"), latency_ms=round((time.monotonic() - start) * 1000, 1),
-                          raw_message={"role": "model", "parts": parts})
 
 
 # --- OpenAI-compatible: Snowflake Cortex's Chat Completions --------------------------------------------
@@ -517,10 +410,8 @@ def default_fallback(model: str) -> str | None:
 def make_client(model: str = DEFAULT_MODEL, fallback: str | None = None, on_switch: Callable[[str, str], None] | None = None,
                 effort: str | None = None, ledger=None, run: str | None = None) -> ModelClient:
     """A client for a model name, on Snowflake Cortex by the API that serves it: Messages for Claude, Chat Completions for
-    the rest. `gemini-direct:<name>` is Google's API, and only ever runs when asked for by that name."""
+    the rest."""
     def one(name: str) -> ModelClient:
-        if name.startswith("gemini-direct:"):
-            return GeminiClient(name.split(":", 1)[1])
         wire = name.removeprefix("snowflake:")
         if wire.startswith("claude"):
             return MessagesClient(wire, effort=effort)

@@ -536,14 +536,14 @@ def test_older_results_shrink_and_calls_stay_paired():
     calls = [ToolRequest(f"c{i}", "get_scene", {}) for i in range(10)]
     messages = [Message("user", "brief")]
     for c in calls:
-        raw = {"role": "model", "parts": [{"text": "hm", "thought": True}, {"functionCall": {"name": c.name}, "thoughtSignature": "SIG"}]}
+        raw = {"role": "assistant", "content": [{"type": "thinking", "thinking": "hm", "signature": "SIG"}, {"type": "tool_use", "id": c.id, "name": c.name, "input": {}}]}
         messages.append(Message("assistant", reply=ModelReply(model="m", calls=[c], raw_message=raw)))
         messages.append(Message("user", results=[ToolResult(c, {"controls": ["big"] * 100, "stop": "done"})]))
     out = trim(messages, 6)
     assert len(out) == len(messages) and out[0].text == "brief"
     old_reply, old_result = out[1], out[2]
     assert old_result.results[0].content == {"earlier": '{"stop": "done"}'}
-    assert old_reply.reply.raw_message["parts"] == [{"functionCall": {"name": "get_scene"}, "thoughtSignature": "SIG"}]
+    assert old_reply.reply.raw_message["content"] == [{"type": "tool_use", "id": "c0", "name": "get_scene", "input": {}}]  # older thinking goes
     assert out[-1].results[0].content["controls"]
 
 

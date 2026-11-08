@@ -63,7 +63,7 @@ These rules are enforced in code wherever possible.
  Console (browser)
    │  run events + live reasoning (SSE); steer and approve (POST)
    ▼
- rav-agent  ── System 2 service ──────────► model API (Gemini first)
+ rav-agent  ── System 2 service ──────────► model API (Snowflake Cortex)
    │  harness: agent loop, tool belt, guards,
    │  approvals, reward, reports, run log
    │  MCP tools (control)
@@ -98,7 +98,7 @@ The model never polls, and never gets a joint, waypoint or force command. `routi
 
 Other parts of the loop:
 
-- **Model client:** a small provider-neutral interface, with Gemini first. It must store each response's raw parts unchanged, because Gemini returned HTTP 400 when a tool-call turn came back without its thought signature.
+- **Model client:** a small provider-neutral interface over Snowflake Cortex: the Messages API for Claude, Chat Completions for the others. It stores each response unchanged and sends it back as it came, because Claude's thinking blocks carry a signature the API checks.
 - **Limits:** turns, tokens, cost and time per run; detecting the same rejected call repeated; backoff on 429 and 503, then a fallback model. When the budget or API runs out, it holds the arm safely, or falls back to the rule plan with that labelled on the run.
 - **Context:** a short system prompt covering role, boundaries and evidence rules. Stops stay small, evidence is fetched by reference, and older turns get summarised.
 - **Steering:** an operator message enters as a user turn at the next model turn. Commands apply at step boundaries, never inside a motion.
@@ -177,7 +177,7 @@ Live becomes the place to watch the model work. **The same components show a liv
 
 New events: `model_delta` (streamed, not stored; the finished turn is stored as `model_turn`) and `agent_state`.
 
-**Label reasoning accurately.** Gemini returned reasoning text in the probe, but Google documents this as thought summaries, not the raw chain of thought. The screen will say "reasoning summary".
+**Label reasoning accurately.** What a provider returns as reasoning is a summary, not the raw chain of thought (Claude's is requested as `summarized`), and some models return none. The screen says "reasoning summary".
 
 The Console is built against recorded runs, so it doesn't wait on the model work or use up API quota.
 
@@ -186,7 +186,7 @@ The Console is built against recorded runs, so it doesn't wait on the model work
 | Tier | Runs | Proves | Key needed? | Runs when |
 |---|---|---|---|---|
 | 0 Contract | Validation, retest rule, guards, approval levels, vocabulary and answer-key scans | The limits hold | No | Every commit |
-| 1 Agent | Agent loop, fake System 1, scripted model | Each error kind: bad arguments, unknown tool, a repeated call, truncation, 429/503, thought signatures kept, budgets, steering | No | Every commit |
+| 1 Agent | Agent loop, fake System 1, scripted model | Each error kind: bad arguments, unknown tool, a repeated call, truncation, 429/503, signed thinking sent back unchanged, budgets, steering | No | Every commit |
 | 2 Boundary | Two real processes, `--robot mock`, recorded model | Everything works across the network. Kill either process and it fails safely | No | Every commit |
 | 3 System 1 readiness | `HANDOFF.md`'s script against the sim, with no model and no `sim/` imports | System 1 is enough for an outside caller | No | Before merging System 1 changes |
 | 4 Forced errors | Each error kind forced at each kind of moment, recorded model | Every recovery path runs. This can't be left to a 5% chance | No | Nightly, or on demand |
@@ -212,19 +212,11 @@ We also track tokens, cost, crossings and time the arm waits, but those aren't p
 
 ## Vetting models
 
-A small probe on Nov 7 used one generic scenario. Each model ran once, so **this says what's reachable, not which is best:**
+Gemini was evaluated early and dropped; no Google key is used.
 
-| Model | Result |
-|---|---|
-| `gemini-3.5-flash` | Worked: 4 to 5 s a turn, with a sensible sequence (read the evidence, then retry) |
-| `gemini-robotics-er-2-preview` | Worked: 2.5 to 5 s a turn. It retried without reading the evidence, then asked to re-explore |
-| `gemini-3.8-flash` | First turn took 85 s, and the second got a 503 for high demand |
-| `gemini-3.1-pro-preview`, `gemini-4-argon` | 429 on free-tier quota, with a retry delay of about 12 hours. **Not testable on this key today** |
-| `gemini-2.5-pro` | 404: no longer offered to new users |
+The compared models are the four on Snowflake Cortex: `claude-haiku-5-5`, `claude-sonnet-5-5`, `openai-gpt-5.4` and `grok-4.7`, each against the same rule-based baseline. The rounds and their results are on the Console's Models page.
 
-All three that responded returned reasoning text and thought signatures. A full comparison of 3 models on 6 devices with 3 repeats is 54 runs, each many turns, so it needs a paid tier.
-
-The comparison runs in stages: flash-class models on dev devices while the harness is rough, then pro-class on validation, then a mixed setup if it helps (a stronger model for planning, a faster one for routine stops). The choice is a config value, never code. Prompts stay shared across models, so nothing gets tuned to one.
+The comparison runs in stages: the cheaper models on dev devices while the harness is rough, then the stronger ones on validation, then a mixed setup if it helps (a stronger model for planning, a faster one for routine stops). The choice is a config value, never code. Prompts stay shared across models, so nothing gets tuned to one.
 
 ## Milestones
 
@@ -252,7 +244,7 @@ Each one ends with something that runs. Sizes are relative: S, M or L.
 | # | Question | Default if nobody objects |
 |---|---|---|
 | 1 | Does the 5% mean a chance per action, as above, including false alarms that don't reflect a real problem? | Yes |
-| 2 | Can we use a paid Gemini key? Pro-class models aren't reachable on this one | Build on flash until there is |
+| 2 | Which models, through which provider? | Decided: the four on Snowflake Cortex, keys from `.env` |
 | 3 | The uncommitted Console work (project bar, `liveProject`, 16 files) came along to this branch | Its own commit and PR first, so it stays apart from this work |
 | 4 | Does System 2 add the System 1 items, with Joseph reviewing, or does Joseph add them? | Added here, Joseph reviews each contract change |
 | 5 | May sim runs auto-approve plans during evals? The boundary doc allows this only for mocks today | Yes for sim evals, recorded on the run and refused on a real arm. Needs a doc change |

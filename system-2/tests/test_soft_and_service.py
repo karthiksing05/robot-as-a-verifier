@@ -11,7 +11,7 @@ from rav_harness.agent import AgentConfig, run_agent, sim_auto_approve
 from rav_harness.eval import _truth_map, score, summarize
 from rav_harness.launch import Device, System1Process, _env, server_command
 from rav_harness.ledger import Budget, Ledger
-from rav_harness.model import ModelReply, ScriptedModel, call
+from rav_harness.model import MODELS, ModelReply, ScriptedModel, call
 from rav_harness.runlog import RunLog, read_events
 from rav_harness.service import ORIGINS, Hub, Service, at_recording_time, available_models, manual_of, merge_timeline, project_of
 from rav_harness.soft import SCENARIOS, format_table, number_png, run_round_one, run_scenario
@@ -326,15 +326,15 @@ def test_listeners_get_history_first_and_deltas_dont_stick():
 
 
 def test_only_the_compared_models_are_offered():
-    assert "claude-haiku-5-5" in available_models() and not any("gemini" in m for m in available_models())
+    assert "claude-haiku-5-5" in available_models() and set(available_models()) <= {*MODELS, "rules"}
 
 
 def test_the_server_gets_no_model_keys_but_keeps_its_path(monkeypatch):
     monkeypatch.setenv("SNOWFLAKE_PAT", "x")
-    monkeypatch.setenv("GEMINI_API_KEY", "x")
+    monkeypatch.setenv("OTHER_API_KEY", "x")
     monkeypatch.setenv("RAV_TOKEN", "t")
     env = _env()
-    assert "PATH" in env and "SNOWFLAKE_PAT" not in env and "GEMINI_API_KEY" not in env and env["RAV_TOKEN"] == "t"
+    assert "PATH" in env and "SNOWFLAKE_PAT" not in env and "OTHER_API_KEY" not in env and env["RAV_TOKEN"] == "t"
 
 
 def test_a_recording_gets_its_events_on_its_own_clock(tmp_path):
@@ -425,7 +425,7 @@ def test_every_provider_call_is_ledgered_whatever_the_route(tmp_path, monkeypatc
     monkeypatch.setenv("SNOWFLAKE_PAT", "t")
     made = make_client("claude-haiku-5-5", "openai-gpt-5.4")
     assert isinstance(made, FallbackClient) and all(isinstance(c, LedgeredClient) for c in made.clients)
-    assert isinstance(make_client("grok-4.7"), LedgeredClient) and isinstance(make_client("gemini-direct:x"), LedgeredClient)
+    assert isinstance(make_client("grok-4.7"), LedgeredClient) and isinstance(make_client("claude-sonnet-5-5"), LedgeredClient)
     ledger = Ledger(tmp_path / "l.jsonl")
     inner = LedgeredClient(ScriptedModel([ModelReply(model="m", tokens_in=5, tokens_out=1), RuntimeError("boom")], "m"))
     outer = LedgeredClient(inner, ledger, "run-1")  # what eval and the service add: re-labels, doesn't count twice

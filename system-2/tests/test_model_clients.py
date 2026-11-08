@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 from rav_harness.ledger import Budget, Ledger, LedgeredClient, cost_of, spend_table
-from rav_harness.model import (DEFAULT_MODEL, MODELS, SKIP_SIGNATURE, ChatCompletionsClient, FallbackClient, default_fallback, GeminiClient, Http, Image, Message, MessagesClient, ModelError, ModelReply, ScriptedModel, ToolRequest,
+from rav_harness.model import (DEFAULT_MODEL, MODELS, ChatCompletionsClient, FallbackClient, default_fallback, Http, Image, Message, MessagesClient, ModelError, ModelReply, ScriptedModel, ToolRequest,
                                ToolResult, ToolSpec, Unavailable, make_client, read_env)
 
 TOOL = ToolSpec("add", "Adds", {"type": "object", "properties": {"a": {"type": "number"}}, "required": ["a"]})
@@ -27,12 +27,15 @@ class Fake:
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 fake.requests.append({"path": self.path, "body": body, "headers": dict(self.headers)})
                 answer = fake.answers.pop(0)
+                extra = answer[2] if isinstance(answer, tuple) and len(answer) > 2 else {}  # (status, body, headers)
                 if isinstance(answer, list):
                     data = "".join(f"data: {json.dumps(e)}\n\n" for e in answer).encode()
                     status = 200
                 else:
                     status, data = answer[0], json.dumps(answer[1]).encode()
                 self.send_response(status)
+                for k, v in extra.items():
+                    self.send_header(k, v)
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
@@ -43,68 +46,6 @@ class Fake:
 
 def quick():
     return Http(min_interval_s=0, sleep=lambda s: None)
-
-
-def gemini_events():
-    return [{"candidates": [{"content": {"parts": [{"text": "Weigh", "thought": True}]}}]},
-            {"candidates": [{"content": {"parts": [{"text": "ing it.", "thought": True}]}}]},
-            {"candidates": [{"content": {"parts": [{"text": "I'll add."}]}}]},
-            {"candidates": [{"content": {"parts": [{"functionCall": {"name": "add", "args": {"a": 1}, "id": "c1"}, "thoughtSignature": "SIG-1"}]}, "finishReason": "STOP"}],
-             "usageMetadata": {"promptTokenCount": 11, "candidatesTokenCount": 7, "thoughtsTokenCount": 3, "cachedContentTokenCount": 4}}]
-
-
-def test_gemini_streams_reasoning_and_sends_the_signature_back():
-    fake = Fake([gemini_events(), gemini_events()])
-    client = GeminiClient("m", key=SECRET, http=quick(), base_url=fake.url)
-    deltas = []
-    reply = client.generate("sys", [Message("user", "hi")], [TOOL], lambda kind, text: deltas.append((kind, text)))
-    assert reply.thinking == "Weighing it." and reply.text == "I'll add." and reply.calls[0].args == {"a": 1}
-    assert deltas[0] == ("thought", "Weigh") and ("text", "I'll add.") in deltas
-    assert (reply.tokens_in, reply.tokens_out, reply.tokens_thinking, reply.tokens_cached) == (11, 7, 3, 4)
-    messages = [Message("user", "hi"), Message("assistant", reply=reply), Message("user", results=[ToolResult(reply.calls[0], {"sum": 1})], images=[Image("image/png", "QUJD", "a view")])]
-    client.generate("sys", messages, [TOOL])
-    sent = fake.requests[1]["body"]["contents"]
-    assert {"functionCall": {"name": "add", "args": {"a": 1}, "id": "c1"}, "thoughtSignature": "SIG-1"} in sent[1]["parts"]
-    assert sent[2]["parts"][0]["functionResponse"] == {"name": "add", "response": {"sum": 1}, "id": "c1"}
-    assert {"inlineData": {"mimeType": "image/png", "data": "QUJD"}} in sent[2]["parts"]
-    assert fake.requests[0]["body"]["tools"][0]["functionDeclarations"][0]["parameters"]["type"] == "OBJECT"
-
-
-def test_a_call_from_another_gemini_model_gets_the_skip_value():
-    fake = Fake([gemini_events(), gemini_events()])
-    first = GeminiClient("one", key=SECRET, http=quick(), base_url=fake.url)
-    reply = first.generate("s", [Message("user", "hi")], [TOOL])
-    second = GeminiClient("two", key=SECRET, http=quick(), base_url=fake.url)
-    second.generate("s", [Message("user", "hi"), Message("assistant", reply=reply), Message("user", results=[ToolResult(reply.calls[0], {})])], [TOOL])
-    parts = fake.requests[1]["body"]["contents"][1]["parts"]
-    assert any(p.get("thoughtSignature") == SKIP_SIGNATURE for p in parts) and not any(p.get("thought") for p in parts)
-
-
-def test_overload_is_retried_a_long_quota_isnt_and_a_bad_request_isnt():
-    fake = Fake([(503, {"error": {"message": "busy"}}), gemini_events()])
-    assert GeminiClient("m", key=SECRET, http=quick(), base_url=fake.url).generate("s", [Message("user", "x")], []).calls
-    fake = Fake([(429, {"error": {"message": "out", "details": [{"retryDelay": "44728s"}]}})])
-    with pytest.raises(Unavailable, match="out of quota"):
-        GeminiClient("m", key=SECRET, http=quick(), base_url=fake.url).generate("s", [Message("user", "x")], [])
-    assert len(fake.requests) == 1
-    fake = Fake([(400, {"error": {"message": "Function call is missing a thought_signature"}})])
-    with pytest.raises(ModelError, match="thought_signature") as e:
-        GeminiClient("m", key=SECRET, http=quick(), base_url=fake.url).generate("s", [Message("user", "x")], [])
-    assert not isinstance(e.value, Unavailable) and SECRET not in str(e.value)
-
-
-def test_a_short_rate_limit_waits_as_long_as_it_asks():
-    waits = []
-    fake = Fake([(429, {"error": {"details": [{"retryDelay": "7s"}]}}), gemini_events()])
-    GeminiClient("m", key=SECRET, http=Http(min_interval_s=0, sleep=waits.append), base_url=fake.url).generate("s", [Message("user", "x")], [])
-    assert 7.0 in waits
-
-
-def test_the_key_is_a_header_and_never_in_a_url_or_a_body():
-    fake = Fake([gemini_events()])
-    GeminiClient("m", key=SECRET, http=quick(), base_url=fake.url).generate("s", [Message("user", "x")], [])
-    r = fake.requests[0]
-    assert SECRET not in r["path"] and SECRET not in json.dumps(r["body"]) and {k.lower(): v for k, v in r["headers"].items()}["x-goog-api-key"] == SECRET
 
 
 def chat_answer():
@@ -127,6 +68,47 @@ def test_chat_completions_round_trip_with_its_required_headers():
     assert messages[4]["content"][1]["image_url"]["url"].startswith("data:image/png;base64,")
 
 
+def test_overload_is_retried_a_long_quota_isnt_and_a_bad_request_isnt():
+    chat = lambda fake: ChatCompletionsClient("openai-x", base_url=fake.url, token=SECRET, http=quick())  # noqa: E731
+    fake = Fake([(503, {"error": {"message": "busy"}}), chat_answer()])
+    assert chat(fake).generate("s", [Message("user", "x")], []).calls and len(fake.requests) == 2
+    fake = Fake([(429, {"error": {"message": "out"}}, {"Retry-After": "44728"})])
+    with pytest.raises(Unavailable, match="out of quota"):
+        chat(fake).generate("s", [Message("user", "x")], [])
+    assert len(fake.requests) == 1
+    fake = Fake([(400, {"error": {"message": "tool_use ids must be unique"}})])
+    with pytest.raises(ModelError, match="must be unique") as e:
+        MessagesClient("claude-x", base_url=fake.url, token=SECRET, http=quick()).generate("s", [Message("user", "x")], [])
+    assert not isinstance(e.value, Unavailable) and SECRET not in str(e.value) and len(fake.requests) == 1
+
+
+def test_a_short_rate_limit_waits_as_long_as_it_asks_and_otherwise_backs_off():
+    waits = []
+    fake = Fake([(429, {"error": {"message": "slow down"}}, {"Retry-After": "7"}), messages_answer()])
+    MessagesClient("claude-x", base_url=fake.url, token=SECRET, http=Http(min_interval_s=0, sleep=waits.append)).generate("s", [Message("user", "x")], [])
+    assert 7.0 in waits
+    waits.clear()
+    fake = Fake([(429, {"error": {"message": "slow down"}}), (502, {"error": {"message": "bad gateway"}}), chat_answer()])
+    ChatCompletionsClient("openai-x", base_url=fake.url, token=SECRET, http=Http(min_interval_s=0, sleep=waits.append)).generate("s", [Message("user", "x")], [])
+    assert waits[0] == 2.0 and 4.0 <= waits[1] < 5.0  # no Retry-After: doubling backoff, with jitter after a 5xx
+
+
+def test_running_out_of_retries_is_unavailable_so_the_fallback_can_take_over():
+    fake = Fake([(503, {"error": {"message": "busy"}})] * 3)
+    with pytest.raises(Unavailable, match="HTTP 503"):
+        ChatCompletionsClient("openai-x", base_url=fake.url, token=SECRET, http=Http(min_interval_s=0, retries=2, sleep=lambda s: None)).generate("s", [Message("user", "x")], [])
+    assert len(fake.requests) == 3
+
+
+def test_the_key_is_a_header_and_never_in_a_url_or_a_body():
+    for make, answer in ((lambda u: ChatCompletionsClient("openai-x", base_url=u, token=SECRET, http=quick()), chat_answer()),
+                         (lambda u: MessagesClient("claude-x", base_url=u, token=SECRET, http=quick()), messages_answer())):
+        fake = Fake([answer])
+        make(fake.url).generate("s", [Message("user", "x")], [])
+        r = fake.requests[0]
+        assert SECRET not in r["path"] and SECRET not in json.dumps(r["body"]) and r["headers"]["Authorization"] == f"Bearer {SECRET}"
+
+
 def messages_answer():
     return (200, {"content": [{"type": "thinking", "thinking": "Hm.", "signature": "S"}, {"type": "text", "text": "Adding."}, {"type": "tool_use", "id": "u1", "name": "add", "input": {"a": 3}}],
                   "stop_reason": "tool_use", "usage": {"input_tokens": 5, "output_tokens": 4, "cache_read_input_tokens": 100, "cache_creation_input_tokens": 20}})
@@ -147,16 +129,14 @@ def test_messages_round_trip_caches_and_counts_cached_input():
     assert sent[2]["content"][-1]["cache_control"] == {"type": "ephemeral"} and sent[2]["content"][-1]["type"] == "image"
 
 
-def test_names_route_to_the_right_api_and_google_only_runs_when_named(monkeypatch):
+def test_names_route_to_the_right_api(monkeypatch):
     monkeypatch.setenv("SNOWFLAKE_BASE_URL", "http://x")
     monkeypatch.setenv("SNOWFLAKE_PAT", "t")
-    monkeypatch.setenv("GEMINI_API_KEY", "k")
     api = lambda name: make_client(name).client  # noqa: E731 - each provider sits inside its ledger
     assert isinstance(api("claude-sonnet-5-5"), MessagesClient) and isinstance(api("openai-gpt-5.4"), ChatCompletionsClient) and isinstance(api("grok-4.7"), ChatCompletionsClient)
     assert isinstance(make_client().client, MessagesClient) and make_client().client.wire == DEFAULT_MODEL == "claude-haiku-5-5"
-    assert isinstance(api("gemini-3.8-flash"), ChatCompletionsClient)  # a bare name goes to Cortex, never to Google
-    assert isinstance(api("gemini-direct:gemini-3.8-flash"), GeminiClient)
-    assert all("gemini" not in m for m in MODELS) and default_fallback("claude-haiku-5-5") in MODELS and default_fallback("other") is None
+    assert isinstance(api("some-other-model"), ChatCompletionsClient)  # anything not Claude goes to Cortex's Chat Completions
+    assert default_fallback("claude-haiku-5-5") in MODELS and default_fallback("other") is None
     assert all(isinstance(c.client, (MessagesClient, ChatCompletionsClient)) for c in make_client("claude-haiku-5-5", default_fallback("claude-haiku-5-5")).clients)
 
 

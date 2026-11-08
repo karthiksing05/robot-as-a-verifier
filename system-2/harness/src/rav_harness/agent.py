@@ -59,8 +59,6 @@ def _images_out(messages: list[Message]) -> list[dict]:
 
 
 def _drop_thoughts(raw: Any) -> Any:
-    if isinstance(raw, dict) and "parts" in raw:
-        return {**raw, "parts": [p for p in raw["parts"] if not p.get("thought") or "thoughtSignature" in p] or raw["parts"]}
     if isinstance(raw, dict) and isinstance(raw.get("content"), list):
         return {**raw, "content": [b for b in raw["content"] if b.get("type") != "thinking"] or raw["content"]}
     if isinstance(raw, dict) and ("reasoning_content" in raw or "reasoning" in raw):

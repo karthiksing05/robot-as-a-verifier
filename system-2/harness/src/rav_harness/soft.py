@@ -1,7 +1,7 @@
 """A cheap first test of a model, with no sim: short made-up scenarios on a fake robot, scored by the same scorer as a real
 run. Each checks one kind of judgment, and also that the provider's tool calls, images and reasoning reach the harness.
 
-    rav soft --models claude-haiku-4-5,gemini-3.5-flash --no-price-ok --token-cap 1500000
+    rav soft --models claude-haiku-5-5,grok-4.7 --token-cap 1500000
 
 The scenarios are invented, on purpose unlike any real product. They're for comparing models, so they aren't for tuning
 prompts against, and their answers are only ever read here, after a run.
