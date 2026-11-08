@@ -165,8 +165,9 @@ class ToolBelt:
         return [
             ToolSpec("get_status", "The skills on offer with their limits, what the robot is doing, and how each control stands so far.", no_args),
             ToolSpec("look_at_device", "Runs the robot's survey and returns what it found. Takes minutes. Plans are checked against the latest look. "
-                     "look_up_deg tilts every survey view up (or down, negative) by that many degrees, up to 30: for an upright "
-                     "panel the survey looked past, or one it only caught the edge of.",
+                     "look_up_deg tilts every survey view up by that many degrees (up to 75; negative tilts down, to -30). The survey "
+                     "looks 45 deg down by default, so 45 looks level and more looks up: for a tall upright front the survey only "
+                     "saw the table and the bottom edge of.",
                      {"type": "object", "properties": {"look_up_deg": {"type": "number", "description": "Degrees to tilt the survey's views up; negative tilts them down. Default 0"}}}),
             ToolSpec("get_scene", "The latest scene again.", no_args),
             ToolSpec("read_manual", "The product's manual: one page, or a search.", {"type": "object", "properties": {
@@ -379,7 +380,7 @@ class ToolBelt:
     def tool_look_at_device(self, look_up_deg: float = 0.0) -> dict:
         self._guard_idle("looking again")
         try:
-            up = max(-30.0, min(30.0, float(look_up_deg or 0.0)))
+            up = max(-30.0, min(75.0, float(look_up_deg or 0.0)))
         except (TypeError, ValueError) as e:
             raise ToolRejected("bad_args", "look_up_deg must be a number of degrees") from e
         return self._look(up)
