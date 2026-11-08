@@ -133,7 +133,7 @@ class RealArm(rig.ArmBase):
     press_down = 0.4
     look_close = None  # a second look 18 mm out failed its check on START twice, and costs an extra in and out
     # presses go to a fixed depth: stall contact ended START's press 2.8 mm in, before it clicked
-    press_depth = 0.009  # 7 mm left STOP short
+    press_depth = 0.012  # 7 mm left STOP short; at 9 the buttons registered but went down visibly shallow
 
     def __init__(self, bus, app=None, pad=None, pace=True):
         self.bus, self.pad, self.pace = bus, pad, pace
