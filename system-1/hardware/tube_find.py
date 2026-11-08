@@ -21,8 +21,8 @@ import skills
 # wrist raised 0.25 rad looks further out, and these pans then put it low, middle and high in the photo (on the model)
 # (each view's partner photo is only 15 mm over, too short a baseline for the red tube's loop: lift in and out adds 40)
 # With the rack moved ~6 cm nearer (Nov 8 9:53), the raised wrist put it at the photos' bottom edge behind the jaw: the
-# wrist now tips down 0.05 instead
-FIND_DQ = [(p, 0.0, 0.0, 0.05, 0.0) for p in (0.25, 0.4, 0.55)] + [(0.4, d, 0.0, 0.05, 0.0) for d in (-0.15, 0.15)]
+# wrist now tips down 0.2 instead (at 0.05 the near, green tube was still at the bottom edge)
+FIND_DQ = [(p, 0.0, 0.0, 0.2, 0.0) for p in (0.25, 0.4, 0.55)] + [(0.4, d, 0.0, 0.2, 0.0) for d in (-0.15, 0.15)]
 # OpenCV HSV ranges (hue 0-180). The near tube's collar ring is teal-green; the far one's is red (pinkish in the
 # camera). STOP's cap is red too: the blob whose ray passes nearest the others' point wins
 COLOURS = {"green": [((70, 90, 50), (100, 255, 255))],
