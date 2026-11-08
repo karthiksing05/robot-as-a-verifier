@@ -19,19 +19,24 @@ INSET = 0.42   # the look's width, of the window's
 PERIOD_MS = 80
 SEARCH = 60    # px each way the scan's orthophoto is looked for round where the joints' pose puts it
 PART, TARGET, PRESS = (255, 255, 0), (0, 255, 0), (0, 0, 255)  # BGR
+STAGES = ("survey", "scan", "poses", "orthophoto", "segment", "heights", "classify", "done")
+HOLD_S = 20    # the classified parts' panel stays this long after the scan
+MAX_MM = 15    # heights shown from blue (the panel) to red (this far up)
 
 
 def run(backend):
     """The window's loop, on a daemon thread: real_backend starts it with the RealBackend."""
     import mujoco
+    import rgbperceive
     import rig
     import touch
 
     wrist, arm = backend.rig.wrist, backend.arm
     fk, K = mujoco.MjData(wrist.m), wrist.K * [[SCALE], [SCALE], [1]]  # its own MjData: believed_pose's is the scan's
-    looks, errors = {}, set()
+    looks, errors, progress = {}, set(), {}
     _watch_looks(touch, looks)
-    label, since, before, shown = None, 0.0, 0.0, (None, None)
+    rgbperceive.PROGRESS = lambda what, **info: note(progress, what, info)
+    label, since, before, shown, drawn = None, 0.0, 0.0, (None, None), (None, None)
     while True:
         try:
             now, s = time.monotonic(), arm.status
@@ -40,23 +45,31 @@ def run(backend):
             if s.split(":")[0] != label:  # a new step (or stage): only looks since the last frame are this step's
                 label, since = s.split(":")[0], before
             before = now
-            parts = list(backend.parts or [])
+            scanning = backend.stage.startswith("scan ")
+            parts = [] if scanning else list(backend.parts or [])  # the last scan's parts are stale while it rescans
             target = next((p.id for p in parts if p.id in label.split()), None)
             fk.qpos[arm.qadr] = arm.q
             mujoco.mj_kinematics(wrist.m, fk)
             mujoco.mj_camlight(wrist.m, fk)
             T = rig._cv_pose(fk, wrist.cam) @ wrist.T_hand_eye
             Kd = K.copy()
-            if backend.scene is not None:
+            if backend.scene is not None and not scanning:
                 Kd[:2, 2] += ortho_offset(img, K, T, backend.scene)
             look = looks.get("last")
+            inset, title = None, "last look"
             if look and look[1] == target and look[0] >= since:
                 if shown[0] is not look:
                     shown = (look, inset_image(touch.LOOK_DIR, look, int(img.shape[1] * INSET)))
                 inset = shown[1]
-            else:
-                inset = None
-            compose(img, Kd, T, parts, getattr(arm, "part_shift", None), target, status, inset, errors)
+            elif scanning or progress.get("stage", ("", 0))[0] == "done" and now - progress["stage"][1] < HOLD_S:
+                if drawn[0] != progress.get("n"):  # redrawn only when the scan has news
+                    drawn = (progress.get("n"), None)
+                    try:
+                        drawn = (drawn[0], scan_panel(progress, int(img.shape[1] * INSET), img.shape[0] - 58))
+                    except Exception as e:  # noqa: BLE001
+                        _once(errors, f"scan panel ({progress.get('show', ('?',))[0]})", e)
+                inset, title = drawn[1], ""
+            compose(img, Kd, T, parts, getattr(arm, "part_shift", None), target, status, inset, errors, title)
             cv2.imshow("System 1: wrist camera", img)
             if getattr(backend, "live_feed", None):  # main.py's telemetry: the Console shows this same picture
                 try:
@@ -69,9 +82,10 @@ def run(backend):
             time.sleep(1)
 
 
-def compose(img, K, T, parts, shift, target, status, inset=None, errors=None):
+def compose(img, K, T, parts, shift, target, status, inset=None, errors=None, title="last look"):
     """Draws on img (an undistorted frame, K its intrinsics, T the camera's pose in the arm frame) in place. parts are
-    the backend's, moved by shift (RealArm.part_shift) for the arm; they are drawn where the camera saw them."""
+    the backend's, moved by shift (RealArm.part_shift) for the arm; they are drawn where the camera saw them. inset
+    goes top right, titled title."""
     import rgbperceive
 
     errors = set() if errors is None else errors
@@ -103,7 +117,8 @@ def compose(img, K, T, parts, shift, target, status, inset=None, errors=None):
             y0, x0 = 50, img.shape[1] - w - 8
             img[y0:y0 + h, x0:x0 + w] = inset
             cv2.rectangle(img, (x0 - 1, y0 - 1), (x0 + w, y0 + h), (255, 255, 255), 2)
-            _text(img, "last look", (x0 + 8, y0 + 24), 0.6, (255, 255, 255))
+            if title:
+                _text(img, title, (x0 + 8, y0 + 24), 0.6, (255, 255, 255))
         except Exception as e:  # noqa: BLE001
             _once(errors, "look", e)
     _text(img, status, (12, 34), 0.8, (255, 255, 255))
@@ -150,6 +165,145 @@ def inset_image(look_dir, look, width):
     img = cv2.resize(img[y0:y0 + h, x0:x0 + w], (width, round(h * width / w)), interpolation=cv2.INTER_AREA)
     _text(img, f"{pid}: {said}"[:48], (8, img.shape[0] - 12), 0.55, (255, 255, 255))
     return img
+
+
+def note(progress, what, info):
+    """rgbperceive.PROGRESS, on the scan's thread, so it only keeps things: the stage (name, when) and the newest
+    thing to show (what, info) in progress, and a count n of the news."""
+    if what == "stage":
+        if info["name"] == "survey":
+            progress.pop("show", None)
+        progress["stage"] = (info["name"], time.monotonic())
+        if info["name"] in ("views", "done"):  # the survey's features are in; the parts are
+            progress["show"] = (info["name"], info)
+    else:
+        progress["show"] = (what, info)
+    progress["n"] = progress.get("n", 0) + 1
+
+
+def scan_panel(progress, width, height):
+    """The scan's newest product (see note) fitted in width x height, between a caption and a strip of the stages
+    with the current one lit."""
+    band = 30
+    stage = progress.get("stage", ("survey", 0))[0]
+    what, info = progress.get("show", (None, {}))
+    pic, caption = scan_picture(stage, what, info, width, height - 2 * band)
+    panel = np.zeros((pic.shape[0] + 2 * band, width, 3), np.uint8)
+    x0 = (width - pic.shape[1]) // 2
+    panel[band:band + pic.shape[0], x0:x0 + pic.shape[1]] = pic
+    _text(panel, caption[:56], (8, 21), 0.55, (255, 255, 255), 1)
+    labels = ["survey", "scan", "poses", "ortho", "segment", "heights", "classify"]
+    now = STAGES.index({"views": "survey"}.get(stage, stage)) if stage in STAGES + ("views",) else -1
+    size = min(0.5, 0.5 * (width - 16) / sum(cv2.getTextSize(s + "  ", cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0][0]
+                                              for s in labels))
+    x, y = 8, panel.shape[0] - 10
+    for k, s in enumerate(labels):
+        _text(panel, s, (x, y), size, (0, 255, 0) if k == now else (255, 255, 255) if k < now else (110, 110, 110), 1)
+        x += cv2.getTextSize(s + "  ", cv2.FONT_HERSHEY_SIMPLEX, size, 1)[0][0]
+    return panel
+
+
+def scan_picture(stage, what, info, width, height):
+    """(picture at most width x height, caption) for one of note's things to show."""
+    import rgbperceive
+
+    if what == "capture":
+        return _fit(info["frame"].rgb, width, height)[0], f"{stage}: photo at view {info['view'] + 1} of {info['views']}"
+    if what == "views":
+        return _survey_picture(info["scene"].survey, width, height)
+    if what == "orthophoto":
+        return _fit(info["img"], width, height)[0], f"orthophoto: {info['n']} of {info['of']} views laid on the panel"
+    if what == "done":
+        return _parts_picture(info["scene"], width, height)
+    if what not in ("owl", "sam", "segment", "heights"):
+        return np.zeros((height // 3, width, 3), np.uint8), f"{stage}"
+    pic, s = _fit(info["img"], width, height)
+    size = pic.shape[1::-1]
+    shrink = lambda m: cv2.resize(m.astype(np.uint8), size, interpolation=cv2.INTER_NEAREST) > 0
+    colors = rgbperceive.CANDIDATE_COLORS
+    if what == "owl":
+        for (a, b, c, d), sc in zip(np.asarray(info["boxes"]) * s, info["scores"]):
+            cv2.rectangle(pic, (int(a), int(b)), (int(c), int(d)), (0, 255, 255), 1)
+        return pic, f"segment: OWLv2 proposed {len(info['boxes'])} boxes"
+    if what == "sam":
+        for k, m in enumerate(info["masks"]):
+            m = shrink(m)
+            pic[m] = pic[m] // 2 + np.array(colors[k % len(colors)], np.uint8) // 2
+        return pic, f"segment: SAM outlined {len(info['masks'])} boxes"
+    if what == "segment":
+        for k, c in enumerate(info["cands"]):
+            m = shrink(c["mask"])
+            pic[m] = pic[m] // 2 + np.array(colors[k % len(colors)], np.uint8) // 2
+            cs, _ = cv2.findContours(m.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(pic, cs, -1, colors[k % len(colors)], 1)
+        return pic, f"segment: {len(info['cands'])} candidates"
+    votes = np.full(info["img"].shape[:2], np.nan, np.float32)  # heights: each swept candidate's votes
+    for c in info["cands"]:
+        i0, i1, j0, j1 = c["roi"]
+        votes[i0:i1, j0:j1] = np.where(np.isnan(votes[i0:i1, j0:j1]), c["votes"][i0:i1, j0:j1], votes[i0:i1, j0:j1])
+    _heights(pic, cv2.resize(votes, size, interpolation=cv2.INTER_NEAREST), -1.0)
+    return pic, f"heights: {len(info['cands'])} of {info['of']} candidates swept"
+
+
+def _survey_picture(survey, width, height):
+    """The survey photo that sees the most of its features, with them on it (green on the panel's plane, orange off
+    it) and the panel's outline."""
+    import rgbperceive
+
+    pts, T, (u0, u1, v0, v1) = survey["points"], survey["panel"], survey["extent"]
+
+    def seen(f):
+        uv, z = rgbperceive._project(f.K, f.T_base_cam, pts)
+        h, w = f.rgb.shape[:2]
+        return uv, (z > 0) & (uv[:, 0] >= 0) & (uv[:, 1] >= 0) & (uv[:, 0] < w) & (uv[:, 1] < h)
+    f = max((c.frame for c in survey["captures"]), key=lambda f: seen(f)[1].sum())
+    pic, s = _fit(f.rgb, width, height)
+    uv, ok = seen(f)
+    on = np.abs((pts - T[:3, 3]) @ T[:3, 2]) < 0.005
+    for (u, v), o in zip(uv[ok] * s, on[ok]):
+        cv2.circle(pic, (int(u), int(v)), 2, (0, 255, 0) if o else (0, 140, 255), -1)
+    corners = np.array([T[:3, 3] + T[:3, :2] @ [u, v] for u, v in ((u0, v0), (u1, v0), (u1, v1), (u0, v1))])
+    cv2.polylines(pic, [(rgbperceive._project(f.K, f.T_base_cam, corners)[0] * s).astype(np.int32)], True,
+                  (0, 255, 255), 2, cv2.LINE_AA)
+    return pic, f"survey: {len(pts)} matched features, panel {(u1 - u0) * 1000:.0f} x {(v1 - v0) * 1000:.0f} mm"
+
+
+def _parts_picture(scene, width, height):
+    """The scan's orthophoto with its heights over 1 mm and each part ringed and named with its kind (a rejected
+    candidate in grey), names above and below in turn from left to right so neighbours' don't overlap."""
+    hm, ortho, cell = scene.heightmap[:3]
+    pic, s = _fit(ortho, width, height)
+    _heights(pic, cv2.resize(hm, pic.shape[1::-1], interpolation=cv2.INTER_NEAREST), 0.001)
+    Tg = scene.plane[0]
+    rings = []
+    for p, color in [(p, PART) for p in scene.parts] + [(p, (170, 170, 170)) for p in scene.rejected]:
+        i, j = (p.pos - Tg[:3, 3]) @ Tg[:3, :2] / cell * s
+        m = p.meta
+        r = max((m.get("radius") or m.get("pad_radius") or m.get("knob_radius") or max(p.size[:2]) / 2) / cell * s, 3)
+        name = p.id if p.kind in p.id or color != PART else f"{p.id} ({p.kind})"
+        rings.append((j, i, r, name, color))
+    for k, (j, i, r, name, color) in enumerate(sorted(rings, key=lambda x: x[0])):
+        cv2.circle(pic, (int(j), int(i)), int(r), color, 2, cv2.LINE_AA)
+        w = cv2.getTextSize(name, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)[0][0]
+        _text(pic, name, (int(j - w / 2), int(i - r - 6 if k % 2 == 0 else i + r + 16)), 0.45, color, 1)
+    return pic, f"classified: {len(scene.parts)} parts" + (f", {len(scene.rejected)} unsure" if scene.rejected else "")
+
+
+def _heights(pic, h, above):
+    """Colours pic where h (m, NaN unseen) is over above: blue at the panel to red MAX_MM up; dims the rest."""
+    on = np.isfinite(h) & (np.nan_to_num(h, nan=-1) > above)
+    c = cv2.applyColorMap((np.clip(np.nan_to_num(h) * 1000 / MAX_MM, 0, 1) * 255).astype(np.uint8),
+                          cv2.COLORMAP_TURBO)
+    pic[~on] = pic[~on] // 2
+    pic[on] = c[on] // 4 * 3 + pic[on] // 4
+    _text(pic, f"height 0-{MAX_MM} mm: blue to red", (6, pic.shape[0] - 8), 0.45, (255, 255, 255), 1)
+
+
+def _fit(img, width, height):
+    """img shrunk to fit width x height, and the scale."""
+    s = min(width / img.shape[1], height / img.shape[0])
+    return cv2.resize(img, (max(round(img.shape[1] * s), 1), max(round(img.shape[0] * s), 1)),
+                      interpolation=cv2.INTER_AREA), s
 
 
 def _watch_looks(touch, looks):

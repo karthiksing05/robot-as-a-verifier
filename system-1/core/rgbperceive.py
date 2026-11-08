@@ -67,6 +67,15 @@ ROW_MAX = None          # m: parts and rejected candidates further than this alo
 SAVE_CAPS = None        # a file the survey and captures go to before the vision stages, to replay with analyse (hw_rig)
 SURVEY_TRIES = 1        # surveys to take until one passes SURVEY_CHECK (hw_rig)
 SURVEY_CHECK = None     # (panel normal's z range, fewest points on the panel plane, shortest panel side's longer one, m)
+PROGRESS = None         # PROGRESS(what, **info) gets each stage and intermediate product as it comes (live_view draws them)
+
+
+def _progress(what, **info):
+    if PROGRESS:
+        try:
+            PROGRESS(what, **info)
+        except Exception as e:  # noqa: BLE001 - a display must never stop the scan
+            print(f"  scan progress: {type(e).__name__}: {e}")
 
 
 def survey_doubt(survey):
@@ -147,6 +156,7 @@ def perceive_rgb(arm, phone, wrist, on_stage=None, on_frame=None, on_survey=None
         if clock[0]:
             scene.timings[clock[0]] = round(scene.timings.get(clock[0], 0.0) + now - clock[1], 3)
         clock[:] = [name, now]
+        _progress("stage", name=name, scene=scene)
         if on_stage:
             on_stage(name, scene)
 
@@ -200,17 +210,22 @@ def analyse(scene, caps, stage, more=None):
     poses, plane, how = adjust(caps, scene.survey)
     stage("orthophoto")
     Tg, shape = ortho_frame(scene.survey, plane)
-    img, best = orthophoto(caps, poses, Tg, shape)
+    img, best = orthophoto(caps, poses, Tg, shape, live=True)
     stage("segment")
     cands = candidates(img, scene.survey)
+    _progress("segment", img=img, cands=cands)
     extra = more(cands, poses, Tg) if more else []
     if extra:
         stage("poses")
         caps = caps + extra
         poses, _, how = adjust(caps, scene.survey, held=poses)
     stage("heights")
+    swept = []
     with ThreadPoolExecutor(THREADS) as ex:
-        cands = list(ex.map(lambda c: sweep_part(c, caps, poses, Tg), cands))
+        for c in ex.map(lambda c: sweep_part(c, caps, poses, Tg), cands):
+            swept.append(c)
+            _progress("heights", img=img, cands=swept[:], of=len(cands))
+    cands = swept
     fix, Tg = panel_fix(cands, Tg, shape)  # from here heights and the grid are on the panel the sweep sees
     cands = [measure(c, fix, poses, Tg, best) for c in cands]
     stage("classify")
@@ -280,6 +295,7 @@ def scan(arm, wrist, views, on_frame=None, first=0):
                 v.update(ok=partner, why=f"safety stop on the way: {e}")
                 break
             caps.append(Capture(wrist.capture(), k, partner, bool(v.get("extra"))))
+            _progress("capture", frame=caps[-1].frame, view=k, views=len(views))
             if on_frame:
                 on_frame(caps[-1].frame, None)
     skills.go_home(arm)
@@ -624,11 +640,12 @@ def _cells(T, shape, h=0.0):
     return T[:3, 3] + i[..., None] * T[:3, 0] + j[..., None] * T[:3, 1] + np.asarray(h)[..., None] * T[:3, 2]
 
 
-def orthophoto(caps, poses, T, shape, h=0.0):
+def orthophoto(caps, poses, T, shape, h=0.0, live=False):
     """The main captures projected onto the grid at height h (a scalar or HxW) and blended: (HxWx3 BGR, HxW index
     of the capture weighted most per cell, -1 where none sees it). Weights favour a pixel near its image's
     centre and away from the image border and the gripper, sharply, so one view dominates each cell and tall
-    parts, which lean differently in every view, aren't doubled."""
+    parts, which lean differently in every view, aren't doubled. live: PROGRESS gets it as each capture adds to it,
+    at every other cell."""
     X = _cells(T, shape, h).reshape(-1, 3)
     acc, wsum, best_w = np.zeros((*shape, 3), np.float32), np.zeros(shape, np.float32), np.zeros(shape, np.float32)
     best = np.full(shape, -1)
@@ -651,6 +668,10 @@ def orthophoto(caps, poses, T, shape, h=0.0):
         wsum += w
         best = np.where(w > best_w, k, best)
         best_w = np.maximum(w, best_w)
+        if live and PROGRESS:
+            part = acc[::2, ::2] / np.maximum(wsum[::2, ::2], 1e-12)[..., None]
+            _progress("orthophoto", img=part.astype(np.uint8), n=sum(not c.partner for c in caps[:k + 1]),
+                      of=sum(not c.partner for c in caps))
     img = np.round(acc / np.maximum(wsum, 1e-12)[..., None]).astype(np.uint8)
     return img, np.where(best_w > 0, best, -1)
 
@@ -664,7 +685,9 @@ def candidates(img, survey, owl_min=0.05):
     Returns dicts: mask (whole, HxW), subs (masks), score (best OWLv2 score)."""
     import segmodels  # torch and transformers load only when perceive_rgb runs
     boxes, scores, _ = segmodels.owl()(img, threshold=owl_min)
+    _progress("owl", img=img, boxes=boxes, scores=scores)
     masks, _ = segmodels.sam_boxes()(img, boxes)
+    _progress("sam", img=img, boxes=boxes, masks=masks)
     auto = _sam_auto(segmodels)(img)[0] if SAM_AUTO else []
     segmodels.torch.cuda.empty_cache()  # the card is shared: hand back what the masks took, keep the weights
     H, W = img.shape[:2]

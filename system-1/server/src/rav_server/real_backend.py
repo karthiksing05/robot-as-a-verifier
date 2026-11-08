@@ -81,6 +81,9 @@ class RealBackend(PipelineRobot):
         self.on_stage = on_stage
         try:
             super().perceive()
+        except BaseException:
+            self.stage = "scanning failed"  # not "scan ...": the live view stops showing the scan
+            raise
         finally:
             self.on_stage = telemetry
         self.stage = f"scanned: {len(self.parts)} parts"
