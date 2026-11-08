@@ -74,6 +74,8 @@ STALL_AFTER_S = 0.5     # with arm.stall_m, the lag's free-motion baseline is ta
                         # real arm's lag grew up to 3.9 mm past it in free air at 20 mm/s, from 0.5 s 1.8 (creep_log)
 STALL_FAR = 0.006       # a press's stall further than this above the part's expected top is free-air lag, not the part:
                         # the baseline is taken again there (the real arm stalled 22.5 mm short of TIME+, Nov 8)
+PRESS_FAST = 0.05       # m/s: a fixed-depth press's speed until skills.SLOW_ZONE_M above the part
+PRESS_HOLD_S = 0.3      # a fixed-depth press (arm.press_depth) holds at the bottom this long before backing off
 PRESS_DEEP = 0.0025     # and a stall-sensed press stops on travel only once this far past the part's expected top
 STALL_PAST = 0.002      # and a stalled push stops this much further on, so it doesn't keep building force
 # Joint readings off a guarded path by more than HOLD_FREE are fed back into the command, HOLD_GAIN of the error per
@@ -119,16 +121,19 @@ def _rotate(v, k, th):
 
 # --- motion with sagging servos ---
 
-def _approach(arm, pos, axis, label, q0=None):
+def _approach(arm, pos, axis, label, q0=None, bias=None):
     """Move the tip to pos, pointing along axis, then command the pose again by however far the joint readings
     fell short, until they are within SAG_TOL of it, at most arm.sag_tries times: gravity sags STS3215 servos about
     10 mm at the tip, one round leaves about 1.2 mm (friction), two about 0.25. q0 seeds the IK (default the
     command), and so sets the wrist roll. Returns the pose and the bias, command minus reading, that holds the arm on
-    poses near it."""
+    poses near it. Given a bias from a pose near this one, it moves once with it added instead."""
     arm.status = f"{label}: approach"
     q, ok, err, _ = arm.ik.solve(pos, axis, arm.cmd if q0 is None else q0)
     if not ok:  # the solver's best guess can point the arm anywhere: an unreachable touch swung the real arm away
         raise SafetyStop(f"{label}: the approach is out of reach (best IK is {err * 1000:.0f} mm off)")
+    if bias is not None:
+        skills.move_joints(arm, q + bias)
+        return q, bias
     skills.move_joints(arm, q)
     for _ in range(arm.sag_tries):
         if np.linalg.norm(arm.ik.fk(q)[0] - arm.tip_pose()[0]) < SAG_TOL:
@@ -625,7 +630,7 @@ def _poke(arm, p, limit, label, settle=0.0, retreat=0.03):
     seconds. It comes in along _press_axis; first contact is still measured along the normal."""
     n, aim = _press_axis(arm, p), _aim(p)
     pre = aim + skills.APPROACH_M * n
-    q, bias = _approach(arm, pre, -n, label)
+    q, bias = _approach(arm, pre, -n, label, bias=arm.__dict__.pop("look_bias", None))
     arm.status = f"{label}: guarded push"
     arm.tare()  # does nothing with the perfect sensor
     depth, contact, peak, stop, travel, creep, seen = 0.0, None, 0.0, None, 0.0, 0, []
@@ -635,9 +640,10 @@ def _poke(arm, p, limit, label, settle=0.0, retreat=0.03):
     deepest = skills.APPROACH_M + PRESS_TRAVEL + 0.006 + (arm.stall_m or 0.0)  # a stall shows after the command runs on
     while stop is None:
         f = arm.tip_force() if armed else 0.0
-        fast = contact is None and depth < skills.APPROACH_M - skills.SLOW_ZONE_M and not stall
+        sure = arm.press_depth is not None  # a fixed depth needs no steady speed for stall sensing
+        fast = contact is None and depth < skills.APPROACH_M - skills.SLOW_ZONE_M and (not stall or sure)
         ease = 1.0 if stall else float(np.clip(1 - f / limit, 0.15, 1))
-        v = skills.APPROACH_SPEED if fast else skills.CONTACT_SPEED * ease
+        v = (PRESS_FAST if sure else skills.APPROACH_SPEED) if fast else skills.CONTACT_SPEED * ease
         depth += max(v, arm.guard_speed) / CONTROL_HZ
         q, *_ = arm.ik.solve(pre - depth * n, -n, q, iters=30)
         arm.send(q + bias)
@@ -655,7 +661,10 @@ def _poke(arm, p, limit, label, settle=0.0, retreat=0.03):
             servo = arm.sensing and not arm.axial_sensor and not stall
             contact = next((t for f0, t in reversed(seen) if f0 <= contact_n / 4), tip) if servo else tip
         travel = 0.0 if contact is None else float((contact - tip) @ n)
-        if deep:
+        if arm.press_depth is not None:  # a fixed depth: contact is only noted, it never ends the push
+            if depth >= skills.APPROACH_M + arm.press_depth:
+                stop = "depth"
+        elif deep:
             stop = "force_limit"
         elif travel >= PRESS_TRAVEL and (stall is None or (aim - tip) @ p.normal >= PRESS_DEEP):
             stop = "travel"  # with stall contact, also past the expected top: early contact was free-air lag on the real arm
@@ -672,6 +681,9 @@ def _poke(arm, p, limit, label, settle=0.0, retreat=0.03):
                 contact, stop = tip, "held"  # as skills._guarded_push
             arm.tare()
             armed = True
+    for _ in range(int(PRESS_HOLD_S * CONTROL_HZ) if stop == "depth" else 0):  # the arm catches up with the command
+        arm.send(arm.cmd)
+        arm.tick()
     arm.status = f"{label}: retreat"
     _line(arm, pre, -n, retreat, bias)
     arm.tare(False)  # only once clear: dropped while pressing, the zero's friction and hidden force read as 16 N
@@ -755,8 +767,8 @@ def _refine(arm, p, plan, refine, label, result):
     """refine(arm, p) from the step's approach pose (30 mm out from a press, over a sideways push's start);
     notes in result whether it found the part and how far it moved it."""
     if plan is None:
-        a = _press_axis(arm, p)  # where the press starts from
-        _approach(arm, _aim(p) + skills.APPROACH_M * a, -a, label)
+        a = _press_axis(arm, p)  # where the press starts from: its sag correction is reused there (_poke)
+        _, arm.look_bias = _approach(arm, _aim(p) + skills.APPROACH_M * a, -a, label)
     else:
         _approach(arm, plan.path(0, None)[0] + HOVER * plan.n, -plan.n, label, plan.qs[0])
     arm.status = f"{label}: refine"

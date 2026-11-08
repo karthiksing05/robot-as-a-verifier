@@ -224,6 +224,8 @@ class ArmBase:
     survey_dq = None  # joint offsets from home for rgbperceive.survey_wrist's overview poses (default SURVEY_DQ, 6)
     view_looks = None  # (down, left) offsets on the panel for plan_views' views (default perceive.VIEW_LOOKS, a 3x3 grid)
     tip_speed = None  # m/s, skills.move_joints' free-space cap when set (default skills.TIP_SPEED)
+    press_depth = None  # m: presses drive the command this far past the part's expected top and stop there, whatever
+                        # contact reads (default: stop on contact)
     look_close = None  # m: a press's second last look from this far out, after the first at APPROACH_M (default none)
     press_down = 0.0  # affordances._press_axis: 0 presses along the part's normal, 1 straight down
     sag_tries = 3  # affordances._approach commands an approach pose again at most this many times

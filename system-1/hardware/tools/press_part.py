@@ -4,6 +4,7 @@ device after the press (the operator readout), which gives the verdict. The arm 
 torque goes off. Don't move the device between scan_check and this.
 
     python tools/press_part.py COM11 CAL.json button_1
+    python tools/press_part.py COM11 CAL.json button_1,button_2,button_3
     python tools/press_part.py COM11 CAL.json button_1 --no-look
     python tools/press_part.py COM11 CAL.json button_1 --no-shift
     python tools/press_part.py COM11 CAL.json button_1 --stall 2.5
@@ -15,6 +16,7 @@ import os
 import pickle
 import sys
 import threading
+import time
 
 import cv2
 import numpy as np
@@ -52,11 +54,11 @@ def save(rig, out, name):
 
 def main(argv=None, ask=input):
     args = argv or sys.argv[1:]
-    port, cal, target = args[:3]
+    port, cal, targets = args[0], args[1], args[2].split(",")
     scene = pickle.load(open(os.path.join(os.getcwd(), "scan_check", "scene.pkl"), "rb"))
-    part = next((p for p in scene.parts if p.id == target), None)
-    if part is None:
-        print(f"No {target} in the last scan: it has {[p.id for p in scene.parts]}")
+    missing = [t for t in targets if t not in {p.id for p in scene.parts}]
+    if missing:
+        print(f"No {missing} in the last scan: it has {[p.id for p in scene.parts]}")
         return
     if "--no-shift" in args:
         SHIFT[:] = 0
@@ -64,7 +66,9 @@ def main(argv=None, ask=input):
         SHIFT[:] *= float(args[args.index("--shift-scale") + 1])
     for p in scene.parts:
         shift(p)
-    print(f"{target}: {part.kind} at {np.round(part.pos * 1000)} mm (after the {np.round(SHIFT * 1000, 1)} mm correction)")
+    for p in scene.parts:
+        if p.id in targets:
+            print(f"{p.id}: {p.kind} at {np.round(p.pos * 1000)} mm (after the {np.round(SHIFT * 1000, 1)} mm correction)")
     if "--no-look" not in args:  # torch and SAM load while the arm connects and goes home
         loading = threading.Thread(target=lambda: __import__("segmodels").sam_boxes(), daemon=True)
         loading.start()
@@ -74,14 +78,16 @@ def main(argv=None, ask=input):
         arm.stall_m = float(args[args.index("--stall") + 1]) / 1000
     if "--down" in args:  # 0 presses along the panel's normal, 1 straight down (affordances._press_axis)
         arm.press_down = float(args[args.index("--down") + 1])
+    if "--depth" in args:  # mm past the expected top for a fixed-depth press (RealArm.press_depth)
+        arm.press_depth = float(args[args.index("--depth") + 1]) / 1000
     if "--close" in args:  # mm out for a second last look (affordances._refine)
         arm.look_close = float(args[args.index("--close") + 1]) / 1000
     arm.app = real_arm.OperatorReadout(arm, ask=ask)  # the same prompt as the rest, so a script can answer it
     try:
         arm.tick()
         rest = arm.read_q()
-        if ask(f"The arm will go home, look at {target} from close up, press it until it stalls (a few N), back off and "
-               f"come back here. Is it clear? Type yes to go: ").strip() != "yes":
+        if ask(f"The arm will go home, press {', '.join(targets)}, and come back here. Is it clear? Type yes to go: "
+               ).strip() != "yes":
             print("Not moved.")
             return
         arm.enable(confirm=True)
@@ -95,14 +101,14 @@ def main(argv=None, ask=input):
                 out = os.path.join(os.getcwd(), "scan_check")
 
                 def look(arm, p):  # the camera's offset is in the last look's answer too
-                    save(rig, out, f"look_{target}")
+                    save(rig, out, f"look_{p.id}")
                     q = look0(arm, p)
                     return shift(q) if q.meta.get("refined") else q
-            line = affordances._line
+            line, now = affordances._line, [targets[0]]
 
             def snap_then_line(a, *rest, **kw):  # a photo at the bottom of the press: the jaw is in view
                 if a.status.endswith("retreat"):
-                    save(rig, os.path.join(os.getcwd(), "scan_check"), f"press_{target}")
+                    save(rig, os.path.join(os.getcwd(), "scan_check"), f"press_{now[0]}")
                 return line(a, *rest, **kw)
             affordances._line = snap_then_line
             film, stop = os.path.join(os.getcwd(), "scan_check", "push"), threading.Event()
@@ -117,11 +123,15 @@ def main(argv=None, ask=input):
                         cv2.imwrite(os.path.join(film, f"{k:03d}.jpg"), cv2.resize(rig.wrist.grab.read()[0], None, fx=0.5, fy=0.5))
                         k += 1
             threading.Thread(target=filming, daemon=True).start()
-            r = affordances.run_step(arm, scene.parts, {"skill": "press", "target": target}, None, look)
+            t0 = time.time()
+            for target in targets:  # one after another, no going home between
+                now[0] = target
+                r = affordances.run_step(arm, scene.parts, {"skill": "press", "target": target}, None, look)
+                print(f"{target}:")
+                for k in ("verdict", "reason", "stop", "contact_offset_mm", "refined", "refine_why", "duration_s"):
+                    print(f"  {k}: {r.get(k)}")
             stop.set()
-            for k in ("verdict", "reason", "stop", "contact_offset_mm", "travel_mm", "refined", "refine_why", "refine_shift_mm", "duration_s"):
-                print(f"  {k}: {r.get(k)}")
-            print(f"  last look: {({k: v for k, v in part.meta.items() if 'refine' in k}) or 'not used'}")
+            print(f"{len(targets)} presses in {time.time() - t0:.1f} s")
             skills.go_home(arm)
         except (Exception, KeyboardInterrupt) as e:  # torque stays on, so the arm holds
             print(f"Stopped: {type(e).__name__}: {e or 'Ctrl+C'}")

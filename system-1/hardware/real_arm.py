@@ -112,7 +112,7 @@ class RealArm(rig.ArmBase):
     # Free moves (skills.move_joints) at 1.5x the sim's cap (0.2 read 35 N on the servo estimate going home and tripped
     # the hard cap). The joints peak well inside MAX_STEP_RAD,
     # and a cosine profile arrives at rest. Guarded moves keep guard_speed.
-    tip_speed = 0.15
+    tip_speed = 0.2
     # one re-command of an approach pose: the press is by stall and the last look's pose is from the joint readings, so
     # the ~1.2 mm one round leaves doesn't matter, and each further round cost 0.7 s
     sag_tries = 1
@@ -123,7 +123,9 @@ class RealArm(rig.ArmBase):
     # button's cap, halfway the gripper met the panel's lower edge first. A second last look 18 mm out leaves less travel
     # to err. TIME+ clicked with these (Nov 8)
     press_down = 0.4
-    look_close = 0.018
+    look_close = None  # a second look 18 mm out failed its check on START twice, and costs an extra in and out
+    # presses go to a fixed depth: stall contact ended START's press 2.8 mm in, before it clicked
+    press_depth = 0.009  # 7 mm left STOP short
 
     def __init__(self, bus, app=None, pad=None, pace=True):
         self.bus, self.pad, self.pace = bus, pad, pace
@@ -191,10 +193,9 @@ class RealArm(rig.ArmBase):
         self.goal = self.pos.copy()
         self.bus.sync_write("Goal_Position", dict(zip(ARM_JOINTS, self.goal.tolist())), normalize=False)
         self.bus.enable_torque(ARM_JOINTS)  # after the goal: a servo turned on runs to whatever goal it last had
-        # The gripper holds where it is (closed by hand before), at LeRobot's soft gripper gain and torque limit, so the
-        # loose jaw can't hang below the fingertip
-        self.bus.sync_write("Goal_Position", self.bus.sync_read("Present_Position", ["gripper"], normalize=False),
-                            normalize=False)
+        # The gripper is driven to its closed end (range_min, past where the jaws meet, so they squeeze) at LeRobot's soft
+        # gripper gain and torque limit: held where it was, a press pushed the loose jaw open
+        self.bus.sync_write("Goal_Position", {"gripper": self.bus.calibration["gripper"].range_min}, normalize=False)
         self.bus.enable_torque(["gripper"])
         self.torque = True
         self._io()
