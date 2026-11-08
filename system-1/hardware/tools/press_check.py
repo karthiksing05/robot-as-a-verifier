@@ -29,6 +29,22 @@ UP = np.array([0.0, 0.0, 1.0])  # presses move straight down, with the gripper l
 SPOTS_M = [(0, 0), (0.04, 0), (-0.04, 0), (0, 0.04), (0, -0.04), (0, 0)]
 
 
+LEANS_DEG = range(0, 45, 5)  # a leaning jaw tip skids on a smooth top, so each press leans as little as reach allows
+
+
+def least_lean(arm, top, end, seed):
+    """Joint angles at top and end with the gripper leaned as little as both allow, outward from the base: (q_top,
+    q_end, lean deg), or Nones."""
+    out = np.r_[top[:2] / np.linalg.norm(top[:2]), 0.0]
+    for lean in LEANS_DEG:
+        axis = np.sin(np.radians(lean)) * out - np.cos(np.radians(lean)) * UP
+        q0, ok0, _, _ = arm.ik.solve(top, axis, seed)
+        q1, ok1, _, _ = arm.ik.solve(end, axis, q0)
+        if ok0 and ok1:
+            return q0, q1, lean
+    return None, None, None
+
+
 def press(arm, q_start, q_end):
     """Move from q_start toward q_end along the joint-space line at SPEED (measured at the tip) until the lag along
     the motion grows STALL_M past its value after BASELINE_S. Returns (tip at the stall, lag growth) or (None, why)."""
@@ -54,7 +70,6 @@ def main(argv=None, bus=None, ask=input):
     ap.add_argument("port")
     ap.add_argument("calibration")
     args = ap.parse_args(argv)
-    N = place_check.N
     ask("Connecting turns torque off on every motor, and the arm goes limp. Support it, then press Enter: ")
     with real_arm.RealArm(bus or real_arm.make_bus(args.port, args.calibration)) as arm:
         ask("Rest the fixed jaw's tip on the middle of the surface, jaws closed. Hold still and press Enter: ")
@@ -63,20 +78,23 @@ def main(argv=None, bus=None, ask=input):
         arm.tick()  # read_q() is the last tick's reading: this one is the lifted pose, not the surface
         floor = arm.workspace[2][0] + 0.002
         depth = min(START_M, mid[2] + START_M - floor)  # ends at the limp reading (a missed stall stays under ~12 N), never below the floor
-        points = []
+        rows, now = [], arm.read_q()
+        print("Planned presses (tip mm; lean from vertical; joints deg):")
         for k, (dx, dy) in enumerate(SPOTS_M):
             top = mid + [dx, dy, 0] + START_M * UP
-            points += [(f"press {k + 1} start", top), (f"press {k + 1} end", top - depth * UP)]
-        rows, why = place_check.plan(arm, points)
-        print("Planned poses (tip mm; joints deg):")
-        for label, p, q, _ in rows:
-            print(f"  {label:15s} tip {np.round(p * 1000)}  joints {np.round(np.degrees(q))}")
-        if why:
-            print(f"Not moving: {why}.")
+            q0, q1, lean = least_lean(arm, top, top - depth * UP, now)
+            if q0 is None:
+                print(f"Not moving: press {k + 1} is out of reach at any lean up to {LEANS_DEG[-1]} deg.")
+                return
+            rows += [(f"press {k + 1} start", top, q0), (f"press {k + 1} end", top - depth * UP, q1)]
+            print(f"  press {k + 1}: tip {np.round(top * 1000)} down {depth * 1000:.0f} mm, lean {lean} deg, "
+                  f"joints {np.round(np.degrees(q0))}")
+        turn = max(np.degrees(np.abs(r[2] - now).max()) for r in rows)
+        if turn > place_check.MAX_TURN_DEG:
+            print(f"Not moving: a joint would turn {turn:.0f} deg from here (limit {place_check.MAX_TURN_DEG}).")
             return
-        if ask(f"The arm will press the surface {len(SPOTS_M)} times at {SPEED * 1000:.0f} mm/s, leaning "
-               f"{np.degrees(place_check.TILT):.0f} deg, stopping when it stalls. Do the joint angles look sane, and is "
-               f"it clear? Type yes to go: ").strip() != "yes":
+        if ask(f"The arm will press the surface {len(SPOTS_M)} times straight down at {SPEED * 1000:.0f} mm/s, stopping "
+               f"when it stalls. Do the joint angles look sane, and is it clear? Type yes to go: ").strip() != "yes":
             print("Not moved.")
             return
         arm.enable(confirm=True)
