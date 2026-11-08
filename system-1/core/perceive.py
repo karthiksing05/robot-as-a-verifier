@@ -238,7 +238,7 @@ PANEL_GROUP = None  # m: when set, the panel's extent comes from its plane's lar
 VERTICAL_NZ = -0.1  # an upright panel may lean back this far (its normal's z)
 
 
-LEVER_MIN_H, LEVER_R = 0.014, 0.002  # a lever's tip stands this far up at least; its radius (the toggle readings: 1.5-2.7 mm)
+LEVER_MIN_H, LEVER_R = 0.010, 0.002  # a lever's tip stands this far up at least (a 6.8 mm reading was the base alone; 11.7 the real lever); its radius (the toggle readings: 1.5-2.7 mm)
 
 
 def lever_from_points(p, plane):
