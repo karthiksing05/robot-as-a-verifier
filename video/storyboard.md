@@ -1,8 +1,8 @@
 # Demo video storyboard
 
-**Draft 5, Nov 8.** Goes with [script.md](script.md). Target 2:45, 1920 × 1080 at 30 fps.
+**Draft 6, Nov 8.** Goes with [script.md](script.md). Target 2:45, 1920 × 1080 at 30 fps.
 
-**What changed from Draft 4:** we get to RAAV and the robot sooner. The problem is one short chalk section (shots 2–4), the turn moves to 0:23, and the first robot footage is on screen at 0:26. The "why not one model" beat is now about VLAs in general and is drawn in the technical style. The tool plaques and field vignettes that used to open the video now form a chalk coda at 1:59–2:25, just before the close.
+**What changed from Draft 5:** the stakes are back at the front, in chalk (shots 2–8): the verification tools and where they're used, then the three field examples, biosafety first. The turn moves to 0:46 and the first robot footage is on screen at 0:49. The VLA beat is now a short opener inside "Two systems" (shot 11), and "Two systems" gets six shots to show who owns what and why the split works. The chalk coda is gone; the close stays technical.
 
 **For now, every robot shot is rendered in MuJoCo (sim).** The real arm hasn't run yet. We'll probably edit the cut and re-record those shots with real footage later (see "Real footage, later"). The `SIMULATION` tag rule stays as it is.
 
@@ -10,9 +10,9 @@
 
 ## Look
 
-### Act one: rustic chalk (0:00–0:23)
+### Act one: rustic chalk (0:00–0:46)
 
-Act one states the problem, briefly. It's chalk because it's an argument, not the product.
+Act one carries the problem and the stakes. It's chalk because it's an argument, not the product.
 
 - **Board:** green slate (about `#2e4a3c`), not flat. A faint texture of old, half-erased writing sits under everything, with eraser swirls, a dusty chalk tray along the bottom edge, and slight vignetting at the corners.
 - **Chalk:** white for the argument, **chalk yellow** for anything about the robot. The yellow matches the SO-101 and the Console's accent (`#eebc24`), so the chalk world and the product read as one thing. Lines are imperfect: they vary in pressure, skip on the grain, overshoot corners, and leave a little dust that drifts down. Letters are hand-printed, not a font.
@@ -24,9 +24,9 @@ Act one states the problem, briefly. It's chalk because it's an argument, not th
 - **Eraser wipe:** the stroke from the cold open is the transition between chalk scenes. A swipe clears a patch and the arm starts drawing in it.
 - **Source lines:** citations the voice can't fit are written small under each drawing, to be read on pause.
 
-### The turn (0:23–0:26, on "So we built RAAV")
+### The turn (0:46–0:49, on "So we built RAAV")
 
-The board holds the problem: the Lean ✓, the `software | hardware` line, the crossed-out pinch on the CAD lid, the hand at the buttons. The arm taps the dividing line twice. Then, over about 3 s:
+The board holds the whole argument: the Lean ✓ and the two plaques on the left, the `software | hardware` line, the crossed-out pinch, the three field vignettes and the hand at the buttons on the right. The arm taps the dividing line twice. Then, over about 3 s:
 1. The dust lifts off every line on the board and hangs in the air.
 2. The arm's chalk outline snaps clean, and fills in, link by link from the base up, with the Console's solid render: yellow plastic, dark servos, a metal horn.
 3. The green slate darkens into the Console's dark background, and a faint measurement grid fades in where the old writing was.
@@ -35,16 +35,12 @@ The board holds the problem: the Lean ✓, the `software | hardware` line, the c
 
 A low synth pad enters under the piano on step 2 and the music lifts (placeholder until the music arrives).
 
-### Act two: technical (0:26–1:59)
+### Act two: technical (0:49–2:45)
 
 - **Background:** the Console's dark theme, with a fine grid and thin hairline rules. Labels in JetBrains Mono, as in the Console; titles in Michroma.
-- **Colour:** the accent yellow for robot data, Console pass green and fail red for verdicts, everything else in greys.
+- **Colour:** the accent yellow for robot data and System 1, a cool grey-blue for System 2, Console pass green and fail red for verdicts, everything else in greys.
 - **Motion:** precise and quick, eased like the Console's UI. Nothing wobbles. Chalk appears in act two only as callout arrows on the CAD morph, a deliberate echo of act one.
 - **Tags:** `SIMULATION` in a small yellow tag at bottom right on all sim footage, which today is every robot shot (MuJoCo). Later, `REAL FOOTAGE · N×` on sped-up real clips.
-
-### Coda: chalk returns (1:59–2:25)
-
-"Why this matters" goes back to the slate, as a bookend: an eraser wipe across the Console grid reveals green slate, and the chalk arm draws the detail the opening no longer carries (tool plaques, a ledger of results, the field vignettes). The close (2:25–2:45) cuts back to the technical look for the Console B-roll and the title card.
 
 ### Freeze frames on robot footage
 
@@ -65,29 +61,28 @@ Status: **have** means it exists now; **render** means we can make it ourselves 
 |---|---|---|---|---|---|---|---|
 | 1 | 0:00–0:06 | Real chalkboard full of buzzwords (*autoformalization, agents, VLA, world models, scaling laws, self-driving labs, end-to-end, AGI, foundation models, verification*) around a big **?** | Static wide shot. Karthik walks in from the left and erases the board. **Play source 0:00.0–0:10.5 at 1.75×**, so 10.5 s of footage fills the 6.0 s slot; the erase finishes at about 0:05 on screen | | Chalk dust, eraser (sped up with the picture). Music starts on the last stroke | `video/real-world-assets/intro.MOV` (measured 25.5 s, 1920 × 1080, 59.94 fps) | **have** (trim and speed in the edit; the file itself stays untouched) |
 | 2 | 0:06–0:13 | The cleared board. The chalk arm enters from the right edge and writes `ETH: 3-SAT in 2^εn ?`, crosses out the `?`, writes `claimed false · Oct 2026`, and puts a Lean ✓ beside it | Camera follows the tip; the arm taps the ✓ twice | `a bound on solving hard problems` · *Impagliazzo, Paturi & Williams, Oct 26 2026* | VO 2a | Chalk animation | **render** |
-| 3 | 0:13–0:19 | A vertical line down the middle, `software \| hardware`. An arrow from the ✓ stops at the line, dotted and broken. Right of it, a clean CAD box of the centrifuge (✓), then a finger-and-thumb pinch on the lid fin, crossed out; the ✓ smudges into a `?` | Camera pans right with the arm; it wipes the ✓ with the side of its jaw | `no pinch · ADA §309.4` | VO 2b | Chalk animation | **render** |
-| 4 | 0:19–0:23 | A row of appliance buttons, a hand pressing them, a clipboard | One quick drawing; camera pulls back to the whole board | `tested by hand` | VO 2c | Chalk animation | **render** |
-| 5 | 0:23–0:26 | **The turn** (see Look). The chalk arm becomes the rendered SO-101; the board becomes the Console's grid; the title appears | One continuous move, about 3 s | **RAAV · ROBOT AS A VERIFIER** | VO 3a. Music lifts, synth pad enters | Chalk animation into the Console arm render (optional: open on 1 s of intro.MOV's `RAAV` writing at about 3×) | **render** |
-| 6 | 0:26–0:32 | First footage: the arm in front of the centrifuge, its manual open beside it as a flat card | Slow push in; labels tick on | `prototype + manual in` · `SIMULATION` | VO 3b | MuJoCo sim run on the centrifuge | **render** (sim) |
-| 7 | 0:32–0:38 | The arm presses START at 2×; a small force trace draws beside it. On the right, the model's plan streams in from Live; a `grades` label next to it is struck out and `sensors decide` appears under the trace | Footage at 2×; overlays slide in | `measurements out` · `model plans · sensors decide` · `SIMULATION` | VO 3c | Same sim run, plus Console Live replay (`#/live?replay=…`) | **render** (sim) plus **record** |
-| 8 | 0:38–0:49 | **Why not one VLA.** A motion graphic: one box, `perception + reasoning + control`, labelled `RT-2 · OpenVLA · π0`. Its input slot reads `image + instruction`. A tall stack of demo reels feeds it (`~1M demos`). A new device slides in; the box flashes `+ new demos · fine-tune` | The reel stack grows; the camera follows it up, then pulls back to the box | *OpenVLA, Kim et al. 2024: 970k demos; new setups: 10–150 demos + fine-tuning* · *RT-2, Brohan et al. 2023* · *π0, Black et al. 2024* | VO 4a | Motion graphic | **render** |
-| 9 | 0:49–1:00 | A thick manual drops toward the input slot and doesn't fit (`instruction only`). Then an arrow from the box's output loops back into its input, labelled `judge` | The manual bounces off; the loop arrow draws, then pulses once | `who verifies the judge?` | VO 4b | Motion graphic | **render** |
-| 10 | 1:00–1:04 | The box splits down the middle. Left: `SYSTEM 1 · the robot`, with an IK triangle and a small control loop. Right: `SYSTEM 2 · the model`, with the manual now sliding in easily (`reads the manual · no new training`) | One clean split, about 1 s, then labels type on | `inverse kinematics · classical control` | VO 5a | Motion graphic | **render** |
-| 11 | 1:04–1:14 | Split frame. Left: sim footage of the arm, with four labels ticking on: *perception · IK and control · safety · verdict rules*, and a `no LLM` badge. Right: the model's reasoning streaming in Live, with *plan · recover · diagnose* | Seven thin lines run between the halves like a bus, each labelled with a tool name (`system_status`, `scene_get`, `evidence_get`, `routine_start`, `routine_wait`, `routine_resume`, `routine_stop`); pulses travel along them. A ghost line labelled `move joint` tries to cross and is struck out at the boundary | `seven tools · no joint commands` · `SIMULATION` on the left | VO 5b | MuJoCo sim footage plus Console Live replay | **render** (sim) plus **record** |
-| 12 | 1:14–1:22 | **Freeze frame F0** on the split: a routine request crossing the line (table below). Then each half gets its own small test badge | Freeze, overlay, unfreeze; badges tick on | `each side tested on its own` | VO 5c | Same footage; a run's `events.jsonl` | **render** (sim) |
-| 13 | 1:22–1:28 | The centrifuge, then its manual. The Quick start lines highlight one at a time and turn into numbered plan steps | Pages fan open; highlighted lines slide right into a plan list | `MC-6 centrifuge` · `manual → plan` | VO 6a | `appliances/centrifuge` render and `manual.md`; plan from a sim run's events | **have** plus **render** |
-| 14 | 1:28–1:40 | **Robot footage with freeze frames F1–F4** (table below): survey and map, then POWER, START and SPEED | Footage at 2× between freezes | `SIMULATION` | VO 6a–b | MuJoCo sim run on the centrifuge, `--device centrifuge --rev A --effector stock`, wrist camera, route rgb | **render** (sim) |
-| 15 | 1:40–1:46 | The lid attempt, ending in **freeze frame F5**. A finding card slides in as the footage unfreezes | | `Lid · can't open · no lip to hook` · `SIMULATION` | VO 6c | Same MuJoCo run, plus the Console's finding card | **render** (sim) plus **record** |
-| 16 | 1:46–1:53 | The lid in CAD, close up. Rev A's fin morphs into Rev B's hook lip. Chalk callout arrows point to the lip | A slow orbit while the geometry morphs | `Rev A → Rev B` · `proposed by the model · approved by a person` | VO 7a | `appliances/centrifuge/build/meshes_revA` and `meshes_revB` | **render** |
-| 17 | 1:53–1:59 | Two-up: Rev A fails on the left, Rev B passes on the right. The score ticks up between them | Both clips start together; the right one's verdict turns green | `same tests · score ↑` · `SIMULATION` | VO 7b | MuJoCo sim runs of both revisions | **render** (sim) |
-| 18 | 1:59–2:07 | **Coda, in chalk.** An eraser wipe across the Console grid reveals slate. The arm draws two plaques. **CompCert** · `verified C compiler` · `ATR 42/72 avionics, 2026` · `MTU: nuclear emergency-generator engines, 2017` · `Airbus: flight-control evaluation, 2012`. **seL4** · `verified kernel` · `DARPA HACMS · Boeing Little Bird` · `red team couldn't break out, in flight` | Camera follows the tip from plaque to plaque | Small source lines: *compcert.org; AbsInt/MTU 2017; Bedin França et al., ERTS 2012* · *DARPA HACMS; seL4 Foundation* | VO 8a | Chalk animation | **render** |
-| 19 | 2:07–2:14 | A third plaque, **TLA+** · `AWS: 10 systems · a 35-step DynamoDB bug`. Under all three, a ledger: `Lean · Mathlib` · `Liquid Tensor Experiment, 2022` · `AlphaProof · IMO 2024 silver, 28/42` · `Rocq (Coq) · Four Colour Theorem, 2005` · `Isabelle/HOL · seL4, 2009` · `fluid singularities · DeepMind 2025` · `weight-space programming · 2026`. Then the `software \| hardware` line again; nothing crosses it | The ledger writes on fast, left to right; camera pulls back to the whole left half, then pans to the line | *Newcombe et al., CACM 2015* · ledger sources from the script | VO 8b | Chalk animation | **render** |
-| 20 | 2:14–2:18 | Right of the line. Heading `BIOSAFETY`. A lab over a buried drain pipe, with a crack and a tree root through it; a few dots seep out | The arm draws fast, then taps the crack twice | `Pirbright, UK, 2007 · foot-and-mouth` · *HSE: cracked, root-breached drains, most likely source* | VO 8c | Chalk animation | **render** |
-| 21 | 2:18–2:21 | Heading `AEROSPACE`. A folded sunshield beside a big loudspeaker; small fasteners fall from it | One quick drawing | *JWST, 2018: fasteners loose in an acoustic test · 29-month delay, ~$1B* | VO 8c | Chalk animation | **render** |
-| 22 | 2:21–2:25 | Heading `MECHANICAL DESIGN`. A stack of vacuum-cleaner prototypes, with a tally counting up to `5,127` | Camera tracks up the stack | *Dyson DC01: 5,127 prototypes, 15 years* | VO 8c | Chalk animation | **render** |
-| 23 | 2:25–2:34 | Back to the technical look. Console B-roll: a run page with a force trace and its frame, Studies, Live, Design Analysis, the models page | Slow parallax pans, a cut every 2–3 s. Words drop over it | `lab instruments · appliances · assistive devices` · `12 appliances · 4 models · in simulation` | VO 9a | Console screen capture | **record** |
-| 24 | 2:34–2:39 | A dark board with a faint grid. Typed lines appear: *Proofs → Lean*, *Software → CompCert · seL4*, *Hardware → ?*. The `?` becomes the yellow arm | Each line on its beat | | VO 9b–c. Music swells | Motion graphic | **render** |
-| 25 | 2:39–2:45 | Title card: **RAAV · ROBOT AS A VERIFIER**. Under it, the innovations one per line, then the team and MakeCU 2026 | Lines fade in on the beat; the music resolves at 2:44 | the innovations, team | Music out | Motion graphic | **render** |
+| 3 | 0:13–0:25 | Two chalk plaques under the ✓. **CompCert** · `verified C compiler` · `ATR 42/72 avionics, 2026` · `MTU: nuclear emergency-generator engines, 2017` · `Airbus: flight-control evaluation, 2012`. **seL4** · `verified kernel` · `DARPA HACMS · Boeing Little Bird` · `red team couldn't break out, in flight`. Along the bottom edge, a ledger writes on: `TLA+ · AWS, 10 systems` · `Lean · Mathlib` · `Liquid Tensor Experiment, 2022` · `AlphaProof · IMO 2024 silver, 28/42` · `Rocq (Coq) · Four Colour Theorem, 2005` · `Isabelle/HOL · seL4, 2009` · `fluid singularities · DeepMind 2025` · `weight-space programming · 2026` | Camera follows the tip from plaque to plaque, then pulls back as the ledger writes on fast | Small source lines: *compcert.org; AbsInt/MTU 2017; Bedin França et al., ERTS 2012* · *DARPA HACMS; seL4 Foundation* · *Newcombe et al., CACM 2015* | VO 2b | Chalk animation | **render** |
+| 4 | 0:25–0:31 | A vertical line down the middle, `software \| hardware`. The arrow from the plaques stops at it, dotted and broken. Right of it, a clean CAD box of the centrifuge (✓), then a finger-and-thumb pinch on the lid fin, crossed out; the ✓ smudges into a `?` | Camera pans right with the arm; it wipes the ✓ with the side of its jaw | `no pinch · ADA §309.4` | VO 3a | Chalk animation | **render** |
+| 5 | 0:31–0:36 | Heading `BIOSAFETY`. A lab over a buried drain pipe, with a crack and a tree root through it; a few dots seep out | The arm draws fast, then taps the crack twice | `Pirbright, UK, 2007 · foot-and-mouth` · *HSE: cracked, root-breached drains, most likely source* | VO 3b | Chalk animation | **render** |
+| 6 | 0:36–0:39 | Heading `AEROSPACE`. A folded sunshield beside a big loudspeaker; small fasteners fall from it | One quick drawing | *JWST, 2018: fasteners loose in an acoustic test · 29-month delay, ~$1B* | VO 3b | Chalk animation | **render** |
+| 7 | 0:39–0:43 | Heading `MECHANICAL DESIGN`. A stack of vacuum-cleaner prototypes, with a tally counting up to `5,127` | Camera tracks up the stack | *Dyson DC01: 5,127 prototypes, 15 years* | VO 3b | Chalk animation | **render** |
+| 8 | 0:43–0:46 | A row of appliance buttons, a hand pressing them, a clipboard | One quick drawing; camera pulls back to the whole board | `tested by hand` | VO 3c | Chalk animation | **render** |
+| 9 | 0:46–0:49 | **The turn** (see Look). The chalk arm becomes the rendered SO-101; the board becomes the Console's grid; the title appears | One continuous move, about 3 s | **RAAV · ROBOT AS A VERIFIER** | VO 4a. Music lifts, synth pad enters | Chalk animation into the Console arm render (optional: open on 1 s of intro.MOV's `RAAV` writing at about 3×) | **render** |
+| 10 | 0:49–0:58 | First footage: the arm in front of the centrifuge, its manual open beside it as a flat card. It presses START at 2×; a small force trace draws beside it | Slow push in; labels tick on | `prototype + manual in · measurements out` · `SIMULATION` | VO 4b | MuJoCo sim run on the centrifuge | **render** (sim) |
+| 11 | 0:58–1:10 | **Why not one VLA.** A motion graphic: one box, `perception + reasoning + control`, labelled `SmolVLA · GR00T N1 · π0`. Its input slot reads `images + instruction`. A stack of demo reels feeds it. A new device slides in; the box flashes `+ new demos · fine-tune`. Then an arrow from the box's output loops back into it, labelled `judge` | The reel stack grows; the loop arrow draws, then pulses once | *SmolVLA, Hugging Face 2025: built on SO-100/SO-101 data; 50 demos per real-world task* · *GR00T N1, NVIDIA 2025: post-trained per embodiment; its own "System 1/2" are trained end-to-end as one model* · `who verifies the judge?` | VO 5a | Motion graphic | **render** |
+| 12 | 1:10–1:13 | The box splits down the middle. Left, in yellow: `SYSTEM 1 · exact, fast, safe`. Right, in grey-blue: `SYSTEM 2 · context and judgment` | One clean split, about 1 s, then the headings type on | | VO 5b ("So RAAV splits the work") | Motion graphic | **render** |
+| 13 | 1:13–1:24 | Left half fills: sim footage of the arm, with five labels ticking on as the voice names them: `perception` (OWLv2 and SAM outlines) · `inverse kinematics` (the arm's IK triangle) · `control` (`50 Hz`) · `force limits` (`15 N cap`) · `verdicts: sensors + fixed rules` (a trace with its pass line). A `no LLM` badge | Labels tick on one per beat; the right half stays dim | `SIMULATION` | VO 5b | MuJoCo sim footage | **render** (sim) |
+| 14 | 1:24–1:38 | Right half fills: the model's reasoning streaming in Live. The manual and a spec card slide in; a plan list orders itself; a failed step turns red and the plan re-routes around it; a `root cause → CAD fix` card appears. Between the halves, seven thin tool lines run like a bus (`system_status`, `scene_get`, `evidence_get`, `routine_start`, `routine_wait`, `routine_resume`, `routine_stop`), with pulses travelling along them | Each job appears on its beat; the bus draws in last | `reads manual + spec · what to test, in what order · recovers · diagnoses → CAD fix` | VO 5b | Console Live replay (`#/live?replay=…`) | **record** |
+| 15 | 1:38–1:46 | **Freeze frame F0** on the split: a routine request crossing the line (table below). A ghost line labelled `move joint` tries to cross and is struck out at the boundary; a `grade` arrow from System 2 to the verdict is struck out too | Freeze, overlay, unfreeze | `no motor commands · no self-grading` | VO 5c | Same footage; a run's `events.jsonl` | **render** (sim) |
+| 16 | 1:46–1:54 | System 2's header cycles through four model names (`Haiku 5.5 · Sonnet 5.5 · GPT-5.4 · Grok 4.7`) while System 1's panel stays locked: `14 N step limit · 15 N cap · verdict rules` with a small padlock. Then, on the left of the old VLA box's spot, the demo reels fade and a manual slides in | Names flip like a split-flap board; the padlock doesn't move | `swap the model · System 1's limits hold` · `new device: a manual, not new demos` · `each side tested on its own` | VO 5c | Motion graphic over a still of the split | **render** |
+| 17 | 1:54–2:00 | The centrifuge, then its manual. The Quick start lines highlight one at a time and turn into numbered plan steps | Pages fan open; highlighted lines slide right into a plan list | `MC-6 centrifuge` · `manual → plan` | VO 6a | `appliances/centrifuge` render and `manual.md`; plan from a sim run's events | **have** plus **render** |
+| 18 | 2:00–2:10 | **Robot footage with freeze frames F1–F4** (table below): survey and map, then POWER, START and SPEED | Footage at 2× between freezes | `SIMULATION` | VO 6a–b | MuJoCo sim run on the centrifuge, `--device centrifuge --rev A --effector stock`, wrist camera, route rgb | **render** (sim) |
+| 19 | 2:10–2:15 | The lid attempt, ending in **freeze frame F5**. A finding card slides in as the footage unfreezes | | `Lid · can't open · no lip to hook` · `SIMULATION` | VO 6c | Same MuJoCo run, plus the Console's finding card | **render** (sim) plus **record** |
+| 20 | 2:15–2:22 | The lid in CAD, close up. Rev A's fin morphs into Rev B's hook lip. Chalk callout arrows point to the lip | A slow orbit while the geometry morphs | `Rev A → Rev B` · `proposed by the model · approved by a person` | VO 7a | `appliances/centrifuge/build/meshes_revA` and `meshes_revB` | **render** |
+| 21 | 2:22–2:28 | Two-up: Rev A fails on the left, Rev B passes on the right. The score ticks up between them | Both clips start together; the right one's verdict turns green | `same tests · score ↑` · `SIMULATION` | VO 7b | MuJoCo sim runs of both revisions | **render** (sim) |
+| 22 | 2:28–2:35 | Console B-roll: a run page with a force trace and its frame, Studies, Live, Design Analysis, the models page | Slow parallax pans, a cut every 2–3 s. Words drop over it | `lab instruments · appliances · assistive devices` · `12 appliances · 4 models · in simulation` | VO 8a | Console screen capture | **record** |
+| 23 | 2:35–2:41 | A dark board with a faint grid. Typed lines appear: *Proofs → Lean*, *Software → CompCert · seL4*, *Hardware → ?*. The `?` becomes the yellow arm | Each line on its beat | | VO 8b–c. Music swells | Motion graphic | **render** |
+| 24 | 2:41–2:45 | Title card: **RAAV · ROBOT AS A VERIFIER**. Under it, the innovations one per line, then the team and MakeCU 2026 | Lines fade in quickly; the music resolves at 2:44 | the innovations, team | Music out | Motion graphic | **render** |
 
 ### Cold open notes (shot 1)
 
@@ -95,10 +90,10 @@ Status: **have** means it exists now; **render** means we can make it ourselves 
 - **What's in it:** 0:00–0:02.5 the full board, static; 0:02.5–0:03 Karthik walks in; about 0:03–0:09 he erases the board in several strokes, left to right; 0:09–0:10.5 he steps off the right edge; 0:11–0:20 he comes back and writes `RAAV`; 0:20–0:25.5 he leaves and the camera pushes in on `RAAV`.
 - **Speed and trim:** use source 0:00.0–0:10.5 at **1.75×**, which lands at **6.0 s on screen** (0:00–0:06). The last eraser stroke falls at about 0:05.1 on screen, where the music starts. The board is clean at the cut, so the eraser-wipe transition into shot 2 matches.
 - **Don't re-encode the original.** Speed it up in the edit (for example ffmpeg `setpts=PTS/1.75` and `atempo=1.75`, or the editor's speed control) from a copy of the clip.
-- **Unused material:** the `RAAV` writing (0:11–0:20) can open the turn (shot 5) for about a second at 3×.
+- **Unused material:** the `RAAV` writing (0:11–0:20) can open the turn (shot 9) for about a second at 3×.
 - **Tag:** the `REAL FOOTAGE · N×` tag is for robot footage, which is evidence. The cold open is staged and carries no tag (see Questions).
 
-## Freeze frames (shots 12, 14 and 15)
+## Freeze frames (shots 15, 18 and 19)
 
 Six freezes. F0 documents the boundary between the systems; F1–F5 each document one stage of the centrifuge run. Holds are timed to read once; the footage between them runs at 2×. All of it is MuJoCo footage for now.
 
@@ -111,7 +106,7 @@ Six freezes. F0 documents the boundary between the systems; F1–F5 each documen
 | F4 | START at full press | The fingertip on START | A force trace growing left to right, with a dashed line for the 15 N safety cap well above it, and the press's peak marked. Then the verdict rule's line types in green, for example `pressed · display changed → pass`, with the tag `decided by System 1` | 2.5 s | The step's trace and verdict |
 | F5 | The jaw sliding off the lid fin | The jaw and the fin | A close-up inset of the fin with no lip; the force trace drops to zero as the jaw slips; the lid angle readout stays at `0°`. The retest rule fires: `failed · retested · failed again → fail`, in red, with `decided by System 1` | 2.5 s | The lid step's trace, frames and verdict |
 
-Exact rule text, numbers and step numbers come from whichever sim run we film; the examples above show the shape, not values to retype. Shot 14 now has 12 s for F1–F4 (8 s of holds), so the freezes are less cramped than in Draft 4.
+Exact rule text, numbers and step numbers come from whichever sim run we film; the examples above show the shape, not values to retype. Shot 18 has 10 s for F1–F4 (8 s of holds), which is tight; dropping F2 is the first cut if it feels rushed, or take the script's 3:00 option.
 
 ## Music
 
@@ -122,14 +117,14 @@ Exact rule text, numbers and step numbers come from whichever sim run we film; t
 | Time | Cue |
 |---|---|
 | 0:05 | Piano enters on the last eraser stroke, sparse |
-| 0:06–0:23 | Quiet under the voice, a small drop at "verification ends where software ends" (0:13) |
-| 0:23 | The turn: strings and the synth pad come in, the beat steadies |
-| 0:38–1:00 | Holds back under the VLA argument; a darker chord under "the model that acts would also be the judge" (about 0:57) |
-| 1:14 and 1:28–1:46 | Thins out. Each freeze frame lands on a soft hit, and the music holds a note through it |
-| 1:46 | Picks up for the fix |
-| 1:59 | Drops back to piano alone for the chalk coda |
-| 2:25 | The pad returns with the Console B-roll |
-| 2:34 | Swells for the close |
+| 0:06–0:25 | Quiet under the voice; a small lift as the plaques draw on |
+| 0:25 | Drops at "verification ends where software ends", and stays low under the field examples |
+| 0:46 | The turn: strings and the synth pad come in, the beat steadies |
+| 0:58–1:10 | Holds back under the VLA line; a darker chord under "the actor would judge itself" (about 1:08) |
+| 1:10 | Lifts on "So RAAV splits the work" |
+| 1:38 and 2:00–2:15 | Thins out. Each freeze frame lands on a soft hit, and the music holds a note through it |
+| 2:15 | Picks up for the fix |
+| 2:35 | Swells for the close |
 | 2:44 | Resolves within the last second |
 
 No lyrics, and nothing that fights the voiceover in the 1–4 kHz range.
@@ -145,15 +140,15 @@ No lyrics, and nothing that fights the voiceover in the 1–4 kHz range.
 
 ## Real footage, later
 
-For now every robot shot (6, 7, 11, 12, 14, 15 and 17) is rendered in MuJoCo and tagged `SIMULATION`. The real arm hasn't run yet and Rev B hasn't been printed. We'll probably edit the cut and re-record real footage later: when the arm runs on the printed centrifuge, re-film shots 6, 7, 14, 15 and 17 (and the left half of 11 if it's worth it), speed them up, and change the tag to `REAL FOOTAGE · N×` with the true factor. The freeze frames carry over unchanged: they're built from the run's files, which look the same for sim and real. The cuts are timed so a real clip can replace a sim clip of the same length without re-editing anything else.
+For now every robot shot (10, 13, 15, 18, 19 and 21) is rendered in MuJoCo and tagged `SIMULATION`. The real arm hasn't run yet and Rev B hasn't been printed. We'll probably edit the cut and re-record real footage later: when the arm runs on the printed centrifuge, re-film shots 10, 18, 19 and 21 (and the footage in 13 if it's worth it), speed them up, and change the tag to `REAL FOOTAGE · N×` with the true factor. The freeze frames carry over unchanged: they're built from the run's files, which look the same for sim and real. The cuts are timed so a real clip can replace a sim clip of the same length without re-editing anything else.
 
 ## How we'd make it, after your OK
 
 - **Chalk scenes:** drawn in code. Each stroke is a path that the chalk arm's tip follows, with a chalk-texture brush, dust particles and a following camera. Rendered frame by frame, so the timing is exact.
 - **The turn:** the same renderer, cross-fading the chalk arm into the Console's arm drawing.
-- **VLA graphic (shots 8–10):** the same motion-graphic renderer as the closing lines, in the Console's style.
+- **Two-systems graphics (shots 11, 12 and 16):** the same motion-graphic renderer as the closing lines, in the Console's style.
 - **Sim clips and freeze frames:** recorded from the existing MuJoCo sim on the centrifuge (Rev A and Rev B), with overlays drawn from the run's files. This only runs System 1's code; we don't change it.
-- **Console B-roll:** scripted browser captures at 1080p, so they can be re-shot after any UI change.
+- **Console B-roll and Live replays:** scripted browser captures at 1080p, so they can be re-shot after any UI change.
 - **Cold open:** trimmed and sped to 1.75× in the edit from a copy of `intro.MOV`.
 - **Voiceover and music:** Karthik records the voiceover as an mp3 and brings the music. Until then, a placeholder read keeps the timing honest; once his mp3 is in, every shot's in and out points are re-cut to it.
 - **Assembly:** ffmpeg, from an edit list in this folder, so any shot can be swapped and the whole video rebuilt with one command.
@@ -165,19 +160,25 @@ Every number or source line on screen is from the script's [checks table](script
 | On screen | Holds because | Watch for |
 |---|---|---|
 | `a bound on solving hard problems` (shot 2) | ETH, Impagliazzo and Paturi 2001 (script source 3) | Plain-language gloss, not the formal statement |
-| `no pinch · ADA §309.4` (shot 3) | Access Board guide to §309.4 (script source 9) | It's a US building standard. Use it as the reason the rule exists, not as a claim that appliances must meet it |
-| `RT-2 · OpenVLA · π0` and `image + instruction` (shot 8) | Script sources 10, 27, 28 | They're examples of VLAs, not a survey |
-| `~1M demos` and `new setups: 10–150 demos + fine-tuning` (shot 8) | OpenVLA abstract (970k) and §5.2 (10–150 demonstrations, full fine-tuning) (script source 10) | Keep the source line visible while the numbers are |
-| `inverse kinematics · classical control` (shot 10) | System 1 uses IK and fixed policies (`system-1/README.md`) | Don't write MPC or LQR unless labelled as general classical control, not RAAV's stack |
-| `reads the manual · no new training` (shot 10) | System 2 gets `manual.md` in its prompt; no fine-tuning (`docs/frontier-integration.md`) | |
+| CompCert plaque (shot 3) | Script sources 17–19 | The 2012 Airbus line is an evaluation, so write `evaluation`. The ATR line is a 2026 qualification "with guidance from Airbus" |
+| seL4 plaque (shot 3) | Script sources 20–22 | The red team was given a partition and couldn't break out; write that, not "unhackable" |
+| The ledger (shot 3) | Script sources 4–6, 12–16, 20, 23 | AlphaProof's IMO problems were translated into Lean by hand first. "10 systems" was AWS's count at the time of writing. Never write that the fluid work solved Navier–Stokes |
+| `no pinch · ADA §309.4` (shot 4) | Access Board guide to §309.4 (script source 9) | It's a US building standard. Use it as the reason the rule exists, not as a claim that appliances must meet it |
+| `Pirbright, UK, 2007` (shot 5) | HSE final report, via script source 24 | Keep "most likely source" |
+| `JWST, 2018 … 29-month delay, ~$1B` (shot 6) | Script source 26 | Write "acoustic test" only with this source; others say vibration test |
+| `Dyson DC01: 5,127 prototypes, 15 years` (shot 7) | Script source 25 | Other Dyson accounts say five years from a different start; keep "15 years" with this source |
+| `SmolVLA · GR00T N1 · π0` and `images + instruction` (shot 11) | Script sources 28–31 | Examples of VLAs, not a survey |
+| `SmolVLA … built on SO-100/SO-101 data; 50 demos per real-world task` (shot 11) | SmolVLA's pre-training data is "focused on the SO100 robotic arm"; real-world tasks on SO-100 and SO-101 used 50 demonstrations per dataset (script sources 29, 31) | Don't write "made for the SO-101": it's pre-trained mostly on SO-100 data and evaluated on both |
+| `GR00T N1 … post-trained per embodiment; its own "System 1/2" are trained end-to-end` (shot 11) | GR00T N1 paper: vision-language "System 2" and diffusion-transformer "System 1", "tightly coupled and jointly trained end-to-end"; post-trained "on datasets corresponding to each single embodiment" (script source 30) | The point is the contrast: their halves share one training run, ours share only seven tools |
+| `50 Hz`, `15 N cap` (shot 13) | `docs/system-boundary.md` (50 Hz control loop); `docs/decisions.md` D34 (15 N cap) | Re-check the cap before rendering |
+| `reads manual + spec · what to test, in what order · recovers · diagnoses → CAD fix` (shot 14) | `docs/system-boundary.md`: planner, plan revision, CAD fix loop in System 2; `docs/product.md`: manual and spec as inputs | Show a recorded run; the model loop is still being built |
+| `no motor commands · no self-grading` (shot 15) | `docs/system-boundary.md`: no motor, joint or jog tool; verdict rules in System 1; amendment levels set by plain code | |
+| Four model names (shot 16) | `docs/journey.md` §11–12 | Names only, no logos, no ranking |
+| `swap the model · System 1's limits hold` (shot 16) | System 1 clamps every parameter and rejects steps above the 14 N limit (`docs/decisions.md` D31) | Limits enforced in code, not a formal proof |
+| `new device: a manual, not new demos` (shot 16) | Fixed skill list, planner starts from the manual (`docs/product.md`) | True while the device's controls fit the existing skills |
+| `each side tested on its own` (shot 16) | Separate installs and lockfiles; boundary tests in `system-2/tests/test_repo.py` and `system-1/tests/test_boundary.py` | |
 | `14 N` step limit (F0) | `docs/decisions.md` D31: a step may ask for at most 14 N, rejected above that | Use the value from the filmed run |
 | `15 N safety cap` (F4) | `docs/decisions.md` D34: "The 15 N cap is unchanged" | Re-check the value before rendering |
-| CompCert plaque (shot 18) | Script sources 17–19 | The 2012 Airbus line is an evaluation, so write `evaluation`. The ATR line is a 2026 qualification "with guidance from Airbus" |
-| seL4 plaque (shot 18) | Script sources 20–22 | The red team was given a partition and couldn't break out; write that, not "unhackable" |
-| TLA+ plaque and the ledger (shot 19) | Script sources 4–6, 12–16, 20, 23 | AlphaProof's IMO problems were translated into Lean by hand first. "10 systems" was AWS's count at the time of writing. Never write that the fluid work solved Navier–Stokes |
-| `Pirbright, UK, 2007` (shot 20) | HSE final report, via script source 24 | Keep "most likely source" |
-| `JWST, 2018 … 29-month delay, ~$1B` (shot 21) | Script source 26 | Write "acoustic test" only with this source; others say vibration test |
-| `Dyson DC01: 5,127 prototypes, 15 years` (shot 22) | Script source 25 | Other Dyson accounts say five years from a different start; keep "15 years" with this source |
 
 ## Sources
 
@@ -187,7 +188,7 @@ All claim sources are listed in [script.md](script.md#sources). The style refere
 
 1. **The cold open:** `intro.MOV` is in `video/real-world-assets/`. Is that the final take, or will you re-film it? And is 1.75× the speed you want, or faster still?
 2. **Tag on the cold open:** it's real footage sped up 1.75×, but it's staged, not evidence. Leave it untagged, or add `REAL FOOTAGE · 1.75×` for consistency?
-3. **The coda in chalk:** shots 18–22 bring the slate back for "why this matters". Keep that bookend, or keep everything after the turn in the technical look?
-4. **How much text:** shots 18 and 19 carry a lot of small source lines. Keep them, or move the ledger to an end card after the title?
-5. **The VLA graphic:** shots 8–10 are drawn in the technical style now, since they come after the turn. Fine, or would you rather they stay chalk?
+3. **How much text:** shot 3 carries two plaques and a long ledger in 12 s. Keep it all, or move the ledger to an end card after the title?
+4. **Section 5's length:** 56 s across shots 11–16. If it drags in the edit, shot 16 (the model swap) is the easiest to shorten.
+5. **Title card:** it now has 4 s (shot 24). Enough, or should the close lose a line?
 6. **Your mp3:** when it's in, send it with any lines you changed while reading, and we'll re-cut every shot to it.
