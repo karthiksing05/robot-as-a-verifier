@@ -46,10 +46,10 @@ OFFSET_RAD = np.radians([0.0, -1.9, -4.8, -2.24, 0.0])
 # P gain enable() sets on the five arm joints. The RobiServo-01 ships at 160. LeRobot's follower writes 16 on every
 # connect (lerobot-calibrate, teleop), and at 16 a loose motor didn't follow a 5 deg move at all; at 160 it stopped 5
 # steps short (system-1/arm/bringup/results.md).
-SERVO_P = 120  # down from 160 with D 128: the arm oscillated (Nov 8)
+SERVO_P = 160  # the gain tonight's presses landed with; 120 (D 50) landed a button off, untested whether it was the gain
 # and D: LeRobot writes D 32 (P 16) on every connect; with P 160 the arm oscillated holding its views (Nov 8), so
 # damped harder (130 P alone was the fallback)
-SERVO_D = 50  # tuned on the rig with P 120 (Nov 8)
+SERVO_D = 32  # LeRobot's value, which the servos held during tonight's good press runs
 # Servo stiffness the force estimate assumes (N.m/rad). The sim's 36 is fitted to a bench test at an unstated P gain,
 # and the stiffness at SERVO_P is unmeasured. On softer servos the estimate reads high and drifts with the pose (slides
 # miss, the cap trips with nothing touching); on stiffer ones it reads low and the cap trips late (sim/docs/real-arm.md,
