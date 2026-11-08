@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import threading
 import time
 import warnings
@@ -53,7 +54,7 @@ class CameraError(RuntimeError):
 
 def open_capture(index, size, mjpeg=False):
     """cv2.VideoCapture on AVFoundation (macOS) or the default backend, at a requested size. Returns it opened."""
-    backend = cv2.CAP_AVFOUNDATION if os.uname().sysname == "Darwin" else cv2.CAP_ANY
+    backend = cv2.CAP_AVFOUNDATION if sys.platform == "darwin" else cv2.CAP_ANY
     cap = cv2.VideoCapture(index, backend)
     if not cap.isOpened():
         raise CameraError(f"camera {index} didn't open. Check the index (tools/cam_check.py list) and the Camera "
@@ -265,7 +266,7 @@ class RunVideo:
         self.scan_n, self.writers, self.lock, self.closed = 0, {}, threading.Lock(), False
 
     def _save(self, name, bgr):
-        rel = os.path.join("frames", name)
+        rel = f"frames/{name}"  # the run folder's own path, the same on every OS
         cv2.imwrite(os.path.join(self.run_dir, rel), bgr, [cv2.IMWRITE_JPEG_QUALITY, self.q])
         return rel
 

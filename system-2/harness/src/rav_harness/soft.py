@@ -12,7 +12,6 @@ import base64
 import json
 import pathlib
 import struct
-import tempfile
 import time
 import zlib
 from collections.abc import Callable
@@ -257,14 +256,12 @@ def run_scenario(scenario: Scenario, model: str, folder: pathlib.Path, ledger: L
         if model == "rules":
             report = run_test(system1, request, log)
         else:
-            with tempfile.NamedTemporaryFile("w", suffix=".txt") as f:
-                manual = None
-                if scenario.manual:
-                    f.write(scenario.manual)
-                    f.flush()
-                    manual = Manual(f.name)
-                client = LedgeredClient(make(model), ledger, run_id)
-                report = run_agent(system1, request, log, client, approve=sim_auto_approve, config=config or AgentConfig(max_turns=30, max_tokens=120_000), manual=manual)
+            manual = None
+            if scenario.manual:  # in the run's folder: Windows can't reopen a temp file that is still open
+                (log.dir / "manual.txt").write_text(scenario.manual)
+                manual = Manual(log.dir / "manual.txt")
+            client = LedgeredClient(make(model), ledger, run_id)
+            report = run_agent(system1, request, log, client, approve=sim_auto_approve, config=config or AgentConfig(max_turns=30, max_tokens=120_000), manual=manual)
         events = read_events(log.path)
         s = score(report, events, key)
         checks = scenario.checks(s, events, report)
