@@ -1,0 +1,36 @@
+{
+ "plywood_3mm_sheet1_600x300": [
+  "base_plate#1",
+  "side_panel_L#1",
+  "side_panel_R#1",
+  "top_panel#1",
+  "control_face#1",
+  "front_panel#1",
+  "rack_top#1",
+  "rack_base#1",
+  "rack_middle#1",
+  "gusset_L#1",
+  "gusset_R#1",
+  "rack_end_L#1",
+  "rack_end_R#1",
+  "rack_back_strip#1",
+  "lid_handle_revB_ply#1",
+  "lid_handle_revB_ply#2",
+  "lid_handle_revB_ply#3",
+  "rack_cover_lip#1",
+  "lid_handle_revA_middle#1",
+  "tube_sensor_riser_1#1",
+  "lid_handle_revA_outer#1",
+  "lid_handle_revA_outer#2",
+  "dial_knob_ply#1",
+  "dial_knob_ply#2",
+  "dial_knob_ply#3",
+  "dial_knob_ply#4",
+  "lid_sensor_fin#1"
+ ],
+ "acrylic_3mm_clear_sheet1_600x300": [
+  "rotor_plate#1",
+  "lid#1",
+  "rack_cover#1"
+ ]
+}

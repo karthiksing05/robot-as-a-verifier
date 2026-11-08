@@ -1,38 +1,56 @@
-# Wiring
+# Wiring (MC-6 v7)
 
-All grounds common. Buttons, toggle and sensors use the Pico's internal pull-ups, so a closed switch or a blocked beam reads as described below.
+Arduino Uno + Grove Base Shield v2 (VCC switch on 5 V), beside or behind the centrifuge; wires go in through the open
+back. Source: `source/electronics/electronics.md` and the firmware `firmware/MC6_firmware/MC6_firmware.ino` (v1.0). Where
+they differ, the firmware is what runs (notes at the end). All grounds common.
 
-| Part | Part pin | Pico pin | Notes |
+| Part | Pin | Mode | Reads |
 |---|---|---|---|
-| Start button | leg 1 / leg 2 | GP2 (pin 4) / GND | pressed = LOW |
-| Stop button | leg 1 / leg 2 | GP3 (pin 5) / GND | pressed = LOW |
-| Time+ button | leg 1 / leg 2 | GP4 (pin 6) / GND | pressed = LOW |
-| Power toggle (SPDT) | common / one throw | GND / GP5 (pin 7) | ON = LOW. Software power: the Pico stays on so serial keeps reporting |
-| Speed pot (WH148) | end / wiper / end | 3V3(OUT) pin 36 / GP26 ADC0 (pin 31) / AGND pin 33 | 1000-6000 rpm mapped over the 270° sweep |
-| SSD1306 OLED (I2C) | VCC / GND / SDA / SCL | 3V3 pin 36 / GND / GP16 (pin 21) / GP17 (pin 22) | I2C0, address 0x3C. Mounted header-down: rotate the display 180° in firmware |
-| NeoPixel ring, 24 px | 5V / GND / DIN | VBUS pin 40 / GND / GP15 (pin 20) via 330 Ω | cap brightness at about 20% (full white is ~1.4 A, over a laptop USB port) |
-| MOC7811, lid | LED anode / LED cathode | 3V3 via 220 Ω / GND | about 9 mA |
-| | phototransistor C / E | GP6 (pin 9) / GND | lid closed (tab in slot) = HIGH |
-| MOC7811, tube | LED anode / LED cathode | 3V3 via 220 Ω / GND | |
-| | phototransistor C / E | GP7 (pin 10) / GND | tube seated (nub in slot) = HIGH |
-| USB | micro-USB | laptop | power + serial |
+| START, 16 mm panel pushbutton | D2 → GND | INPUT_PULLUP | pressed = LOW |
+| STOP, 16 mm panel pushbutton | D3 → GND | INPUT_PULLUP | pressed = LOW |
+| TIME+, 16 mm panel pushbutton | D4 → GND | INPUT_PULLUP | pressed = LOW |
+| POWER, SPDT mini toggle | D5 → GND | INPUT_PULLUP | ON = LOW. Software power: the board stays on and on serial when OFF |
+| NeoPixel ring, 24 × WS2812B (GRB) | D6 | output | brightness capped at 50/255 |
+| SPEED, WH148 10 kΩ pot | A0 | analog | 0-1023 over the 270° sweep, clockwise up (`SPEED_INVERT` false) |
+| Lid light, Grove Light Sensor v1.2 | A1 | analog | shaded by the lid's fin = lid closed |
+| Tube light, Grove Light Sensor v1.2, under well A | A2 | analog | shaded by a seated tube |
+| SSD1306 OLED 128 × 64, I2C 0x3C | A4/A5 (header SDA/SCL) | I2C | two lines of 2× text |
+| USB | | | power and serial |
+
+Buttons and toggle: 20 ms debounce, no auto-repeat. Light sensors: calibrated at boot (and on `cal`) as the open level,
+16 readings, **with the lid open and no tube in well A**; 8-sample average every 50 ms; shaded below 55 % of that level,
+clear again above 70 %. The tube light is only judged while the ring has shown steady white (READY) for 300 ms, because
+the ring lights it from below; START uses the last such judgement.
 
 ## Serial stream (ground truth for the verifier)
 
-One JSON object per line, 115200 baud, sent on every change and once a second as a heartbeat:
-
-```
-{"t": 123456, "ev": "btn_stop", "v": 1}
-```
+115200 baud, one JSON object per line. Boot: `{"ev":"hello","dev":"MC-6","fw":"1.0","ram":…}`, then a `cal` line, then
+`power`. Each change: `{"t": ms, "ev": name, "v": value}` (the light sensors add `"raw"`). Heartbeat every second:
+`{"ev":"hb","state":…,"power","btn_start","btn_stop","btn_time","speed","speed_raw","time","left","lid","lid_raw",
+"lid_cal","tube","tube_raw","tube_cal","lcd":[line1, line2],"ring"}`. Commands: `ping`, `status`, `cal`, `reset`.
 
 | ev | v | Sent when |
 |---|---|---|
 | power | 0 / 1 | toggle flips |
-| btn_start, btn_stop, btn_time | 1 down, 0 up | button changes (debounced 20 ms) |
-| speed | rpm (1000-6000, steps of 100) | dial moves a step |
-| lid | 0 open / 1 closed | lid sensor changes |
-| tube | 0 clear / 1 seated | tube sensor changes |
-| run | "start", "stop", "done", "refused:LID", "refused:TUBE" | run state changes |
-| time | seconds | Time+ or countdown |
+| btn_start, btn_stop, btn_time | 1 down, 0 up | button changes (also while OFF: only the UI ignores them) |
+| speed | rpm, 1000-6000 in steps of 100 | the dial crosses a step (with 6 counts of hysteresis); not sent while OFF or RUNNING, though rpm still follows the dial |
+| lid | 1 closed (shaded) / 0 open | the lid light changes |
+| tube | 1 seated (shaded) / 0 clear | the tube light's judgement changes (READY only) |
+| run | `start`, `stop`, `done`, `refused:LID`, `refused:TUBE`, `abort:LID`, `reset` | run state changes |
+| time | seconds | TIME+, STOP in READY (back to 30), and each second of a run (the time left) |
 
-The event names match the `serial` field in features.json.
+In the sim (`device.yaml`'s firmware) the channels are the same names. `time` holds the set time, as the heartbeat does;
+the countdown is on the display. `speed_raw` is the heartbeat's wiper reading. `tube_raw_1` and `tube_raw_2` stand in for
+the heartbeat's `tube_raw`, as 1 when tube 1 or tube 2 shades the tube light (one per tube: a sim sensor watches one
+object).
+
+## Where the firmware and electronics.md differ (the firmware wins)
+
+- **Speed at power-on.** electronics.md: POWER → ON gives "READY, 1000 rpm, 30 s" (the manual says the same). The
+  firmware's `powerOn()` resets the time to 30 s but reads the speed from the dial, so it shows wherever the dial is.
+- **Dial while RUNNING.** electronics.md: "ignored". The firmware keeps updating rpm (no `speed` event), and RUNNING's
+  display shows the new rpm at its next second.
+- **TIME+ at 600 s.** Not stated; the firmware stays at 600 (no wrap) and still sends `time`.
+- **REFUSED `TUBE` and START.** electronics.md: "REFUSED `TUBE` clears on any button press". START in REFUSED is judged
+  again on the last tube reading, which isn't updated under the red ring: after a TUBE refusal, seating the tube and
+  pressing START gives TUBE again until STOP or TIME+ brings back READY (and 300 ms of white).
