@@ -70,6 +70,10 @@ def test_board_credentials_are_scoped_to_one_id():
     assert not readouts["mw1-01"].started
     assert c.post("/readout/mc6-01", json={"speed": 1000}, headers=auth).status_code == 204
     assert c.get("/readout/mc6-01", headers=auth).json()["fresh"]
+    mw1_auth = {"Authorization": "Bearer microwave-key"}
+    assert c.post("/readout/mw1-01", json={"door": 1, "time": 0, "LCD": "READY"}, headers=mw1_auth).status_code == 204
+    assert readouts["mw1-01"].snapshot()["readings"] == {"door": 1, "time": 0}
+    assert readouts["mc6-01"].snapshot()["readings"] == {"speed": 1000}
     assert c.post("/readout/mc6-01", json={}, headers=auth).status_code == 400
     assert c.post("/readout/mc6-01", json={"lid": 1}, headers=auth).status_code == 204
     assert readouts["mc6-01"].readings == {"lid": 1}

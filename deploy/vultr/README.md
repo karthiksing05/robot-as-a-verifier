@@ -85,7 +85,14 @@ For a supervised hardware run keep `--device-host` and use `--robot real --arm-p
 
 ## Appliances
 
-For each board, copy [the secrets example](../../firmware/firmware/arduino_secrets.h.example) to `arduino_secrets.h` beside its sketch in `firmware/MC6_firmware` or `firmware/MW1_firmware`. Set the hotspot SSID and password, System 1's hotspot IP and port 8782, and that board's ID and credential. The board sends HTTP over the private hotspot, so keep that network password-protected and use credentials scoped to device readout. Use `mc6` and `mw1_r4_wifi` as the PlatformIO build and upload targets. A serial `wifi` event with value `204` means System 1 accepted the snapshot.
+Both PlatformIO targets use an Arduino Uno R4 WiFi and the same snapshot publisher. Copy each board's example to `arduino_secrets.h` beside its sketch. The sketch enables Wi-Fi when that file exists.
+
+| Board | PlatformIO target | Default example ID | Configuration |
+|---|---|---|---|
+| MC-6 centrifuge | `mc6` | `mc6-01` | [MC-6 secrets example](../../firmware/MC6_firmware/arduino_secrets.h.example) |
+| MW-1 microwave | `mw1_r4_wifi` | `mw1-01` | [MW-1 secrets example](../../firmware/MW1_firmware/arduino_secrets.h.example) |
+
+Set the same hotspot SSID, password, System 1 IP and port 8782 in both files. Give each board a distinct ID and key that match its own entry in `RAV_DEVICE_KEYS`. A serial `wifi` event with value `204` means System 1 accepted that board's snapshot. On Vultr, use `rav readout mc6-01` and `rav readout mw1-01` to verify both.
 
 The firmware sends complete, flat JSON snapshots on changes and periodically. Short transitions can fall between sends. Joining Wi-Fi or opening a connection can block the firmware loop, especially during outages. Bench-check button and sensor timing with Wi-Fi enabled before using it in a run.
 
