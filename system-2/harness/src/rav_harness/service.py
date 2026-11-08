@@ -38,7 +38,7 @@ from .runlog import RunLog, read_events
 from .survey import part_namer
 
 SYSTEM_2 = REPO / "system-2"
-ORIGINS = {"http://127.0.0.1:5173", "http://localhost:5173"}
+ORIGINS = {"http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:5174", "http://localhost:5174"}  # 5174: a second Console
 STAGES = ["MAP", "PLAN", "TEST", "REPORT"]
 RUN_ID_SAFE = str.maketrans({c: "-" for c in " /\\:"})
 ASK_TIMEOUT_S = 300.0

@@ -15,22 +15,37 @@ import { useAgentHealth } from "../lib/agent";
 import { AgentLive, AgentReplay } from "./AgentLive";
 import { coverageOf, rewardOf, statusOfControl, type Run } from "../lib/runs";
 
-/** Watch and steer a real MuJoCo run while it happens. */
+/** Watch and steer a run while it happens: the real arm through rav-agent, or the sim. */
 export function Live({ route }: { route: Route }) {
-  const { env, operator } = useAppSession();
+  const { env } = useAppSession();
+  const replay = route.query.get("replay");
+  if (replay) return <AgentReplay key={replay} id={replay} />;
+  return ENVIRONMENTS[env].runner === "real arm" ? <RealArm route={route} /> : <SimLive route={route} />;
+}
+
+/** Only rav-agent drives the real arm, so there's no falling back to the sim bridge here. */
+function RealArm({ route }: { route: Route }) {
+  const agent = useAgentHealth();
+  if (agent.up) return <AgentLive route={route} health={agent} real />;
+  return (
+    <div className="page">
+      <div className="empty rise">
+        <h2>rav-agent isn't running</h2>
+        <span className="label">Start it on the arm's System 1, which must already be up</span>
+        <pre className="code">{"cd system-2\nuv run rav up --system1 http://127.0.0.1:8780/mcp --reuse-scan"}</pre>
+      </div>
+    </div>
+  );
+}
+
+function SimLive({ route }: { route: Route }) {
+  const { operator } = useAppSession();
   const projects = useProjects();
   const { state, connected, nodes, lastTelemetry } = useLive();
   const agent = useAgentHealth();
   const [error, setError] = useState<string | null>(null);
   const send = (path: string, body: object = {}) => { void liveCommand(path, body).then(setError); };
   const runProject = useMemo(() => (state.meta ? projectOf(liveRun(state), projects) : undefined), [state.meta, state.events, projects]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (!ENVIRONMENTS[env].connected) {
-    return <div className="page"><div className="empty"><h2>Real arm and real CAD: not connected yet</h2></div></div>;
-  }
-
-  const replay = route.query.get("replay");
-  if (replay) return <AgentReplay key={replay} id={replay} />;
 
   const finished = state.events.find((e) => e.type === "run_finished")?.payload.status as string | undefined;
   const going = !!state.meta && !finished;

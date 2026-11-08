@@ -4,7 +4,8 @@ import { Pill, Stat, stagger } from "../components/ui";
 import type { Route } from "../lib/route";
 import { useAppSession, useRuns } from "../lib/context";
 import { galleryOf, splitLabel } from "../lib/gallery";
-import { controlStatus, projectOf, reviewOf, useProjects, type Project as ProjectData, type Review } from "../lib/projects";
+import { controlStatus, projectOf, projectsIn, reviewOf, useProjects, type Project as ProjectData, type Review } from "../lib/projects";
+import { ENVIRONMENTS } from "../lib/session";
 import type { DeviceCard } from "../lib/wikidata";
 
 function Chapter({ n, title, children }: { n: number; title: string; children: ReactNode }) {
@@ -19,12 +20,13 @@ function Chapter({ n, title, children }: { n: number; title: string; children: R
 const EVIDENCE = {
   mock: "Mock data: this shows how an appliance's story reads. No robot or sim produced it.",
   sim: "Simulated: none of this has run on the real arm.",
+  real: "Recorded on the real arm.",
 };
 
 export function Project({ route }: { route: Route }) {
   const { env, operator } = useAppSession();
   const { runs, ready } = useRuns(env);
-  const projects = useProjects();
+  const projects = projectsIn(env, useProjects());
   const project = projects.find((p) => p.id === route.parts[1]);
 
   if (!project) {
@@ -42,7 +44,7 @@ export function Project({ route }: { route: Route }) {
     <div className="page projectpage">
       <ProjectBar project={project} tab="story" />
       <header className="projecthero rise">
-        <div className="row"><span className="tag">{project.kind === "sim" ? "Sim device" : "Physical product"}</span>{split && <span className="tag">{split}</span>}{review.revisions.length > 0 && <span className="tag">Rev {review.revisions.at(-1)!.revision}</span>}</div>
+        <div className="row"><span className="tag">{ENVIRONMENTS[env].runner === "real arm" ? "Real arm" : project.kind === "sim" ? "Sim device" : "Physical product"}</span>{split && <span className="tag">{split}</span>}{review.revisions.length > 0 && <span className="tag">Rev {review.revisions.at(-1)!.revision}</span>}</div>
         <h1 className="title">{project.name}</h1>
         {about ? <p className="wikilede">{about}</p> : project.summary && <p className="wikilede">{project.summary}</p>}
         <b className={`headline big ${review.open.length ? "bad" : review.latest ? "good" : ""}`}>{review.headline}</b>

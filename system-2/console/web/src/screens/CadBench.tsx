@@ -63,6 +63,21 @@ function useFeed(env: ReturnType<typeof useAppSession>["env"]) {
 }
 
 export function CadBench({ theme }: { theme: string }) {
+  const { env } = useAppSession();
+  if (ENVIRONMENTS[env].cad === "placeholder") return <Bench theme={theme} />;
+  return (
+    <div className="page">
+      <h1 className="title">Design Analysis</h1>
+      <div className="empty rise">
+        <h2>Onshape isn't connected</h2>
+        <p>The MC-6's Rev A model is in Onshape, tagged in <code>subjects/centrifuge/onshape.yaml</code>. The Console can't show or edit it yet.</p>
+      </div>
+    </div>
+  );
+}
+
+/** The placeholder appliance's parameters and model. */
+function Bench({ theme }: { theme: string }) {
   const { env, operator } = useAppSession();
   const project = useProjects().find((p) => p.cad);
   const feed = useFeed(env);

@@ -24,15 +24,15 @@ export interface Environment {
   name: EnvName;
   label: string;
   detail: string;
-  runner: "sim" | "real arm";
-  cad: "placeholder" | "real CAD";
+  runner: "sim" | "real arm"; // real arm: rav-agent started on the arm's System 1 (rav up --system1)
+  cad: "placeholder" | "onshape"; // onshape: the Console isn't connected to it yet
   sampleRuns: boolean;
-  connected: boolean; // false until the real interfaces exist
+  connected: boolean;
 }
 
 export const ENVIRONMENTS: Record<EnvName, Environment> = {
   demo: { name: "demo", label: "Demo", detail: "MuJoCo sim", runner: "sim", cad: "placeholder", sampleRuns: true, connected: true },
-  prod: { name: "prod", label: "Prod", detail: "Real arm and CAD", runner: "real arm", cad: "real CAD", sampleRuns: false, connected: false },
+  prod: { name: "prod", label: "Prod", detail: "Real arm on the MC-6", runner: "real arm", cad: "onshape", sampleRuns: false, connected: true },
 };
 
 export interface Session {

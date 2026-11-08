@@ -17,22 +17,24 @@ function recordedRuns(): Plugin {
         const read = (id: string) => {
           const dir = path.join(root, id);
           const file = (name: string) => path.join(dir, name);
-          if (!["timeline.json", "report.json", "events.jsonl"].every((n) => fs.existsSync(file(n)))) return null;
+          if (!["report.json", "events.jsonl"].every((n) => fs.existsSync(file(n)))) return null;
           const replay = fs.existsSync(file("poses.bin")) && fs.existsSync(file("scene/scene.json"));
-          if (!replay && !fs.existsSync(file("video.mp4"))) return null;
+          const sim = fs.existsSync(file("timeline.json")) && (replay || fs.existsSync(file("video.mp4")));
           return {
             id,
             events: fs.readFileSync(file("events.jsonl"), "utf8"),
             report: JSON.parse(fs.readFileSync(file("report.json"), "utf8")),
-            timeline: JSON.parse(fs.readFileSync(file("timeline.json"), "utf8")),
-            ...(replay ? { base: `/@fs${dir}/` } : { video: `/@fs${file("video.mp4")}` }),
-            mtime: fs.statSync(file("timeline.json")).mtimeMs,
+            timeline: sim ? JSON.parse(fs.readFileSync(file("timeline.json"), "utf8")) : undefined,
+            ...(!sim ? {} : replay ? { base: `/@fs${dir}/` } : { video: `/@fs${file("video.mp4")}` }),
+            mtime: fs.statSync(file(sim ? "timeline.json" : "events.jsonl")).mtimeMs,
           };
         };
         const ids = fs.existsSync(root) ? fs.readdirSync(root) : [];
-        const runs = ids.map(read).filter((r) => r !== null).sort((a, b) => b.mtime - a.mtime).slice(0, 40);
+        const runs = ids.map(read).filter((r) => r !== null).sort((a, b) => b.mtime - a.mtime);
+        // A run with no sim recording is a real arm's. Each kind keeps its own 40, so a night on the arm can't hide the sim's.
+        const sim = runs.filter((r) => r.timeline).slice(0, 40), real = runs.filter((r) => !r.timeline).slice(0, 40);
         res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify(runs));
+        res.end(JSON.stringify([...sim, ...real]));
       });
     },
   };

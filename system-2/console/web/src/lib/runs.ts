@@ -60,6 +60,7 @@ export function eventTimes(events: RunEvent[], timeline: Timeline): Record<strin
 
 export interface Run {
   recording?: { video?: string; assets?: (path: string) => string; timeline: Timeline }; // assets: a replay in 3D. video: an older recording
+  real?: boolean; // saved in runs/ with no sim recording: on the real arm, so Prod shows it and Demo doesn't
   id: string;
   requestId: string;
   product: string;

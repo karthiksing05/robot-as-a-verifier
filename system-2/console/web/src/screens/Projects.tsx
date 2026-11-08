@@ -5,20 +5,21 @@ import { useAppSession, useRuns } from "../lib/context";
 import { galleryOf, splitLabel } from "../lib/gallery";
 import { READ_ONLY_CONSOLE, useLiveNow } from "../lib/live";
 import { pieceName } from "../lib/wikidata";
-import { controlStatus, createProject, projectOf, reviewOf, useProjects, type Project } from "../lib/projects";
+import { controlStatus, createProject, projectOf, projectsIn, reviewOf, useProjects, type Project } from "../lib/projects";
 import { go } from "../lib/route";
 import { ENVIRONMENTS } from "../lib/session";
 
 export function Projects() {
   const { env, operator } = useAppSession();
   const { runs } = useRuns(env);
-  const projects = useProjects();
+  const projects = projectsIn(env, useProjects());
   const [adding, setAdding] = useState(false);
 
   if (!ENVIRONMENTS[env].connected) {
     return <div className="page"><h1 className="title">Studies</h1><div className="empty rise"><h2>Real arm and real CAD: not connected yet</h2></div></div>;
   }
   const unfiled = runs.filter((r) => !projectOf(r, projects)).length;
+  const real = ENVIRONMENTS[env].runner === "real arm";
 
   return (
     <div className="page">
@@ -33,14 +34,14 @@ export function Projects() {
       </section>
       {adding && <NewProjectForm />}
       <div className="projectgrid">
-        {projects.map((p, i) => <ProjectCard key={p.id} project={p} i={i} runs={runs.filter((r) => projectOf(r, projects)?.id === p.id)} />)}
+        {projects.map((p, i) => <ProjectCard key={p.id} project={p} i={i} real={real} runs={runs.filter((r) => projectOf(r, projects)?.id === p.id)} />)}
       </div>
       {unfiled > 0 && <a className="note" href="#/runs">{unfiled} run{unfiled === 1 ? "" : "s"} not in a project</a>}
     </div>
   );
 }
 
-function ProjectCard({ project, runs, i }: { project: Project; runs: Parameters<typeof reviewOf>[0]; i: number }) {
+function ProjectCard({ project, runs, i, real }: { project: Project; runs: Parameters<typeof reviewOf>[0]; i: number; real: boolean }) {
   const review = reviewOf(runs);
   const now = useLiveNow();
   const stay = (e: MouseEvent) => e.stopPropagation(); // these links go somewhere other than the card does
@@ -49,7 +50,7 @@ function ProjectCard({ project, runs, i }: { project: Project; runs: Parameters<
   const about = device?.body.join(" ").trim();
   return (
     <article className="panel projectcard rise" style={stagger(i)} onClick={() => go(`project/${project.id}`)}>
-      <div className="row"><span className="tag">{project.kind === "sim" ? "Sim device" : "Physical product"}</span>{split && <span className="tag">{split}</span>}{review.evidence === "mock" && <span className="tag mock">Mock data</span>}</div>
+      <div className="row"><span className="tag">{real ? "Real arm" : project.kind === "sim" ? "Sim device" : "Physical product"}</span>{split && <span className="tag">{split}</span>}{review.evidence === "mock" && <span className="tag mock">Mock data</span>}</div>
       <h2><a href={`#/project/${project.id}`}>{project.name}</a></h2>
       {about ? <p>{about}</p> : project.summary && <p>{project.summary}</p>}
       {device && device.theory.length > 0 && <div className="chips" aria-label="Theory pieces">{device.theory.map((x) => <span key={x} className="chip accent" title={x}>{pieceName(x)}</span>)}</div>}

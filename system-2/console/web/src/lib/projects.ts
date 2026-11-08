@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import type { Finding, ParamChange, Status } from "./contracts";
 import type { NewProject, Project } from "../../server/projects";
 import { statusOfControl, type Run } from "./runs";
+import { ENVIRONMENTS, type EnvName } from "./session";
 
 export type { NewProject, Project };
 
@@ -57,8 +58,13 @@ const namedBy = (product: string, name: string) => product === name || product.s
 
 export function projectOf(run: Run, list: Project[]): Project | undefined {
   const named = run.events.find((e) => e.type === "run_started")?.payload.project as string | undefined;
-  return list.find((p) => p.id === named) ?? list.find((p) => p.products.some((name) => namedBy(run.product, name)));
+  return list.find((p) => p.id === named)
+    ?? (run.real ? list.find((p) => p.real?.runs.some((prefix) => run.id.startsWith(prefix))) : undefined)
+    ?? list.find((p) => p.products.some((name) => namedBy(run.product, name)));
 }
+
+/** Prod shows only the products on the real arm. */
+export const projectsIn = (env: EnvName, list: Project[]) => (ENVIRONMENTS[env].runner === "real arm" ? list.filter((p) => p.real) : list);
 
 /** The project Live is about: what the link asked for, else the run on screen, else the first device the sim can run. */
 export function liveProject(asked: string | null, run: { project: Project | undefined } | null, list: Project[]): Project | undefined {
@@ -68,8 +74,8 @@ export function liveProject(asked: string | null, run: { project: Project | unde
   return run ? run.project : list.find((p) => p.kind === "sim");
 }
 
-export type Evidence = "mock" | "sim";
-export const evidenceOf = (run: Run): Evidence => (!run.recording && (run.product.includes("(mock)") || run.plan.source === "mock") ? "mock" : "sim");
+export type Evidence = "mock" | "sim" | "real";
+export const evidenceOf = (run: Run): Evidence => (run.real ? "real" : !run.recording && (run.product.includes("(mock)") || run.plan.source === "mock") ? "mock" : "sim");
 
 export type ControlStatus = Status | "pending";
 export function controlStatus(run: Run, id: string): ControlStatus {

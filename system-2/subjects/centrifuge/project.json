@@ -6,6 +6,7 @@
   "sim": { "path": "appliances/centrifuge/device.yaml", "rev": "A", "revs": ["A", "B", "M1"] },
   "manual": "appliances/centrifuge/manual.md",
   "products": ["MC-6 mini centrifuge (sim)"],
+  "real": { "runs": ["real-"] },
   "rules": ["Usable with no thumbs"],
   "split": "dev",
   "created": "2026-11-07"
