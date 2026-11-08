@@ -47,15 +47,16 @@ def plain(value: Any, depth: int = 3) -> Any:
 
 
 class Tracer:
-    def __init__(self, log: RunLog, caller: str = "rules"):
+    def __init__(self, log: RunLog, caller: str = "rules", prefix: str = ""):
         self.log, self.caller = log, caller
+        self.prefix = prefix          # e.g. "F2-": keeps ids and saved turns apart when analysts run in parallel
         self.stage: str | None = None
         self.step: str | None = None
         self.turns = self.calls = 0
 
     def turn(self, model: str, *, raw: dict | None = None, error_kind: str | None = None, **fields: Any) -> str:
         self.turns += 1
-        turn_id = f"turn-{self.turns}"
+        turn_id = f"{self.prefix}turn-{self.turns}"
         path = None
         if raw is not None:
             folder = self.log.dir / "model"
@@ -70,7 +71,7 @@ class Tracer:
              summarize: Callable[[Any], Any] | None = None) -> Any:
         """Run one tool call and log it, then return its value or raise its error, as if this weren't here."""
         self.calls += 1
-        fields = {"id": f"call-{self.calls}", "tool": tool, "args": plain(args), "turn": turn, "stage": self.stage, "step": self.step,
+        fields = {"id": f"{self.prefix}call-{self.calls}", "tool": tool, "args": plain(args), "turn": turn, "stage": self.stage, "step": self.step,
                   "caller": caller or ("model" if turn else self.caller)}
         start = time.monotonic()
         ms = lambda: round((time.monotonic() - start) * 1000, 1)  # noqa: E731

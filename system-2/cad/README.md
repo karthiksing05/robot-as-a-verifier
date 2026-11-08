@@ -7,6 +7,7 @@ Takes a `CADPatch` from the analyst, checks it, and produces a new revision. Eve
 | [`ParamsBackend`](src/rav_cad/__init__.py) | Works | Edits a JSON parameter file. Checks the patch's expected value and the spec's limits |
 | [`CadQueryBackend`](src/rav_cad/__init__.py) | Works | Rebuilds the appliance from [`appliance.rev_a.yaml`](../subjects/appliance/cad/appliance.rev_a.yaml), runs kernel checks, exports only the parts that changed. Needs `uv sync --extra cad` |
 | [`OnshapeBackend`](src/rav_cad/onshape/backend.py) | Built, not yet run on the real document (R5) | The team's model. The analyst edits it on its own branch through the `rav-cad` MCP tools; the generic checks judge each branch. See [Onshape](#onshape) |
+| [`LocalCadBackend`](src/rav_cad/local/backend.py) | Works offline | Any product as a STEP assembly (or our box). The analyst writes CadQuery code for new reprintable parts in a local workspace through the `rav-cad-local` MCP tools; the same generic checks judge it. See [Local CAD](#local-cad-new-geometry-offline) |
 
 ## Onshape
 
@@ -34,6 +35,29 @@ To use it:
 Offline, the same checks run on our CadQuery model ([`generic/bench.py`](src/rav_cad/generic/bench.py)), which is how the tests run them without a network.
 
 The rules from the plan: smallest change that addresses the root cause, predicted effect stated, a teammate approves, and the patch stays only if the reward rises. Nothing prints automatically.
+
+## Local CAD: new geometry offline
+
+The same freedom as Onshape, with no network, quota or keys ([D31](../../docs/decisions.md)). Each finding gets a **workspace** (a folder) holding the tested parts. Through the [`rav-cad-local` tools](src/rav_cad/local/mcp_server.py) the model looks (`list_controls`, `get_part`, `list_faces`, `measure_gap`, `part_size`, `render`), replaces a reprintable part with `write_part(part, code)`, and runs `check()` until it passes, then `submit_fix`. The patch points at the workspace's state hash, so what a person approves is what was checked. `apply` writes `rev_<X>/` with the changed parts' STLs, the full `assembly.step`, the code that made each new part, and `edits.jsonl`.
+
+`write_part` runs the code in a separate Python process ([`sandbox.py`](src/rav_cad/local/sandbox.py)) with `cq`, `math`, `np`, our `geom` helpers, `old` (the part as it is) and `parts` (the others, read-only). The code must set `result` to one valid solid. Other imports, `open`/`exec`/`eval` and sockets are refused, and it is killed after 60 s; errors go back to the model with the traceback. This guards against mistakes, not attacks: it is fine for our own model on our own machine, but it is not a security boundary.
+
+| Piece | Where |
+|---|---|
+| Workspace: base parts, overrides, edit log, state hash | [`local/workspace.py`](src/rav_cad/local/workspace.py) |
+| Sandbox for the model's code | [`local/sandbox.py`](src/rav_cad/local/sandbox.py), [`local/_runner.py`](src/rav_cad/local/_runner.py) |
+| Backend: workspace, check, apply, faces, describe | [`local/backend.py`](src/rav_cad/local/backend.py) |
+| CAD tools for the analyst | [`local/mcp_server.py`](src/rav_cad/local/mcp_server.py) |
+| Shared by both tool servers: logging, measure, check, submit | [`cadtools.py`](src/rav_cad/cadtools.py) |
+| Picture of any product's parts | `render_parts` in [`parametric/render.py`](src/rav_cad/parametric/render.py) |
+
+Run it on a recorded run's findings (the centrifuge's Rev A is in the repo as [`revA.step`](../subjects/centrifuge/revA.step)):
+
+```bash
+uv run rav analyze --analyst local --run subjects/centrifuge/sim_run/centrifuge-revA/events.jsonl --tags subjects/centrifuge/onshape.yaml --step subjects/centrifuge/revA.step
+```
+
+`uv run rav mock --analyst local` runs the whole loop on our box, with each feature's CadQuery shown to the model as a reference.
 
 ## The CadQuery model
 

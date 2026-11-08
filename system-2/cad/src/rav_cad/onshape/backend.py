@@ -18,6 +18,7 @@ The product's tag file (subjects/<product>/onshape.yaml) names the document and 
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import tempfile
 from dataclasses import dataclass
@@ -27,7 +28,57 @@ from rav_contracts import CADPatch, CadSource
 
 from ..generic import Tags, failures, load_step, run
 from ..generic.checks import _changed, as_json
-from .client import DocRef, OnshapeClient, parse_document_url
+from .client import DocRef, OnshapeClient, decode_fs_value, parse_document_url
+
+
+CACHE = pathlib.Path(os.environ.get("RAV_CAD_CACHE") or pathlib.Path.home() / ".cache" / "rav-cad" / "onshape")
+EXPORT_POLL_S = 1.0          # how often to ask Onshape whether an export is ready (each ask is an API call)
+
+
+# One part's faces, by name (NAMES is replaced with a JSON array of the names it may have). Read-only.
+FACES_FS = """
+function(context is Context, queries is map)
+{
+    var names = NAMES;
+    var out = [];
+    for (var body in evaluateQuery(context, qAllModifiableSolidBodies()))
+    {
+        var name = getProperty(context, { "entity" : body, "propertyType" : PropertyType.NAME });
+        var wanted = false;
+        for (var n in names)
+        {
+            if (n == name)
+                wanted = true;
+        }
+        if (!wanted)
+            continue;
+        for (var face in evaluateQuery(context, qOwnedByBody(body, EntityType.FACE)))
+        {
+            var row = { "id" : transientQueriesToStrings(face), "area" : evArea(context, { "entities" : face }) };
+            var surface = evSurfaceDefinition(context, { "face" : face });
+            if (surface is Cylinder)
+            {
+                row["kind"] = "cylinder";
+                row["radius"] = surface.radius;
+                row["axis"] = surface.coordSystem.zAxis;
+                row["origin"] = surface.coordSystem.origin;
+            }
+            else if (surface is Plane)
+            {
+                row["kind"] = "plane";
+                row["normal"] = surface.normal;
+                row["origin"] = surface.origin;
+            }
+            else
+            {
+                row["kind"] = "other";
+            }
+            out = append(out, row);
+        }
+    }
+    return out;
+}
+"""
 
 
 @dataclass
@@ -44,7 +95,7 @@ class OnshapeBackend:
     name = "onshape"
 
     def __init__(self, tags_path: str | pathlib.Path, client: Any = None, out_dir: str | pathlib.Path | None = None,
-                 require_approval: bool = True):
+                 require_approval: bool = True, cache_dir: str | pathlib.Path | None = None):
         self.tags_path = pathlib.Path(tags_path)
         self.tags = Tags.load(self.tags_path)
         src = self.tags.source
@@ -55,6 +106,7 @@ class OnshapeBackend:
         self.client = client if client is not None else OnshapeClient()
         self.out_dir = pathlib.Path(out_dir) if out_dir else self.tags_path.parent / "onshape_out"
         self.require_approval = require_approval
+        self.cache = pathlib.Path(cache_dir) if cache_dir else CACHE     # exports of versions, which never change
         self._before: dict | None = None
 
     # --- where things are -------------------------------------------------------------------------------------
@@ -72,7 +124,8 @@ class OnshapeBackend:
         return f"https://cad.onshape.com/documents/{self.doc.did}/w/{workspace_id}/e/{self.tags.source['part_studio']}"
 
     def microversion(self, workspace_id: str) -> str:
-        return self.client.get_features(self.branch(workspace_id), noSketchGeometry=True)["sourceMicroversion"]
+        # the cheap document call, not the feature tree: the feature-tree endpoint has a tight Onshape rate limit
+        return self.client.current_microversion(self.doc.did, workspace_id)
 
     # --- branches ---------------------------------------------------------------------------------------------
 
@@ -81,19 +134,30 @@ class OnshapeBackend:
         return self.client.create_branch(self.doc.did, self.tags.source["tested_version"], name, description)["id"]
 
     def _parts(self, ref: DocRef) -> dict:
-        data = self.client.export_step(ref, kind="assembly")
+        # a version never changes, so its export is kept on disk and shared by every session; a branch is re-exported
+        cached = self.cache / f"{ref.did}-{ref.wvmid}-{ref.eid}.step" if ref.wvm == "v" else None
+        if cached is not None and cached.exists():
+            return self.tags.normalize(load_step(cached))
+        data = self.client.export_step(ref, kind="assembly", interval=EXPORT_POLL_S)
+        if cached is not None:
+            cached.parent.mkdir(parents=True, exist_ok=True)
+            tmp = cached.with_suffix(f".{os.getpid()}.tmp")          # write then rename: parallel sessions never read half
+            tmp.write_bytes(data)
+            tmp.replace(cached)
+            return self.tags.normalize(load_step(cached))
         with tempfile.TemporaryDirectory() as tmp:
             path = pathlib.Path(tmp) / "export.step"
             path.write_bytes(data)
-            return load_step(path)
+            return self.tags.normalize(load_step(path))
 
     def before(self) -> dict:
         if self._before is None:
             self._before = self._parts(self.tested())
         return self._before
 
-    def check_branch(self, workspace_id: str) -> BranchCheck:
-        """Export the branch and judge it against the tested version. Refuses if the branch moved during the export."""
+    def check_branch(self, workspace_id: str, quick: bool = False) -> BranchCheck:
+        """Export the branch and judge it against the tested version. Refuses if the branch moved during the export.
+        `quick` checks only what the change can affect (the analyst's iterations); the default is the full check."""
         mv = self.microversion(workspace_id)
         after = self._parts(self.branch(workspace_id, "assembly"))
         if self.microversion(workspace_id) != mv:
@@ -102,7 +166,7 @@ class OnshapeBackend:
         changed = _changed(before, after)
         owners = sorted({o for o in (self.tags.owner(n) for n in changed) if o})
         target = owners[0] if len(owners) == 1 else None
-        results = run(after, self.tags, before=before, target=target)
+        results = run(after, self.tags, before=before, target=target, quick=quick)
         return BranchCheck(mv, changed, target, failures(results), as_json(results))
 
     # --- CadBackend -------------------------------------------------------------------------------------------
@@ -166,6 +230,59 @@ class OnshapeBackend:
             "version": {"id": version["id"], "name": version.get("name")}, "url": self.url(ws), "changed": result.changed,
             "stl": written, "checks": result.results, "patch": patch.model_dump(mode="json")}, indent=2))
         return str(out)
+
+    def faces(self, part: str, ref: DocRef | None = None) -> list[dict]:
+        """One part's faces (largest first): id for feature queries, kind, area, and its plane or axis, in mm.
+        LookupError when the part isn't there or the FeatureScript fails. A version's faces never change, so they're
+        kept on disk beside its export; a branch's are read live."""
+        ref = ref or self._at("v", self.tags.source["tested_version"], "part_studio")
+        cached = self.cache / f"{ref.did}-{ref.wvmid}-{ref.eid}-faces-{part}.json" if ref.wvm == "v" else None
+        if cached is not None and cached.exists():
+            return json.loads(cached.read_text())
+        faces = self._read_faces(part, ref)
+        if cached is not None:
+            cached.parent.mkdir(parents=True, exist_ok=True)
+            cached.write_text(json.dumps(faces))
+        return faces
+
+    def _read_faces(self, part: str, ref: DocRef) -> list[dict]:
+        names = [part] + [part + s for s in self.tags.ignore_suffixes]
+        result = self.client.eval_featurescript(ref, FACES_FS.replace("NAMES", json.dumps(names)))
+        errors = [n.get("message") for n in result.get("notices") or [] if n.get("level") == "ERROR"]
+        if errors:
+            raise LookupError(f"FeatureScript failed: {errors[0]}")
+        faces = decode_fs_value(result.get("result")) or []
+        if not faces:
+            raise LookupError(f"no part named {part} in the Part Studio; list_controls has the names")
+        rnd = lambda v: round(v, 4) if isinstance(v, float) else [round(x, 4) for x in v] if isinstance(v, list) else v  # noqa: E731
+        return [{k: rnd(v) for k, v in f.items()} for f in sorted(faces, key=lambda f: -float(f.get("area") or 0))]
+
+    def describe(self, control: str, max_faces: int = 12) -> str:
+        """What the analyst would otherwise spend its first calls finding out about the failing control, measured on
+        the tested version (its branch starts identical): the parts, their boxes, a sliding fit's gap, and the faces of
+        the parts it may reprint (ids usable in feature queries on the branch)."""
+        from ..parametric.geom import distance
+        c = self.tags.controls.get(control)
+        if c is None:
+            return ""
+        parts = self.before()
+        lines = [f"Control {c.id}: skill {c.skill}; parts {', '.join(c.parts)}; may reprint {', '.join(c.reprintable) or 'nothing'}"
+                 + (f"; it drives {', '.join(c.actuates)}" if c.actuates else "")]
+        for name in dict.fromkeys([*c.parts, *c.actuates]):
+            if name in parts:
+                bb = parts[name].BoundingBox()
+                lines.append(f"- {name}: box X {bb.xmin:.2f}..{bb.xmax:.2f}, Y {bb.ymin:.2f}..{bb.ymax:.2f}, Z {bb.zmin:.2f}..{bb.zmax:.2f} mm")
+        if c.fit and all(p in parts for p in c.fit):
+            lines.append(f"- gap between {c.fit[0]} and {c.fit[1]} at rest: {distance(parts[c.fit[0]], parts[c.fit[1]]):.3f} mm")
+        for name in c.reprintable:
+            try:
+                fs = self.faces(name)
+            except LookupError:
+                continue
+            shown = [f for f in fs if f.get("kind") == "cylinder"] + [f for f in fs if f.get("kind") != "cylinder"]
+            lines.append(f"- faces of {name} ({len(fs)}; cylinders first, then largest):")
+            lines += [f"    {json.dumps(f)}" for f in shown[:max_faces]]
+        return "\n".join(lines)
 
     def source(self, workspace_id: str, microversion: str) -> CadSource:
         return CadSource(document_id=self.doc.did, workspace_id=workspace_id, microversion_id=microversion,

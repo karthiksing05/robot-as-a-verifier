@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import threading
 import time
 from collections.abc import Callable
 
@@ -20,6 +21,7 @@ class RunLog:
         self.path = self.dir / "events.jsonl"
         self.path.write_text("")
         self.seq, self.t0, self.on_event = 0, time.monotonic(), on_event
+        self._lock = threading.Lock()       # analysts may run in parallel and log to the same run
 
     def emit(self, type_: str, payload: BaseModel | dict) -> RunEvent:
         expected = PAYLOADS[type_]
@@ -28,10 +30,11 @@ class RunLog:
         if type_ == "step_finished" and not isinstance(payload, StepOutcome):
             raise TypeError("step_finished needs a StepOutcome")
         body = payload.model_dump(mode="json") if isinstance(payload, BaseModel) else payload
-        self.seq += 1
-        event = RunEvent(seq=self.seq, t=round(time.monotonic() - self.t0, 3), run_id=self.run_id, type=type_, payload=body)
-        with self.path.open("a") as f:
-            f.write(event.model_dump_json() + "\n")
+        with self._lock:
+            self.seq += 1
+            event = RunEvent(seq=self.seq, t=round(time.monotonic() - self.t0, 3), run_id=self.run_id, type=type_, payload=body)
+            with self.path.open("a") as f:
+                f.write(event.model_dump_json() + "\n")
         if self.on_event:
             self.on_event(event)
         return event

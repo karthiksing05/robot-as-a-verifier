@@ -45,7 +45,11 @@ import skills
 from features import canonical_x, frame
 from rig import CONTACT_N, CONTROL_HZ, SafetyStop
 
-PAD_R, PAD_T = 0.006, 0.003       # probe pad; the tip site is the centre of its face, and the rod ends inside it
+PAD_R, PAD_T = 0.003, 0.0         # the fixed jaw's end as a disc: 2.5 mm at the nub, 3 mm a millimetre up its sides
+# How far the closed jaws reach from the tool axis (m) at heights above the tip (m): the fixed jaw widens up its sides,
+# and the moving jaw, 1.8 mm short of the tip, sticks out on one side (from the model's meshes). A neighbour must clear this.
+JAW_H = [0.0, 0.001, 0.002, 0.003, 0.005, 0.01, 0.015, 0.02, 0.025]
+JAW_R = [0.0025, 0.003, 0.0085, 0.0098, 0.0113, 0.0149, 0.0181, 0.0211, 0.0242]
 HOVER = 0.03            # a sideways push starts this far above the pad's first position
 GAP = 0.004             # pad to face before a sideways push
 CLEAR = 0.002           # the pad's lowest point above the surface it moves over
@@ -211,9 +215,9 @@ def _sideways(arm, face, n, m, floor, contact_h, top, until, what, touch_floor=N
             return centre + (c - gap) * m + _rotate(tip - centre, k, th), _rotate(m, k, th)
         return path
 
-    def near(pt, c, r, margin):
+    def near(pt, c, r, margin, up):  # up: the neighbour's top above the pad's lowest point
         d = pt - c
-        return np.linalg.norm(d - (d @ n) * n) < PAD_R + r + margin
+        return np.linalg.norm(d - (d @ n) * n) < np.interp(up, JAW_H, JAW_R) + r + margin
 
     for gap in (GAP, 0.001):
         ends = (0.0, gap + until / 2, gap + until)
@@ -227,12 +231,13 @@ def _sideways(arm, face, n, m, floor, contact_h, top, until, what, touch_floor=N
         path = path_from(tip, gap)
         h = (path(0, gap)[0] - face) @ n
         low = h - max(_lowest(a, n) for a in axes)  # the pad's lowest point along the push
-        hit = [oid for c, r, ot, oid in obstacles if ot > low and any(near(path(s, gap)[0], c, r, 0.001) for s in ends)]
+        hit = [oid for c, r, ot, oid in obstacles if ot > low and any(near(path(s, gap)[0], c, r, 0.001, ot - low)
+                                                                      for s in ends)]
         if not hit:
             break
     else:
         return f"no room for the pad: {hit[0]} is in the way"
-    top = max([top] + [ot for c, r, ot, _ in obstacles if near(path(0, gap)[0], c, r, 0.005)])
+    top = max([top] + [ot for c, r, ot, _ in obstacles if near(path(0, gap)[0], c, r, 0.005, ot - low)])
     qs, q = [], arm.cmd
     for pt in (path(0, gap)[0] + HOVER * n, *(path(s, gap)[0] for s in ends)):
         q, ok, err, _ = arm.ik.solve(pt, -n, q)

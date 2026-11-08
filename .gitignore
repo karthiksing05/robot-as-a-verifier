@@ -16,6 +16,9 @@ dist/
 
 # run outputs anywhere: system-1/sim/runs, and runs/ from the harness
 runs/
+runs_*/
+local_out/
+onshape_out/
 
 # the sim regenerates these scene and texture files on every run
 system-1/sim/assets/so101/_*

@@ -99,7 +99,7 @@ def main(argv=None) -> None:
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8780)
     ap.add_argument("--seed", type=int, default=None, help="generated device (default: preset C)")
-    ap.add_argument("--sensing", default="tactile", choices=["tactile", "loadcell", "current", "perfect"])
+    ap.add_argument("--sensing", default="current", choices=["current", "tactile", "loadcell", "perfect"])
     ap.add_argument("--depth", action="store_true", help="the D405 pipeline: no OWLv2 or SAM download")
     ap.add_argument("--no-refine", action="store_true")
     ap.add_argument("--arm-port", help="real: the servo bus's serial port, such as COM5")
