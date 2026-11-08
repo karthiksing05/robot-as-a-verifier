@@ -245,7 +245,7 @@ def survey_wrist(arm, wrist, on_frame=None):
     lim = SURVEY_REPROJ_PX * caps[0].frame.rgb.shape[1] / PX_WIDTH if caps else 0
     ok = [max(np.linalg.norm(_project(caps[c].frame.K, poses[c], x[None])[0][0] - uv) for c, uv in t) < lim
           for t, x in zip(tracks, X)]
-    keep = np.array(ok, bool) & perceive._inside(X, perceive.SURVEY_BOX) & ~perceive._on_arm(arm, X)
+    keep = np.array(ok, bool) & perceive._inside(X, perceive._survey_box(arm)) & ~perceive._on_arm(arm, X)
     pts = X[keep]
     colors = np.array([caps[t[0][0]].frame.rgb[int(t[0][1][1]), int(t[0][1][0])] for t, k in zip(tracks, keep) if k])
     if len(pts) < 100:
@@ -253,7 +253,7 @@ def survey_wrist(arm, wrist, on_frame=None):
     T, (u0, u1, v0, v1) = perceive._coarse_panel(pts, np.mean([T[:3, 3] for T in poses], axis=0))
     foot = cv2.boxPoints(cv2.minAreaRect(pts[:, :2].astype(np.float32)))
     top = np.percentile(pts[:, 2], 99.5)
-    box = np.vstack([np.c_[foot, np.full(4, perceive.TABLE_Z)], np.c_[foot, np.full(4, top)]])
+    box = np.vstack([np.c_[foot, np.full(4, arm.table_z)], np.c_[foot, np.full(4, top)]])
     a = SURVEY_PAD
     return dict(points=pts, colors=colors.reshape(-1, 3), box=box, panel=T, extent=(u0 - a, u1 + a, v0 - a, v1 + a),
                 captures=caps)

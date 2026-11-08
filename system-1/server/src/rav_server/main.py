@@ -6,6 +6,7 @@
     RAV_TOKEN=... uv run rav-server --robot sim --host 0.0.0.0     # System 2 on another laptop
     uv sync --extra sim --extra arm
     uv run rav-server --robot real --arm-port COM5 --calibration makecu.json   # asks before torque goes on
+    uv run rav-server --robot real --arm-port COM5 --calibration makecu.json --readout-port COM7   # Pico verdicts
 """
 from __future__ import annotations
 
@@ -61,7 +62,7 @@ def make_robot(args):
         return lambda: MockRobot()
     if args.robot == "real":  # built once, here on the main thread, so that main can ask before torque goes on
         from .real_backend import RealBackend
-        robot = RealBackend(args.arm_port, args.calibration, refine=not args.no_refine)
+        robot = RealBackend(args.arm_port, args.calibration, refine=not args.no_refine, readout_port=args.readout_port)
         return lambda: robot
     from .sim_backend import SimBackend  # imports MuJoCo and torch
     return lambda: SimBackend(seed=args.seed, sensing=args.sensing, depth=args.depth, refine=not args.no_refine)
@@ -70,7 +71,8 @@ def make_robot(args):
 def enable_torque(robot, confirmed: bool) -> None:
     """The real arm's gate: say what torque on means, then turn it on only on a yes, or with --enable-torque."""
     print(f"{robot.rig.name}: torque goes on next, and the five arm joints hold where they are. System 2 can then start "
-          "routines that move the arm, and after each test motion this terminal asks what changed on the device. "
+          "routines that move the arm, and after each test motion the Pico, or without --readout-port this terminal, "
+          "says what changed on the device. "
           "Ctrl+C stops the arm where it is, then turns torque off as the server stops: the arm goes limp and falls, "
           "so support it first. In an emergency, switch off the arm's power.")
     if confirmed:
@@ -102,6 +104,7 @@ def main(argv=None) -> None:
     ap.add_argument("--no-refine", action="store_true")
     ap.add_argument("--arm-port", help="real: the servo bus's serial port, such as COM5")
     ap.add_argument("--calibration", help="real: the file lerobot-calibrate wrote for the arm")
+    ap.add_argument("--readout-port", help="real: the device's Pico, such as COM7 (default: the terminal asks)")
     ap.add_argument("--enable-torque", action="store_true", help="real: turn torque on at startup without asking")
     args = ap.parse_args(argv)
     if args.robot == "real" and (args.depth or not (args.arm_port and args.calibration)):

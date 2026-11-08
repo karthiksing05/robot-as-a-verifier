@@ -1,11 +1,12 @@
 """The first script to run on the built arm: each joint in the model's frame (degrees) next to its raw encoder steps,
 and the fingertip's position by forward kinematics, so the joint mapping in real_arm.py can be checked by posing the arm
 by hand. It turns torque off on every motor as it connects, so an arm that was holding drops: it asks you to support
-the arm first. Torque then stays off, so the arm is limp, unless --move.
+the arm first. Torque then stays off, so the arm is limp, unless --move or --noise.
 
     python tools/arm_check.py COM5 CAL.json                       # 5 lines a second until Ctrl+C
     python tools/arm_check.py COM5 CAL.json --move elbow_flex     # asks, then 5 deg and back at about 2.5 deg/s
     python tools/arm_check.py COM5 CAL.json --move elbow_flex --deg 30 --speed 60   # further and faster
+    python tools/arm_check.py COM5 CAL.json --noise               # asks, then the force estimate's noise at rest
 
 CAL.json is lerobot-calibrate's file, ~/.cache/huggingface/lerobot/calibration/robots/so_follower/<robot.id>.json.
 What to look for is in system-1/sim/docs/real-arm.md: in short, LeRobot's calibration pose reads near 0 on every joint with the tip
@@ -33,6 +34,9 @@ SPEED_DEG_S = 2.5  # --move's default
 MAX_DEG = 90
 MAX_SPEED_DEG_S = 90  # the move's cosine profile peaks at pi/2 times this, under RealArm's MAX_STEP_RAD a tick
 EVERY = CONTROL_HZ // 5  # ticks between printed lines
+NOISE_S = 5  # how long --noise logs the estimate at each pose
+NOISE_TIPS = [(0.18, 0.0, 0.12), (0.28, 0.0, 0.12), (0.20, 0.18, 0.12)]  # close in, stretched out, to the left (m)
+NOISE_SPEED_DEG_S = 10
 
 
 def row(arm):
@@ -90,6 +94,59 @@ def move(arm, joint, deg, speed, ask):
     ask("Hold the arm, then press Enter: torque goes off. ")
 
 
+def _goto(arm, q):
+    """A smooth joint-space move from the current command to q at about NOISE_SPEED_DEG_S."""
+    q0 = arm.cmd.copy()
+    n = max(1, round(np.degrees(np.abs(q - q0).max()) / NOISE_SPEED_DEG_S * CONTROL_HZ))
+    for k in range(1, n + 1):
+        arm.send(q0 + (q - q0) * (0.5 - 0.5 * np.cos(np.pi * k / n)))
+        arm.tick()
+
+
+def noise(arm, ask):
+    start = arm.read_q()
+    poses = []
+    for tip in NOISE_TIPS:
+        q, ok, err, _ = arm.ik.solve(np.array(tip), np.array([0.7, 0.0, -0.7]), start)
+        if ok:
+            poses.append((tip, q))
+        else:
+            print(f"Skipping {tip}: out of reach ({err * 1000:.0f} mm short)")
+    turn = max(np.degrees(np.abs(q - start).max()) for _, q in poses)
+    print(f"--noise turns torque on for the five arm joints, then moves the arm itself to {len(poses)} poses 12 cm "
+          f"above the desk (no joint turns more than {turn:.0f} deg, at about {NOISE_SPEED_DEG_S} deg/s). At each it "
+          f"waits 1 s, zeroes the force estimate as a guarded move does and logs it for {NOISE_S} s. Then it comes back "
+          f"here and waits for you before torque goes off. Ctrl+C stops and the arm holds.\n{row(arm)}")
+    if ask("Is the space around the arm clear? Type yes to go: ").strip() != "yes":
+        print("Not run.")
+        return
+    arm.enable(confirm=True)
+    results = []
+    try:
+        for tip, q in poses:
+            _goto(arm, q)
+            for _ in range(CONTROL_HZ):
+                arm.send(q)
+                arm.tick()
+            arm.tare()
+            axial, total = [], []
+            for _ in range(NOISE_S * CONTROL_HZ):
+                arm.send(q)
+                arm.tick()
+                axial.append(arm.tip_force())
+                total.append(np.linalg.norm(arm.tip_force_vec()))
+            results.append((tip, axial, total))
+            print(f"At {tip}: along the probe mean {np.mean(axial):.2f}, std {np.std(axial):.2f}, max {np.max(axial):.2f} "
+                  f"N; magnitude mean {np.mean(total):.2f}, std {np.std(total):.2f}, max {np.max(total):.2f} N", flush=True)
+        _goto(arm, start)
+    except (SafetyStop, KeyboardInterrupt) as e:  # torque stays on, so the arm holds until the question below
+        print(f"Stopped: {str(e) or 'Ctrl+C'}")
+    if results:
+        print(f"The rig assumes {arm.noise_n:g} N (rig.SENSED_NOISE_N): a touch takes 2x that along the probe as "
+              f"contact, and skips buttons while that is over their 1.5 N spring")
+    ask("Hold the arm, then press Enter: torque goes off. ")
+
+
 def main(argv=None, bus=None, ask=input):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("port", help="the follower's serial port, e.g. COM5")
@@ -98,6 +155,7 @@ def main(argv=None, bus=None, ask=input):
     ap.add_argument("--deg", type=float, default=5.0, help=f"how far --move goes, at most {MAX_DEG} (default 5)")
     ap.add_argument("--speed", type=float, default=SPEED_DEG_S,
                     help=f"--move's average speed in deg/s, at most {MAX_SPEED_DEG_S} (default {SPEED_DEG_S:g})")
+    ap.add_argument("--noise", action="store_true", help=f"log the force estimate at rest for {NOISE_S} s, after asking")
     ap.add_argument("--rows", type=int, default=0, help="stop after this many lines (default: Ctrl+C)")
     args = ap.parse_args(argv)
     if not 0 < abs(args.deg) <= MAX_DEG:
@@ -111,6 +169,8 @@ def main(argv=None, bus=None, ask=input):
                   f"reading rises as it {POSITIVE[j]}")
         if args.move:
             move(arm, args.move, args.deg, args.speed, ask)
+        elif args.noise:
+            noise(arm, ask)
         else:
             watch(arm, args.rows)
 

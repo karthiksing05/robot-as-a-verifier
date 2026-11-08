@@ -44,7 +44,6 @@ COARSE_THR = 0.004
 # Fewer views left the panel behind tall parts (dial, toggle) seen by one frame or none.
 VIEW_LOOKS = [(0.0, 0.0), (0.0, -0.05), (0.05, -0.05), (0.05, 0.0), (0.05, 0.05), (0.0, 0.05),
               (-0.05, 0.05), (-0.05, 0.0), (-0.05, -0.05)]
-STANDOFF = 0.12         # camera to panel (m): the probe tip then clears the panel by about 4 cm
 # Views tip toward horizontal: straight along -normal is often out of reach. A view the first tilt
 # can't reach (far, shallow panels) tries the next, which brings the camera lower and nearer.
 VIEW_TILTS = np.radians([10, 20, 30])
@@ -140,15 +139,22 @@ def survey(arm, f):
     pts, rgb, px = rig.backproject(f, stride=2)
     d, k = f.depth, np.ones((11, 11), np.uint8)
     spread = cv2.dilate(d, k) - cv2.erode(np.where(d > 0, d, 9.0).astype(np.float32), k)
-    keep = (spread[px[:, 1], px[:, 0]] < LIDAR_EDGE_M) & _inside(pts, SURVEY_BOX) & ~_on_arm(arm, pts)
+    keep = (spread[px[:, 1], px[:, 0]] < LIDAR_EDGE_M) & _inside(pts, _survey_box(arm)) & ~_on_arm(arm, pts)
     pts, rgb = pts[keep], rgb[keep]
     dev = _largest_cluster(pts, SURVEY_VOXEL)
     pts, rgb = pts[dev], rgb[dev]
     foot = cv2.boxPoints(cv2.minAreaRect(pts[:, :2].astype(np.float32)))  # corners going around
     top = np.percentile(pts[:, 2], 99.5)
-    box = np.vstack([np.c_[foot, np.full(4, TABLE_Z)], np.c_[foot, np.full(4, top)]])
+    box = np.vstack([np.c_[foot, np.full(4, arm.table_z)], np.c_[foot, np.full(4, top)]])
     T, extent = _coarse_panel(pts, f.T_base_cam[:3, 3])
     return dict(points=pts, colors=rgb, box=box, panel=T, extent=extent)
+
+
+def _survey_box(arm):
+    """SURVEY_BOX with its floor 1 cm over the arm's desk."""
+    box = SURVEY_BOX.copy()
+    box[2, 0] = arm.table_z + 0.01
+    return box
 
 
 def _inside(pts, box):
@@ -262,7 +268,7 @@ def plan_views(arm, surv):
         for tilt in VIEW_TILTS:
             view = aim = -n * math.cos(tilt) - down * math.sin(tilt)
             for _ in range(3):
-                q, ok, err, _ = arm.ik.solve(look - STANDOFF * aim, view, q0, site=site)
+                q, ok, err, _ = arm.ik.solve(look - arm.standoff * aim, view, q0, site=site)
                 aim = arm.ik.fk(q, site)[1]
             clear = (arm.ik.fk(q)[0] - c) @ n
             why = ""
@@ -317,8 +323,8 @@ def wrist_points(f, box):
 
 
 def _in_box(pts, box, margin):
-    """Points inside the survey box (8 corners, bottom face first) grown by margin, above the desk."""
-    c, ok = box.mean(0), pts[:, 2] > TABLE_Z + 0.005
+    """Points inside the survey box (8 corners, bottom face first, on the desk) grown by margin, above the desk."""
+    c, ok = box.mean(0), pts[:, 2] > box[0, 2] + 0.005
     for e in ((box[1] - box[0]) / 2, (box[3] - box[0]) / 2, (box[4] - box[0]) / 2):
         half = np.linalg.norm(e)
         ok &= np.abs((pts - c) @ (e / half)) < half + margin

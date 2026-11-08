@@ -86,6 +86,13 @@ class RealArm(rig.ArmBase):
     floor. tip_force() and the hard cap then use it, and the force across the probe stays the servo estimate, as with
     SimArm(sensing="tactile"). No driver for the SensX 25 exists yet.
     """
+    # The arm stands on the desk, not the sim's post: the hand-eye fit put the desk at z = -0.1 mm. The workspace floor
+    # is 5 mm over it, where perceive starts counting points as above the desk, so controls low on a panel stay in reach.
+    # The camera sits about 130 mm behind the probe tip (the model's 81 mm), so at the sim's standoff the tip would be
+    # in the panel.
+    table_z = 0.0
+    workspace = np.array([[0.05, 0.42], [-0.25, 0.25], [0.005, 0.35]])
+    standoff = 0.17
 
     def __init__(self, bus, app=None, pad=None, pace=True):
         self.bus, self.pad, self.pace = bus, pad, pace

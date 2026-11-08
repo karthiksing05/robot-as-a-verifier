@@ -28,9 +28,10 @@ CONTACT_N = 0.3            # tip force that counts as touching
 IK_SEEDS = [np.array(s, float) for s in
             ([0, -1.0, 0.9, 0.9, 0], [0, -1.4, 1.4, 0.6, 0], [0, -0.4, 0.4, 1.2, 0], [0, -1.6, 0.6, 1.4, 0])]
 TICK_RAD = 2 * np.pi / 4096
-# The desk in the arm frame: the arm stands on a 140 mm post. Perception takes the desk as this plane (the survey box,
-# the scan's crop) and the sim builds its desk here, so the real arm is mounted to match (sim/docs/real-arm.md).
+# The desk in the arm frame: the sim's arm stands on a 140 mm post. Perception takes the desk as this plane (the survey
+# box, the scan's crop) and the sim builds its desk here. An arm's table_z, workspace and standoff default to these.
 TABLE_Z = -0.14
+STANDOFF = 0.12            # wrist camera to panel in the scan's views (m): the fingertip then clears the panel by a few cm
 # The force estimate from the servos' own readings, as SimArm(sensing=...) and RealArm both run it. robot.py has the
 # sim's servo model and its noise.
 SERVO_KV = 1.0             # servo damping (N.m.s/rad). The model file's was tuned for its stiff servo, so it is lowered
@@ -72,6 +73,9 @@ class Arm(Protocol):
     force_log: list         # (t, force) per tick
     seen_collisions: set    # arm parts that touched the scene (always empty on the real arm)
     app: Readout
+    table_z: float          # the desk's height (m)
+    workspace: np.ndarray   # 3x2 box (m) that check_workspace allows
+    standoff: float         # wrist camera to panel in the scan's views (m)
 
     def read_q(self):
         """Joint readings."""
@@ -95,7 +99,7 @@ class Arm(Protocol):
         """Zero the force estimate, or with on=False drop the zero."""
 
     def check_workspace(self, pos):
-        """Raise SafetyStop if pos is outside WORKSPACE."""
+        """Raise SafetyStop if pos is outside workspace."""
 
 
 @runtime_checkable
@@ -211,6 +215,7 @@ class ArmBase:
     """What SimArm and RealArm share: the force estimate's least-squares fit and its part along the probe, the force
     vector it gives (with a pad or load cell, axial_sensor, their reading along the probe), and the workspace check.
     The arm keeps W, zero, axis_est and est_vec up to date, and has axial_sensor and tip_force()."""
+    table_z, workspace, standoff = TABLE_Z, WORKSPACE, STANDOFF
 
     def _fit(self, tau, zero=None):
         # 5 joint torques, 3 force components: least squares (wrist_roll turns about the probe, so carries none). A fit
@@ -228,7 +233,7 @@ class ArmBase:
         return self.est_vec.copy()
 
     def check_workspace(self, pos):
-        if np.any(pos < WORKSPACE[:, 0]) or np.any(pos > WORKSPACE[:, 1]):
+        if np.any(pos < self.workspace[:, 0]) or np.any(pos > self.workspace[:, 1]):
             raise SafetyStop(f"target {np.round(pos, 3).tolist()} is outside the workspace box")
 
 

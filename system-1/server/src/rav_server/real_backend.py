@@ -8,10 +8,12 @@ from .sim_backend import CORE_DIR, HARDWARE_DIR, PipelineRobot, on_path
 
 class RealBackend(PipelineRobot):
     """arm_port is the servo bus's serial port and calibration the file lerobot-calibrate wrote. The device's readout is
-    real_arm.OperatorReadout: after each test motion, the server's terminal asks what changed on the device."""
+    its Pico on readout_port (pico_readout.PicoReadout), or without one real_arm.OperatorReadout: after each test
+    motion, the server's terminal asks what changed on the device."""
 
-    def __init__(self, arm_port: str, calibration: str, refine: bool = True):
+    def __init__(self, arm_port: str, calibration: str, refine: bool = True, readout_port: str | None = None):
         on_path(CORE_DIR, HARDWARE_DIR)
         import hw_rig
 
-        super().__init__(hw_rig.make_rig(arm_port, calibration), refine=refine, plan_id="rules-real")
+        rig = hw_rig.make_rig(arm_port, calibration, readout_port=readout_port)
+        super().__init__(rig, refine=refine, plan_id="rules-real")
