@@ -1,6 +1,6 @@
 # Demo video storyboard
 
-**Draft 10, Nov 8.** Goes with [script.md](script.md). About 2:39, 1920 × 1080 at 30 fps, rebuilt to Karthik's re-recorded voiceover. The build is in [build/](build/): `node render.mjs video`, then `./mix.sh`.
+**Draft 10, Nov 8.** Goes with [script.md](script.md). About 2:47, 1920 × 1080 at 30 fps, rebuilt to Karthik's re-recorded voiceover. The build is in [build/](build/): `node render.mjs video`, then `./mix.sh`.
 
 ## Rules for every shot
 
@@ -21,10 +21,10 @@
 | 6 | 0:26–1:22 | A tour of the Console with a cursor and a dynamic zoom: the Rev A run's stages, the plan and its approval, the test, the stopped step s1, the skipped lid (s7), Design Analysis, then the Rev B run | On "proposes a fix": `the full loop, in the sim · D36` — `MC-6 tube stopped 8.15 mm high`, `Opus 5.5 widened the bore`, `retest: seated within 0.97 mm` | `tour/demo` (Rev A and Rev B runs) |
 | 7 | 1:22–1:52 | Two full-height panels, already filled with the Rev A run's data and dim; each part lights up as it's named. The model's `move_joint` and `grade_own_step` bounce off the tool lane ("no such tool"); a 40 N press goes through and stops at the cap. On "four models" the model name flicks through four; on "simulator or a real arm" System 1's header flips between `MuJoCo · simulator` and `SO-101 · real arm`, and the appliance names cycle | Data, never the spoken list | Rev A run `events.jsonl` |
 | 8 | 1:52–2:05 | The VLA card over the dimmed panels, demonstration reels filling in; then `manual.md` glows; then an amber line under System 1 | `SmolVLA · 50 demos/task`, `GR00T N1 · 30–300 demos/task`, `new kind of control → a new skill, in code` | Diagram |
-| 9 | 2:06–2:19 | One shared screen: the Console in a window on the right moving through Studies, Story, Settings and Methodology, a feature label above each; six case cards on the left, each filling in as it's named | `Lean · ETH refutations checked, Oct 2026`, `CompCert · ATR 42/72`, `seL4 · DARPA HACMS`, `Pirbright 2007`, `JWST · 29-month delay`, `Dyson · 5,127 prototypes` | `tour/scenes` |
-| 10 | 2:19–2:30 | **The pan-out.** On "Today", the cards slide away and the Console window shrinks onto New York as a spinning globe comes in. The twelve appliance names flank it; a pin lands on New York; a cloud marked System 2 links to it by a dashed tunnel; on "any lab", pins light up around the world | `centrifuge · sim + real`, `MC-6 · real arm`, `System 2` | Drawn |
-| 11 | 2:30–2:39 | **The close.** Back to the take, frozen on the chalk's tip, pulling out to the full frame while Karthik writes RAAV over the last line. He walks off | — | `intro.MOV` 11.5–21 s |
-| 12 | 2:37–2:39 | Fade to black on the empty board with RAAV | — | — |
+| 9 | 2:06–2:28 | One shared screen: the Console in a window on the right moving through Studies, Story, Settings and Methodology, a feature label above each. Left: the three software cards, which shrink to one line as the voice turns to hardware; then **Dyson as the centrepiece**, a large card where 5,127 cells fill in red during his quote and the last one turns green; then Pirbright and JWST, smaller, on "biosafety labs" and "spacecraft" | `Lean · ETH refutations checked, Oct 2026`, `CompCert · ATR 42/72`, `seL4 · DARPA HACMS`, `Dyson · Fast Company · May 2007`, `one cell per prototype · DC01 · 1993 · 15 years`, `Pirbright 2007`, `JWST · 29-month delay`. The quote is only spoken | `tour/scenes` |
+| 10 | 2:28–2:39 | **The pan-out.** On "Today", the cards slide away and the Console window shrinks onto New York as a spinning globe comes in. The twelve appliance names flank it; a pin lands on New York; a cloud marked System 2 links to it by a dashed tunnel; on "any lab", pins light up around the world | `centrifuge · sim + real`, `MC-6 · real arm`, `System 2` | Drawn |
+| 11 | 2:39–2:47 | **The close.** Back to the take, frozen on the chalk's tip, pulling out to the full frame while Karthik writes RAAV over the last line. He walks off | — | `intro.MOV` 11.5–21 s |
+| 12 | 2:45–2:47 | Fade to black on the empty board with RAAV | — | — |
 
 ## Audio
 

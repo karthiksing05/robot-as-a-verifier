@@ -42,7 +42,7 @@ sentences, cur = [], []
 for i, w in enumerate(out):
     cur.append(w)
     nxt = out[i + 1] if i + 1 < len(out) else None
-    if re.search(r"[.?!]$", w["w"]) or nxt is None or nxt["s"] - w["e"] > 1.2:
+    if re.search(r"[.?!][\"”’]?$", w["w"]) or nxt is None or nxt["s"] - w["e"] > 1.2:
         sentences.append(cur); cur = []
 text = lambda ws: " ".join(x["w"] for x in ws)
 chunks = []

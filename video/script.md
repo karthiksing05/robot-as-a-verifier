@@ -21,8 +21,8 @@
 | 2 | What RAAV is | 0:11–0:25 | 40 |
 | 3 | The demo | 0:26–1:22 | 138 |
 | 4 | Two systems | 1:22–2:05 | 106 |
-| 5 | Why it matters, and the close | 2:06–2:44 | 77 |
-| | **Total** | 2:44 | **361** |
+| 5 | Why it matters, and the close | 2:06–2:52 | 101 |
+| | **Total** | 2:52 | **385** |
 
 Timings assume a natural read; the cut follows the recording.
 
@@ -66,15 +66,15 @@ Timings assume a natural read; the cut follows the recording.
 
 ---
 
-## 5. Why it matters, and the close · 2:06–2:44
+## 5. Why it matters, and the close · 2:06–2:52
 
-> Why does this matter? Software already has verification, from AI-written proofs to flight code. Hardware has nothing like it, so failures surface late, in biosafety labs, spacecraft and prototypes.
+> Why does this matter? Software already has verification, from AI-written proofs to flight code. Hardware has nothing like it. In James Dyson's words, "I made 5,127 prototypes of my vacuum before I got it right. There were 5,126 failures." Biosafety labs and spacecraft tell the same story: in hardware, failures surface late.
 >
 > Today, RAAV runs on twelve appliance designs in simulation and a real centrifuge, with its planner in the cloud. Any lab with a low-cost arm could do the same.
 >
 > As AI starts designing hardware, every design should be measured like this before anyone relies on it.
 
-*One shared screen for the examples, about ten seconds: the Console in a window on the right, six case cards filling in on the left. On "Today", the camera pulls back: the window shrinks away and a spinning globe fills the frame. The twelve appliance names ring it, a pin lands on New York for the real centrifuge, a small cloud marked System 2 orbits it, and on "any lab" pins light up around the world. On the last sentence it cuts back to the take, frozen on the chalk's tip, and pulls out while Karthik writes RAAV. He walks off, and it fades to black.*
+*One shared screen for the examples: the Console in a window on the right, the case cards on the left. The three software cards shrink to one line each as the voice turns to hardware, and **Dyson is the centrepiece**: a large card where a grid of 5,127 cells fills in red, one prototype each, and the last cell turns green, with `DC01 · 1993 · 15 years` and the source; the quote itself is only spoken. Pirbright and JWST come in smaller beneath it, on "biosafety labs" and "spacecraft". On "Today", the camera pulls back: the window shrinks away and a spinning globe fills the frame. The twelve appliance names ring it, a pin lands on New York for the real centrifuge, a small cloud marked System 2 orbits it, and on "any lab" pins light up around the world. On the last sentence it cuts back to the take, frozen on the chalk's tip, and pulls out while Karthik writes RAAV. He walks off, and it fades to black.*
 
 ---
 
@@ -99,7 +99,8 @@ Timings assume a natural read; the cut follows the recording.
 | "each new task needs new demonstrations" | SmolVLA: 50 demonstrations per real task; GR00T N1: 30–300 per task in sim (sources 29–31) | Don't say VLAs can't generalize |
 | "a new kind of control still needs a new skill in System 1" | Skills are code in System 1; the Rev B run skipped the lid because no skill fit it | |
 | "from AI-written proofs to flight code" | The two claimed ETH refutations were checked in Lean (sources 1–2); CompCert qualified for the ATR 42/72 avionics computer (2026); seL4 on the HACMS Little Bird helicopter (sources 17–22) | The Lean card says "claimed": community confirmation pending |
-| "failures surface late, in biosafety labs, spacecraft and prototypes" | Pirbright 2007 (most likely a damaged drain), JWST fasteners in a 2018 acoustic test, Dyson's 5,127 prototypes (sources 24–26) | Chips carry the specifics |
+| Dyson: "I made 5,127 prototypes of my vacuum before I got it right. There were 5,126 failures." | Dyson to Fast Company, May 2007 ("Failure Doesn't Suck"; source 33); the 15 years and the DC01 in 1993 (source 25) | Quote it word for word; the interview goes on "But I learned from each one" |
+| "Biosafety labs and spacecraft tell the same story: in hardware, failures surface late" | Pirbright 2007 (most likely a damaged drain), JWST fasteners in a 2018 acoustic test (sources 24, 26) | Cards carry the specifics |
 
 ## Sources
 
@@ -141,3 +142,4 @@ Cited in the voiceover or on screen. Each was opened while writing this draft (n
 Repo sources for the walkthrough are named in the checks table: `docs/product.md`, `docs/system-boundary.md`, `docs/journey.md`, `docs/decisions.md`, `system-2/cad/README.md`, the Methodology page (`system-2/console/web/src/screens/Wiki.tsx`), `appliances/centrifuge/` (`gallery.md`, `source/faults.md`, `verify.yaml`, `build/verify.stock.json`) and the recorded run `system-2/runs/eval-1107-232000/`.
 
 Background only, not cited in the voiceover: Long et al., "CheckManual", CVPR 2025, robots reading appliance manuals (https://arxiv.org/abs/2506.09343). It's why we say "test plans from the manual", not "the first robot to read a manual".
+33. Fast Company, "Failure Doesn't Suck", interview with James Dyson, May 2007 ("I made 5,127 prototypes of my vacuum before I got it right. There were 5,126 failures. But I learned from each one."). https://www.fastcompany.com/59549/failure-doesnt-suck (text as reproduced by Leading Blog: https://www.leadershipnow.com/leadingblog/2007/04/fast_company_interview_with_si.html)

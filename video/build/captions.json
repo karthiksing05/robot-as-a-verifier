@@ -146,47 +146,62 @@
  },
  {
   "s": 126.0,
-  "e": 127.67,
+  "e": 127.69,
   "t": "Why does this matter?"
  },
  {
-  "s": 127.67,
-  "e": 132.32,
+  "s": 127.69,
+  "e": 132.41,
   "t": "Software already has verification, from AI-written proofs to flight code."
  },
  {
-  "s": 132.32,
-  "e": 135.87,
-  "t": "Hardware has nothing like it, so failures surface late,"
+  "s": 132.41,
+  "e": 134.56,
+  "t": "Hardware has nothing like it."
  },
  {
-  "s": 135.87,
-  "e": 139.12,
-  "t": "in biosafety labs, spacecraft and prototypes."
+  "s": 134.56,
+  "e": 140.31,
+  "t": "In James Dyson's words, \"I made 5,127 prototypes of my vacuum before I got it right."
  },
  {
-  "s": 139.22,
-  "e": 142.77,
+  "s": 140.31,
+  "e": 141.94,
+  "t": "There were 5,126 failures.\""
+ },
+ {
+  "s": 141.94,
+  "e": 144.55,
+  "t": "Biosafety labs and spacecraft tell the same"
+ },
+ {
+  "s": 144.55,
+  "e": 147.87,
+  "t": "story: in hardware, failures surface late."
+ },
+ {
+  "s": 147.95,
+  "e": 151.55,
   "t": "Today, RAAV runs on twelve appliance designs in simulation"
  },
  {
-  "s": 142.77,
-  "e": 146.53,
+  "s": 151.55,
+  "e": 155.37,
   "t": "and a real centrifuge, with its planner in the cloud."
  },
  {
-  "s": 146.53,
-  "e": 150.07,
+  "s": 155.37,
+  "e": 158.96,
   "t": "Any lab with a low-cost arm could do the same."
  },
  {
-  "s": 150.14,
-  "e": 153.34,
+  "s": 159.04,
+  "e": 162.29,
   "t": "As AI starts designing hardware, every design should"
  },
  {
-  "s": 153.34,
-  "e": 157.14000000000001,
+  "s": 162.29,
+  "e": 166.13000000000002,
   "t": "be measured like this before anyone relies on it."
  }
 ]

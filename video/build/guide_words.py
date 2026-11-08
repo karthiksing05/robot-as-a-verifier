@@ -5,7 +5,7 @@
 import json, re
 s = open("../script.md").read()
 START = {"2.": 10.8, "3.": 25.8, "4.": 82.4, "5.": 126.0}
-END = {"2.": 25.4, "3.": 81.8, "4.": 125.4, "5.": 157.0}  # each section is fitted into its window
+END = {"2.": 25.4, "3.": 81.8, "4.": 125.4, "5.": 166.0}  # each section is fitted into its window
 RATE = 2.35  # words a second, before pauses
 words = []
 for sec in re.split(r"\n## ", s):

@@ -34,7 +34,7 @@ WRITE_AT = 11.5   # source second the chalk first touches the board
 COLD = [(0.0, 6.0, 0.0, 1.75), (6.0, 6.6, 10.5, (WRITE_AT - 10.5) / 0.6), (6.6, 9.4, WRITE_AT, 0.0)]
 for a, b, c0, sp in COLD: seg(a, b, "intro", c0, sp)
 # the closing sentence: the last one in the script
-ends = [i for i, w in enumerate(words) if re.search(r"[.?!]$", w["w"])]
+ends = [i for i, w in enumerate(words) if re.search(r"[.?!][\"”’]?$", w["w"])]
 S["close"] = words[ends[-2] + 1]["s"]
 o = S["close"] - 0.5
 S["outro"] = o

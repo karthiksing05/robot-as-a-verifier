@@ -345,21 +345,24 @@ function buildTech() {
   // §5 one shared screen: the Console in a window on the right, six cases filling in on the left
   SC.win = el("div", "abs", "", SC.cards, `left:${WIN.x - 2}px;top:${WIN.y - 2}px;width:${1920 * WIN.s + 4}px;height:${1080 * WIN.s + 4}px;border:2px solid #3a4046;border-radius:6px;box-shadow:0 30px 90px rgba(0,0,0,.6);opacity:0;pointer-events:none`);
   SC.feat = el("div", "abs", "", SC.cards, `left:${WIN.x}px;top:${WIN.y - 64}px;opacity:0;font:500 22px "JetBrains Mono",monospace;color:#e4e6e8;white-space:nowrap`);
-  SC.cases = el("div", "abs", "", SC.cards, "left:56px;top:136px;width:640px;opacity:0");
+  SC.cases = el("div", "abs", "", SC.cards, "left:56px;top:104px;width:640px;opacity:0");
   const group = (txt, c) => el("div", "label", txt, SC.cases, `color:${c};margin:0 0 12px`);
   const CASES = [["proofs", "lean", "Lean", "Two AI-claimed refutations of the Exponential Time Hypothesis, checked", "Oct 2026 · still under examination", "#8fb3d9"],
     ["flight", "chip", "CompCert", "A compiler proven correct, qualified for ATR 42/72 avionics", "compcert.org · 2026", "#8fb3d9"],
     ["flight", "shield", "seL4", "A proven kernel on Boeing's Little Bird: a red team couldn't break out in flight", "DARPA HACMS", "#8fb3d9"],
+    ["dyson", "stack", "Dyson", "", "Fast Company · May 2007", "#e38b7a"],
     ["biosafety", "flask", "Pirbright", "Foot-and-mouth virus most likely escaped through damaged drains", "UK HSE report · 2007", "#e38b7a"],
-    ["spacecraft", "scope", "JWST", "Sunshield fasteners shook loose in an acoustic test, part of a 29-month delay", "review board · 2018", "#e38b7a"],
-    ["prototypes", "stack", "Dyson", "5,127 prototypes over 15 years before the first vacuum", "DC01 · 1993", "#e38b7a"]];
+    ["spacecraft", "scope", "JWST", "Sunshield fasteners shook loose in an acoustic test, part of a 29-month delay", "review board · 2018", "#e38b7a"]];
   SC.caseN = [];
   CASES.forEach(([w, icon, title, fact, src, c], i) => {
     if (i === 0) group("software · proven before use", "#8fb3d9");
-    if (i === 3) { const g = group("hardware · found after the fact", "#e38b7a"); g.style.marginTop = "22px"; }
-    const n = el("div", "", `<svg width="44" height="44" viewBox="0 0 64 64" style="flex:none">${ICON[icon]}</svg><div><div style="display:flex;align-items:baseline;gap:14px"><span class="mich" style="font-size:22px;color:${c}">${title}</span><span class="mono" style="font-size:13px;color:#8b9095">${src}</span></div><div style="font:500 19px/1.35 Inter,sans-serif;color:#dfe2e5;margin-top:5px">${fact}</div></div>`, SC.cases,
-      `display:flex;gap:16px;align-items:flex-start;padding:14px 18px;margin-bottom:10px;background:rgba(21,24,27,.95);border:1.5px solid ${c}55;border-left:4px solid ${c};opacity:0`);
-    SC.caseN.push({ n, t: T(w, s5) + (i === 2 ? 0.35 : 0) });
+    if (i === 3) { const g = group("hardware · found after the fact", "#e38b7a"); g.style.marginTop = "18px"; }
+    const big = title === "Dyson";
+    const body = big ? `<canvas width="500" height="150" style="display:block;margin-top:10px;width:500px;height:150px"></canvas><div class="mono" style="font-size:16px;color:#9aa0a5;margin-top:8px">one cell per prototype · DC01 · 1993 · 15 years</div>`
+      : `<div class="fact" style="font:500 19px/1.35 Inter,sans-serif;color:#dfe2e5;margin-top:5px;overflow:hidden">${fact}</div>`;
+    const n = el("div", "", `<svg width="${big ? 56 : 44}" height="${big ? 56 : 44}" viewBox="0 0 64 64" style="flex:none">${ICON[icon]}</svg><div><div style="display:flex;align-items:baseline;gap:14px"><span class="mich" style="font-size:${big ? 30 : 22}px;color:${c}">${title}</span><span class="mono" style="font-size:13px;color:#8b9095">${src}</span></div>${body}</div>`, SC.cases,
+      `display:flex;gap:16px;align-items:flex-start;padding:${big ? "18px 22px" : "12px 18px"};margin-bottom:10px;background:rgba(21,24,27,.95);border:1.5px solid ${c}${big ? "" : "55"};border-left:${big ? 6 : 4}px solid ${c};opacity:0;${big ? "box-shadow:0 0 40px #e38b7a33" : ""}`);
+    SC.caseN.push({ n, t: T(w, s5) + (i === 2 ? 0.35 : 0), soft: i < 3, fact: n.querySelector(".fact"), grid: n.querySelector("canvas") });
   });
   // §3: what the CAD loop did, as the voice says "proposes"
   SC.cadcard = el("div", "abs mono", `<div class="label" style="color:#8fb3d9;margin-bottom:8px">the full loop, in the sim · D36</div>MC-6 tube stopped <b style="color:#ff8a7a">8.15 mm</b> high<br>Opus 5.5 widened the bore, added a lead-in<br>retest: seated within <b style="color:#7fd68f">0.97 mm</b>`, SC.cards,
@@ -385,6 +388,15 @@ const WIN = { x: 748, y: 196, s: 0.594 };
 const FEATS = [[0, "Studies · every appliance, one harness"], [7.9, "Story · Rev A vs Rev B, control by control"], [14.5, "Settings · simulator or the real arm"],
   [16.9, "Methodology · the model plans, sensors decide"], [20.5, "Architecture · 7 tools, no joint commands"], [24.6, "Verdicts · rules on force, travel, readings"]];
 const popDim = () => 1;
+/** Dyson's 5,127 prototypes, one cell each: red as they fill, the last one green. */
+function drawPrototypes(cv, p, last) {
+  const g = cv.getContext("2d"), cols = 127, rows = 41, w = cv.width / cols, h = cv.height / rows, n = Math.floor(5127 * p);
+  g.clearRect(0, 0, cv.width, cv.height);
+  g.fillStyle = "#2a2f35"; g.fillRect(0, 0, cv.width, cv.height);
+  g.fillStyle = "#e5604f";
+  for (let i = 0; i < Math.min(n, 5126); i++) g.fillRect((i % cols) * w + 0.5, Math.floor(i / cols) * h + 0.5, w - 1, h - 1);
+  if (last > 0) { const i = 5126, x = (i % cols) * w, y = Math.floor(i / cols) * h; g.fillStyle = "#7fd68f"; g.globalAlpha = last; g.fillRect(x - 3, y - 3, w + 6, h + 6); g.globalAlpha = 1; }
+}
 const APPS12 = ["centrifuge", "coffee-grinder", "cuvette-reader", "hotplate-stirrer", "incubator", "interval-timer", "kettle-base", "label-printer", "microwave", "tube-sealer", "vortex-mixer", "wall-thermostat"];
 /** §5's pull-back: 0 → 1 from "Today". The Console window shrinks onto New York as the globe comes in. */
 function pan(t) { const S = LAY.steps; return eio(ramp(t, S.today - 0.2, S.today + 1.3)); }
@@ -490,7 +502,12 @@ function seekTech(t) {
     else SC.tunnel.setAttribute("opacity", 0);
   }
   for (const a of SC.apps) { const k = ramp(t, S.twelve + a.at - 0.1, S.twelve + a.at + 0.25) * (1 - ramp(t, S.outro + 0.3, S.outro + 0.8)); a.n.style.opacity = k; a.n.style.transform = `translateY(${(1 - eio(k)) * 14}px)`; }
-  for (const c of SC.caseN) { const k = ramp(t, c.t - 0.15, c.t + 0.3); c.n.style.opacity = k; c.n.style.transform = `translateX(${(1 - eio(k)) * -24}px)`; }
+  const hw = T("hardware", s5), dy = SC.caseN[3].t;
+  for (const c of SC.caseN) {
+    const k = ramp(t, c.t - 0.15, c.t + 0.3); c.n.style.opacity = k; c.n.style.transform = `translateX(${(1 - eio(k)) * -24}px)`;
+    if (c.fact) { const shut = c.soft ? eio(ramp(t, hw, hw + 0.6)) : 0; c.fact.style.maxHeight = `${(1 - shut) * 60}px`; c.fact.style.opacity = 1 - shut; c.fact.style.marginTop = `${5 * (1 - shut)}px`; }
+    if (c.grid && k > 0) drawPrototypes(c.grid, ramp(t, dy + 0.4, T("failures", dy) + 0.4), ramp(t, T("failures", dy) + 0.5, T("failures", dy) + 0.8));
+  }
   const f = FEATS.findLast(([a]) => a <= (SC.tourSec ?? 0));
   SC.feat.style.opacity = wo * (SC.tourClip === "tour/scenes" ? 1 : 0) * (1 - ramp(t, S.today - 0.3, S.today + 0.2));
   if (f) SC.feat.innerHTML = f[1].replace(/^([^·]+)·/, '<span style="color:#eebc24">$1</span>·');
