@@ -72,6 +72,9 @@ SAG_HOLD_S = 0.3        # after commanding an approach pose again, time for the 
 LEAD_MAX = 0.04         # a guarded motion gives up when its command runs this far ahead of the pad (servo give)
 STALL_AFTER_S = 0.5     # with arm.stall_m, the lag's free-motion baseline is taken this long into a move: from 0.3 s, the
                         # real arm's lag grew up to 3.9 mm past it in free air at 20 mm/s, from 0.5 s 1.8 (creep_log)
+STALL_FAR = 0.006       # a press's stall further than this above the part's expected top is free-air lag, not the part:
+                        # the baseline is taken again there (the real arm stalled 22.5 mm short of TIME+, Nov 8)
+PRESS_DEEP = 0.0025     # and a stall-sensed press stops on travel only once this far past the part's expected top
 STALL_PAST = 0.002      # and a stalled push stops this much further on, so it doesn't keep building force
 # Joint readings off a guarded path by more than HOLD_FREE are fed back into the command, HOLD_GAIN of the error per
 # tick. Under that, a stiff arm's sub-mm yield to a part pushed off-centre is left alone.
@@ -162,7 +165,7 @@ def _toward(arm, q, bias):
     return q if big <= UNWIND_STEP else arm.cmd - bias + dq * UNWIND_STEP / big
 
 
-def _stall(arm):
+def _stall(arm, after=STALL_AFTER_S):
     """For an arm with stall_m: a function of each tick's lag (how far the pad's progress along the motion is behind its
     command's) that returns (touching, too deep), as tools/press_check.py. Touching is the lag grown stall_m past its
     value STALL_AFTER_S into the move for three ticks in a row, so one encoder flicker can't end a push; too deep is
@@ -172,7 +175,7 @@ def _stall(arm):
     def tick(lag):
         nonlocal k, base, run
         k += 1
-        if k == round(STALL_AFTER_S * CONTROL_HZ):
+        if k == max(1, round(after * CONTROL_HZ)):
             base = lag
         grown = -np.inf if base is None else lag - base
         run = run + 1 if grown > arm.stall_m else 0
@@ -645,6 +648,8 @@ def _poke(arm, p, limit, label, settle=0.0, retreat=0.03):
         tip, _ = arm.tip_pose()
         seen.append((f, tip))
         hit, deep = stall(depth - (pre - tip) @ n) if stall else (f > contact_n, f >= limit)
+        if stall and contact is None and hit and (tip - aim) @ p.normal > STALL_FAR:
+            stall, hit, deep = _stall(arm, after=0), False, False  # still in free air: a fresh baseline from here
         if contact is None and hit:
             # with servo sensing alone, where the estimate last sat near zero, as in _guarded
             servo = arm.sensing and not arm.axial_sensor and not stall
@@ -652,8 +657,8 @@ def _poke(arm, p, limit, label, settle=0.0, retreat=0.03):
         travel = 0.0 if contact is None else float((contact - tip) @ n)
         if deep:
             stop = "force_limit"
-        elif travel >= PRESS_TRAVEL:
-            stop = "travel"
+        elif travel >= PRESS_TRAVEL and (stall is None or (aim - tip) @ p.normal >= PRESS_DEEP):
+            stop = "travel"  # with stall contact, also past the expected top: early contact was free-air lag on the real arm
         elif depth > deepest + (0.0 if contact is None else LEAD_MAX):
             stop = "no_contact" if contact is None else "max_depth"
         creep += not fast
@@ -756,6 +761,11 @@ def _refine(arm, p, plan, refine, label, result):
         _approach(arm, plan.path(0, None)[0] + HOVER * plan.n, -plan.n, label, plan.qs[0])
     arm.status = f"{label}: refine"
     p = refine(arm, p)
+    if plan is None and arm.look_close and p.meta.get("refined"):  # a second look from nearer, less travel left to err
+        a = _press_axis(arm, p)
+        _approach(arm, _aim(p) + arm.look_close * a, -a, label)
+        arm.status = f"{label}: refine"
+        p = refine(arm, p)
     result.update(refined=bool(p.meta.get("refined")), refine_shift_mm=round(p.meta.get("refine_shift", 0.0) * 1000, 2))
     if p.meta.get("refine_why"):
         result["refine_why"] = p.meta["refine_why"]

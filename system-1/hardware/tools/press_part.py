@@ -8,6 +8,7 @@ torque goes off. Don't move the device between scan_check and this.
     python tools/press_part.py COM11 CAL.json button_1 --no-shift
     python tools/press_part.py COM11 CAL.json button_1 --stall 2.5
     python tools/press_part.py COM11 CAL.json button_1 --down 0.5
+    python tools/press_part.py COM11 CAL.json button_1 --shift-scale 2
 """
 import logging
 import os
@@ -29,10 +30,10 @@ import real_arm  # noqa: E402
 import skills  # noqa: E402
 
 
-# taken off every part along the panel, in the arm frame: on Nov 8 START presses aimed at the camera's position hit the
-# cap's upper edge, and 6 mm further down the panel its lower edge, so half that (hand touches read 6-9 mm, but the arm
-# flexes under a hand; the last look agrees with the scan to 1-3.5 mm, whatever it starts from)
-SHIFT = np.array([-0.003, 0.0, -0.00125])
+# taken off every part along the panel, in the arm frame: on Nov 8 presses aimed at the camera's position landed 3-5 mm
+# up the slope from the cap's centre and slid further up. 5.4 mm clicked TIME+ (2 and 3 landed high, 8 on the lower edge).
+# Hand touches read more, but the arm flexes under a hand; the last look agrees with the scan to 1-3.5 mm
+SHIFT = np.array([-0.0054, 0.0, -0.00225])
 
 
 def shift(p):
@@ -59,6 +60,8 @@ def main(argv=None, ask=input):
         return
     if "--no-shift" in args:
         SHIFT[:] = 0
+    if "--shift-scale" in args:  # SHIFT times this, to try a bigger or smaller correction
+        SHIFT[:] *= float(args[args.index("--shift-scale") + 1])
     for p in scene.parts:
         shift(p)
     print(f"{target}: {part.kind} at {np.round(part.pos * 1000)} mm (after the {np.round(SHIFT * 1000, 1)} mm correction)")
@@ -71,6 +74,8 @@ def main(argv=None, ask=input):
         arm.stall_m = float(args[args.index("--stall") + 1]) / 1000
     if "--down" in args:  # 0 presses along the panel's normal, 1 straight down (affordances._press_axis)
         arm.press_down = float(args[args.index("--down") + 1])
+    if "--close" in args:  # mm out for a second last look (affordances._refine)
+        arm.look_close = float(args[args.index("--close") + 1]) / 1000
     arm.app = real_arm.OperatorReadout(arm, ask=ask)  # the same prompt as the rest, so a script can answer it
     try:
         arm.tick()

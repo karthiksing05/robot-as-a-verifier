@@ -119,9 +119,11 @@ class RealArm(rig.ArmBase):
     # no hard cap on the force estimate: it read 35-60 N on free moves home and stopped the arm. Stalls and the press depth
     # limit bound a press; the servos cap themselves (Torque_Limit 680/1000, overload protection)
     hard_cap_n = float("inf")
-    # presses come in a quarter of the way from the panel's normal to straight down: along the normal the jaw slid off a
-    # tilted button's cap, halfway the gripper met the panel's lower edge first; a quarter clicked START (Nov 8)
-    press_down = 0.25
+    # presses come in 40% of the way from the panel's normal to straight down: along the normal the jaw slid off a tilted
+    # button's cap, halfway the gripper met the panel's lower edge first. A second last look 18 mm out leaves less travel
+    # to err. TIME+ clicked with these (Nov 8)
+    press_down = 0.4
+    look_close = 0.018
 
     def __init__(self, bus, app=None, pad=None, pace=True):
         self.bus, self.pad, self.pace = bus, pad, pace
