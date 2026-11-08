@@ -1,7 +1,7 @@
-"""Find where the gripper sits in the wrist camera's picture, for the scan to ignore (rgbperceive.GRIPPER_PX). The gripper
-moves with the camera, so across frames of different scenes it stays put while everything else changes. Torque stays off:
-you point the camera somewhere new before each frame. Writes gripper_px.json next to hand_eye.json, which hw_rig loads,
-and gripper_mask.png in the current folder to check by eye.
+"""Mark where the gripper sits in the wrist camera's picture, for the scan to ignore (rgbperceive.GRIPPER_PX). Torque stays
+off. It takes one frame and shows it: click points around the gripper (left click adds, r restarts), then Enter. The outline
+grows GROW_PX for margin and goes to gripper_px.json next to hand_eye.json, which hw_rig loads; gripper_mask.png in the
+current folder shows it. (Finding it automatically from several frames failed on auto exposure and saturated plastic.)
 
     python tools/gripper_mask.py COM11 CAL.json
 """
@@ -17,26 +17,41 @@ sys.path[:0] = [HARDWARE, os.path.join(HARDWARE, "..", "core")]
 import real_arm  # noqa: E402
 import real_wrist  # noqa: E402
 
-FRAMES = 6
-STILL = 18          # grey levels: a pixel whose largest change across the frames is under this belongs to the gripper
-GROW_PX = 30        # margin around it, as the jaws flex and the moving jaw isn't exactly where it was
+GROW_PX = 30        # margin around the clicked outline, as the jaws flex and the moving jaw isn't exactly where it was
 OUT = os.path.join(os.path.dirname(real_wrist.HAND_EYE), "gripper_px.json")
 
 
-def mask_from(frames):
-    """The gripper's outline (convex hull, grown GROW_PX) from frames of different scenes, as an Nx2 int array."""
-    g = np.array([cv2.GaussianBlur(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY), (21, 21), 0) for f in frames], float)
-    still = ((g.max(axis=0) - g.min(axis=0)) < STILL).astype(np.uint8)
-    n, lab, stats, _ = cv2.connectedComponentsWithStats(still)
-    h, w = still.shape
-    # the gripper enters from the frame's edge: keep the biggest still region that touches it
-    best = max((i for i in range(1, n) if stats[i, 0] == 0 or stats[i, 1] == 0 or stats[i, 0] + stats[i, 2] == w
-                or stats[i, 1] + stats[i, 3] == h), key=lambda i: stats[i, 4], default=None)
-    if best is None:
-        raise RuntimeError("nothing stayed still across the frames: is the gripper in view?")
-    region = cv2.dilate((lab == best).astype(np.uint8), np.ones((2 * GROW_PX + 1,) * 2, np.uint8))
-    hull = cv2.convexHull(cv2.findNonZero(region)).reshape(-1, 2)
-    return hull, (lab == best).mean()
+def outline(points, shape):
+    """Convex hull of the clicked points, grown GROW_PX and kept inside the frame, as an Nx2 int array."""
+    m = np.zeros(shape[:2], np.uint8)
+    cv2.fillPoly(m, [cv2.convexHull(np.array(points, np.int32))], 1)
+    m = cv2.dilate(m, np.ones((2 * GROW_PX + 1,) * 2, np.uint8))
+    return cv2.convexHull(cv2.findNonZero(m)).reshape(-1, 2)
+
+
+def click(frame):
+    pts, view = [], cv2.resize(frame, None, fx=0.5, fy=0.5)
+
+    def on_mouse(event, x, y, *_):
+        if event == cv2.EVENT_LBUTTONDOWN:
+            pts.append((2 * x, 2 * y))
+    cv2.namedWindow("gripper_mask")
+    cv2.setMouseCallback("gripper_mask", on_mouse)
+    while True:
+        img = view.copy()
+        for p in pts:
+            cv2.circle(img, (p[0] // 2, p[1] // 2), 5, (0, 0, 255), -1)
+        if len(pts) > 2:
+            cv2.polylines(img, [cv2.convexHull(np.array(pts) // 2)], True, (0, 0, 255), 2)
+        cv2.putText(img, "Click around the gripper. r: restart, Enter: done", (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8, (0, 0, 255), 2)
+        cv2.imshow("gripper_mask", img)
+        k = cv2.waitKey(30) & 0xFF
+        if k == ord("r"):
+            pts.clear()
+        elif k in (13, 10) and len(pts) > 2:
+            cv2.destroyAllWindows()
+            return pts
 
 
 def main(argv=None, ask=input):
@@ -45,21 +60,17 @@ def main(argv=None, ask=input):
     with real_arm.RealArm(real_arm.make_bus(port, cal)) as arm:
         cam = real_wrist.WristCamera(arm, T_hand_eye=np.eye(4))
         try:
-            frames = []
-            for k in range(FRAMES):
-                ask(f"Frame {k + 1} of {FRAMES}: point the camera at something different (desk, wall, floor, a busy "
-                    f"shelf), hold still, press Enter: ")
-                frames.append(cam.capture().rgb)
+            ask("Point the camera at something plain so the gripper stands out, hold still, press Enter: ")
+            frame = cam.capture().rgb
         finally:
             cam.close()
-    hull, share = mask_from(frames)
-    img = frames[-1].copy()
+    hull = outline(click(frame), frame.shape)
+    img = frame.copy()
     cv2.polylines(img, [hull.astype(np.int32)], True, (0, 0, 255), 4)
     cv2.imwrite(os.path.join(os.getcwd(), "gripper_mask.png"), img)
-    print(f"The gripper covers {share * 100:.0f}% of the frame; outline with a {GROW_PX} px margin has {len(hull)} points. "
-          f"Check gripper_mask.png: the red outline should hug the jaws with a little room.")
+    print(f"Outline with a {GROW_PX} px margin: {len(hull)} points. gripper_mask.png shows it.")
     if ask(f"Save it to {OUT} for the real rig's scans? Type yes: ").strip() == "yes":
-        json.dump({"gripper_px": hull.tolist(), "width": int(img.shape[1])}, open(OUT, "w"))
+        json.dump({"gripper_px": hull.tolist(), "width": int(frame.shape[1])}, open(OUT, "w"))
         print("Wrote", OUT)
 
 
