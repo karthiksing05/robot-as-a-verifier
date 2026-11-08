@@ -14,6 +14,10 @@
   "rack_end_L#1",
   "rack_end_R#1",
   "rack_back_strip#1",
+  "dial_knob_ply#1",
+  "dial_knob_ply#2",
+  "dial_knob_ply#3",
+  "dial_knob_ply#4",
   "lid_handle_revB_ply#1",
   "lid_handle_revB_ply#2",
   "lid_handle_revB_ply#3",
@@ -22,10 +26,6 @@
   "tube_sensor_riser_1#1",
   "lid_handle_revA_outer#1",
   "lid_handle_revA_outer#2",
-  "dial_knob_ply#1",
-  "dial_knob_ply#2",
-  "dial_knob_ply#3",
-  "dial_knob_ply#4",
   "lid_sensor_fin#1"
  ],
  "acrylic_3mm_clear_sheet1_600x300": [
