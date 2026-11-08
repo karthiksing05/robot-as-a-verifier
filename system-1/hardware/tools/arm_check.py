@@ -138,6 +138,18 @@ def noise(arm, ask):
             results.append((tip, axial, total))
             print(f"At {tip}: along the probe mean {np.mean(axial):.2f}, std {np.std(axial):.2f}, max {np.max(axial):.2f} "
                   f"N; magnitude mean {np.mean(total):.2f}, std {np.std(total):.2f}, max {np.max(total):.2f} N", flush=True)
+            # moving, as a touch does: zeroed at rest, then 2 cm straight down and back at the approach speed, in air
+            down, ok, _, _ = arm.ik.solve(np.array(tip) - [0, 0, 0.02], np.array([0.7, 0.0, -0.7]), q)
+            arm.tare()
+            moving = []
+            for a, b in ((q, down), (down, q)):
+                n = round(0.02 / 0.02 * CONTROL_HZ)  # 20 mm at 20 mm/s
+                for k in range(1, n + 1):
+                    arm.send(a + (b - a) * k / n)
+                    arm.tick()
+                    moving.append(arm.tip_force())
+            print(f"  moving 2 cm down and back: along the probe max {np.max(moving):.2f} N, std {np.std(moving):.2f} N",
+                  flush=True)
         _goto(arm, start)
     except (SafetyStop, KeyboardInterrupt) as e:  # torque stays on, so the arm holds until the question below
         print(f"Stopped: {str(e) or 'Ctrl+C'}")
