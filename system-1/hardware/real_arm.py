@@ -93,7 +93,7 @@ class RealArm(rig.ArmBase):
     # in the panel.
     table_z = 0.0
     workspace = np.array([[0.05, 0.42], [-0.25, 0.25], [0.005, 0.35]])
-    standoff = 0.17
+    standoff = 0.14  # camera to panel: the jaw tip sits ~11 cm in front of the camera; 12 cm reached no views
     # The force estimate drifts 2.5-10 N along the fingertip in free air on any downward move (tools/creep_log.py, Nov 7),
     # so guarded moves take contact as a stall instead, as tools/press_check.py does, at a speed that tracks smoothly
     # (at 2 mm/s the tip stick-slips)
@@ -101,7 +101,15 @@ class RealArm(rig.ArmBase):
     # on the desk, a panel 23 cm out tilted toward the arm put every view tilted down its slope out of reach (0/9);
     # tilted up it, the camera rises away from the base and all 9 reach at a 14-17 cm standoff
     view_tilts = np.radians([-10, -20, -30])
-    hard_cap_n = 20.0  # the estimate drifts up to ~10 N in free air and tripped 15 N with nothing touching; stalls stop presses first
+    # each photo's pose comes from the joint readings, so a view needn't be met to 0.5 mm: re-commanding to that took
+    # ~3 s a photo on this stick-slip arm
+    view_tol = 0.01
+    view_looks = [(0.0, -0.05), (0.0, 0.0), (0.0, 0.05)]  # the middle row only: one 14 cm view nearly covers a panel
+    # wrist_roll at home, so views and presses start from it: -90 deg puts the camera on top of the gripper, centred,
+    # instead of 7 cm to its side (same views in reach); the gripper then sits along the bottom of the picture
+    home_roll = np.radians(-90)  # camera on top; +90 (under) pointed the survey away from the panel
+    hard_cap_n = 30.0  # the estimate drifts to ~13 N on a press approach with nothing touching and crossed 20 N on a light
+    # contact; stalls and the press depth limit (14 mm past the expected top, ~6 N) bound the real force
 
     def __init__(self, bus, app=None, pad=None, pace=True):
         self.bus, self.pad, self.pace = bus, pad, pace
@@ -111,6 +119,7 @@ class RealArm(rig.ArmBase):
         self.arm_bodies = rig.arm_bodies(self.m)  # perceive crops the arm out of what the cameras see
         self.qadr, self.dadr, self.tip = self.ik.qadr, self.ik.dadr, self.ik.tip
         self.home_q, *_ = self.ik.solve(np.array([0.2, 0.0, 0.14]), np.array([0.7, 0, -0.7]), np.zeros(5))
+        self.home_q[4] = self.home_roll  # wrist_roll isn't solved by the IK: it stays where home puts it
         self.mid = np.array([(bus.calibration[j].range_min + bus.calibration[j].range_max) / 2 for j in ARM_JOINTS])
         self.controls, self.seen_collisions, self.force_log, self.status = {}, set(), [], "idle"
         self.sensing = "tactile" if pad else "current"
