@@ -24,6 +24,9 @@ def log_crossing(log: RunLog, handle: RoutineHandle, stop: Checkpoint, policy: E
     log.emit("crossing", Crossing(routine=handle.routine, stop=stop.stop, code=e.code if e else None, step=e.step if e else None,
                                   target=e.target if e else None, policy=policy.name, verdicts=len(stop.verdicts),
                                   retries_resolved=stop.retries_resolved).model_dump(mode="json"))
+    if stop.status == "aborted" and stop.reason:  # a Crossing has no reason field: say it, or an abort says nothing
+        print(f"  {stop.stop}: {stop.reason}")
+        log.emit("message", {"role": "harness", "text": f"{stop.stop}: {stop.reason}"})
 
 
 def wait_for_stop(system1: System1, handle: RoutineHandle, should_stop: Callable[[], bool] = lambda: False) -> Checkpoint:
