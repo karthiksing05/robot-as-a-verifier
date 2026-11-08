@@ -12,11 +12,14 @@ from rig import CONTROL_HZ
 TOGGLE_DROP = 0.0  # 5 mm (for that scan) later caught the jaw on the lips above and below the switch
 TOGGLE_Y = 0.002
 # the jaw came down on the lever's top part and slid along it: it starts this much further back and pushes on further
-GRIP_OPEN, GRIP_ABOVE = 0.2, 0.025  # 0.45 opened far wider than the 12 mm dial
+GRIP_ABOVE = 0.025
+# the jaws open to the knob's width plus GRIP_SPARE a side, its axis midway between them: a fixed 0.2 opening (about a
+# 20 mm gap: 10 mm in from the fixed jaw was midway) fit the first 12 mm dial, not the 27 mm one that replaced it
+GRIP_SPARE, GAP_PER_OPEN, GRIP_MAX_OPEN = 0.004, 0.1, 0.6  # m; m of jaw gap per unit of opening; the most it opens
 # the jaw tips go this far over the panel (from the dial's top they stopped short), with the knob's axis this far in from
 # the fixed jaw's tip: midway to the open moving jaw, about on the roll axis
 # (3 mm up, on a scan whose plane read 3 mm high under SPEED, the jaws caught only the dial's top and couldn't turn it)
-GRIP_FLOOR, GRIP_MID = 0.0, 0.010
+GRIP_FLOOR = 0.0
 # the camera over the SPEED dial saw it this far uphill of the scan's position (the scan read it as a toggle's base)
 # today's scans read SPEED 0.6-2.4 mm down the slope of the buttons' row it sits in (6.7, on the hardware session's,
 # came in 4.3 mm high and the grip landed above the knob)
@@ -134,19 +137,21 @@ def grip_turn(arm, p, plane, angle, wrist=None, snap=None):
     seen = copy.deepcopy(p)
     seen.kind, seen.meta = "button", {**p.meta, "radius": r}
     seen.size = np.array([2 * r, 2 * r, top])
+    gap = 2 * (r + GRIP_SPARE)
+    opening = min(GRIP_MAX_OPEN, gap / GAP_PER_OPEN)
 
     def place(axis, q):  # the tip's target so the knob's axis sits midway between the open jaws, GRIP_FLOOR up
         c = axis + GRIP_FLOOR * n
         for _ in range(3):
             arm.ik.fk(q)
             R = arm.ik.d.xmat[arm.ik.m.body("gripper").id].reshape(3, 3)
-            target = c - GRIP_MID * R[:, 0]
+            target = c - gap / 2 * R[:, 0]
             q, ok, err, _ = arm.ik.solve(target, -n, q)
         if not ok:
             raise RuntimeError(f"{label}: out of reach ({err * 1000:.0f} mm)")
         return target, q
 
-    gripper(arm, GRIP_OPEN)
+    gripper(arm, opening)
     for k in range(GRIP_LOOKS if wrist else 1):
         target, q = place(axis, q)
         _, bias = affordances._approach(arm, target + GRIP_ABOVE * n, -n, label, q)
@@ -187,7 +192,7 @@ def grip_turn(arm, p, plane, angle, wrist=None, snap=None):
     dq = np.zeros(5)
     dq[4] = angle
     skills.move_joints(arm, arm.cmd + dq)
-    gripper(arm, GRIP_OPEN, 0.4)
+    gripper(arm, opening, 0.4)
     arm.bus.sync_write("Torque_Limit", {"gripper": 500}, normalize=False)
     arm.status = f"{label}: up"
     affordances._line(arm, arm.tip_pose()[0] + GRIP_ABOVE * n, -n, 0.03, bias)
