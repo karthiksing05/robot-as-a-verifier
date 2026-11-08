@@ -44,6 +44,9 @@ def make_rig(arm_port, calibration, app=None, pad=None, readout_port=None):
         rgbperceive.EXTRA_VIEWS = rgbperceive.SAM_AUTO = False
         rgbperceive.KEEP_REJECTED = True  # for the review to name: SPEED and POWER fit no rule in some scans
         rgbperceive.SAVE_CAPS = "last_caps.pkl"  # in the folder rav-server runs in
+        # the arm's own poses and the survey's plane, always: three views never had enough features to fit poses and
+        # their presses landed; five did, and fitted a plane 10 mm off under SPEED (4 of 49 features on it)
+        rgbperceive.MIN_TRACKS = 10**9
         # the real toggle's bushing stands 9-14 mm and SAM outlines it at 61-81 mm2, outside the sim switch's 2.5-6 mm base
         # and 100 mm2 minimum (a 6 mm floor keeps the cable bundle out)
         # a device's flat top beside its panel pulled the survey's plane to 23 deg from flat (n_z 0.92) and the views
