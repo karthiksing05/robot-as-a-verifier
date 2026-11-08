@@ -59,6 +59,8 @@ class HttpReadout(SnapshotReadout):
                     "age_s": round(age, 3) if age is not None else None,
                     "fresh": age is not None and age <= STALE_S and not self.closed}
 
+    stop_when_stale = False  # the board drops off the WiFi for seconds at a time (Nov 8): warn, don't stop the arm
+
     def close(self):
         self.closed = True
 
@@ -68,6 +70,4 @@ class HttpReadout(SnapshotReadout):
             raise SafetyStop(f"no readings yet from device '{self.device}': is it on the WiFi and posting to {self.url}?")
         if self.closed:
             raise SafetyStop(f"device readout closed: {self.source}")
-        quiet = time.monotonic() - self.last
-        if quiet > STALE_S:
-            raise SafetyStop(f"device readout lost: nothing from {self.source} for {quiet:.1f} s" + self.hint)
+        self._stale()

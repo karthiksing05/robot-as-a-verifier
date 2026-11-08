@@ -36,10 +36,21 @@ class SnapshotReadout:
     @property
     def events(self):
         self._alive()
-        quiet = time.monotonic() - self.last
-        if quiet > STALE_S:
-            raise SafetyStop(f"device readout lost: nothing from {self.source} for {quiet:.1f} s" + self.hint)
+        self._stale()
         return self._events
+
+    stop_when_stale = True  # False: a quiet board is warned about, and the arm goes on (HttpReadout over WiFi)
+
+    def _stale(self):
+        quiet = time.monotonic() - self.last
+        if quiet <= STALE_S:
+            self._warned = False
+        elif self.stop_when_stale:
+            raise SafetyStop(f"device readout lost: nothing from {self.source} for {quiet:.1f} s" + self.hint)
+        elif not getattr(self, "_warned", False):
+            self._warned = True
+            print(f"WARNING device readout quiet: nothing from {self.source} for {quiet:.1f} s; going on without it",
+                  flush=True)
 
     def ingest(self, new, *, track_events=True, replace=False):
         """One snapshot, already parsed. Not a dict: ignored."""
