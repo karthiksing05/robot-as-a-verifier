@@ -53,18 +53,25 @@ def main(argv=None, bus=None, ask=input):
         arm.enable(confirm=True)
         hits = []
         try:
+            # The limp reading isn't where the arm under torque finds the surface (the offsets were fitted under load),
+            # so the first touch creeps a long way down from 3 cm over it, and the rest start from where it landed
+            s, why = touch.touch(arm, mid + 0.03 * UP, UP, top=0.015, bottom=-0.05, label="place_check")
+            if s is None:
+                raise SafetyStop(f"no surface found near the middle: {why}")
+            print(f"Surface found under torque at z {s[2] * 1000:.1f} mm ({(s[2] - mid[2]) * 1000:+.1f} vs limp)")
+            mid = np.r_[mid[:2], s[2]]
             for dx, dy in SPOTS_M:
                 at = mid + np.array([dx, dy, 0.0])
-                s, why = touch.touch(arm, at, UP, top=0.015, bottom=-0.02, label="place_check")
+                s, why = touch.touch(arm, at, UP, top=0.01, bottom=-0.015, label="place_check")
                 print(f"  at {np.round(at[:2] * 1000)} mm: " + (f"contact z {s[2] * 1000:6.1f} mm "
-                      f"({(s[2] - mid[2]) * 1000:+.1f} vs limp)" if s is not None else why), flush=True)
+                      f"({(s[2] - mid[2]) * 1000:+.1f} vs the first touch)" if s is not None else why), flush=True)
                 hits.append(s)
         except (SafetyStop, KeyboardInterrupt) as e:  # torque stays on, so the arm holds until the question below
             print(f"Stopped: {str(e) or 'Ctrl+C'}")
         z = np.array([s[2] for s in hits if s is not None]) * 1000
         if len(z) > 1:
             print(f"Contacts {len(z)}/{len(SPOTS_M)}: spread {np.ptp(z):.1f} mm, mean {np.mean(z) - mid[2] * 1000:+.1f} mm "
-                  f"vs the limp reading" + (f", repeat at the middle {abs(z[-1] - z[0]):.1f} mm" if hits[0] is not None
+                  f"vs the first touch" + (f", repeat at the middle {abs(z[-1] - z[0]):.1f} mm" if hits[0] is not None
                                             and hits[-1] is not None else ""))
         ask("Hold the arm, then press Enter: torque goes off. ")
 
