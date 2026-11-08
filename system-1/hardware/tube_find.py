@@ -26,7 +26,8 @@ FIND_DQ = [(p, 0.0, 0.0, 0.2, 0.0) for p in (0.25, 0.4, 0.55)] + [(0.4, d, 0.0, 
 # OpenCV HSV ranges (hue 0-180). The near tube's collar ring is teal-green; the far one's is red (pinkish in the
 # camera). STOP's cap is red too: the blob whose ray passes nearest the others' point wins
 COLOURS = {"green": [((70, 90, 50), (100, 255, 255))],
-           "red": [((0, 100, 60), (8, 255, 255)), ((165, 100, 60), (180, 255, 255))]}
+           # the red collar reads hue 170-175; the rack flap's orange tape 2-4 at lower saturation, and hue 0-8 took it
+           "red": [((160, 110, 50), (180, 255, 255))]}
 MIN_PX = 400               # at 1920 wide: a collar from 20 cm is 2000+
 MAX_SPREAD = 0.006         # m: the rays must pass this close to the point they give, on average
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "last_looks")
