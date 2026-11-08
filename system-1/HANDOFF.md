@@ -11,6 +11,7 @@ We no longer have the fingertip probe, so the real arm is a stock SO-101 with it
 - `--effector stock` is the default in `rav-server`, `make_rig`, `SimBackend`, the Console and the evals. `--effector probe` is still in the sim as a reference. A real arm refuses it, along with every other sim-only flag (`main.py`).
 - With the stock gripper, `--sensing` defaults to `current`, the servos' own load estimate, because there's no pad.
 - Probe results from earlier rounds are sim references only. They aren't evidence about the real arm.
+- **Wrist camera only.** The rig has no global camera, so the Console and the harness (launch, CLI, evals) now default to the wrist route, OWLv2 and SAM, as on your real System 1. The depth route, which surveys with the sim's `phone` camera, stays in the sim as a reference.
 
 ## 2. New and changed skills
 
@@ -73,7 +74,7 @@ There are two more changes:
 5. **The hotplate's +60° return** is refused near −57°, now that stock turns are accurate. The check needs revisiting.
 6. **Real reach.** None of the centrifuge poses have been checked against the real arm's limits.
 
-The v7 centrifuge and the MW-1 microwave are being finished in sim now. They'll land in `appliances/` with their own commits.
+The v7 centrifuge and the MW-1 microwave are now in `appliances/`, with their sources and firmware. Their skills are still being tuned in sim.
 
 ## Tests
 
