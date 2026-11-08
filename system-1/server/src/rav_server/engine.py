@@ -133,7 +133,9 @@ class RoutineEngine:
 
     def _actions(self) -> list[ActionSpec]:
         """The table, plus what this robot adds once it exists: reposition's ranges come from the device's data."""
-        extra = getattr(self.robot, "extra_actions", None)
+        # a robot built before the engine's first routine (the real arm) offers its skills from the start: get_status
+        # listed only the table's on a fresh System 1, and the model refused the tube and lid steps (Nov 8)
+        extra = getattr(self.robot or getattr(self.make_robot, "built", None), "extra_actions", None)
         return [*self.actions, *extra()] if extra else self.actions
 
     def status(self) -> SystemStatus:

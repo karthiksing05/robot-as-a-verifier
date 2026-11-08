@@ -76,7 +76,9 @@ def make_robot(args):
                             readout_port=args.readout_port if args.readout == "serial" else None,
                             readout_device=args.readout_device if args.readout == "http" else None,
                             readout_url=readout_url(args))
-        return lambda: robot
+        make = lambda: robot  # noqa: E731
+        make.built = robot  # its skills are offered before the first routine builds it in the engine (Engine._actions)
+        return make
     from .sim_backend import SimBackend  # imports MuJoCo and torch
 
     def build():
