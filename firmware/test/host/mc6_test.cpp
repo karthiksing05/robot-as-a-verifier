@@ -9,13 +9,13 @@ void press(uint8_t pin) {
 void send(const char *s) { Serial.input = s; while (Serial.available()) serialPoll(fakeNow); }
 
 int main() {
-  assert(!requireTubePresent); // Current physical configuration ignores A2.
+  assert(!requireTubePresent); // Current physical configuration ignores the A1 tube sensor.
   requireTubePresent = true;  // Exercise the optional full configuration too.
   initPins(); fakeI2C.enabled = true; fakeI2C.devices[0x3D] = true; fakeI2C.needsStop = true; setup();
   for (int i = 0; i < 200; ++i) step();
   assert(!calibrating && lid.level == 700 && tube.level == 700 && state == OFF);
   step(300); assert(oledPresent && oled.getU8x8()->address == (0x3D << 1));
-  assert(oled.flip == 1 && PIN_LID == A1 && PIN_TUBE == A2);
+  assert(oled.flip == 1 && PIN_LID == A2 && PIN_TUBE == A1);
   assert(pinModes[PIN_LID] == INPUT && pinModes[PIN_TUBE] == INPUT);
   for (uint8_t pin : BUTTON_SCAN_PINS) assert(pin != PIN_LID && pin != PIN_TUBE);
   for (int i = 0; i < 180; ++i) oledPoll();

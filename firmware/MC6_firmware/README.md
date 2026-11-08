@@ -7,7 +7,7 @@ The MC-6 is an **Arduino Uno R4 WiFi** with a Grove Base Shield at 5 V. Build/up
 | START / STOP / TIME buttons | D2 / D10 / D12 (verified twice; saved in `config/mc6_buttons.json`) |
 | POWER toggle, active LOW | D5 (confirmed wiring; not remapped by button calibration) |
 | 24-pixel GRB WS2812B ring data input (D0/DIN on module) | Arduino D6 |
-| Speed rotary knob / upward-facing lid light / bottom tube light | A0 / A1 / A2 |
+| Speed rotary knob / upward-facing lid light / bottom tube light | A0 / A2 / A1 |
 | SSD1306 128x64 I2C OLED | A4 SDA / A5 SCL, 0x3C or 0x3D |
 
 On the R4, `Serial` uses native USB; D0/D1 may therefore be discovered as button pins while `Serial1` is unused. The ring module's D0 label refers to its data input wired to Arduino D6. A1/A2 are analog sensor inputs with pull-ups disabled; button discovery leaves them untouched. The MC-6 has no confirmed buzzer connection.
@@ -32,16 +32,18 @@ After button discovery and upload, run the VS Code task **Calibrate MC-6 lid and
 python tools/calibrate_mc6_sensors.py COM7
 ```
 
-The current configuration **ignores A2** (`requireTubePresent = false`). Follow just two prompts, keeping the lid still during measurement:
+Recalibrate after swapping the sensor pins. The saved record is tied to the pin assignments, so firmware rejects calibration from the old wiring.
+
+The current configuration **ignores A1** (`requireTubePresent = false`). Keep the lid still during each of the two prompts.
 
 1. Open the lid and press/release START.
 2. Close the lid and press/release START.
 
-No tube measurement is requested or required. A2 is not sampled during normal operation or calibration, and its value cannot block a run. The ring stays white while measuring. Each capture waits at least 100 ms and collects 16 eight-reading averages. The closed average must be at least 40 ADC counts below open, with more than eight counts separating their sample ranges. Failed calibration keeps previous thresholds; STOP or `calstop` cancels. Active runs stop and never resume automatically.
+No tube measurement is requested or required. A1 is not sampled during normal operation or calibration, and its value cannot block a run. The ring stays white while measuring. Each capture waits at least 100 ms and collects 16 eight-reading averages. The closed average must be at least 40 ADC counts below open, with more than eight counts separating their sample ranges. Failed calibration keeps previous thresholds; STOP or `calstop` cancels. Active runs stop and never resume automatically.
 
 The saved hardware calibration measured **open 763 / closed 561**, with cutoffs **641 / 682**. Below the lower cutoff is closed; above the upper cutoff is open. Equality and the band preserve the previous state. Lid thresholds are saved in EEPROM, read back for validation and loaded at restart. The record explicitly marks the tube uncalibrated. Invalid checksums/versions/pin assignments are ignored; identical values are not rewritten. The PC evidence is [mc6_sensors.json](../config/mc6_sensors.json). No rebuild/upload is needed after calibration.
 
-To use A2 later, set `requireTubePresent = true`, rebuild/upload and rerun the tool. It will then request OPEN/EMPTY, CLOSED/EMPTY and TUBE INSERTED/LID CLOSED. The empty and loaded tube readings are compared with the lid shut under steady white light. Both sensors must pass contrast/noise checks; a lid-only saved record cannot satisfy the re-enabled tube requirement.
+To use A1 later, set `requireTubePresent = true`, rebuild/upload and rerun the tool. It will then request OPEN/EMPTY, CLOSED/EMPTY and TUBE INSERTED/LID CLOSED. The empty and loaded tube readings are compared with the lid shut under steady white light. Both sensors must pass contrast/noise checks; a lid-only saved record cannot satisfy the re-enabled tube requirement.
 
 Until a valid saved calibration exists, boot retains the original open-lid/empty-well baseline with 55%/70% fallback thresholds. Recalibrate after changing illumination or sensor alignment. Threshold calibration cannot distinguish positions whose readings overlap or repair a hinge.
 
@@ -54,7 +56,7 @@ bool requireLidClosed = true;
 bool requireTubePresent = false;
 ```
 
-`requireLidClosed` controls lid refusal at START and lid-open abort during a run. `requireTubePresent` controls the tube-present/validity check at START, automatic A2 sampling and whether calibration requires a tube measurement. It is currently disabled. Set either to `false` and rebuild/upload to bypass that requirement for this simulated appliance. Sensor reporting and calibration remain active. DONE still clears when the lid opens or after 60 seconds.
+`requireLidClosed` controls lid refusal at START and lid-open abort during a run. `requireTubePresent` controls the tube-present/validity check at START, automatic A1 sampling and whether calibration requires a tube measurement. It is currently disabled. Set either to `false` and rebuild/upload to bypass that requirement for this simulated appliance. Sensor reporting and calibration remain active. DONE still clears when the lid opens or after 60 seconds.
 
 ## Display and serial checks
 
@@ -89,4 +91,4 @@ Button and power events include the actual `pin` and separate `v:1`/`v:0` edges.
 
 Validate on hardware after calibration; controller acknowledgements do not prove physical pixels or optical alignment.
 
-For a live A1 check, run `python tools/monitor_mc6_a1.py COM7` or the VS Code task **Monitor MC-6 A1 sensor**. It displays the 0-1023 value and observed min/max, saving a CSV to `.pio/mc6-a1-readings.csv`. Add `--all` to display/record A0, A2 and A3 alongside A1 when checking wiring. It requests readings without changing calibration or appliance settings. Ctrl+C stops; `--seconds 10` limits the run, and `.pio/mc6-a1-monitor.cancel` provides cooperative cancellation. Close it before opening another serial tool.
+For a live A1 tube sensor check, run `python tools/monitor_mc6_a1.py COM7` or the VS Code task **Monitor MC-6 A1 sensor**. It displays the 0-1023 value and observed min/max, saving a CSV to `.pio/mc6-a1-readings.csv`. Add `--all` to display/record A0, A2 and A3 alongside A1 when checking wiring. It requests readings without changing calibration or appliance settings. Ctrl+C stops; `--seconds 10` limits the run, and `.pio/mc6-a1-monitor.cancel` provides cooperative cancellation. Close it before opening another serial tool.

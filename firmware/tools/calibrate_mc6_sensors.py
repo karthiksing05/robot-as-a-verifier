@@ -106,8 +106,8 @@ def main():
                     if stage == "saved":
                         validate_result(event)
                         output = ROOT / "config/mc6_sensors.json"
-                        record = {"device": "MC-6", "port": args.port, "pins": {"lid": "A1"} if lid_only else {"lid": "A1", "tube": "A2"},
-                                  "scope": "lid_only" if lid_only else "lid_and_tube", "ignored_pins": ["A2"] if lid_only else [],
+                        record = {"device": "MC-6", "port": args.port, "pins": {"lid": "A2"} if lid_only else {"lid": "A2", "tube": "A1"},
+                                  "scope": "lid_only" if lid_only else "lid_and_tube", "ignored_pins": ["A1"] if lid_only else [],
                                   "result": event, "storage": "board EEPROM", "trace": str(trace), "complete": True}
                         save_json(output, record)
                         save_json(PROGRESS, {"state": "complete", "calibration": event})

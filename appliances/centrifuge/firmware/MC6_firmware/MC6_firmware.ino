@@ -17,8 +17,8 @@ const uint8_t PIN_TIME = 4;
 const uint8_t PIN_POWER = 5;     // SPDT toggle, LOW = ON
 const uint8_t PIN_RING = 6;      // 24 x WS2812B, GRB
 const uint8_t PIN_SPEED = A0;    // 10k pot
-const uint8_t PIN_LID = A1;      // Grove light sensor, shaded = lid closed
-const uint8_t PIN_TUBE = A2;     // Grove light sensor under well A, shaded = tube seated
+const uint8_t PIN_LID = A2;      // Grove light sensor, shaded = lid closed
+const uint8_t PIN_TUBE = A1;     // Grove light sensor under well A, shaded = tube seated
 
 // ---------------- tuning
 const uint8_t RING_N = 24;

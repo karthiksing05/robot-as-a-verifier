@@ -22,8 +22,8 @@ Behaviour, channel names and state tables are in each appliance's `source/electr
 | D6 | NeoPixel ring | +30s |
 | D8 | — | **Grove Buzzer** (port D8; keep port D7 empty) |
 | A0 | SPEED pot | door light sensor |
-| A1 | lid light sensor | — |
-| A2 | tube light sensor | — |
+| A1 | tube light sensor | — |
+| A2 | lid light sensor | — |
 | I2C | SSD1306 OLED 0x3C | Grove LCD 0x3E / 0x62 |
 
 ## Bring-up checklist

@@ -30,7 +30,7 @@ const uint16_t DISPLAY_STARTUP_MS = 500;
 const uint16_t MIN_LIGHT_CONTRAST = 40, MIN_LIGHT_SEPARATION = 8;
 const uint16_t CAL_MAGIC = 0x4D36;
 const uint8_t CAL_VERSION = 2, CAL_HAS_TUBE = 1;
-const uint8_t PIN_RING = 6, PIN_SPEED = A0, PIN_LID = A1, PIN_TUBE = A2;
+const uint8_t PIN_RING = 6, PIN_SPEED = A0, PIN_LID = A2, PIN_TUBE = A1;
 const bool OLED_FLIPPED = true;
 const uint8_t PIXELS = 24, BRIGHTNESS = 50;
 const uint8_t OLED_PRIMARY = 0x3C, OLED_FALLBACK = 0x3D;
