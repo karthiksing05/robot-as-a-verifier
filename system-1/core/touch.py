@@ -96,6 +96,10 @@ MIN_EDGE = 30           # outline points needed for a fit
 FIT_FROM_OUTLINE = False  # start the far-rim fit from the middle of SAM's outline, not the believed centre (hw_rig)
 SHIFT_MAX = None        # a look this far from the scan is a neighbour (default SEARCH_M)
 LOOK_DIR = None         # a folder: each look's frame is saved there with SAM's outline and the fitted circle drawn
+TWO_VIEW = None         # m: a second frame this far across the panel, and the cap's centre triangulated from both (hw_rig)
+RAY_GAP = 0.003         # the two rays through the fitted centres passing further apart than this disagree
+HEIGHT_MAX = 0.010      # a triangulated top further than this from the scan's is not believed
+RADIUS_GAP = 0.0006     # nor one whose two circles, at that height, differ in radius by more (one fit took another arc)
 
 
 # --- touch ---
@@ -490,7 +494,50 @@ def locate(f, p, plane, sam, seen=None):
     return None, f"{p.id}: {why}"
 
 
-def _save_look(f, p, plane, seen, said):
+def _triangulate(o1, X1, o2, X2):
+    """(midpoint, gap) of the closest points on the rays from o1 through X1 and from o2 through X2."""
+    d1, d2 = X1 - o1, X2 - o2
+    s, t = np.linalg.lstsq(np.c_[d1, -d2], o2 - o1, rcond=None)[0]
+    P1, P2 = o1 + s * d1, o2 + t * d2
+    return (P1 + P2) / 2, float(np.linalg.norm(P1 - P2))
+
+
+def _second_look(arm, wrist, p, plane, sam, f, pos, seen1):
+    """(point, None): p's top centre triangulated from frame f, where locate() put it at pos, and a second frame taken
+    TWO_VIEW across the panel; or (None, why), and f's answer stands. locate() casts the outline onto a plane at the
+    scan's top height, so a wrong height scales the fitted circle about the camera but leaves its centre on the
+    camera's ray through the real one: two such rays meet at the real centre. Leaves the arm at the second view."""
+    tip, a = arm.tip_pose()
+    bias = arm.cmd - arm.read_q()  # what holds the arm here holds it 2 cm away too (affordances._approach)
+    at = next((tip + s * TWO_VIEW * plane[:3, 1] for s in (1, -1)
+               if arm.ik.solve(tip + s * TWO_VIEW * plane[:3, 1], a, arm.cmd)[1]), None)
+    if at is None:
+        return None, "no second view in reach"
+    affordances._approach(arm, at, a, f"look at {p.id}", bias=bias)
+    f2, seen = wrist.capture(), {}
+    pos2, why = locate(f2, p, plane, sam, seen)
+    if pos2 is not None:
+        o1, o2 = f.T_base_cam[:3, 3], f2.T_base_cam[:3, 3]
+        X, gap = _triangulate(o1, pos, o2, pos2)
+        h, top = (X - plane[:3, 3]) @ plane[:3, 2], _round(p)[1]
+        # each fitted radius scaled from the scan's height to the triangulated one: a fit that took another arc differs
+        r1, r2 = (s["fitted_mm"] / 2000 * np.linalg.norm(X - o) / np.linalg.norm(Y - o)
+                  for s, o, Y in ((seen1, o1, pos), (seen, o2, pos2)))
+        if gap > RAY_GAP:
+            why = f"the two views' rays pass {gap * 1000:.1f} mm apart"
+        elif abs(r1 - r2) > RADIUS_GAP:
+            why = f"the two views fit circles {r1 * 2000:.1f} and {r2 * 2000:.1f} mm across"
+        elif abs(h - top) > HEIGHT_MAX:
+            why = f"its top triangulates {h * 1000:.1f} mm up, the scan says {top * 1000:.1f}"
+    if LOOK_DIR:
+        try:  # evidence must never stop a look
+            _save_look(f2, p, plane, seen, f"second view: {why or f'top {h * 1000:.1f} mm up'}", "_b")
+        except Exception as e:  # noqa: BLE001
+            print(f"couldn't save the look: {type(e).__name__}: {e}")
+    return (None, f"second view: {why}") if why else (X, None)
+
+
+def _save_look(f, p, plane, seen, said, tag=""):
     """The look's frame in LOOK_DIR with SAM's prompt box (blue), the part as believed (white), SAM's outline (yellow)
     and the fitted circle (green), and what came of it. The folder ignores itself in git."""
     os.makedirs(LOOK_DIR, exist_ok=True)
@@ -510,7 +557,7 @@ def _save_look(f, p, plane, seen, said):
     for color, width in (((0, 0, 0), 6), ((255, 255, 255), 2)):
         cv2.putText(img, (said if said.startswith(p.id) else f"{p.id}: {said}")[:110], (12, 40), cv2.FONT_HERSHEY_SIMPLEX,
                     0.9, color, width)
-    name = os.path.join(LOOK_DIR, f"{time.strftime('%H%M%S')}_{p.id}")
+    name = os.path.join(LOOK_DIR, f"{time.strftime('%H%M%S')}_{p.id}{tag}")
     cv2.imwrite(name + ".jpg", img)
     with open(name + ".pkl", "wb") as fh:  # the frame as taken (pose and K too), the part and plane: to replay locate()
         pickle.dump((f, p, plane), fh)
@@ -530,7 +577,14 @@ def make_refine(wrist, plane, sam=None):
     def refine(arm, p):
         f, seen = wrist.capture(), {}
         pos, why = locate(f, p, plane, sam, seen)
-        shift = 0.0 if pos is None else float(np.linalg.norm(pos - p.pos))
+        X, single = None, None
+        if pos is not None and TWO_VIEW:
+            X, single = _second_look(arm, wrist, p, plane, sam, f, pos, seen)
+        d = np.zeros(3) if pos is None else pos - p.pos
+        if X is not None:  # the triangulated top moves along the normal too: the shift checked is along the panel
+            pos, d = X, X - p.pos
+            d -= (d @ plane[:3, 2]) * plane[:3, 2]
+        shift = float(np.linalg.norm(d))
         if shift > (SHIFT_MAX or SEARCH_M):
             why = f"the outline SAM found is {shift * 1000:.1f} mm from where {p.id} should be: a neighbour"
         if LOOK_DIR:
@@ -540,8 +594,12 @@ def make_refine(wrist, plane, sam=None):
                 print(f"couldn't save the look: {type(e).__name__}: {e}")
         if why:
             return replace(p, meta={**p.meta, "refined": False, "refine_shift": 0.0, "refine_why": why})
+        if X is not None:  # the press's depth then counts from the top seen, not the scan's
+            p = replace(p, size=np.r_[p.size[:2], (X - plane[:3, 3]) @ plane[:3, 2]])
         q = _moved(p, features.frame(pos, p.normal, p.x))
-        q.meta.update(refined=True, refine_shift=shift)
+        q.meta.update(refined=True, refine_shift=shift, triangulated=X is not None)
+        if single:
+            q.meta["triangulate_why"] = single
         q.meta.pop("refine_why", None)
         return q
 

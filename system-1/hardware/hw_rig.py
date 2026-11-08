@@ -77,6 +77,9 @@ def make_rig(arm_port, calibration, app=None, pad=None, readout_port=None):
         # From the scan's position (no longer the shifted one) the looks moved presses 0.6-3.7 mm; a 6.2 mm move up the
         # slope on TIME+ missed while 1.7 clicked, so a look may move a press 5 mm at most
         touch.FIT_FROM_OUTLINE, touch.SHIFT_MAX = True, 0.005
+        # the scan's cap heights for the same buttons ranged 9.7-19.1 mm, and each mm moves the single look's aim 0.5-0.7 mm
+        # down the slope and the press's depth with it: the look takes a second frame 18 mm across and triangulates the cap
+        touch.TWO_VIEW = 0.018
         touch.LOOK_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "last_looks")
     except BaseException:
         arm.close()  # no readout or no camera: let the serial ports go
