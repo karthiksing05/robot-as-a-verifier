@@ -43,6 +43,7 @@ TUBE_GRIP_DOWN = -0.002               # the grip centre below the collar top fou
 TUBE_OPEN = 0.2                       # 0.3 opened far wider than the red collar on the real arm (Nov 8)
 TUBE_SQUEEZE = -0.25                  # shut drives ~380 ticks past closed (RealArm lowers the servo's limit for it)
 TUBE_CENTRE = 0.015                   # the collar's centre this far from the fixed jaw: half the real gap, not the model's
+TUBE_PULL = 0.006                     # m toward the arm: picks landed past the red tube; 6 mm held it (Nov 8)
 TUBE_HELD_X = 0.012                   # held, the tube's axis this far from the fixed jaw's tip (3 mm to its face + 9)
 # the tool this far below level (deg), steepest first that reaches (manipulate.GRIP_TILTS): straight down only
 # reaches about 290 mm out. It tilts in the upright plane through the pan axis, the jaws closing level across it
@@ -309,6 +310,8 @@ def run(arm, skill, p, plane_T, params, wrist=None):
         top, how = tube_find.find(arm, wrist, "red" if float(params.get("tube", 1)) >= 2 else "green")
         if top is None:
             raise RuntimeError(how)
+        r = np.r_[top[:2] - PAN_XY, 0.0]  # the search's point sits past the collar's centre: pull it toward the arm
+        top = top - TUBE_PULL * r / np.linalg.norm(r)
         top = top + (device_frame(plane_T) if plane_T is not None else np.eye(3)) @ np.asarray(nudge) / 1000
         if skill == "tube_find":
             return {"verdict": "done", "reason": how}
