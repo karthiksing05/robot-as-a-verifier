@@ -70,6 +70,9 @@ LATCH_RETREAT = 0.01    # m/s off a door pad: slow enough that the popping door 
 SAG_TOL = 0.0003        # an approach pose is commanded again until the joint readings put the tip this close
 SAG_HOLD_S = 0.3        # after commanding an approach pose again, time for the servos to settle on it
 LEAD_MAX = 0.04         # a guarded motion gives up when its command runs this far ahead of the pad (servo give)
+STALL_AFTER_S = 0.5     # with arm.stall_m, the lag's free-motion baseline is taken this long into a move: from 0.3 s, the
+                        # real arm's lag grew up to 3.9 mm past it in free air at 20 mm/s, from 0.5 s 1.8 (creep_log)
+STALL_PAST = 0.002      # and a stalled push stops this much further on, so it doesn't keep building force
 # Joint readings off a guarded path by more than HOLD_FREE are fed back into the command, HOLD_GAIN of the error per
 # tick. Under that, a stiff arm's sub-mm yield to a part pushed off-centre is left alone.
 HOLD_GAIN, HOLD_FREE = 0.2, 0.001
@@ -144,7 +147,7 @@ def _line(arm, p_to, axis, speed, bias, give=False):
         q = _toward(arm, arm.ik.solve(p_from + (p_to - p_from) * i / n + off, axis, q, iters=30)[0], bias)
         arm.send(q + bias)
         arm.tick()
-        if give:
+        if give and not arm.stall_m:  # a stall arm's estimate drifts with nothing touching
             F = arm.tip_force_vec()
             if np.linalg.norm(F) > arm.noise_n:  # under the sensor's noise it isn't a push
                 off += GIVE * (F - max(F @ axis, 0.0) * axis)
@@ -156,6 +159,24 @@ def _toward(arm, q, bias):
     dq = q + bias - arm.cmd
     big = np.max(np.abs(dq))
     return q if big <= UNWIND_STEP else arm.cmd - bias + dq * UNWIND_STEP / big
+
+
+def _stall(arm):
+    """For an arm with stall_m: a function of each tick's lag (how far the pad's progress along the motion is behind its
+    command's) that returns (touching, too deep), as tools/press_check.py. Touching is the lag grown stall_m past its
+    value STALL_AFTER_S into the move for three ticks in a row, so one encoder flicker can't end a push; too deep is
+    touching and STALL_PAST further."""
+    k, base, run = 0, None, 0
+
+    def tick(lag):
+        nonlocal k, base, run
+        k += 1
+        if k == round(STALL_AFTER_S * CONTROL_HZ):
+            base = lag
+        grown = -np.inf if base is None else lag - base
+        run = run + 1 if grown > arm.stall_m else 0
+        return run >= 3, run >= 3 and grown >= arm.stall_m + STALL_PAST
+    return tick
 
 
 def _unwind(arm, bias):
@@ -335,8 +356,13 @@ def _guarded(arm, path, length, n, limit, speed, bias, until=None, expect=None, 
     along too. With servo sensing a light part can push back less than the estimate's floor, so once the pad is past
     `expect`, where contact should come, the push goes on as if the part was met there ("met"). With track (a slider's
     knob, whose reading follows it), a reading that first moves further on says where the part was really met. With
-    servo sensing, a part can't let go before the pad is `centre` past where it was met (a lever's centre)."""
+    servo sensing, a part can't let go before the pad is `centre` past where it was met (a lever's centre).
+
+    On an arm with stall_m, whose force estimate can't be trusted, contact is instead the command's lead along the path
+    (s - at) growing stall_m past its value in free motion (_stall), and the force limit is STALL_PAST beyond that; the
+    speed holds steady at no less than arm.guard_speed, and side_force and too_low don't apply."""
     q, s, at, f, hold, freed, lead = arm.cmd - bias, 0.0, 0.0, 0.0, np.zeros(3), -1.0, 0.0
+    stall, hit = _stall(arm) if arm.stall_m else None, False
     g = {"stop": None, "contact": None, "held": None, "peak": 0.0, "trace": [], "ats": [], "reads": []}
     # with servo sensing the force is ignored until a second tare once moving (skills.TARE_AFTER_S), and checks allow
     # for its noise, which along the probe (too_low) is up to 3 times arm.noise_axial
@@ -350,10 +376,10 @@ def _guarded(arm, path, length, n, limit, speed, bias, until=None, expect=None, 
             return expect if moved is None else max(expect, moved)
         return c
     while g["stop"] is None:
-        v = speed * float(np.clip(1 - f / limit, 0.15, 1))
+        v = speed if stall else speed * float(np.clip(1 - f / limit, 0.15, 1))
         if until is not None and met() is not None and at - met() > until - END_ZONE:
             v = min(v, END_SPEED)
-        s += v / CONTROL_HZ
+        s += max(v, arm.guard_speed) / CONTROL_HZ
         tip, m = path(at, met())
         q = _toward(arm, arm.ik.solve(tip + (s - at) * m + hold, -n, q, iters=30)[0], bias)  # a reset jumps the target
         arm.send(q + bias)
@@ -376,8 +402,9 @@ def _guarded(arm, path, length, n, limit, speed, bias, until=None, expect=None, 
         if np.linalg.norm(e) > HOLD_FREE:
             hold += HOLD_GAIN * e
             hold *= min(1.0, HOLD_MAX / np.linalg.norm(hold))
-        was, f = f, float(-Fm @ m)  # resistance: the part of the force that opposes the motion
+        f = float(-Fm @ m)  # resistance: the part of the force that opposes the motion
         led, lead = lead, float(np.linalg.norm((s - at) * m + hold + e))  # how far the command is from the pad
+        was, (hit, deep) = hit, stall(s - at) if stall else (f > contact_n, f >= limit)
         g["trace"].append((arm.d.time, f))
         if arm.sensing:
             g["ats"].append(at)
@@ -389,11 +416,11 @@ def _guarded(arm, path, length, n, limit, speed, bias, until=None, expect=None, 
         # so both let-go checks below fired before it went over: with the command put back on the pad, the lever pushed
         # the pad back 1-5 mm and never went over. So they wait until the pad is past where the lever's centre should be
         early = centre > 0 and arm.sensing and met() is not None and at - met() < centre
-        if f > contact_n:
+        if hit:
             g["held"] = at
             if g["contact"] is None:
                 g["contact"] = at
-        elif was > contact_n and until is not None and lead > HOLD_FREE and at - freed > HOLD_FREE and not early:
+        elif was and until is not None and lead > HOLD_FREE and at - freed > HOLD_FREE and not early:
             # the part let go (a lever snapped over, or the pad slipped off): a soft arm's command leads the pad by
             # mm, and following it launched the pad 2 mm on into a lever at its stop (9 N). So the command comes back
             # onto the pad, across the path too: a correction for a pad held up by a fin's end, kept, dropped it onto
@@ -404,11 +431,12 @@ def _guarded(arm, path, length, n, limit, speed, bias, until=None, expect=None, 
             # the servo estimate lags and reads the arm's own acceleration as force, the joints don't: the pad catching
             # up with its command means the part let go
             s, freed, hold, lead = at, at, -e, 0.0
-        if f >= limit:
+        if deep:
             g["stop"] = "force_limit"
-        elif np.linalg.norm(F) >= limit + side_n or (until is not None and np.linalg.norm(F + f * m - (F @ n) * n) >= side_n):
+        elif not stall and (np.linalg.norm(F) >= limit + side_n or
+                            (until is not None and np.linalg.norm(F + f * m - (F @ n) * n) >= side_n)):
             g["stop"] = "side_force"  # a jaw's tapered side lifts it as it pushes: that is too_low's to judge
-        elif Fm @ n >= max(low_n, f):
+        elif not stall and Fm @ n >= max(low_n, f):
             g["stop"] = "too_low"
         elif until is not None and met() is not None and at - met() >= until:
             g["stop"] = "travel"
@@ -426,9 +454,11 @@ def _descend(arm, start, n, slow, touch, bias):
     dz being how far above start the push should run, or (None, why, peak) if it landed on something."""
     top = start + HOVER * n
     landed = max(LANDED_N, 2 * arm.noise_axial)
-    g = _guarded(arm, lambda s, c: (top - s * n, -n), max(HOVER - slow, 0.0), n, landed, skills.APPROACH_SPEED, bias)
-    if g["stop"] == "end":
+    s0, g = 0.0, {"stop": "end"}
+    if not arm.stall_m:  # with stall, one creep from the top, as in touch.touch
+        g = _guarded(arm, lambda s, c: (top - s * n, -n), max(HOVER - slow, 0.0), n, landed, skills.APPROACH_SPEED, bias)
         s0 = g["s"]
+    if g["stop"] == "end":
         deep = HOVER + (0.0 if touch is None else touch + TOUCH_BAND)
         # creeping, a servo estimate with nothing touching reads less than moving fast (2.8 N at most, against 4): at
         # landed (5 N), pads rested for seconds on a knob's edge reading 2-3 N, then slid off it at up to 25 N
@@ -451,7 +481,8 @@ def _descend(arm, start, n, slow, touch, bias):
 def _push(arm, plan, limit, label):
     """Hover, descend (guarded, feeling for the floor), push along the plan, let go, lift."""
     n = plan.n
-    for s0 in (0.0, -RETRY):
+    lead = arm.guard_speed * STALL_AFTER_S if arm.stall_m else 0.0  # stall's baseline must come before the part
+    for s0 in (-lead, -lead - RETRY):
         start = plan.path(s0, None)[0]
         _, bias = _approach(arm, start + HOVER * n, -n, label, plan.qs[0])
         arm.status = f"{label}: descend"
@@ -486,7 +517,7 @@ def _push(arm, plan, limit, label):
     F, now = g["F"], arm.tip_pose()[0]
     u = F - (F @ n) * n
     contact_n = max(CONTACT_N, arm.noise_n)  # as _guarded's
-    u = u / np.linalg.norm(u) if np.linalg.norm(u) > contact_n else -path(g["at"], g["met"])[1]
+    u = u / np.linalg.norm(u) if np.linalg.norm(u) > contact_n and not arm.stall_m else -path(g["at"], g["met"])[1]
     _unwind(arm, bias)
     _line(arm, now + RELEASE * u, -n, RELEASE_SPEED, bias, give=True)
     arm.tare(False)
@@ -509,7 +540,7 @@ def _push(arm, plan, limit, label):
     elif g["stop"] == "side_force":
         missed = (f"much of the force was across the push ({np.linalg.norm(g['F']):.1f} N in all, {f:.1f} N "
                   f"against it): the probe pressed on the {w}'s side, end or corner")
-    elif g["stop"] == "force_limit" and prev < limit / 2:
+    elif g["stop"] == "force_limit" and prev < limit / 2 and not arm.stall_m:
         missed = f"a jolt ({f:.1f} N for one tick, from {prev:.1f} N) stopped the push before the {w} was pushed hard"
     elif g["at"] - g["held"] > SLIP:
         missed = f"the pad ran on {(g['at'] - g['held']) * 1000:.1f} mm with nothing against it: it slipped off the {w}"
@@ -589,12 +620,14 @@ def _poke(arm, p, limit, label, settle=0.0, retreat=0.03):
     depth, contact, peak, stop, travel, creep, seen = 0.0, None, 0.0, None, 0.0, 0, []
     armed = not arm.sensing or arm.axial_sensor  # a sensor on the probe needs no tare, so it counts from the start
     contact_n = max(CONTACT_N, arm.noise_axial)  # tip_force() is along the probe
-    deepest = skills.APPROACH_M + PRESS_TRAVEL + 0.006
+    stall = _stall(arm) if arm.stall_m else None  # contact by stall, at one speed throughout, as in _guarded
+    deepest = skills.APPROACH_M + PRESS_TRAVEL + 0.006 + (arm.stall_m or 0.0)  # a stall shows after the command runs on
     while stop is None:
         f = arm.tip_force() if armed else 0.0
-        fast = contact is None and depth < skills.APPROACH_M - skills.SLOW_ZONE_M
-        v = skills.APPROACH_SPEED if fast else skills.CONTACT_SPEED * float(np.clip(1 - f / limit, 0.15, 1))
-        depth += v / CONTROL_HZ
+        fast = contact is None and depth < skills.APPROACH_M - skills.SLOW_ZONE_M and not stall
+        ease = 1.0 if stall else float(np.clip(1 - f / limit, 0.15, 1))
+        v = skills.APPROACH_SPEED if fast else skills.CONTACT_SPEED * ease
+        depth += max(v, arm.guard_speed) / CONTROL_HZ
         q, *_ = arm.ik.solve(pre - depth * n, -n, q, iters=30)
         arm.send(q + bias)
         f = arm.tick()
@@ -603,12 +636,13 @@ def _poke(arm, p, limit, label, settle=0.0, retreat=0.03):
         peak = max(peak, f)
         tip, _ = arm.tip_pose()
         seen.append((f, tip))
-        if contact is None and f > contact_n:
+        hit, deep = stall(depth - (pre - tip) @ n) if stall else (f > contact_n, f >= limit)
+        if contact is None and hit:
             # with servo sensing alone, where the estimate last sat near zero, as in _guarded
-            servo = arm.sensing and not arm.axial_sensor
+            servo = arm.sensing and not arm.axial_sensor and not stall
             contact = next((t for f0, t in reversed(seen) if f0 <= contact_n / 4), tip) if servo else tip
         travel = 0.0 if contact is None else float((contact - tip) @ n)
-        if f >= limit:
+        if deep:
             stop = "force_limit"
         elif travel >= PRESS_TRAVEL:
             stop = "travel"
@@ -618,7 +652,10 @@ def _poke(arm, p, limit, label, settle=0.0, retreat=0.03):
         if creep == 1:
             crept = (tip, depth)
         if creep == round(skills.TARE_AFTER_S * CONTROL_HZ):
-            if arm.sensing and stop is None and contact is None and (crept[0] - tip) @ n < (depth - crept[1]) / 2:
+            # (not with stall: its creep starts from rest, and moving up from rest the real arm's tip trailed its command
+            # by most of this long in free air)
+            if arm.sensing and not stall and stop is None and contact is None and \
+                    (crept[0] - tip) @ n < (depth - crept[1]) / 2:
                 contact, stop = tip, "held"  # as skills._guarded_push
             arm.tare()
             armed = True

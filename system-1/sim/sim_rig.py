@@ -58,7 +58,9 @@ def real_driver(sim, pace=False):
     import real_arm
     pad = fake_bus.FakePad(sim) if sim.sensing == "tactile" else None
     arm = real_arm.RealArm(fake_bus.make(sim, tempfile.mkdtemp(prefix="fake_bus_")), app=sim.app, pad=pad, pace=pace)
-    arm.table_z, arm.workspace, arm.standoff = sim.table_z, sim.workspace, sim.standoff  # the sim's desk and camera
+    arm.table_z, arm.workspace, arm.standoff, arm.stall_m, arm.guard_speed = (  # the sim's desk, camera, contact test
+        sim.table_z, sim.workspace, sim.standoff, sim.stall_m, sim.guard_speed)
+    arm.hard_cap_n = rig.HARD_FORCE_CAP_N  # the sim's cap, not the real arm's 20 N
     arm.noise_n = sim.noise_n  # the sim servos' noise, not the real arm's measured floor
     arm.noise_axial = pad.noise_n if pad else sim.noise_n
     arm.enable(confirm=True)

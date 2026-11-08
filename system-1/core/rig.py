@@ -76,6 +76,8 @@ class Arm(Protocol):
     table_z: float          # the desk's height (m)
     workspace: np.ndarray   # 3x2 box (m) that check_workspace allows
     standoff: float         # wrist camera to panel in the scan's views (m)
+    stall_m: float          # None, or guarded moves take contact as the pad stalling this far (m), not the force estimate
+    guard_speed: float      # guarded moves run at least this fast (m/s)
 
     def read_q(self):
         """Joint readings."""
@@ -216,6 +218,7 @@ class ArmBase:
     vector it gives (with a pad or load cell, axial_sensor, their reading along the probe), and the workspace check.
     The arm keeps W, zero, axis_est and est_vec up to date, and has axial_sensor and tip_force()."""
     table_z, workspace, standoff = TABLE_Z, WORKSPACE, STANDOFF
+    stall_m, guard_speed = None, 0.0  # see affordances._guarded
 
     def _fit(self, tau, zero=None):
         # 5 joint torques, 3 force components: least squares (wrist_roll turns about the probe, so carries none). A fit

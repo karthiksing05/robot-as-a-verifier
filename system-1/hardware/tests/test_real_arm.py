@@ -40,7 +40,9 @@ def _setup(pace=False):
     sim = robot.SimArm(world=w, slop=True, sensing="current")
     bus = fake_bus.make(sim, TMP)
     arm = real_arm.RealArm(bus, app=sim.app, pace=pace)
-    arm.table_z, arm.workspace, arm.standoff = sim.table_z, sim.workspace, sim.standoff  # the sim's desk and camera
+    arm.table_z, arm.workspace, arm.standoff, arm.stall_m, arm.guard_speed = (  # the sim's desk, camera, contact test
+        sim.table_z, sim.workspace, sim.standoff, sim.stall_m, sim.guard_speed)
+    arm.hard_cap_n = rig.HARD_FORCE_CAP_N  # the sim's cap, not the real arm's 20 N
     arm.noise_n = arm.noise_axial = sim.noise_n  # the sim servos' noise, not the real arm's floor
     return w, sim, bus, arm
 

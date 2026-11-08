@@ -93,6 +93,10 @@ class RealArm(rig.ArmBase):
     table_z = 0.0
     workspace = np.array([[0.05, 0.42], [-0.25, 0.25], [0.005, 0.35]])
     standoff = 0.17
+    # The force estimate drifts 2.5-10 N along the fingertip in free air on any downward move (tools/creep_log.py, Nov 7),
+    # so guarded moves take contact as a stall instead, as tools/press_check.py does, at a speed that tracks smoothly
+    # (at 2 mm/s the tip stick-slips)
+    stall_m, guard_speed = 0.004, 0.015
 
     def __init__(self, bus, app=None, pad=None, pace=True):
         self.bus, self.pad, self.pace = bus, pad, pace
