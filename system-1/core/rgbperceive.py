@@ -234,7 +234,7 @@ def survey_wrist(arm, wrist, on_frame=None):
     of the features, so a plain panel gives too few (RuntimeError)."""
     cam = arm.m.camera("wrist_cam").id
     fk, q0, views = mujoco.MjData(arm.m), arm.home_q.copy(), []
-    for dq in SURVEY_DQ:
+    for dq in SURVEY_DQ if getattr(arm, "survey_dq", None) is None else arm.survey_dq:
         q = np.clip(q0 + dq, arm.ik.lo, arm.ik.hi)
         views.append(dict(q=q, T=perceive._camera_pose(arm, fk, cam, q), ok=True, why=""))
     caps = scan(arm, wrist, views, on_frame)

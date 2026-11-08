@@ -221,6 +221,7 @@ class ArmBase:
     stall_m, guard_speed = None, 0.0  # see affordances._guarded
     view_tilts = None  # radians, perceive.plan_views' tilts when set (default perceive.VIEW_TILTS)
     view_tol = None  # m: rgbperceive._settle re-commands a view until the camera is this close (default SAG_TOL)
+    survey_dq = None  # joint offsets from home for rgbperceive.survey_wrist's overview poses (default SURVEY_DQ, 6)
     view_looks = None  # (down, left) offsets on the panel for plan_views' views (default perceive.VIEW_LOOKS, a 3x3 grid)
 
     def _fit(self, tau, zero=None):
