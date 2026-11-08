@@ -141,37 +141,32 @@
  },
  {
   "s": 132.0,
-  "e": 133.8,
+  "e": 133.43,
   "t": "Why does this matter?"
  },
  {
-  "s": 133.8,
-  "e": 138.32,
-  "t": "Software already has verification: Lean now checks AI-written proofs,"
+  "s": 133.43,
+  "e": 137.43,
+  "t": "Software already has verification, from AI-written proofs to flight code."
  },
  {
-  "s": 138.32,
-  "e": 142.24,
-  "t": "and proven code like CompCert and seL4 guards aircraft."
- },
- {
-  "s": 142.24,
-  "e": 146.09,
+  "s": 137.43,
+  "e": 140.48,
   "t": "Hardware has nothing like it, so failures surface late,"
  },
  {
-  "s": 146.09,
-  "e": 150.59,
-  "t": "in biosafety labs, in spacecraft, in thousands of prototypes."
+  "s": 140.48,
+  "e": 143.11,
+  "t": "in biosafety labs, spacecraft and prototypes."
  },
  {
-  "s": 150.59,
-  "e": 154.05,
+  "s": 143.11,
+  "e": 145.86,
   "t": "As AI starts designing hardware, every design should"
  },
  {
-  "s": 154.05,
-  "e": 158.08,
+  "s": 145.86,
+  "e": 149.23000000000002,
   "t": "be measured like this before anyone relies on it."
  }
 ]

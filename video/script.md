@@ -61,11 +61,11 @@ Timings assume a natural read; the cut follows the recording.
 
 ---
 
-## 5. Why it matters · 2:12–2:45
+## 5. Why it matters · 2:12–2:32
 
-> Why does this matter? Software already has verification: Lean now checks AI-written proofs, and proven code like CompCert and seL4 guards aircraft. Hardware has nothing like it, so failures surface late, in biosafety labs, in spacecraft, in thousands of prototypes. As AI starts designing hardware, every design should be measured like this before anyone relies on it.
+> Why does this matter? Software already has verification, from AI-written proofs to flight code. Hardware has nothing like it, so failures surface late, in biosafety labs, spacecraft and prototypes. As AI starts designing hardware, every design should be measured like this before anyone relies on it.
 
-*Behind the scenes, scrolling through the Console: Studies with every appliance, a run's log, Change Review, Revision History and Design Analysis. Small source chips pass by as each field is named: `Lean · ETH refutations checked, Oct 2026`, `CompCert · ATR 42/72 avionics`, `seL4 · DARPA HACMS Little Bird`, `Pirbright, 2007`, `JWST · 29-month delay`, `Dyson · 5,127 prototypes`. Then the title card: RAAV · ROBOT AS A VERIFIER.*
+*One shared screen, about ten seconds: the Console in a browser window on the right, moving through Studies, a project's Story, Settings and Methodology, each with a small feature label; on the left, six case cards fill in as they're named. Software, verified: `Lean · ETH refutations checked, Oct 2026`, `CompCert · ATR 42/72 avionics`, `seL4 · DARPA HACMS Little Bird`. Hardware, found late: `Pirbright, 2007`, `JWST · 29-month delay`, `Dyson · 5,127 prototypes`. Then the title card: RAAV · ROBOT AS A VERIFIER.*
 
 ---
 
@@ -86,9 +86,8 @@ Timings assume a natural read; the cut follows the recording.
 | System 1 / System 2 lines | `docs/system-boundary.md` | "Limits" means limits enforced in code, not a proof |
 | "each new task needs new demonstrations" | SmolVLA: 50 demonstrations per real task; GR00T N1: 30–300 per task in sim (sources 29–31) | Don't say VLAs can't generalize |
 | "a new kind of control still needs a new skill in System 1" | Skills are code in System 1; the Rev B run skipped the lid because no skill fit it | |
-| "Lean now checks AI-written proofs" | The two claimed ETH refutations were checked in Lean (sources 1–2) | Still "claimed": community confirmation pending |
-| "proven code like CompCert and seL4 guards aircraft" | CompCert qualified for the ATR 42/72 avionics computer (2026); seL4 on the HACMS Little Bird helicopter (sources 17–22) | |
-| "failures surface late, in biosafety labs, in spacecraft, in thousands of prototypes" | Pirbright 2007 (most likely a damaged drain), JWST fasteners in a 2018 acoustic test, Dyson's 5,127 prototypes (sources 24–26) | Chips carry the specifics |
+| "from AI-written proofs to flight code" | The two claimed ETH refutations were checked in Lean (sources 1–2); CompCert qualified for the ATR 42/72 avionics computer (2026); seL4 on the HACMS Little Bird helicopter (sources 17–22) | The Lean card says "claimed": community confirmation pending |
+| "failures surface late, in biosafety labs, spacecraft and prototypes" | Pirbright 2007 (most likely a damaged drain), JWST fasteners in a 2018 acoustic test, Dyson's 5,127 prototypes (sources 24–26) | Chips carry the specifics |
 
 ## Sources
 

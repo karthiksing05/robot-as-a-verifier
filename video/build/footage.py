@@ -18,7 +18,7 @@ s3 = T("first"); s4 = T("under"); s5 = T("why")
 S = dict(s2=T("this"), never=T("never"), s3=s3, s4=s4, s5=s5,
          wrist=T("wrist", s3), finds=T("finds", s3), touches=T("touches", s3), model=T("model", s3), then=T("then", s3),
          display=T("when", s3), lid=T("when", T("amended", s3)), there=T("there", s3), test=T("test", T("approve", s3)),
-         software=T("software", s5), hardware=T("hardware", s5), as_=T("as", T("thousands", s5)), end=T("relies", s5) + 1.4)
+         software=T("software", s5), hardware=T("hardware", s5), as_=T("as", T("prototypes", s5)), end=T("relies", s5) + 1.4)
 S["lidui"] = T("refused", S["lid"])
 t1x = lambda clean_t: clean_t * 2 - 300  # clean_3d_test_1x covers sim 300–485 s at 1x; clean_3d is sim ÷ 2
 SEG = []  # [from, to, clip, clip_start, speed, hold, zoom]

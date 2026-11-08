@@ -1,6 +1,6 @@
 # Demo video storyboard
 
-**Draft 9, Nov 8.** Goes with [script.md](script.md). About 2:45, 1920 × 1080 at 30 fps, rebuilt to Karthik's re-recorded voiceover. The build is in [build/](build/): `node render.mjs video`, then `./mix.sh`.
+**Draft 9, Nov 8.** Goes with [script.md](script.md). About 2:33, 1920 × 1080 at 30 fps, rebuilt to Karthik's re-recorded voiceover. The build is in [build/](build/): `node render.mjs video`, then `./mix.sh`.
 
 ## Rules for every shot
 
@@ -26,10 +26,10 @@
 | 10 | 1:07–1:14 | Freeze at step s7, then the Console's skipped row, zoomed | S1: `SKIPPED · handle_1 needs a pinch grip · no-thumbs rule` | Rev A run, step s7 |
 | 11 | 1:14–1:22 | Design Analysis: Rev A to Rev B, the F2 fix lighting up the lid handle | `hook lip · Rev B as drawn by the team`, a person's card: `approve` | `ui_design_analysis` |
 | 12 | 1:22–1:27 | The Rev B run | `handle_1 swung to 100° (verification check)` | Rev B run, `verify.stock.json` |
-| 13 | 1:27–1:50 | Two columns, System 1 and System 2, joined by seven tool lines. Small tags fill in: `OWLv2 + SAM`, `IK`, `15 N`, `fixed verdict rules`; `manual → plan`, `recover`, `diagnose`; the model name cycles through the four models that have run | Never the spoken list as a list | Diagram |
-| 14 | 1:50–2:12 | Off to one side, a small single box, `one network`, fed by demonstration reels: `SmolVLA · 50 demos/task`, `GR00T N1 · 30–300 demos/task`. It dims, and the two columns brighten. Last, a small amber tag on System 1: `new kind of control → new skill` | Sources in small mono | Diagram |
-| 15 | 2:12–2:38 | Behind the scenes, scrolling: Studies, a run's log, Change Review, Revision History, Design Analysis. Source chips slide past as each field is named | `Lean · ETH refutations checked, Oct 2026`, `CompCert · ATR 42/72`, `seL4 · DARPA HACMS`, `Pirbright 2007`, `JWST · 29-month delay`, `Dyson · 5,127 prototypes` | Console recordings |
-| 16 | 2:38–2:45 | Title card | **RAAV · ROBOT AS A VERIFIER**, `MakeCU 2026` | — |
+| 13 | 1:27–1:55 | Two full-height panels, already filled with the Rev A run's own data and dim. System 1: the 9 controls OWLv2 + SAM mapped, its six skills, peak force per step against the 15 N cap, the s1 FAIL and s7 SKIPPED verdicts. System 2: manual lines, plan-1's steps, the amendment, the findings; the model name in its header. Between them, the 7 real tool names. Each part lights up with an underline as it's named. Cartoon beat: the model's `move_joint` and `grade_own_step` messages bounce off a red gate (“no such tool”); a `press button_3 at 40 N` request goes through and its bar stops at the cap. The model name flicks through four models and settles | Data, never the spoken list | Rev A run `events.jsonl` |
+| 14 | 1:55–2:12 | A card over the dimmed panels: `one network`, demonstration reels filling in, `SmolVLA · 50 demos/task`, `GR00T N1 · 30–300 demos/task`. It leaves; `manual.md` glows. Last, an amber line under System 1: `new kind of control → a new skill, in code` | Sources in small mono | Diagram |
+| 15 | 2:12–2:28 | One shared screen. Right: the Console in a window moving through Studies, a project's Story, Settings and Methodology, a feature label above each view. Left: six case cards, software (proven before use) then hardware (found after the fact), each filling in as it's named; the examples take under ten seconds | `Lean · ETH refutations checked, Oct 2026`, `CompCert · ATR 42/72`, `seL4 · DARPA HACMS`, `Pirbright 2007`, `JWST · 29-month delay`, `Dyson · 5,127 prototypes` | `tour/scenes` |
+| 16 | 2:29–2:33 | Title card | **RAAV · ROBOT AS A VERIFIER**, `MakeCU 2026` | — |
 
 ## Audio
 
