@@ -36,16 +36,17 @@ AWAY = 0.03                           # and then off the cover this far
 # closing: from in front, over the cover's top edge, down behind it, and drawn back past vertical; it falls shut
 OVER_TILT = math.radians(20)  # manipulate's 45 put the tool over the real lid's edge out of reach at any box distance
 # the real lid's first close stopped 10 mm short above its edge (Nov 8): deeper, and a little further behind it
-OVER_FRONT, OVER_BEHIND, OVER_CLEAR, OVER_DOWN = 0.05, 0.018, 0.025, 0.016
+OVER_FRONT, OVER_BEHIND, OVER_CLEAR, OVER_DOWN = 0.05, 0.018, 0.025, 0.010  # 16 down closed it: the jaw's tip is enough
 SAFE_BACK, SAFE_UP = 0.06, 0.03  # a close starts from here, nearer the arm and higher, clear of the open lid
-CLOSE_TO = 5.0                        # deg: drawn back nearly shut, then let go: from 78 and 50 the real lid didn't shut (Nov 8)
-FALL_S = 1.5
+CLOSE_TO = 30.0                       # deg: drawn back to here, then let go: from 50 it didn't shut, from 5 it did with room to spare (Nov 8)
+FALL_S = 0.5
+LID_SPEED, DRAW_SPEED = 0.10, 0.07  # m/s: the lid close's moves, and its draw back
 # the tube: jaws open around its 18 mm collar, down straight, shut, lift clear of the rack
 TUBE_GRIP_DOWN = -0.002               # the grip centre below the collar top found: at 3 mm it went too far down
 TUBE_OPEN = 0.2                       # 0.3 opened far wider than the red collar on the real arm (Nov 8)
 TUBE_SQUEEZE = -0.3                   # shut drives ~450 ticks past closed (RealArm lowers the servo's limit 500 for it)
 TUBE_CENTRE = 0.015                   # the collar's centre this far from the fixed jaw: half the real gap, not the model's
-TUBE_PULL = 0.006                     # m toward the arm: picks landed past the red tube; 6 mm held it (Nov 8)
+TUBE_PULL = 0.002                     # m toward the arm: 6 mm held the red tube but by its near edge (Nov 8)
 TUBE_HELD_X = TUBE_CENTRE             # held, the tube's axis this far from the fixed jaw's tip: where the pick centres it
 # the tool this far below level (deg), steepest first that reaches (manipulate.GRIP_TILTS): straight down only
 # reaches about 290 mm out. It tilts in the upright plane through the pan axis, the jaws closing level across it
@@ -211,11 +212,11 @@ def close_cover(arm, cover, lip, R):
     # a straight line, as manipulate's: it cuts inside the edge's arc, so it bears on the edge (an arc kept its gap)
     drop = hinge + _rot(lip - hinge, k, CLOSE_TO) + OVER_BEHIND * flat - OVER_DOWN * up
     start = edge - OVER_FRONT * flat + OVER_CLEAR * up
-    legs = [_line("clear", start - SAFE_BACK * flat + SAFE_UP * up, start, a),
-            _line("over", start, over, a),
+    legs = [_line("clear", start - SAFE_BACK * flat + SAFE_UP * up, start, a, LID_SPEED),
+            _line("over", start, over, a, LID_SPEED),
             _line("down", over, behind, a, guard="until"),  # on the edge early: draw it back from there
-            _line("draw", behind, drop, a, ARC_SPEED),
-            _line("up", drop, drop + OVER_CLEAR * up, a)]
+            _line("draw", behind, drop, a, DRAW_SPEED),
+            _line("up", drop, drop + OVER_CLEAR * up, a, LID_SPEED)]
     why, _ = _run(arm, label, legs, arm.cmd.copy())
     if not why:
         arm.status = f"{label}: let it fall"
@@ -272,11 +273,12 @@ def pick_tube(arm, collar_top):
 
     def build(tilt):
         tip, a, q = _jaws_at(arm, collar_top - TUBE_GRIP_DOWN * up, TUBE_CENTRE, tilt)
-        return [("open the jaws", TUBE_OPEN),
-                _line("down", tip + ABOVE * up, tip, a),  # unguarded: the stall check stopped it in mid-air (Nov 8)
+        return [_line("down", tip + ABOVE * up, tip, a),  # unguarded: the stall check stopped it in mid-air (Nov 8)
                 ("shut", TUBE_SQUEEZE),
                 _line("lift", tip, tip + LIFT * up, a)], q
-    why, _ = _run(arm, label, *_tube_legs(arm, label, build))
+    legs = _tube_legs(arm, label, build)
+    real_skills.gripper(arm, TUBE_OPEN, hold_s=0.0)  # opening while the arm moves over the tube, not after it gets there
+    why, _ = _run(arm, label, *legs)
     try:  # where the jaws stopped and the limit they had, to tell a weak grip from a refused overdrive
         jaws = (f"; gripper at {arm.bus.read('Present_Position', 'gripper', normalize=False)}, limit "
                 f"{arm.bus.read('Min_Position_Limit', 'gripper', normalize=False)}, closed {arm.bus.calibration['gripper'].range_min}")

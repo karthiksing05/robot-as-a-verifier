@@ -33,7 +33,7 @@ FLIP_BEHIND, FLIP_ON = 0.015, 0.003  # 6 mm back still came down on the lever ti
 FLIP_ON_UP, FLIP_UP_LIFT = 0.025, 0.004  # 15 mm on still left POWER short of going over in the demo run (Nov 8)
 # the push starts this high over the panel (up, down), whatever height the scan put the switch's base at: from a base
 # read 14.9 mm up, 21 and 17 mm flipped 4 of 4; from one read 0.8 mm up the push ran 7 mm up and caught the lips
-FLIP_PUSH_H = (0.021, 0.017)
+FLIP_PUSH_H = (0.019, 0.015)  # 2 mm lower than these runs' 21/17, further into the board (Nov 8)
 
 
 def slope_swing(p):
