@@ -43,7 +43,8 @@ class RealBackend(PipelineRobot):
     touches = False  # the touch-offs and part touches never ran on a real panel: the scan's plane and heights are used
 
     def __init__(self, arm_port: str, calibration: str, refine: bool = True, single_look: bool = False,
-                 readout_port: str | None = None, readout_device: str | None = None, readout_url: str | None = None):
+                 readout_port: str | None = None, readout_device: str | None = None, readout_url: str | None = None,
+                 load_scan: str | None = None):
         on_path(CORE_DIR, HARDWARE_DIR)
         import hw_rig
 
@@ -56,6 +57,7 @@ class RealBackend(PipelineRobot):
             hw_rig.touch.TWO_VIEW = None
         super().__init__(rig, refine=refine, plan_id="rules-real")
         self.rest, self.closing, self.stage = None, threading.Lock(), "idle"
+        self.load_scan = load_scan  # the first explore takes this saved scan (LAST_SCAN) instead of moving the arm
         threading.Thread(target=load_models, daemon=True).start()  # while the operator checks the arm, not mid-scan
         if hasattr(getattr(rig.wrist, "grab", None), "read"):  # the real camera's stream (not the sim's, nor a test's)
             from . import live_view
@@ -68,6 +70,18 @@ class RealBackend(PipelineRobot):
         self.rest = self.arm.read_q()
 
     def perceive(self):
+        if self.load_scan:
+            import pipeline
+
+            path, self.load_scan = self.load_scan, None
+            with open(path, "rb") as f:
+                saved = pickle.load(f)
+            print(f"  scan: loaded from {path}, the arm doesn't move", flush=True)
+            scan, pipeline.scan_device = pipeline.scan_device, lambda *a, **k: saved
+            try:
+                return self.perceive()
+            finally:
+                pipeline.scan_device = scan
         t0, telemetry = time.monotonic(), getattr(self, "on_stage", None)
 
         def on_stage(name, scene=None):  # each stage of the scan in this terminal, as it starts
