@@ -22,7 +22,8 @@ import skills
 # (each view's partner photo is only 15 mm over, too short a baseline for the red tube's loop: lift in and out adds 40)
 # With the rack moved ~6 cm nearer (Nov 8 9:53), the raised wrist put it at the photos' bottom edge behind the jaw: the
 # wrist now tips down 0.2 instead (at 0.05 the near, green tube was still at the bottom edge)
-FIND_DQ = [(p, 0.0, 0.0, 0.2, 0.0) for p in (0.25, 0.4, 0.55)] + [(0.4, d, 0.0, 0.2, 0.0) for d in (-0.15, 0.15)]
+# the rack sat at the photos' bottom edge and out of the 0.25 pan's (13:12 run): further round and lower (Nov 8)
+FIND_DQ = [(p, 0.0, 0.0, 0.31, 0.0) for p in (0.4, 0.55, 0.7)] + [(0.55, d, 0.0, 0.31, 0.0) for d in (-0.15, 0.15)]  # 0.31: the wrist's limit is 18 deg past home
 # OpenCV HSV ranges (hue 0-180). The near tube's collar ring is teal-green; the far one's is red (pinkish in the
 # camera). STOP's cap is red too: the blob whose ray passes nearest the others' point wins
 COLOURS = {"green": [((70, 90, 50), (100, 255, 255))],
