@@ -40,7 +40,7 @@ CLOSE_TO = 78.0                       # deg: drawn back to here, past vertical (
 FALL_S = 3.0
 # the tube: jaws open around its 18 mm collar, down straight, shut, lift clear of the rack
 TUBE_GRIP_DOWN = 0.003                # the grip centre below the collar top: the middle of its 6 mm
-TUBE_OPEN = 0.3                       # about 30 mm between the jaws (real_skills.GAP_PER_OPEN)
+TUBE_OPEN = 0.2                       # 0.3 opened far wider than the red collar on the real arm (Nov 8)
 TUBE_HELD_X = 0.012                   # held, the tube's axis this far from the fixed jaw's tip (3 mm to its face + 9)
 # the tool this far below level (deg), steepest first that reaches (manipulate.GRIP_TILTS): straight down only
 # reaches about 290 mm out. It tilts in the upright plane through the pan axis, the jaws closing level across it
@@ -262,7 +262,7 @@ def pick_tube(arm, collar_top):
     def build(tilt):
         tip, a, q = _jaws_at(arm, collar_top - TUBE_GRIP_DOWN * up, TUBE_OPEN * real_skills.GAP_PER_OPEN / 2, tilt)
         return [("open the jaws", TUBE_OPEN),
-                _line("down", tip + ABOVE * up, tip, a, guard="stop"),
+                _line("down", tip + ABOVE * up, tip, a),  # unguarded: the stall check stopped it in mid-air (Nov 8)
                 ("shut", 0.0),
                 _line("lift", tip, tip + LIFT * up, a)], q
     why, _ = _run(arm, label, *_tube_legs(arm, label, build))
