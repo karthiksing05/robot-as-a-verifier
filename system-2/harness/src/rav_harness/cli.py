@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import pathlib
 import shutil
@@ -157,10 +158,21 @@ def run(args) -> None:
         real = not robot_may_auto_approve(system1.system_status().robot)
         log = RunLog(run_id, args.runs, on_event=_show_steps if real else None)
         policy, respond = _survey_review(args, system1, log)
-        _print(run_test(system1, request, log, planner=_only(args.only), approve=_person_here if real else auto_approve,
-                        policy=policy, respond=respond))
+        try:
+            _print(run_test(system1, request, log, planner=_only(args.only), approve=_person_here if real else auto_approve,
+                            policy=policy, respond=respond))
+        finally:
+            _save_frames(system1, system1.scene_get().scene.frames, log.dir / "frames")
     finally:
         system1.close()
+
+
+def _save_frames(system1, refs, folder) -> None:
+    """The scan's photos (the labelled panel map, then its views) as JPEGs, to look at after the run."""
+    folder.mkdir(parents=True, exist_ok=True)
+    for ref in refs:
+        (folder / f"{ref.replace(':', '_')}.jpg").write_bytes(base64.b64decode(system1.evidence_frame(ref).data_b64))
+    print(f"  photos in {folder.resolve()}")
 
 
 def explore(args) -> None:
@@ -168,6 +180,7 @@ def explore(args) -> None:
     try:
         log = RunLog(args.id or f"explore-{int(time.time())}", args.runs)
         scene, plan = explore_command(system1, log, *_survey_review(args, system1, log))
+        _save_frames(system1, scene.frames, log.dir / "frames")
     finally:
         system1.close()
     for c in scene.controls:

@@ -5,6 +5,7 @@ rested when torque went on, then turns torque off, unless Ctrl+C already stopped
 from __future__ import annotations
 
 import threading
+import time
 from dataclasses import replace
 
 from .sim_backend import CORE_DIR, HARDWARE_DIR, PipelineRobot, on_path
@@ -15,6 +16,15 @@ def shifted(p, shift):
     T = p.T.copy()
     T[:3, 3] += shift - (shift @ p.normal) * p.normal
     return replace(p, T=T)
+
+
+def load_models():
+    """OWLv2 and SAM, which the scan loads on first use (segmodels caches them)."""
+    import segmodels
+
+    t0 = time.monotonic()
+    segmodels.owl(), segmodels.sam_boxes()
+    print(f"OWLv2 and SAM loaded on {segmodels.DEVICE} in {time.monotonic() - t0:.0f} s", flush=True)
 
 
 class RealBackend(PipelineRobot):
@@ -31,6 +41,7 @@ class RealBackend(PipelineRobot):
         rig = hw_rig.make_rig(arm_port, calibration, readout_port=readout_port)
         super().__init__(rig, refine=refine, plan_id="rules-real")
         self.rest, self.closing = None, threading.Lock()
+        threading.Thread(target=load_models, daemon=True).start()  # while the operator checks the arm, not mid-scan
 
     def enable(self) -> None:
         """Torque on, holding where the arm rests now, which close() comes back to."""
@@ -38,7 +49,19 @@ class RealBackend(PipelineRobot):
         self.rest = self.arm.read_q()
 
     def perceive(self):
-        super().perceive()
+        t0, telemetry = time.monotonic(), getattr(self, "on_stage", None)
+
+        def on_stage(name, scene=None):  # each stage of the scan in this terminal, as it starts
+            print(f"  scan {time.monotonic() - t0:5.1f} s: {name}", flush=True)
+            if telemetry:
+                telemetry(name, scene)
+        self.on_stage = on_stage
+        try:
+            super().perceive()
+        finally:
+            self.on_stage = telemetry
+        print(f"  scan {time.monotonic() - t0:5.1f} s: done, {len(self.parts)} parts: "
+              + ", ".join(f"{p.id} ({p.kind})" for p in self.parts), flush=True)
         shift = getattr(self.arm, "part_shift", None)
         if shift is not None:  # as tools/press_part.py: the scan's parts and each last look's answer
             self.parts = [shifted(p, shift) for p in self.parts]

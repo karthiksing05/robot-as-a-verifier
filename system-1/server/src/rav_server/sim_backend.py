@@ -138,6 +138,9 @@ class PipelineRobot:
     Everything here runs on the engine's worker thread, except frame(), which only reads what's already encoded."""
 
     touches = True  # the RGB route touches the panel and some parts after the scan
+    # System 2's panel pick at a survey_review stop is noted, not used: on Nov 8 it agreed with a wrong pick on the sim
+    # centrifuge, and on the real one it moved the scan to a surface where it found nothing
+    take_panel = False
 
     def __init__(self, rig, depth: bool = False, refine: bool = True, plan_id: str = "rules"):
         on_path(CORE_DIR)
@@ -285,11 +288,12 @@ class PipelineRobot:
         if answer is None:
             return
         if answer.panel is not None and answer.panel - 1 != picked:
-            if 1 <= answer.panel <= len(cands):
+            if self.take_panel and 1 <= answer.panel <= len(cands):
                 rgbperceive.use_panel(survey, answer.panel - 1)
                 self.notes.append(f"System 2 picked surface {answer.panel} as the panel over the survey's {picked + 1}")
             else:
-                self.notes.append(f"System 2 picked surface {answer.panel}, which the survey doesn't have: kept {picked + 1}")
+                self.notes.append(f"System 2 would pick surface {answer.panel} as the panel; the scan keeps the survey's "
+                                  f"{picked + 1}")
         self.expected, self.also_look = answer.expect, answer.also_look
 
     def _registered(self, before: list) -> None:
