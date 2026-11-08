@@ -21,7 +21,7 @@ const VERDICT_WORD: Record<string, string> = { passed: "Passed", failed: "Failed
 export interface Picked { title: string; verdict?: StepVerdict; trace?: StepTrace; limit?: number }
 
 /** One model run: what it's thinking and doing, on the left; the robot and the plan, on the right. Live and replay are this same view. */
-export function AgentRun({ state, send, bar, sim = true, over = false }: { state: AgentState; send?: Send; bar?: ReactNode; sim?: boolean; over?: boolean }) {
+export function AgentRun({ state, send, bar, sim = true, over = false, real = false }: { state: AgentState; send?: Send; bar?: ReactNode; sim?: boolean; over?: boolean; real?: boolean }) {
   const run = useMemo(() => runOf(state), [state.events]); // eslint-disable-line react-hooks/exhaustive-deps
   const items = useMemo(() => timelineOf(state), [state.events, state.deltas]); // eslint-disable-line react-hooks/exhaustive-deps
   const line = stateLine(state);
@@ -53,7 +53,7 @@ export function AgentRun({ state, send, bar, sim = true, over = false }: { state
           {send && !finished && <Composer events={state.events} send={send} />}
         </section>
         <aside className="agentside">
-          {telemetry ? <Feeds runId={state.meta?.run_id ?? null} url={telemetry} feeds={state.tel?.feeds ?? []} stage={state.tel?.stage} computing={false}
+          {telemetry ? <Feeds runId={state.meta?.run_id ?? null} url={telemetry} feeds={state.tel?.feeds ?? []} stage={state.tel?.stage} computing={false} real={real}
             focus={{ target: active?.step.target ?? null, label: active ? `${active.step.target} / ${active.step.skill}` : null, verdict: last?.verdict ? `${last.step.id}:${last.verdict.status}` : null, force: state.tel?.probe_n ?? 0, limit: Number(active?.step.params.force_limit) || 6, lcd: state.tel?.lcd ?? [] }} />
             : <div className="agentnosim note">No sim recording in this run</div>}
           <PlanPanel run={run} send={finished ? undefined : send} onOpen={openStep} finished={finished} />

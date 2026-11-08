@@ -43,7 +43,7 @@ export function AgentLive({ route, health, real = false }: { route: Route; healt
       )}
       {error && <p className="error" role="alert">{error}</p>}
       {!state.meta && state.events.filter((e) => e.type === "message").map((e) => <p key={e.t} className="error" role="alert">{e.payload.text}</p>)}
-      {state.meta && <AgentRun key={state.meta.run_id} state={state} send={send} over={!going} />}
+      {state.meta && <AgentRun key={state.meta.run_id} state={state} send={send} over={!going} real={real} />}
     </div>
   );
 }

@@ -346,6 +346,13 @@ class Telemetry:
             self.views[name] = (now + 1 / PANEL_FPS, img)
         return img
 
+    def add_feed(self, name: str) -> Callable[[Any], None]:
+        """A feed drawn elsewhere, as the real rig's live window: the call returned puts a BGR frame on /feed/<name>,
+        and costs nothing with nobody watching."""
+        if name not in self.feeds:
+            self.feeds.append(name)
+        return lambda img: self.publish_frame(name, img) if self.watching.get(name) else None
+
     def publish_frame(self, feed: str, img: Any) -> None:
         import cv2
 
