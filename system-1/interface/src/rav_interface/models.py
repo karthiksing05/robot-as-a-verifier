@@ -53,7 +53,7 @@ class Control(Contract):
     grip: Literal["tip", "pinch"] = "tip"
     label: str | None = None
     conf: float = 1.0
-    source: Literal["scan", "cad", "manual", "mock"] = "scan"
+    source: Literal["scan", "cad", "manual", "model", "mock"] = "scan"  # model: added at a scan_review (Decision.missed)
     # what a plan needs to write a valid step, where the robot knows it. None: not known, or not this kind of control
     position: float | None = None  # slider: 0 to 1 along its travel
     travel_mm: float | None = None  # slider: full travel
