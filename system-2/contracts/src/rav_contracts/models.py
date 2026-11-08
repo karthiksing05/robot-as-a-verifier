@@ -92,7 +92,7 @@ class CadSource(Contract):
 
 class CadEdit(Contract):
     """One thing the analyst did to the model, for people to read. The model's state is the source's microversion."""
-    op: Literal["variable", "update_feature", "add_feature", "delete_feature"]
+    op: Literal["variable", "update_feature", "add_feature", "delete_feature", "write_part", "reset_part"]
     target: str                    # a variable name or feature id
     summary: str
 

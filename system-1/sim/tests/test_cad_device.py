@@ -94,7 +94,7 @@ def test_rev_a_lid_is_refused_for_its_pinch_fin(mods):
     assert r["verdict"] == "REFUSED" and "pinch" in r["reason"]
 
 
-@pytest.mark.parametrize("rev, seated", [("F2=B,F3=B", True), ("F2=B,F3=A", False)])
+@pytest.mark.parametrize("rev, seated", [("F1=B,F2=B,F3=B", True), ("F1=B,F2=B,F3=A", False)])
 def test_well_a_insert_decides_whether_the_tube_seats(mods, rev, seated):
     """F3 is contact physics: the tube's taper against the insert's bore, not a flag."""
     import mujoco
@@ -111,7 +111,7 @@ def test_well_a_insert_decides_whether_the_tube_seats(mods, rev, seated):
     for _ in range(1500):
         mujoco.mj_step(m, d)
         rig.arm.app.update(m, d)
-    assert rig.arm.app.readings["tube_raw_1"] == int(seated)  # the light under well A; the firmware judges it only in READY
+    assert rig.arm.app.readings["tube"] == int(seated)
 
 
 def test_hook_pull_opens_and_closes_the_lid(mods):

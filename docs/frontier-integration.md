@@ -237,7 +237,7 @@ Each one ends with something that runs. Sizes are relative: S, M or L.
 **Biggest risks:**
 - Getting arbitrary CAD into a working sim, with perception to match. That's the least-known part until the CADs arrive.
 - API capacity. The probe has already hit 429, 503 and an 85 s turn, so the demo can't depend on one model being available.
-- Real-arm differences stay out of scope here, but every contract added has to work with a real arm. `HANDOFF.md` lists what `--robot real` still needs.
+- Real-arm differences stay out of scope here, but every contract added has to work with a real arm. The [server README](../system-1/server/README.md) lists what `--robot real` still needs.
 
 ## Decisions needed
 

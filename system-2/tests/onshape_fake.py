@@ -51,6 +51,9 @@ class FakeOnshape:
         self.calls.append(("create_branch", version_id))
         return {"id": ws}
 
+    def current_microversion(self, did, workspace_id):
+        return f"mv{workspace_id[-4:]}-{self.mv.get(workspace_id, 0)}"
+
     def get_features(self, ref, **params):
         edits = self._edits(ref)
         feats = []

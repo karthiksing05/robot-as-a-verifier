@@ -819,11 +819,14 @@ def _flip_plan(arm, p, parts):
     lean = math.atan2(v @ x, v @ n)
     h = 0.75 * p.meta["lever_len"] * math.cos(lean) - r * math.sin(lean)  # the lever's +x side, 3/4 of the way up
     side = lambda tilt: h * math.tan(tilt) + r / math.cos(tilt)  # where that side is at height h
+    # (Joseph, #4) the let-go checks wait until the pad is past the lever's centre; the scanned lean can be 4-5 deg short, which
+    # armed them before centre on 1654 and the lever pushed the pad back from 4 deg short of it, so wait until half
+    # of FLIP_PAST beyond. Applies to the probe's pad and the stock gripper's jaw alike
     until = side(lean) - side(-FLIP_PAST)
     if not _jaws(arm):
         plan = _sideways(arm, p.pos + side(lean) * x, n, -x, 0.0, h, v @ n + r, until, "lever",
                          obstacles=_obstacles(p, parts, p.size[2] - v @ n - r))
-        return plan if isinstance(plan, str) else replace(plan, centre=side(lean) - side(0.0))
+        return plan if isinstance(plan, str) else replace(plan, centre=side(lean) - side(-FLIP_PAST / 2))
     # the stock gripper: the jaws open along the throw with the lever between them, and either jaw's inner face pushes,
     # whichever the wrist can roll to face the push. The push runs JAW_SLACK further, as the arm's own error along the
     # throw (up to 6 mm at the test devices' panels) is unseen with servo sensing: a lever already over is held at its
@@ -838,7 +841,7 @@ def _flip_plan(arm, p, parts):
             plan = _sideways(arm, p.pos + side(lean) * x, n, -x, 0.0, h, v @ n + r, until + JAW_SLACK, "lever",
                              obstacles=_obstacles(p, parts, p.size[2] - v @ n - r), seed=seed, jaw=jaw, opening=opening)
             if not isinstance(plan, str):
-                return replace(plan, centre=side(lean) - side(0.0))
+                return replace(plan, centre=side(lean) - side(-FLIP_PAST / 2))
     return plan
 
 
@@ -1529,13 +1532,17 @@ def run_step(arm, parts, step, known=None, refine=None):
                 result["landing_n"] = round(float(g["landing"]), 2)
             if skill == "turn" and plan.radius and g.get("turned") is not None:
                 result["turned_deg"] = round(math.degrees(g["turned"]), 1)
-            # steps a counting reading moved, signed by the way its first change went (the way the push went)
+            # steps a counting reading moved, signed by the way its first change went (the way the push went). A
+            # channel with no value before (an operator's first answer for it) has no count
             counted = ((seq[ch][-1] - seq[ch][0]) * math.copysign(1, seq[ch][1] - seq[ch][0])
-                       if ch and isinstance(seq[ch][-1], int) else None)
+                       if ch and isinstance(seq[ch][0], int) and isinstance(seq[ch][-1], int) else None)
             if app.readings != before and verdict != "MISSED":
                 parts[i] = _moved(p, skill, params, g, plan, counted)
     except SafetyStop as e:
-        seq, _ = _changes(app, before, n_events)
+        try:
+            seq, _ = _changes(app, before, n_events)
+        except SafetyStop:  # the readout itself is what stopped (an unplugged Pico): back off without it
+            seq = {}
         result.update(verdict="ABORTED", reason=f"safety stop: {e}", readout_change=seq)
         trace = arm.force_log[log0:]
         arm.tare(False)

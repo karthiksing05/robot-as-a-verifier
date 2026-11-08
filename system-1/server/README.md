@@ -12,14 +12,15 @@ What System 2 talks to. It runs routines on a robot and reports [stops](../../do
 | [`telemetry.py`](src/rav_server/telemetry.py) | What people watch, on its own port: the scene, poses, cameras, force and stage. It also paces a run with `--speed`, and records it with `--record-dir` |
 | [`actions.py`](src/rav_server/actions.py) | The skills on offer, as `system_status` publishes them. `tests/test_actions.py` holds the table to the pipeline |
 | [`unreliable.py`](src/rav_server/unreliable.py) | Sim only: the arm and world misbehaving at random, to test a caller's recovery |
+| [`real_backend.py`](src/rav_server/real_backend.py) | `RealBackend`: `PipelineRobot` on the real SO-101 and wrist camera (`hw_rig.make_rig`), RGB route only |
 | [`mock_robot.py`](src/rav_server/mock_robot.py) | A scripted `Robot` for tests |
 
-**Add the real arm** as a `PipelineRobot` over `hw_rig.make_rig(...)` (`system-1/hardware`), and add it to `make_robot` in `main.py`. `--port` is already the HTTP port, so the serial port needs its own flag, such as `--arm-port`. Nothing else here should need to change.
+**The real arm:** `rav-server --robot real --arm-port COM5 --calibration <lerobot-calibrate's file>` builds the rig once at startup with torque off, then asks at the terminal before turning torque on (`--enable-torque` skips the question). The operator answers what each test step did at the same terminal. Ctrl+C stops the arm where it is, then turns torque off as the server stops. It has only run against the fake bus (`tests/test_real_backend.py`).
 
 Before a real arm is useful it needs:
 
-- A streaming device readout instead of `OperatorReadout`. That one asks the operator once a step ends, but `affordances` reads `arm.app.readings` during a slide or turn.
-- A hand-eye calibration, the camera's mount offset on the gripper. Every part the scan finds is shifted by it, so presses land off centre. The plane sweep doesn't need it: an offset shared by every photo cancels out, and the bundle adjustment corrects each photo's own error from the joints.
+- The appliance's Pico firmware. `hardware/pico_readout.py` streams its readings (`make_rig(..., readout_port=...)`), which `affordances` reads during a slide or turn, but it has only run against a stand-in. `RealBackend` still uses `OperatorReadout`, which asks the operator once a step ends.
+- A hand-eye calibration, the camera's mount offset on the gripper. Every part the scan finds is shifted by it. The last look before a step re-places buttons and doors, but toggles, sliders and dials are tested where the scan put them. The plane sweep doesn't need it: an offset shared by every photo cancels out, and the bundle adjustment corrects each photo's own error from the joints.
 - The bench numbers on [the real-arm page](../sim/docs/real-arm.md): servo stiffness and bus timing.
 
 **Escalation code not wired up yet:** `unknown_control` is named in the interface, but nothing raises it, because the pipeline doesn't report parts it couldn't classify.

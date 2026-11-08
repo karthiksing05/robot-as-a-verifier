@@ -426,52 +426,87 @@ tested is never changed. Work like an engineer at a CAD station:
    part_size to measure what the evidence points at; render to look.
 2. Make the smallest change that removes the root cause: update_feature, set_variable, or add_feature and
    delete_feature when a parameter can't express the fix. Change parts of the failing control only, and only parts
-   it may reprint; never the body.
+   it may reprint; never the body. Imported parts have no feature history: change them with features that act on
+   their faces (for example Onshape's move-face offset, or an extrude that adds or removes material), selecting
+   faces by the ids list_faces gives. get_features shows how existing features are written.
 3. check() runs the robot's checks on your branch. Read its reasons, fix, and check again until it passes.
 4. submit_fix with your root cause, confidence, hypotheses, evidence and what the retest should measure. If no CAD
    change can fix the finding (perception, the arm, wiring, firmware), submit_fix with no_cad_fix=true instead.
 Finish with submit_fix; there is no other answer."""
 
 
-def onshape_command(binary: str, mcp_config: str, model: str, effort: str, budget_usd: float | None) -> list[str]:
-    """Headless Claude Code with only the rav-cad tools: no built-in tools, no other MCP servers."""
+SYSTEM_LOCAL = SYSTEM.replace("The parameter must be one listed in the prompt. Change one parameter, within the limits.", "") + """
+You fix the product yourself by writing CadQuery code, with the rav-cad-local tools, in a workspace of your own: the
+revision the robot tested is never changed. Work like an engineer at a CAD station:
+1. list_controls to find the failing control's parts and which you may reprint; get_part and list_faces to see a
+   part's shape (faces with their planes, cylinders and boxes); measure_gap and part_size to measure what the
+   evidence points at; render to look.
+2. Make the smallest change that removes the root cause with write_part: CadQuery code that sets `result` to the
+   new solid for one reprintable part. Start from `old` (the part as it is, in the assembly frame) and change only
+   what the fix needs: cut a wider bore, fuse a hook or lip, trim an edge. Place new geometry from the faces and
+   boxes you measured. Change parts of the failing control only, never the body. If the code fails, read the error
+   and fix the code.
+3. check() runs the robot's checks on your workspace. Read its reasons, fix, and check again until it passes.
+4. submit_fix with your root cause, confidence, hypotheses, evidence and what the retest should measure. If no CAD
+   change can fix the finding (perception, the arm, wiring, firmware), submit_fix with no_cad_fix=true instead.
+Finish with submit_fix; there is no other answer."""
+
+
+def cad_command(binary: str, mcp_config: str, model: str, effort: str, budget_usd: float | None,
+                server: str = "rav-cad", system: str = SYSTEM_ONSHAPE) -> list[str]:
+    """Headless Claude Code with only one CAD server's tools: no built-in tools, no other MCP servers."""
     cmd = [binary, "-p", "--output-format", "json", "--mcp-config", mcp_config, "--strict-mcp-config",
-           "--allowedTools", "mcp__rav-cad__*", "--tools", "", "--system-prompt", SYSTEM_ONSHAPE, "--model", model,
+           "--allowedTools", f"mcp__{server}", "--tools", "", "--system-prompt", system, "--model", model,
            "--effort", effort, "--no-session-persistence", "--disable-slash-commands"]
     return cmd + (["--max-budget-usd", f"{budget_usd:g}"] if budget_usd else [])
 
 
-def make_onshape_analyst(backend: Any, tags_path: str | pathlib.Path, run: Runner | None = None, model: str = MODEL,
-                         effort: str = "high", timeout_s: float = 900.0, budget_usd: float | None = 5.0,
-                         binary: str | None = None, python: str = sys.executable) -> Analyst:
-    """An analyst that fixes each finding in Onshape. `backend` is the OnshapeBackend the harness checks and applies
-    with; `tags_path` is the product's onshape.yaml, which the MCP server process loads too."""
+def onshape_command(binary: str, mcp_config: str, model: str, effort: str, budget_usd: float | None) -> list[str]:
+    return cad_command(binary, mcp_config, model, effort, budget_usd)
+
+
+def make_cad_analyst(backend: Any, tags_path: str | pathlib.Path, *, server: str, module: str, system: str,
+                     open_ws: Callable[[Any, pathlib.Path], str], extra_args: Callable[[pathlib.Path], list[str]] | None = None,
+                     run: Runner | None = None, model: str = MODEL, effort: str = "high", timeout_s: float = 900.0,
+                     budget_usd: float | None = 5.0, binary: str | None = None, python: str = sys.executable) -> Analyst:
+    """An analyst that fixes each finding itself with one CAD MCP server (`module`, named `server`), on a branch or
+    workspace of its own made by `open_ws(finding, out_dir)`. `backend` is what the harness checks and applies with;
+    `tags_path` is the product's tag file, which the server process loads too."""
     tags_path = str(pathlib.Path(tags_path).resolve())
 
-    def onshape_analyst(ctx: AnalystContext) -> tuple[RootCause, CADPatch | None]:
+    def cad_analyst(ctx: AnalystContext) -> tuple[RootCause, CADPatch | None]:
         exe = binary or os.environ.get("RAV_CLAUDE_BIN") or shutil.which("claude")
         if run is None and not exe:
             return _fallback_none(ctx, model, "api_error", "the claude CLI isn't on PATH (install Claude Code, or set RAV_CLAUDE_BIN)")
         f = ctx.finding
-        try:
-            ws = backend.open_branch(f"fix {f.id} {f.target}", f"Analyst branch for finding {f.id}: {f.what_happened}")
-        except Exception as e:  # noqa: BLE001 - no network, no keys, no access: a person takes it from here
-            return _fallback_none(ctx, model, "api_error", f"couldn't open an Onshape branch: {type(e).__name__}: {e}")
         base = ctx.tracer.log.dir if ctx.tracer else pathlib.Path(tempfile.mkdtemp())
-        out = pathlib.Path(base) / "cad" / f.id
+        out = (pathlib.Path(base) / "cad" / f.id).resolve()      # absolute: claude runs from another folder
         out.mkdir(parents=True, exist_ok=True)
+        try:
+            ws = open_ws(f, out)
+        except Exception as e:  # noqa: BLE001 - no network, no keys, no access: a person takes it from here
+            return _fallback_none(ctx, model, "api_error", f"couldn't open a branch to work on: {type(e).__name__}: {e}")
         config = out / "mcp.json"
-        config.write_text(json.dumps({"mcpServers": {"rav-cad": {"command": python, "args": [
-            "-m", "rav_cad.onshape.mcp_server", "--tags", tags_path, "--workspace", ws, "--out", str(out),
-            "--target", f.target, "--verify", *f.step_ids]}}}, indent=2))
-        cmd = onshape_command(exe or "claude", str(config), model, effort, budget_usd)
-        prompt = build_prompt(ctx) + "\n\nYour branch: " + backend.url(ws)
+        config.write_text(json.dumps({"mcpServers": {server: {"command": python, "args": [
+            "-m", module, "--tags", tags_path, "--workspace", ws, "--out", str(out), "--target", f.target,
+            *(extra_args(out) if extra_args else []), "--verify", *f.step_ids],
+            "env": {"PYTHONPATH": _package_paths()}}}}, indent=2))
+        cmd = cad_command(exe or "claude", str(config), model, effort, budget_usd, server=server, system=system)
+        try:          # the failing control's parts and faces up front, so the model needn't spend calls finding them
+            facts = backend.describe(f.target) if hasattr(backend, "describe") and not os.environ.get("RAV_NO_FACTS") else ""
+        except Exception:  # noqa: BLE001 - the tools can still find all of this; it's only a head start
+            facts = ""
+        prompt = (build_prompt(ctx) + ("\n\nThe failing control in the CAD, measured on the tested version (your branch "
+                                       "starts identical; face ids work on it):\n" + facts if facts else "")
+                  + "\n\nYour branch: " + backend.url(ws))
 
         start = time.monotonic()
+        (out / "prompt.txt").write_text(prompt)          # what the model was given, kept even if the session hangs
+        limit = float(os.environ.get("RAV_ANALYST_TIMEOUT_S") or timeout_s)
         try:
-            proc = (run or _run_claude)(cmd, prompt, timeout_s)
+            proc = (run or _run_claude)(cmd, prompt, limit)
         except subprocess.TimeoutExpired:
-            return _fallback_none(ctx, model, "timeout", f"the CAD session gave no answer in {timeout_s:g} s")
+            return _fallback_none(ctx, model, "timeout", f"the CAD session gave no answer in {limit:g} s")
         except OSError as e:
             return _fallback_none(ctx, model, "api_error", f"couldn't start claude: {e}")
         try:
@@ -497,7 +532,40 @@ def make_onshape_analyst(backend: Any, tags_path: str | pathlib.Path, run: Runne
         patch = CADPatch(**result["patch"]) if result.get("patch") else None
         return cause, patch
 
-    return onshape_analyst
+    return cad_analyst
+
+
+def make_onshape_analyst(backend: Any, tags_path: str | pathlib.Path, **kw: Any) -> Analyst:
+    """Fixes each finding in Onshape, on a branch of the tested version (rav-cad tools)."""
+    return make_cad_analyst(
+        backend, tags_path, server="rav-cad", module="rav_cad.onshape.mcp_server", system=SYSTEM_ONSHAPE,
+        open_ws=lambda f, out: backend.open_branch(f"fix {f.id} {f.target}", f"Analyst branch for finding {f.id}: {f.what_happened}"),
+        **kw)
+
+
+def make_local_analyst(backend: Any, tags_path: str | pathlib.Path, **kw: Any) -> Analyst:
+    """Fixes each finding offline by writing CadQuery for new parts, in a local workspace (rav-cad-local tools).
+    `backend` is a LocalCadBackend; its parametric sources, if any, are handed to the server as references."""
+    def extra(out: pathlib.Path) -> list[str]:
+        if not getattr(backend, "sources", None):
+            return []
+        path = out / "sources.json"
+        path.write_text(json.dumps(backend.sources))
+        return ["--sources", str(path)]
+    return make_cad_analyst(
+        backend, tags_path, server="rav-cad-local", module="rav_cad.local.mcp_server", system=SYSTEM_LOCAL,
+        open_ws=lambda f, out: backend.open_branch("workspace", root=out), extra_args=extra, **kw)
+
+
+def _package_paths() -> str:
+    """Where our packages live, so the CAD server's own Python process finds them whatever its site setup does."""
+    import importlib.util
+    roots = []
+    for name in ("rav_cad", "rav_contracts", "rav_interface", "rav_harness"):
+        spec = importlib.util.find_spec(name)
+        if spec and spec.origin:
+            roots.append(str(pathlib.Path(spec.origin).resolve().parents[1]))
+    return os.pathsep.join(dict.fromkeys(roots))
 
 
 def _fallback_none(ctx: AnalystContext, model: str, kind: str, why: str) -> tuple[RootCause, None]:

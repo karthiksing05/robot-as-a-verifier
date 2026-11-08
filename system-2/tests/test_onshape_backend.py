@@ -20,7 +20,7 @@ def tag_file(tmp_path_factory):
 @pytest.fixture
 def onshape(tag_file, tmp_path):
     fake = FakeOnshape()
-    return fake, OnshapeBackend(tag_file, client=fake, out_dir=tmp_path / "out")
+    return fake, OnshapeBackend(tag_file, client=fake, out_dir=tmp_path / "out", cache_dir=tmp_path / "cache")
 
 
 def patch_for(backend, ws, **kw):

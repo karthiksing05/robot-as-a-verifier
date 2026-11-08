@@ -29,6 +29,7 @@ from .settings import OnshapeSettings, load_settings
 
 API_VERSION = "v12"
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+MAX_RETRY_WAIT_S = 60.0      # a longer Retry-After means the quota is gone: fail with a clear error instead of sleeping
 REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 MM_PER_M = 1000.0
 # Onshape names only top/bottom/front/back/left/right; this is its documented approximate isometric matrix.
@@ -135,6 +136,14 @@ class OnshapeError(RuntimeError):
 
 class TranslationFailed(OnshapeError):
     pass
+
+
+class RateLimited(OnshapeError):
+    """Onshape asked us to wait longer than we're willing to (its API quota for an endpoint is used up)."""
+
+    def __init__(self, message: str, status: int | None = None, body: str | None = None, retry_after_s: float = 0.0):
+        super().__init__(message, status, body)
+        self.retry_after_s = retry_after_s
 
 
 def make_nonce(n: int = 25) -> str:
@@ -322,7 +331,13 @@ class OnshapeClient:
                 self.recorder.record(request, response, label)
             if response.status_code not in RETRY_STATUSES or attempt >= self.max_retries:
                 return response
-            self._sleep(_retry_after(response) or self.backoff * 2 ** attempt)
+            wait = _retry_after(response) or self.backoff * 2 ** attempt
+            if wait > MAX_RETRY_WAIT_S:
+                # Onshape's quota is used up for this endpoint: say so now instead of sleeping for hours
+                raise RateLimited(f"Onshape rate limit on {label or url.path}: retry after {wait / 3600:.1f} h "
+                                  f"({int(wait)} s). The quota resets then; other endpoints may still work.",
+                                  response.status_code, response.text[:500], wait)
+            self._sleep(wait)
             attempt += 1
 
     def get_json(self, path: str, **kw: Any) -> Any:
@@ -350,6 +365,10 @@ class OnshapeClient:
         return self.post_json(f"documents/d/{did}/workspaces",
                               {"name": name, "description": description, "versionId": version_id},
                               label="create_branch")
+
+    def current_microversion(self, did: str, workspace_id: str) -> str:
+        """The workspace's current microversion: a cheap call that changes whenever anything in the workspace does."""
+        return self.get_json(f"documents/d/{did}/w/{workspace_id}/currentmicroversion", label="current_microversion")["microversion"]
 
     def list_elements(self, ref: DocRef, element_type: str | None = None) -> list[dict]:
         """Tabs of a document; element_type e.g. PARTSTUDIO, ASSEMBLY, VARIABLESTUDIO."""
