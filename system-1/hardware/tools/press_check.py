@@ -24,7 +24,8 @@ from rig import CONTROL_HZ, SafetyStop  # noqa: E402
 SPEED = 0.015       # m/s along the press: free-air tracking was clean at 20 mm/s and stick-slipped at 2
 STALL_M = 0.004     # lag growth past the free-air baseline that counts as pressed (free air: up to 2 mm at 20 mm/s)
 BASELINE_S = 0.5    # moving this long first, so the start-up lag is over before the baseline is taken
-START_M = 0.06      # start this far over the limp surface reading, along the press (that reading is 1.5-2.5 cm low)
+START_M = 0.06      # start this far over the limp surface reading (that reading is 1.5-2.5 cm low)
+UP = np.array([0.0, 0.0, 1.0])  # presses move straight down, with the gripper leaning TILT for reach: no sideways push to slip
 SPOTS_M = [(0, 0), (0.04, 0), (-0.04, 0), (0, 0.04), (0, -0.04), (0, 0)]
 
 
@@ -61,11 +62,11 @@ def main(argv=None, bus=None, ask=input):
         ask("Lift the arm about 10 cm and tip the gripper forward a little. Hold it and press Enter: ")
         arm.tick()  # read_q() is the last tick's reading: this one is the lifted pose, not the surface
         floor = arm.workspace[2][0] + 0.002
-        depth = min(START_M, (mid[2] + START_M * N[2] - floor) / N[2])  # ends at the limp reading: a missed stall stays under ~12 N  # never aim below the workspace floor
+        depth = min(START_M, mid[2] + START_M - floor)  # ends at the limp reading (a missed stall stays under ~12 N), never below the floor
         points = []
         for k, (dx, dy) in enumerate(SPOTS_M):
-            top = mid + [dx, dy, 0] + START_M * N
-            points += [(f"press {k + 1} start", top), (f"press {k + 1} end", top - depth * N)]
+            top = mid + [dx, dy, 0] + START_M * UP
+            points += [(f"press {k + 1} start", top), (f"press {k + 1} end", top - depth * UP)]
         rows, why = place_check.plan(arm, points)
         print("Planned poses (tip mm; joints deg):")
         for label, p, q, _ in rows:
