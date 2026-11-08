@@ -1,5 +1,7 @@
 import rawParams from "@repo/subjects/appliance/cad/params.rev_a.json";
 import { useEffect, useMemo, useState } from "react";
+import { PartsBench } from "./PartsBench";
+import type { Route } from "../lib/route";
 import { ProjectBar } from "../components/ProjectBar";
 import { Viewer3D, type ApplianceParams } from "../components/Viewer3D";
 import { Pill, stagger } from "../components/ui";
@@ -62,7 +64,15 @@ function useFeed(env: ReturnType<typeof useAppSession>["env"]) {
   }, [env]);
 }
 
-export function CadBench({ theme }: { theme: string }) {
+/** Design Analysis: the parametric bench for the printed test appliance, and every other appliance's printed parts. */
+export function CadBench({ theme, route }: { theme: string; route: Route }) {
+  const parametric = useProjects().find((p) => p.cad);
+  const asked = route.query.get("project");
+  if (asked && asked !== parametric?.id) return <PartsBench key={asked} project={asked} theme={theme} />;
+  return <ParamBench theme={theme} />;
+}
+
+function ParamBench({ theme }: { theme: string }) {
   const { env, operator } = useAppSession();
   const project = useProjects().find((p) => p.cad);
   const feed = useFeed(env);

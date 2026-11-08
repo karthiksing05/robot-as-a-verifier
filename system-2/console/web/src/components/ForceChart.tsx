@@ -56,11 +56,12 @@ export function ForceChart({ series, limit }: { series: Series[]; limit?: number
           )}
           {series.map((s) => {
             const last = s.points[s.points.length - 1];
+            const atEnd = x(last[0]) > W - RIGHT - 60; // a label past the last point would run off the chart, so it goes before it
             return (
               <g key={s.name}>
                 <polyline className="ser draw-line" pathLength={1} points={s.points.map(([t, n]) => `${x(t)},${y(n)}`).join(" ")} style={{ stroke: `var(--${s.tone})` }} />
                 <circle className="pop" cx={x(last[0])} cy={y(last[1])} r={5} style={{ fill: `var(--${s.tone})`, stroke: "var(--surface)", strokeWidth: 2 }} />
-                <text className="val pop" x={x(last[0]) + 9} y={y(last[1]) + (s.tone === "fail" ? 17 : 4)}>{last[1].toFixed(1)} N</text>
+                <text className="val pop" x={x(last[0]) + (atEnd ? -9 : 9)} textAnchor={atEnd ? "end" : "start"} y={y(last[1]) + (s.tone === "fail" ? 17 : -9)}>{last[1].toFixed(1)} N</text>
               </g>
             );
           })}

@@ -44,7 +44,7 @@ export function ChatDock({ runId }: { runId: string | null }) {
     <aside className={`chat ${open ? "" : "closed"}`} aria-label="Chat and steering">
       <div className="chat-head">
         {open && <span className="label" style={{ marginRight: "auto" }}>Chat and steering</span>}
-        <button className="linkbtn" type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? "Close chat" : "Open chat"}>{open ? "Close" : "◂"}</button>
+        <button className="linkbtn" type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? "Close chat" : "Open chat"}>{open ? "Close" : <><span aria-hidden="true">◂</span><span className="chattab">Chat and steering</span></>}</button>
       </div>
       {open && (
         <>

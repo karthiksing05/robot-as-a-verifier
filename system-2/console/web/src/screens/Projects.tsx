@@ -4,8 +4,8 @@ import { stagger } from "../components/ui";
 import { useAppSession, useRuns } from "../lib/context";
 import { galleryOf, splitLabel } from "../lib/gallery";
 import { READ_ONLY_CONSOLE, useLiveNow } from "../lib/live";
-import { pieceName } from "../lib/wikidata";
-import { controlStatus, createProject, projectOf, reviewOf, useProjects, type Project } from "../lib/projects";
+import { previewOf } from "../lib/previews";
+import { createProject, projectOf, reviewOf, useProjects, type Project } from "../lib/projects";
 import { go } from "../lib/route";
 import { ENVIRONMENTS } from "../lib/session";
 
@@ -27,7 +27,6 @@ export function Projects() {
         <h1 className="title">Studies</h1>
         <div className="row">
           {!READ_ONLY_CONSOLE && <button className="btn accent" type="button" disabled={operator.role === "judge"} onClick={() => setAdding(!adding)}>{adding ? "Close" : "New project"}</button>}
-          <a className="btn ghost" href="#/background">Background</a>
         </div>
         {READ_ONLY_CONSOLE && <p className="note">Hosted demo. Browse the bundled projects and recorded runs.</p>}
       </section>
@@ -40,26 +39,22 @@ export function Projects() {
   );
 }
 
+/** A study at a glance: what it is, and how it stands. Everything else is one click in. */
 function ProjectCard({ project, runs, i }: { project: Project; runs: Parameters<typeof reviewOf>[0]; i: number }) {
   const review = reviewOf(runs);
   const now = useLiveNow();
-  const stay = (e: MouseEvent) => e.stopPropagation(); // these links go somewhere other than the card does
-  const device = galleryOf(project.id);
-  const split = splitLabel(project.split ?? device?.split);
-  const about = device?.body.join(" ").trim();
+  const split = splitLabel(project.split ?? galleryOf(project.id)?.split);
+  const running = now.running && now.project === project.id;
+  const picture = previewOf(project.id);
   return (
     <article className="panel projectcard rise" style={stagger(i)} onClick={() => go(`project/${project.id}`)}>
-      <div className="row"><span className="tag">{project.kind === "sim" ? "Sim device" : "Physical product"}</span>{split && <span className="tag">{split}</span>}{review.evidence === "mock" && <span className="tag mock">Mock data</span>}</div>
+      <div className="cardpic">{picture && <img src={picture} alt="" loading="lazy" />}</div>
+      <span className="note">{project.kind === "sim" ? "Sim" : "Physical"}{split ? ` · ${split}` : ""}{review.evidence === "mock" && <span className="mocknote"> · Mock data</span>}</span>
       <h2><a href={`#/project/${project.id}`}>{project.name}</a></h2>
-      {about ? <p>{about}</p> : project.summary && <p>{project.summary}</p>}
-      {device && device.theory.length > 0 && <div className="chips" aria-label="Theory pieces">{device.theory.map((x) => <span key={x} className="chip accent" title={x}>{pieceName(x)}</span>)}</div>}
-      <span className="spacer" />
-      <b className={`headline ${review.open.length ? "bad" : review.latest ? "good" : ""}`}>{review.headline}</b>
-      {review.latest && <div className="dots" aria-hidden="true">{review.controls.map((id) => <i key={id} className={controlStatus(review.latest!, id)} />)}</div>}
-      <span className="note">{review.revisions.length ? `Rev ${review.revisions.map((r) => r.revision).join(", ")} / ${runs.length} run${runs.length === 1 ? "" : "s"}` : "No runs"}</span>
-      <div className="row">
-        <a className="btn ghost" href={`#/live?project=${project.id}`} onClick={stay}>{now.running && now.project === project.id ? <>Live now<i className="livedot" aria-hidden="true" /></> : "Live"}</a>
-        {project.cad && <a className="btn ghost" href="#/cad" onClick={stay}>CAD</a>}
+      {project.summary && <p className="clamp">{project.summary}</p>}
+      <div className="cardfoot">
+        <b className={`headline ${review.open.length ? "bad" : review.latest ? "good" : ""}`}>{review.headline}</b>
+        <a className="cardlive" href={`#/live?project=${project.id}`} onClick={(e: MouseEvent) => e.stopPropagation()}>{running ? <>Live now<i className="livedot" aria-hidden="true" /></> : "Live →"}</a>
       </div>
     </article>
   );

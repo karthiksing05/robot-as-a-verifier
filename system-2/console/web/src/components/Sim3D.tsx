@@ -66,8 +66,9 @@ export default function Sim3D({ source, focus, focusAt, onUnavailable }: { sourc
     el.prepend(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#15181b");
-    scene.fog = new THREE.Fog("#15181b", 1.6, 3.4);
+    const backdrop = () => getComputedStyle(document.documentElement).getPropertyValue("--viewport").trim() || "#15181b";
+    scene.background = new THREE.Color(backdrop());
+    scene.fog = new THREE.Fog(backdrop(), 1.6, 3.4);
     const pmrem = new THREE.PMREMGenerator(renderer);
     const room = new RoomEnvironment();
     const envMap = software ? null : pmrem.fromScene(room, 0.04).texture;
@@ -160,6 +161,8 @@ export default function Sim3D({ source, focus, focusAt, onUnavailable }: { sourc
     refollow.current = reframe;
     controls.addEventListener("start", () => { following = false; setFree(true); });
     controls.addEventListener("change", () => { dirty = true; });
+    const retheme = new MutationObserver(() => { (scene.background as THREE.Color).set(backdrop()); scene.fog!.color.set(backdrop()); dirty = true; });
+    retheme.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
     function resize() {
       const w = Math.max(el.clientWidth, 1), h = Math.max(el.clientHeight, 1);
@@ -380,6 +383,7 @@ export default function Sim3D({ source, focus, focusAt, onUnavailable }: { sourc
     frame = requestAnimationFrame(loop);
 
     return () => {
+      retheme.disconnect();
       stopped = true;
       cancelAnimationFrame(frame);
       observer.disconnect();

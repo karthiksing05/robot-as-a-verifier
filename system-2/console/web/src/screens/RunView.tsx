@@ -489,9 +489,9 @@ function Decisions({ run, runs, edits, onSeek }: { run: Run; runs: Run[]; edits:
   ].sort((a, b) => a.seq - b.seq);
   void runs; void edits;
   return (
-    <div className="grid2">
+    <div className="decisiongrid">
       <div className="panel rise">
-        <div className="scrollx"><table>
+        <div className="scrollx"><table className="decisions">
           <thead><tr><th>Event</th><th>Decision</th><th>Decided by</th><th>Basis</th></tr></thead>
           <tbody>{rows.map((r) => <tr key={r.seq} className="link" onClick={() => onSeek(r.seq)}><td className="n">{r.seq}</td><td className="n">{r.what}</td><td className="n">{r.who}</td><td>{r.why}</td></tr>)}</tbody>
         </table></div>
