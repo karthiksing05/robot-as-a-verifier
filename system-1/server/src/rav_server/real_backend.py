@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import copy
 import math
+import os
 import pickle
 import threading
 import time
@@ -113,7 +114,7 @@ class RealBackend(PipelineRobot):
         operator says whether the device changed, which gives the verdict."""
         p = next((q for q in self.parts if q.id == step.target), None)
         if step.skill not in ("flip", "turn") or p is None:
-            return super().execute(step)
+            return self._press_with_photo(step)
         import real_skills
         import skills
 
@@ -147,6 +148,32 @@ class RealBackend(PipelineRobot):
         ref = self._snap(f"{step.id}, at {step.target}, after the step")
         trace.frames = [ref] if ref else []
         return trace, verdict
+
+    def _press_with_photo(self, step):
+        """PipelineRobot.execute, saving the wrist camera's frame at the bottom of each press (and retry) next to the
+        last looks, as tools/press_part.py did: the jaw is in view there, so a press that lands off the cap shows how
+        far and which way (STOP's first press landed right of a cap the scan and look both put it on)."""
+        import affordances
+        import touch
+
+        line = affordances._line
+
+        def line_with_photo(arm, *args, **kwargs):
+            if arm.status.endswith(": retreat") and touch.LOOK_DIR:
+                try:
+                    import cv2
+
+                    os.makedirs(touch.LOOK_DIR, exist_ok=True)
+                    name = f"{time.strftime('%H%M%S')}_{arm.status.split(': ')[0].replace(' ', '_')}_bottom.jpg"
+                    cv2.imwrite(os.path.join(touch.LOOK_DIR, name), self.rig.wrist.grab.read()[0])
+                except Exception as e:  # noqa: BLE001 - evidence must never stop a press
+                    print(f"couldn't save the press's photo: {type(e).__name__}: {e}")
+            return line(arm, *args, **kwargs)
+        affordances._line = line_with_photo
+        try:
+            return super().execute(step)
+        finally:
+            affordances._line = line
 
     def close(self) -> None:
         with self.closing:  # the engine's worker and main.py both close it: one goes home, the other waits
