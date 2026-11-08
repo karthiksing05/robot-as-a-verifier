@@ -3,7 +3,7 @@ hardware and no serial port. A Goal_Position write moves the simulated arm one c
 Present_Position read is the sim's encoder reading, with its jitter, in raw steps through real_arm.to_raw. FakePad is
 the sim's fingertip pad, with sensing="tactile", as RealArm's pad.
 
-    sim = robot.SimArm(world=world.build_world(None), slop=True, sensing="current")
+    sim = robot.SimArm(world=world.build_world(None), slop=True, sensing="current", effector="stock")
     bus = fake_bus.make(sim, tmp_dir)       # a SerialMotorsBus whose port opens FakeServos
     arm = real_arm.RealArm(bus, app=sim.app, pace=False)
     bus.fake.torque                         # {motor id: on?}

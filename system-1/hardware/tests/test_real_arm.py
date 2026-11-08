@@ -35,9 +35,9 @@ ARM_IDS = range(1, len(ARM_JOINTS) + 1)
 
 
 def _setup(pace=False):
-    """Preset C with the arm as SimArm(slop=True, sensing="current"), and a RealArm on it through the fake bus."""
+    """Preset C with the arm as SimArm(slop=True, sensing="current", effector="stock"), and a RealArm on it through the fake bus."""
     w = world.build_world(None)
-    sim = robot.SimArm(world=w, slop=True, sensing="current")
+    sim = robot.SimArm(world=w, slop=True, sensing="current", effector="stock")
     bus = fake_bus.make(sim, TMP)
     return w, sim, bus, real_arm.RealArm(bus, app=sim.app, pace=pace)
 
@@ -85,7 +85,7 @@ def test_go_home_and_presses_agree_with_sim():
         assert np.allclose(arm.cmd, arm.home_q)
         sag = np.linalg.norm(arm.tip_pose()[0] - arm.ik.fk(arm.home_q)[0])
         real = [A.run_step(arm, parts, s) for s in steps]
-    ref = robot.SimArm(world=world.build_world(None), slop=True, sensing="current")
+    ref = robot.SimArm(world=world.build_world(None), slop=True, sensing="current", effector="stock")
     ref_parts = ref.world.truth(ref.m, ref.d)
     skills.go_home(ref)
     sim_res = [A.run_step(ref, ref_parts, s) for s in steps]
@@ -168,7 +168,7 @@ def test_hard_cap_stops_a_push():
 
 def test_arm_check_reads_and_moves_one_joint():
     import arm_check
-    sim = robot.SimArm(world=world.build_world(None), slop=True, sensing="current")
+    sim = robot.SimArm(world=world.build_world(None), slop=True, sensing="current", effector="stock")
     bus = fake_bus.make(sim, TMP)
     arm_check.main(["FAKE", "cal.json", "--rows", "2"], bus=bus, ask=lambda prompt: "")
     assert not bus.fake.qs and not bus.fake.open  # read-only: nothing driven
@@ -215,8 +215,8 @@ def test_tick_paced_at_control_hz():
 
 def test_operator_readout_judges_presses():
     w, sim, bus, arm = _setup()
-    answers, asked = ["BTN1", ""], []
-    arm.app = real_arm.OperatorReadout(arm, ask=lambda prompt: asked.append(prompt) or answers[len(asked) - 1])
+    answers, asked = iter(["BTN1"]), []  # then nothing, however often it asks
+    arm.app = real_arm.OperatorReadout(arm, ask=lambda prompt: asked.append(prompt) or next(answers, ""))
     parts = w.truth(sim.m, sim.d)
     step = {"skill": "press", "target": "button_1"}
     with arm:
@@ -224,8 +224,9 @@ def test_operator_readout_judges_presses():
         skills.go_home(arm)
         said = A.run_step(arm, parts, step)
         skills.go_home(arm)  # motion between steps: not asked about
+        before = len(asked)
         silent = A.run_step(arm, parts, step)
-    assert len(asked) == 2, asked  # once per step, after it
+    assert before == 1 and len(asked) >= 2, asked  # after each press; one that registers nothing asks again per search poke
     assert said["verdict"] == "PASS" and said["channel"] == "BTN1", said["reason"]
     assert silent["verdict"] == "FAIL", silent["reason"]
     print(f"  'BTN1': {said['verdict']} ({said['reason']}); nothing: {silent['verdict']} ({silent['reason']})")

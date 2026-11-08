@@ -1277,7 +1277,7 @@ def main(argv=None):
                     "perceive.perceive and perceive.refine")
     ap.add_argument("--stereo", action="store_true", help="with --depth, wrist depth matched from two renders, like a real D405")
     ap.add_argument("--record", metavar="OUT.mp4", help="write a 1920x1080, 30 fps video")
-    ap.add_argument("--real-driver", action="store_true", help="with --slop --sensing current or tactile, drive the "
+    ap.add_argument("--real-driver", action="store_true", help="with --slop --sensing current, drive the "
                     "sim through the real arm's driver, real_arm.RealArm, on a simulated bus (sim_rig.real_driver)")
     ap.add_argument("--headless", action="store_true", help="no viewer window")
     ap.add_argument("--live", action="store_true", help="passive viewer with panels (the default unless --headless)")
@@ -1288,8 +1288,8 @@ def main(argv=None):
         ap.error("--stereo needs --depth: the USB camera has no depth")
     if args.sensing != "perfect" and not args.slop:
         ap.error(f"--sensing {args.sensing} needs --slop: the estimate comes from the soft servos' readings")
-    if args.real_driver and args.sensing not in ("current", "tactile"):
-        ap.error("--real-driver needs --slop --sensing current or tactile: RealArm senses with the servos and the pad")
+    if args.real_driver and (args.sensing != "current" or args.effector != "stock"):
+        ap.error("--real-driver needs --slop --sensing current on the stock gripper: RealArm aims the jaw tip and senses with the servos")
     live = not args.headless
     rig = sim_rig.make_rig(args.seed, args.placement, args.ideal, args.offsets, args.slop, args.stiffness, args.sensing,
                            args.depth, args.stereo, realtime=live and not args.record, effector=args.effector,

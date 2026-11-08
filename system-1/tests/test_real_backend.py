@@ -35,7 +35,7 @@ class NoStream:
 
 @pytest.mark.parametrize("answer", ["no", "yes"])
 def test_torque_only_after_a_yes_and_off_after_ctrl_c(answer, monkeypatch, tmp_path):
-    bus = fake_bus.make(robot.SimArm(world=world.build_world(None), slop=True, sensing="current"), str(tmp_path))
+    bus = fake_bus.make(robot.SimArm(world=world.build_world(None), slop=True, sensing="current", effector="stock"), str(tmp_path))
     monkeypatch.setattr(real_arm, "make_bus", lambda port, calibration: bus)
     monkeypatch.setattr(real_wrist, "Capture", NoStream)
     monkeypatch.setattr("builtins.input", lambda prompt: answer)
