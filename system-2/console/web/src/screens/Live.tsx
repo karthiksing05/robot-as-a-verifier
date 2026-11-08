@@ -77,7 +77,7 @@ function Offline() {
       <span className="label">The model, with System 1</span>
       <pre className="code">{"cd system-2\nuv run rav-agent"}</pre>
       <span className="label">The sim alone, with rules</span>
-      <pre className="code">{"cd system-2\nuv sync --extra live-depth\nuv run python console/server/live_sim.py"}</pre>
+      <pre className="code">{"cd system-2\nuv sync --extra live\nuv run python console/server/live_sim.py"}</pre>
     </div>
   );
 }
@@ -89,10 +89,9 @@ function StartPanel({ again, judge, project, onStart }: { again: boolean; judge:
   const presetC = !!project && (sim?.seed ?? null) === null; // only preset C has the part the planted fault jams
   const [fault, setFault] = useState(sim?.fault ?? "");
   const [seed, setSeed] = useState("");
-  const [depth, setDepth] = useState("depth");
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    onStart({ seed: project ? sim?.seed ?? null : seed.trim(), fault: project ? (presetC ? fault || null : sim?.fault ?? null) : null, depth: depth === "depth", project: project?.id ?? null });
+    onStart({ seed: project ? sim?.seed ?? null : seed.trim(), fault: project ? (presetC ? fault || null : sim?.fault ?? null) : null, depth: false, project: project?.id ?? null });
   };
   return (
     <form className="panel rise startpanel" onSubmit={submit}>
@@ -108,15 +107,9 @@ function StartPanel({ again, judge, project, onStart }: { again: boolean; judge:
         <label className="label" htmlFor="l-seed">Device seed</label>
         <input id="l-seed" className="tech" inputMode="numeric" pattern="[0-9]*" required value={seed} placeholder="1401" onChange={(e) => setSeed(e.target.value)} />
       </div>}
-      <div className="field">
-        <label className="label" htmlFor="l-route">Perception</label>
-        <select id="l-route" value={depth} onChange={(e) => setDepth(e.target.value)}>
-          <option value="depth">D405 depth camera</option>
-          {cameraRoute && <option value="rgb">USB camera, OWLv2 and SAM</option>}
-        </select>
-      </div>
+      {!cameraRoute && <p className="note">This install has no PyTorch, so it can't run the wrist camera's OWLv2 and SAM. Run <code>uv sync --extra live</code>, then restart the bridge.</p>}
       <div className="row">
-        <button className="btn accent" type="submit" disabled={judge} title={judge ? "Judges can steer but can't start a run" : undefined}>Start run</button>
+        <button className="btn accent" type="submit" disabled={judge || !cameraRoute} title={judge ? "Judges can steer but can't start a run" : undefined}>Start run</button>
       </div>
     </form>
   );

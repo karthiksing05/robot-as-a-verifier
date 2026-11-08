@@ -5,13 +5,17 @@ import type { SimFocus } from "./Sim3D";
 
 const Sim3D = lazy(() => import("./Sim3D"));
 
+/** The rig has no global camera any more, only the wrist one: the sim's desk and phone cameras stay out of the Console. */
+const GLOBAL = /\b(i?phone|desk view|film camera)\b/i;
+
 /** Each camera keeps its own element, so promoting one never drops its stream. url: where the streams are. */
 export function Feeds({ runId, url = LIVE_URL, feeds, stage, computing, focus }: { runId: string | null; url?: string; feeds: string[]; stage?: string; computing: boolean; focus: SimFocus }) {
   const [big, setBig] = useState("main");
   const [no3D, setNo3D] = useState(false);
   const unavailable = useCallback(() => setNo3D(true), []);
   const source = useMemo(() => new LiveSource(runId, url), [runId, url]);
-  const all = feeds.map((title, i) => ({ id: url === LIVE_URL ? `panel${i}` : title, title })); // the bridge numbers its streams, System 1 names them
+  const all = feeds.map((title, i) => ({ id: url === LIVE_URL ? `panel${i}` : title, title: title === "wrist" ? "Wrist camera" : title })) // the bridge numbers its streams, System 1 names them
+    .filter((f) => !GLOBAL.test(f.title));
   if (no3D) all.unshift({ id: "main", title: "Scene" });
   const large = big === "main" || all.some((f) => f.id === big) ? big : "main";
   return (

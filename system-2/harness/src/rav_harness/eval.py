@@ -315,7 +315,7 @@ def checkback_totals(rows: list[dict]) -> dict[str, int]:
     return total
 
 
-def run_matrix(devices: list[str], faults: list[str], error_rates: list[float], models: list[str], repeats: int = 1, route: str = "depth",
+def run_matrix(devices: list[str], faults: list[str], error_rates: list[float], models: list[str], repeats: int = 1, route: str = "rgb",
                out: str | pathlib.Path = "runs", base_seed: int = 0, config: AgentConfig | None = None, budget: Budget | None = None, error_schedule: str | None = None) -> dict:
     stamp = time.strftime("eval-%m%d-%H%M%S")
     folder = pathlib.Path(out).resolve() / stamp

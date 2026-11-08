@@ -165,7 +165,7 @@ def test_a_workflow_in_the_key_is_scored_from_readings(tmp_path):
 def test_the_server_command_passes_only_what_was_asked_and_no_secrets():
     device = Device(seed=7, faults=["stuck_button"], error_rate=0.05, error_seed=3, placement="random")
     cmd = server_command(device, 9000, 9001, None, None, None)
-    assert cmd[cmd.index("--seed") + 1] == "7" and "--error-rate" in cmd and "--depth" in cmd and "--answer-key" not in cmd
+    assert cmd[cmd.index("--seed") + 1] == "7" and "--error-rate" in cmd and "--depth" not in cmd and "--answer-key" not in cmd
     assert "--seed" not in server_command(Device(robot="mock"), 9000, 9001, None, None, None)
 
 

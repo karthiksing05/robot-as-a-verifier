@@ -42,7 +42,7 @@ class Device:
     rev: str | None = None
     faults: list[str] = field(default_factory=list)
     placement: str | None = None
-    route: str = "depth"
+    route: str = "rgb"  # the wrist camera, OWLv2 and SAM, as the real rig: it has no global camera for the depth route
     error_rate: float = 0.0
     error_seed: int = 0
     error_schedule: str | None = None
@@ -65,7 +65,7 @@ class Device:
             raise ValueError(f"no effector {effector}: it's {' or '.join(EFFECTORS)}")
         faults = fault if isinstance(fault, list) else [fault] if fault else []
         return cls(robot=device.pop("robot", "sim"), seed=device.pop("seed", None), path=device.pop("path", None), rev=rev,
-                   faults=faults, placement=device.pop("placement", None), route=device.pop("route", body.get("route", "depth")),
+                   faults=faults, placement=device.pop("placement", None), route=device.pop("route", body.get("route", "rgb")),
                    error_rate=float(body.get("error_rate") or 0), error_seed=int(body.get("error_seed") or 0), error_schedule=body.get("error_schedule"),
                    fault_seed=device.pop("fault_seed", None),
                    speed=float(body.get("speed") or 0), effector=effector)

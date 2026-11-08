@@ -173,7 +173,7 @@ function Stagebar({ run, marks, selected, onPick }: Pick<PlayerProps, "run" | "m
   );
 }
 
-/** A recorded run in the real 3D view, drawn in this browser from its saved poses, beside its other cameras. */
+/** A recorded run in the real 3D view, drawn in this browser from its saved poses, beside its wrist camera. */
 function ReplayPlayer({ ref_, stopAt, run, marks, selected, onPick, onFollow }: PlayerProps) {
   const { timeline, assets } = run.recording!;
   const clock = useMemo(() => new ReplayClock(timeline.duration), [timeline.duration]);
@@ -229,7 +229,7 @@ function ReplayPlayer({ ref_, stopAt, run, marks, selected, onPick, onFollow }: 
         <div className="replay3d">
           <Suspense fallback={<div className="simloading"><div className="sweep" /></div>}>{no3D ? <p className="note simnote">This browser can't draw 3D. The cameras still play.</p> : <Sim3D source={source} focusAt={focusAt} onUnavailable={unavailable} />}</Suspense>
         </div>
-        <video ref={cameras} src={assets!("cameras.mp4")} muted playsInline aria-label="The run's other cameras" />
+        <div className="wristclip"><video ref={cameras} src={assets!("cameras.mp4")} muted playsInline aria-label="The wrist camera" /></div>
       </div>
       <div className="replaybar">
         <button type="button" className="btn ghost" onClick={() => { if (clock.paused) { stopAt.current = null; void clock.play(); } else clock.pause(); }}>{paused ? "Play" : "Pause"}</button>

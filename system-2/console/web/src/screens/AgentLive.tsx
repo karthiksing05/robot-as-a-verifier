@@ -69,11 +69,10 @@ function StartForm({ project, health, again, judge, send }: { project?: Project;
   const [errorRate, setErrorRate] = useState("5");
   const [errorSeed, setErrorSeed] = useState("");
   const [auto, setAuto] = useState(false);
-  const [route, setRoute] = useState("depth");
   const [speed, setSpeed] = useState("4");
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    send("/start", startBody(project, { seed, fault, rev, effector, placement, route, model, speed, maxTurns, errorRate, errorSeed, auto }));
+    send("/start", startBody(project, { seed, fault, rev, effector, placement, route: "rgb", model, speed, maxTurns, errorRate, errorSeed, auto }));
   };
   return (
     <form className="panel rise startpanel" onSubmit={submit}>
@@ -113,10 +112,6 @@ function StartForm({ project, health, again, judge, send }: { project?: Project;
       <div className="field">
         <label className="label" htmlFor="a-eseed">Error seed</label>
         <input id="a-eseed" className="tech" inputMode="numeric" pattern="[0-9]*" value={errorSeed} placeholder="Random" onChange={(e) => setErrorSeed(e.target.value)} />
-      </div>
-      <div className="field">
-        <label className="label" htmlFor="a-route">Perception</label>
-        <select id="a-route" value={route} onChange={(e) => setRoute(e.target.value)}><option value="depth">D405 depth camera</option><option value="rgb">USB camera, OWLv2 and SAM</option></select>
       </div>
       <div className="field">
         <label className="label" htmlFor="a-speed">Sim speed</label>

@@ -266,7 +266,7 @@ def main(argv=None) -> None:
     e.add_argument("--effector", default="stock", choices=["stock", "probe"])
     e.add_argument("--models", default=",".join(MODELS))
     e.add_argument("--baseline", action="store_true", help="also run the rule-based plan on each")
-    e.add_argument("--route", default="depth", choices=["depth", "rgb"])
+    e.add_argument("--route", default="rgb", choices=["depth", "rgb"])
     e.add_argument("--base-seed", type=int, default=0)
     e.set_defaults(fn=evaluate)
     f = sub.add_parser("soft", help="round 1: short made-up scenarios on a fake robot, per model. No sim")

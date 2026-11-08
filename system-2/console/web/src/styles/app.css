@@ -206,7 +206,9 @@ pre.code { font-family: var(--mono); font-size: 11.5px; line-height: 1.5; backgr
 .stagebar button.fail { box-shadow: inset 0 -2px 0 var(--fail); }
 .replay { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 23%); gap: 6px; aspect-ratio: 1280 / 560; min-height: 300px; }
 .replay3d { position: relative; background: #15181b; border: 1px solid var(--line); min-width: 0; }
-.replay video { width: 100%; height: 100%; object-fit: contain; aspect-ratio: auto; }
+/* The recording stacks its cameras in three rows, wrist first: show that row alone, since the rig has no other camera. */
+.wristclip { align-self: start; aspect-ratio: 360 / 202; overflow: hidden; background: #000; border: 1px solid var(--line); min-width: 0; }
+.replay .wristclip video { width: 100%; height: auto; aspect-ratio: auto; border: 0; display: block; }
 .simnote { padding: 14px; }
 .replaybar { display: flex; align-items: center; gap: 10px; }
 .replaybar input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
