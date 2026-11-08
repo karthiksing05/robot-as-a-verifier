@@ -1077,7 +1077,10 @@ def build(cands, picks, hm, img, grid):
         records.append(dict(kind=kind, score=round(score, 3), part=pid, why=why,
                             outline=grid.point(outline, np.full(len(outline), 0.0003))))
         if KEEP_REJECTED and kind not in features.KINDS and kind != "door":
-            records[-1]["rejected"] = _rejected(cands[i], hm, img, grid)
+            try:  # a candidate that can't be built just isn't offered: it must never stop the scan
+                records[-1]["rejected"] = _rejected(cands[i], hm, img, grid)
+            except Exception as e:  # noqa: BLE001
+                print(f"  a rejected candidate couldn't be kept: {type(e).__name__}: {e}")
     return parts, records, masks
 
 

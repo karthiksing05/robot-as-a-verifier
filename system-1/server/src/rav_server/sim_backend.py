@@ -15,6 +15,7 @@ import os
 import pathlib
 import re
 import sys
+import traceback
 from collections import Counter, OrderedDict
 from typing import Any
 
@@ -264,6 +265,7 @@ class PipelineRobot:
         except Exception as e:
             if getattr(self.arm, "torque", True) is False:  # the real arm was stopped (Ctrl+C): a driver stop, not perception
                 raise
+            traceback.print_exc()  # the stop carries only the message: where it came from goes to this terminal
             raise PipelineFailure(f"{type(e).__name__}: {e}") from e
         self.at_home = False  # the scan and touches left the arm over the device
         self.stale = False
