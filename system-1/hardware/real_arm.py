@@ -175,7 +175,16 @@ class RealArm(rig.ArmBase):
             bus.disable_torque()
             # enable() lowers the gripper's limit to overdrive it (GRIPPER_OVERDRIVE): put it back first, or the check
             # below takes the last run's lowered limit for a wrong calibration
-            bus.write("Min_Position_Limit", "gripper", bus.calibration["gripper"].range_min, normalize=False)
+            closed = bus.calibration["gripper"].range_min
+            for _ in range(3):  # a restart after a crash once kept the lowered limit through one write: check it took
+                bus.write("Lock", "gripper", 0, normalize=False)
+                bus.write("Min_Position_Limit", "gripper", closed, normalize=False)
+                time.sleep(0.05)
+                if bus.read("Min_Position_Limit", "gripper", normalize=False) == closed:
+                    break
+            else:
+                raise RuntimeError(f"the gripper's Min_Position_Limit won't go back to its calibrated {closed}: power-cycle "
+                                   "the arm and start again")
             if not bus.is_calibrated:
                 raise RuntimeError("the motors' homing offsets or limits don't match the calibration file: wrong file, "
                                    "or run lerobot-calibrate again")

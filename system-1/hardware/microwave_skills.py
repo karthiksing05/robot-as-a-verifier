@@ -39,8 +39,11 @@ PRESS_DEPTH = 0.004    # and command this far in past it: the cap travels 1.5 mm
 PRESS_DEPTH_REAL = 0.012  # the real arm gives under load (the centrifuge's presses needed 20 mm): a guess, untested
 PRESS_TILTS = (0, 10, 20, 30)  # the tool this far below level (deg), flattest first that reaches. The push stays level
 PRESS_SPEED, PRESS_HOLD_S = 0.008, 0.3  # at 15 mm/s the sim's cap bottomed and the force jumped past 15 N in a tick
+PRESS_SPEED_REAL, PRESS_HOLD_REAL = 0.03, 0.15  # real: 8 mm/s was slow; the force stop (PRESS_N_REAL) guards the last of it
 PRESS_SLOW, PRESS_SLOW_FROM = 0.003, 0.006  # and slower over the last of the way: START at 8 mm/s did it on the stiffer arm
+PRESS_SLOW_REAL = 0.012  # real, over that last 6 mm
 PRESS_N = 6.0          # sim: stop pushing at this over the estimate's noise (the cap bottoms at 3 N)
+PRESS_N_REAL = 20.0    # real: stop pushing past this (tared), short of PRESS_DEPTH_REAL: it overpressed going the whole way
 
 # --- door_open: the jaws round the bar, centred, at its middle, drawn round the hinge's arc ---
 GRIP_SPARE = 0.005     # the jaws open to the bar's width plus this a side
@@ -51,13 +54,16 @@ BACK_OFF = 0.02        # and off it this far, once let go: 40 back with the tool
 GRIP_TILTS = (0, 10, 20, 30)
 GAP_PER_OPEN = real_skills.GAP_PER_OPEN  # real gripper: m of gap per unit of opening
 SIM_GAP = (0.0158, 0.075)  # sim gripper: the gap at 0 rad, and per rad (manipulate.JAW_GAP)
-SQUEEZE = 0.0          # real: shut to the calibrated close, which the bar stops short (not real_skills' overdrive)
+SQUEEZE = -0.3         # real: shut ~450 ticks past the calibrated close (real_skills' overdrive): at 0 the jaws didn't close on the handle (Nov 8)
 PULL_DEG = 45.0        # default: open this far. Past ~50 deg the leaf comes in beside the jaws
 PULL_SPEED, UNLATCH_SPEED, UNLATCH_DEG = 0.02, 0.006, 5.0  # m/s along the arc; slower through the latch
 PULL_LAG = 0.025       # the tip this far behind its command: the door won't come (the sim's force estimate read 14.6 N
                        # on the latch alone, near its 15 N cap; Rev A's seized hinge needs 20 N at the bar)
+PULL_N_REAL = 40.0     # real arm: stop the pull past this (tared): 20 N stopped it before the real latch let go (Nov 8)
 IN_LAG = 0.008         # going in to the bar, the tip this far behind its command has met something (the sim's force
                        # estimate read 7.6 N in free air there)
+IN_LAG_REAL = 0.02     # real: the arm lags more; 9 mm at 6.3 N in free air read as hitting something (Nov 8)
+IN_SPEED_REAL = 0.02   # real: going in round the bar
 
 # --- door_close: the shut jaws on the bar's front, pushed round to shut ---
 PUSH_IN = 0.001        # the tip this far into the bar's front
@@ -98,17 +104,18 @@ def _radial(at, tilt_deg):
     return math.cos(t) * r - math.sin(t) * np.array([0.0, 0.0, 1.0])
 
 
-def _go(arm, pts, axes, speed, bias, limit=None, slow=None, along=True, lag_max=None, follow=False):
+def _go(arm, pts, axes, speed, bias, limit=None, slow=None, along=True, lag_max=None, follow=False, force_max=None):
     """The tip through pts (one tool axis each) at speed, the bias held. limit (N): on an arm whose force estimate is
     trusted (no stall_m: the sim) it stops once the estimate passes it, on the real arm the stall does
     (affordances._stall). slow(i) -> a slower speed for the leg into point i, or None. Returns (index of the last
     point reached, why it stopped short or None, peak N). along: the force along the tool (a push), else its whole
     size (a pull, which the estimate along the tool reads as nothing). lag_max (m), on any arm: stop once the tip
     falls this far behind its command, as when what it pulls won't come. follow: the bias follows the sag as it
-    changes along the way (manipulate._line), in place."""
+    changes along the way (manipulate._line), in place. force_max (N), on any arm: stop once the force estimate (tared at
+    the start) passes it, as when a held door drags the whole appliance along instead of opening."""
     q, peak = arm.cmd - bias, 0.0
-    guard = limit is not None
-    stall = affordances._stall(arm) if guard and arm.stall_m else None
+    guard = limit is not None or force_max is not None
+    stall = affordances._stall(arm) if limit is not None and arm.stall_m else None
     if guard:
         arm.tare()
     try:
@@ -133,8 +140,10 @@ def _go(arm, pts, axes, speed, bias, limit=None, slow=None, along=True, lag_max=
                 peak = max(peak, f)
                 if stall is not None and stall((to - arm.tip_pose()[0]) @ m)[0]:
                     return k - 1, "stalled", peak
-                if guard and stall is None and f > limit:
+                if limit is not None and stall is None and f > limit:
                     return k - 1, f"met {f:.1f} N", peak
+                if force_max is not None and f > force_max:
+                    return k - 1, f"stopped at {f:.1f} N, over its {force_max:g} N limit", peak
                 lag = float(np.linalg.norm(to - arm.tip_pose()[0]))
                 if lag_max and lag > lag_max:
                     return k - 1, f"fell {lag * 1000:.0f} mm behind its path at {f:.1f} N", peak
@@ -153,9 +162,13 @@ def _clear(arm, bias, axis):
     _go(arm, [tip + CLEAR_UP * np.array([0.0, 0.0, 1.0])], [axis], CLEAR_SPEED, bias)
 
 
-def _approach(arm, label, at, axis, q0):
+def _approach(arm, label, at, axis, q0, reuse=False):
+    """To at, pointing along axis. reuse: with the last approach's sag correction (a press after a press, nearby on the
+    same panel), in one move instead of a move, a measure and a second move and settle."""
     arm.status = f"{label}: approach"
-    return affordances._approach(arm, at, axis, label, q0)[1]
+    bias = affordances._approach(arm, at, axis, label, q0, bias=getattr(arm, "mw_bias", None) if reuse else None)[1]
+    arm.mw_bias = bias
+    return bias
 
 
 # --- the press ---
@@ -179,24 +192,27 @@ def press(arm, p, R, depth=None):
             first = first or e
     else:
         raise first
-    bias = _approach(arm, label, out, a, q0)
+    bias = _approach(arm, label, out, a, q0, reuse=getattr(arm, "mw_straight", False))
     arm.status = f"{label}: in"
     # the bias following the sag: held as at the approach, the softer sim arm's tip rose 8 mm going 24 mm in, over the cap
-    slow = lambda k: PRESS_SLOW if (legs[0][1][k] - p.pos) @ n < PRESS_SLOW_FROM else None  # noqa: E731
-    _, why, peak = _go(arm, legs[0][1], legs[0][2], PRESS_SPEED, bias, None if arm.stall_m else PRESS_N + arm.noise_n, slow, follow=True)
-    _hold(arm, PRESS_HOLD_S)
+    real = bool(arm.stall_m)
+    speed, hold, last = (PRESS_SPEED_REAL, PRESS_HOLD_REAL, PRESS_SLOW_REAL) if real else (PRESS_SPEED, PRESS_HOLD_S, PRESS_SLOW)
+    slow = lambda k: last if (legs[0][1][k] - p.pos) @ n < PRESS_SLOW_FROM else None  # noqa: E731
+    _, why, peak = _go(arm, legs[0][1], legs[0][2], speed, bias, None if arm.stall_m else PRESS_N + arm.noise_n, slow, follow=True,
+                       force_max=PRESS_N_REAL if arm.stall_m else None)
+    _hold(arm, hold)
     affordances._unwind(arm, bias)
     arm.status = f"{label}: out"
-    _go(arm, [out], [a], PRESS_SPEED * 2, bias)
+    _go(arm, [out], [a], speed * 2, bias)
     return {"verdict": "done", "reason": f"pressed {p.id} level, {depth * 1000:.0f} mm in past its face, tool {tilt} deg down"
             + (f", stopped early: {why}" if why else ""), "peak_force_n": round(peak, 2), "tilt_deg": tilt}
 
 
 # --- the door ---
 
-def door_geometry(p, R):
+def door_geometry(p, R, nudge=(0.0, 0.0, 0.0)):
     """(the bar's middle with the door shut, the hinge point, its axis), arm frame. From the handle itself, or from a
-    named button plus device.yaml's offsets."""
+    named button plus device.yaml's offsets; both moved by nudge (mm, device frame: toward the arm, right, up)."""
     if p.kind == "handle":
         bar = np.asarray(p.pos, float)
         if "hinge" in p.meta:  # the sim's CAD handle carries its hinge
@@ -205,6 +221,7 @@ def door_geometry(p, R):
         bar = p.pos + R @ (np.subtract(HANDLE, BUTTONS[_name(p)]) / 1000)
     else:
         raise RuntimeError(f"target the handle or a named button ({', '.join(BUTTONS)}): {p.id} is neither")
+    bar = bar + R @ (np.asarray(nudge, float) / 1000)
     return bar, bar + R @ (np.subtract(HINGE, HANDLE) / 1000), _unit(R @ np.asarray(HINGE_AXIS))
 
 
@@ -219,11 +236,11 @@ def _angle_of(bar0, H, k, at):
     return math.degrees(math.atan2(float(k @ np.cross(u, v)), float(u @ v)))
 
 
-def open_door(arm, p, R, angle=PULL_DEG):
+def open_door(arm, p, R, angle=PULL_DEG, nudge=(0.0, 0.0, 0.0)):
     """The jaws open round the handle's bar at its middle, the bar centred between them, shut on it, drawn round the
     hinge's arc to angle (deg), opened and backed off. Says how far round the bar really went, from the arm's joint
     readings where the pull ended."""
-    bar0, H, k = door_geometry(p, R)
+    bar0, H, k = door_geometry(p, R, nudge)
     label = f"door_open {p.id}"
     gap = BAR_D + 2 * GRIP_SPARE
     centre_x = JAW_FACE_X + gap / 2  # the bar's middle from the fixed jaw's tip, toward the moving jaw
@@ -250,7 +267,9 @@ def open_door(arm, p, R, angle=PULL_DEG):
     _jaws(arm, gap)
     bias = _approach(arm, label, tip0 - GRIP_OUT * a0, a0, q0)
     arm.status = f"{label}: in round the bar"
-    _, why, _ = _go(arm, legs[0][1], legs[0][2], PRESS_SPEED, bias, lag_max=IN_LAG, follow=True)
+    real = bool(getattr(arm, "stall_m", None))
+    _, why, _ = _go(arm, legs[0][1], legs[0][2], IN_SPEED_REAL if real else PRESS_SPEED, bias,
+                    lag_max=IN_LAG_REAL if real else IN_LAG, follow=True)
     if why:
         affordances._unwind(arm, bias)
         _go(arm, [legs[0][1][0]], [a0], PRESS_SPEED * 2, bias)
@@ -260,7 +279,8 @@ def open_door(arm, p, R, angle=PULL_DEG):
     _jaws(arm, 0)
     arm.status = f"{label}: pull"
     slow = lambda i: UNLATCH_SPEED if ths[i] <= UNLATCH_DEG else None  # noqa: E731
-    k_end, why, peak = _go(arm, legs[1][1], legs[1][2], PULL_SPEED, bias, None, slow, along=False, lag_max=PULL_LAG)
+    k_end, why, peak = _go(arm, legs[1][1], legs[1][2], PULL_SPEED, bias, None, slow, along=False, lag_max=PULL_LAG,
+                           force_max=PULL_N_REAL if getattr(arm, "stall_m", None) else None)
     if why:  # held: stop pulling before anything else, or the force builds on while it waits
         affordances._unwind(arm, bias)
     _hold(arm, 0.3)  # the arm catches up with its sag before its reading is taken
@@ -283,11 +303,11 @@ def open_door(arm, p, R, angle=PULL_DEG):
             "reason": f"{what}: the pull {why or 'ended short'} at {reached:.0f} deg" if held else what}
 
 
-def close_door(arm, p, R, angle=None):
+def close_door(arm, p, R, angle=None, nudge=(0.0, 0.0, 0.0)):
     """The shut jaws' tip swept round the arc toward shut from CLOSE_FROM further open than the door is believed to rest
     (angle, deg: door_open's last reading by default), in front of the bar, so it meets the bar wherever it really is
     and pushes it to SHUT_AT; held while the latch pulls it shut, then back off."""
-    bar0, H, k = door_geometry(p, R)
+    bar0, H, k = door_geometry(p, R, nudge)
     label = f"door_close {p.id}"
     angle = float(angle if angle is not None else getattr(arm, "door_deg", PULL_DEG))
     if angle < 2.0:
@@ -341,10 +361,14 @@ def close_door(arm, p, R, angle=None):
             + ("" if shut else f": it {why or 'stopped'} short of shut")}
 
 
+def _nudge(params):
+    return tuple(float(params.get(k, 0.0)) for k in ("dx_mm", "dy_mm", "dz_mm"))
+
+
 SKILLS = {
     "mw_press": lambda arm, p, R, params: press(arm, p, R, float(params.get("depth_mm", 0)) / 1000),
-    "door_open": lambda arm, p, R, params: open_door(arm, p, R, float(params.get("angle", PULL_DEG))),
-    "door_close": lambda arm, p, R, params: close_door(arm, p, R, params.get("angle")),
+    "door_open": lambda arm, p, R, params: open_door(arm, p, R, float(params.get("angle", PULL_DEG)), _nudge(params)),
+    "door_close": lambda arm, p, R, params: close_door(arm, p, R, params.get("angle"), _nudge(params)),
 }
 
 
@@ -367,7 +391,10 @@ def execute(robot, step, p):
     arm = robot.arm
     if p is None:
         return {"verdict": "REFUSED", "reason": f"no part called {step.target}"}
-    if not robot.at_home:
+    # press after press goes straight from one button to the next, the tip 20 mm off the panel: home is a detour
+    straight = step.skill == "mw_press" and getattr(robot, "prev_skill", None) == "mw_press"
+    arm.mw_straight = straight and getattr(arm, "mw_bias", None) is not None
+    if not robot.at_home and not straight:
         skills.go_home(arm)
     arm.status = "between steps"  # an operator readout takes its baseline here, with nothing to ask
     before, n_ev, t0 = dict(arm.app.readings), len(arm.app.events), time.monotonic()

@@ -164,7 +164,11 @@ class ToolBelt:
         no_args = {"type": "object", "properties": {}}
         return [
             ToolSpec("get_status", "The skills on offer with their limits, what the robot is doing, and how each control stands so far.", no_args),
-            ToolSpec("look_at_device", "Runs the robot's survey and returns what it found. Takes minutes. Plans are checked against the latest look.", no_args),
+            ToolSpec("look_at_device", "Runs the robot's survey and returns what it found. Takes minutes. Plans are checked against the latest look. "
+                     "look_up_deg tilts every survey view up by that many degrees (up to 75; negative tilts down, to -30). The survey "
+                     "looks 45 deg down by default, so 45 looks level and more looks up: for a tall upright front the survey only "
+                     "saw the table and the bottom edge of.",
+                     {"type": "object", "properties": {"look_up_deg": {"type": "number", "description": "Degrees to tilt the survey's views up; negative tilts them down. Default 0"}}}),
             ToolSpec("get_scene", "The latest scene again.", no_args),
             ToolSpec("read_manual", "The product's manual: one page, or a search.", {"type": "object", "properties": {
                 "page": {"type": "integer", "description": "Page number"}, "query": {"type": "string", "description": "Words to search for"}}}),
@@ -318,12 +322,13 @@ class ToolBelt:
         self.log.emit("scene_ready", without_device(scene))
         return notes
 
-    def _look(self) -> dict:
+    def _look(self, look_up_deg: float = 0.0) -> dict:
         if self.changes_since_look and self.first_state is not None:
             self.closing_tried = True
             self.checkback["closing_looks"] += 1
         policy = self.policy.model_copy(update={"review_scan": True}) if self.review else self.policy
-        self.handle = self._inner("routine_start", {"routine": "explore"}, lambda: self.system1.routine_start("explore", policy=policy))
+        policy = policy.model_copy(update={"survey_look_up_deg": look_up_deg}) if look_up_deg else policy
+        self.handle = self._inner("routine_start", {"routine": "explore", **({"look_up_deg": look_up_deg} if look_up_deg else {})}, lambda: self.system1.routine_start("explore", policy=policy))
         view = self._wait()
         if view["status"] == "completed":
             report = self.system1.scene_get()
@@ -372,9 +377,13 @@ class ToolBelt:
         self.first_state = self._scene_state()
         return True
 
-    def tool_look_at_device(self) -> dict:
+    def tool_look_at_device(self, look_up_deg: float = 0.0) -> dict:
         self._guard_idle("looking again")
-        return self._look()
+        try:
+            up = max(-30.0, min(75.0, float(look_up_deg or 0.0)))
+        except (TypeError, ValueError) as e:
+            raise ToolRejected("bad_args", "look_up_deg must be a number of degrees") from e
+        return self._look(up)
 
     def _guard_idle(self, doing: str) -> None:
         if self.holding:

@@ -27,6 +27,7 @@ class EscalationPolicy(Contract):
     confidence_floor: float = Field(default=0.5, ge=0.0, le=1.0)  # detections below this escalate
     review_survey: bool = False  # explore holds after its survey (survey_review) for a SurveyAnswer before it scans
     review_scan: bool = False  # and after its scan (scan_review) for each part's name and kind (Decision.labels) and what it missed
+    survey_look_up_deg: float = Field(default=0.0, ge=-30.0, le=75.0)  # explore: every survey view tilted this far up (- down); 45 is level
 
 
 # Start with TETHERED, and loosen a setting only when the measurements hold up. The values are guesses until then.

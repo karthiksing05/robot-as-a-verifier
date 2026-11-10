@@ -2,11 +2,28 @@
   "id": "microwave",
   "name": "MW-1 mock microwave",
   "summary": "A mock countertop microwave: five push buttons (TIME, POWER, STOP, +30s, START), a 16x2 LCD with a coloured backlight, a buzzer, and a side-hinged door with a D-handle and a latch read by a door sensor.",
+  "instruction": "Run the MW-1 demo: these steps, in this order, as one plan. First call look_at_device with look_up_deg=15: the panel is upright and the default survey looks too far down. Press every button with mw_press, which pushes straight into the upright panel: don't use press, which comes in from above and missed POWER and START. The door steps target the door's handle (the scan review names it Handle). Only if no handle was found, target TIME instead, with dx_mm=-30: the robot then aims at the handle from TIME's position, and the real handle is 30 mm further from the arm than that. 1. mw_press TIME. 2. mw_press POWER. 3. mw_press START. 4. door_open with angle=45. 5. door_close. 6. mw_press START. 7. mw_press +30s. 8. mw_press STOP. 9. mw_press STOP. Then report what each step did, including how far the door opened against the manual's 130 deg.",
   "kind": "sim",
-  "sim": { "path": "appliances/microwave/device.yaml", "rev": "A", "revs": ["A", "B"] },
+  "sim": {
+    "path": "appliances/microwave/device.yaml",
+    "rev": "A",
+    "revs": [
+      "A",
+      "B"
+    ]
+  },
   "manual": "appliances/microwave/manual.md",
-  "products": ["MW-1 mock microwave (sim)"],
-  "rules": ["Usable with no thumbs"],
+  "real": {
+    "runs": [
+      "real-mw"
+    ]
+  },
+  "products": [
+    "MW-1 mock microwave (sim)"
+  ],
+  "rules": [
+    "Usable with no thumbs"
+  ],
   "split": "dev",
   "created": "2026-11-07"
 }

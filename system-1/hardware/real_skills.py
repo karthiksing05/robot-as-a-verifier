@@ -15,7 +15,9 @@ TOGGLE_Y = 0.002
 GRIP_ABOVE = 0.025
 # the jaws open to the knob's width plus GRIP_SPARE a side, its axis midway between them: a fixed 0.2 opening (about a
 # 20 mm gap: 10 mm in from the fixed jaw was midway) fit the first 12 mm dial, not the 27 mm one that replaced it
-GRIP_SPARE, GAP_PER_OPEN, GRIP_MAX_OPEN = 0.004, 0.1, 0.6  # m; m of jaw gap per unit of opening; the most it opens
+# 0.15 m of gap per unit, not the model's 0.1: the tube's 0.3 opened far wider than its 18 mm collar, and centring it took
+# 15 mm from the fixed jaw at 0.2 (Nov 8). At 0.1 the 27 mm dial's grip opened ~52 mm and the jaws came down beside it
+GRIP_SPARE, GAP_PER_OPEN, GRIP_MAX_OPEN = 0.004, 0.15, 0.6  # m; m of jaw gap per unit of opening; the most it opens
 # the jaw tips go this far over the panel (from the dial's top they stopped short), with the knob's axis this far in from
 # the fixed jaw's tip: midway to the open moving jaw, about on the roll axis
 # (3 mm up, on a scan whose plane read 3 mm high under SPEED, the jaws caught only the dial's top and couldn't turn it)
@@ -58,7 +60,9 @@ def flip(arm, p, parts, snap=None, plane=None):
     """A toggle flipped in four straight moves, the gripper held as for a press (tilt and roll): to just above where the push starts, down to it, across the lever (the
     flip plan's push, past its centre), and up. No look, guarded descent or let-go moves: on the real arm those were
     ten waypoints, and contact sensing can't feel this lever anyway. The operator says whether it flipped."""
-    plan = affordances._flip_plan(arm, p, parts, shut_ok=True)
+    # its neighbours left out: the plan's room check is the sim pad's, and here the push is FLIP_PUSH_H over the panel
+    # (START, 30 mm across the push, refused POWER once the push went 2 mm lower, Nov 8)
+    plan = affordances._flip_plan(arm, p, [p], shut_ok=True)
     if isinstance(plan, str):
         raise RuntimeError(plan)
     n, label = plan.n, f"flip {p.id}"

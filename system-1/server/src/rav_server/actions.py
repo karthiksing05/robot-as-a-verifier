@@ -56,12 +56,14 @@ def centrifuge_actions() -> list[ActionSpec]:
 def microwave_actions() -> list[ActionSpec]:
     """The MW-1 microwave's skills (hardware/microwave_skills.py), offered only when the device is the microwave."""
     door = ["handle", "button"]  # the handle itself, or a button named from the manual (the handle is a CAD offset from it)
+    nudge = [ParamSpec(name=f"d{a}_mm", min=-50.0, max=50.0, default=0.0, unit="mm", about=f"aim at the handle this far {way}")
+             for a, way in (("x", "toward the arm"), ("y", "to the right, seen from the arm"), ("z", "up"))]
     return [
         ActionSpec(skill="mw_press", kinds=["button"], params=[ParamSpec(name="depth_mm", min=1.0, max=25.0, unit="mm", about="how far past the cap's face to push. Left out: 4 in the sim, 12 on the real arm")],
                    about="push a button on the upright panel straight in, level, then back out. Once: no retry"),
-        ActionSpec(skill="door_open", kinds=door, params=[ParamSpec(name="angle", min=5.0, max=45.0, default=45.0, unit="deg", about="how far to pull the door open from shut")],
+        ActionSpec(skill="door_open", kinds=door, params=[ParamSpec(name="angle", min=5.0, max=45.0, default=45.0, unit="deg", about="how far to pull the door open from shut"), *nudge],
                    about="jaws round the handle's bar at its middle, shut on it, pulled round the hinge's arc, let go. Says how far the door went by the arm's reading, against the manual's 130 deg. Target the handle, or TIME"),
-        ActionSpec(skill="door_close", kinds=door, params=[ParamSpec(name="angle", min=2.0, max=65.0, unit="deg", about="where the door rests now. Left out: where the last door_open left it")],
+        ActionSpec(skill="door_close", kinds=door, params=[ParamSpec(name="angle", min=2.0, max=65.0, unit="deg", about="where the door rests now. Left out: where the last door_open left it"), *nudge],
                    about="the shut jaws swept round the arc in front of the bar, pushing it shut, where the latch takes it. Target the handle, or TIME"),
     ]
 

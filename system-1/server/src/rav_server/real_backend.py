@@ -70,7 +70,13 @@ class RealBackend(PipelineRobot):
         self.arm.enable(confirm=True)
         self.rest = self.arm.read_q()
 
+    survey_look_up_deg = 0.0  # set by the engine from the explore's policy: the survey's views tilted up (+) or down
+
     def perceive(self):
+        import rgbperceive
+
+        up = math.radians(self.survey_look_up_deg)  # up is less wrist flex: the camera turns toward level
+        self.arm.survey_dq = None if not up else [(d[0], d[1], d[2], d[3] - up, *d[4:]) for d in rgbperceive.SURVEY_DQ]
         if self.appliance == "microwave":
             import microwave_skills
             microwave_skills.scan_settings()
@@ -113,7 +119,9 @@ class RealBackend(PipelineRobot):
             pickle.dump(self.scene, f)
         import display_view
         # the display, which the scan never finds, from the buttons before their press shift: an observe photographs it
-        display = None if any(p.kind == "display" for p in self.parts) else display_view.display_part(self.parts, self.plane_T)
+        # display_view places the MC-6's screen from its buttons: on another appliance it marked the cardboard (Nov 8)
+        display = None if self.appliance != "centrifuge" or any(p.kind == "display" for p in self.parts) \
+            else display_view.display_part(self.parts, self.plane_T)
         shift = getattr(self.arm, "part_shift", None)
         if shift is not None:  # as tools/press_part.py: the scan's parts and each last look's answer
             self.parts = [shifted(p, shift) for p in self.parts]
@@ -133,6 +141,25 @@ class RealBackend(PipelineRobot):
                       for p in self.parts] + ([display] if display is not None else [])
         return self.current_scene()
 
+    last_skill = None  # the step run before this one (execute)
+    CLAMP = -0.05  # resting, the jaws shut ~75 ticks past the calibrated close: a loose jaw caught on buttons (Nov 8)
+
+    def _clamp(self) -> None:
+        import real_skills
+
+        if getattr(self.arm, "holding", False):  # a picked tube, held at the pick's harder squeeze: leave it
+            return
+        if self.last_skill == "mw_press":  # the jaws are still shut from the clamp before it: no pause to clamp again
+            return
+        try:
+            real_skills.gripper(self.arm, self.CLAMP, hold_s=0.2)
+        except Exception as e:  # noqa: BLE001 - a jaw left open is no reason to stop a run
+            print(f"couldn't clamp the gripper: {type(e).__name__}: {e}", flush=True)
+
+    def home(self) -> None:
+        super().home()
+        self._clamp()
+
     def execute(self, step):
         """Flips and knob turns as the hardware session ran them on the real centrifuge (real_skills), which
         affordances' own can't do on this arm (its jaws don't open for them), and the centrifuge's lid, rack cover and
@@ -141,6 +168,9 @@ class RealBackend(PipelineRobot):
         photo says."""
         import centrifuge_skills
 
+        self._clamp()  # each step starts with the jaws shut: a skill that needs them open opens them itself
+        prev, self.last_skill = self.last_skill, step.skill
+        self.prev_skill = prev  # microwave_skills.execute reads it too
         p = next((q for q in self.parts if q.id == step.target), None)
         if self.appliance == "microwave" and step.skill in self.MICROWAVE_SKILLS:
             return self._microwave_step(step, p)
@@ -151,7 +181,10 @@ class RealBackend(PipelineRobot):
         import real_skills
         import skills
 
-        if not self.at_home:
+        # straight on from the last step where home is only a detour: a held tube to the well, the well to the lid
+        straight = (step.skill == "tube_place" and getattr(self.arm, "holding", False)) or \
+                   (step.skill == "lid_close" and prev == "tube_place")
+        if not self.at_home and not straight:
             skills.go_home(self.arm)
         self.arm.status = "between steps"  # reading the device here sets its baseline, with nothing to ask
         before, n_ev, t0 = dict(self.arm.app.readings), len(self.arm.app.events), time.monotonic()

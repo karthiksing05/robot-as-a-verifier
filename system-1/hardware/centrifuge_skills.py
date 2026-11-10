@@ -38,9 +38,9 @@ OVER_TILT = math.radians(20)  # manipulate's 45 put the tool over the real lid's
 # the real lid's first close stopped 10 mm short above its edge (Nov 8): deeper, and a little further behind it
 OVER_FRONT, OVER_BEHIND, OVER_CLEAR, OVER_DOWN = 0.05, 0.018, 0.025, 0.010  # 16 down closed it: the jaw's tip is enough
 SAFE_BACK, SAFE_UP = 0.06, 0.03  # a close starts from here, nearer the arm and higher, clear of the open lid
-CLOSE_TO = 30.0                       # deg: drawn back to here, then let go: from 50 it didn't shut, from 5 it did with room to spare (Nov 8)
-FALL_S = 0.5
-LID_SPEED, DRAW_SPEED = 0.10, 0.07  # m/s: the lid close's moves, and its draw back
+CLOSE_TO = 60.0                       # deg: a fast draw (DRAW_SPEED) to here flicks it, and it falls shut (Nov 8)
+FALL_S = 0.2
+LID_SPEED, DRAW_SPEED = 0.15, 0.15  # m/s: the lid close's moves, and its flick back
 # the tube: jaws open around its 18 mm collar, down straight, shut, lift clear of the rack
 TUBE_GRIP_DOWN = -0.002               # the grip centre below the collar top found: at 3 mm it went too far down
 TUBE_OPEN = 0.2                       # 0.3 opened far wider than the red collar on the real arm (Nov 8)
@@ -279,6 +279,7 @@ def pick_tube(arm, collar_top):
     legs = _tube_legs(arm, label, build)
     real_skills.gripper(arm, TUBE_OPEN, hold_s=0.0)  # opening while the arm moves over the tube, not after it gets there
     why, _ = _run(arm, label, *legs)
+    arm.holding = not why  # RealBackend leaves held jaws alone until the place lets go
     try:  # where the jaws stopped and the limit they had, to tell a weak grip from a refused overdrive
         jaws = (f"; gripper at {arm.bus.read('Present_Position', 'gripper', normalize=False)}, limit "
                 f"{arm.bus.read('Min_Position_Limit', 'gripper', normalize=False)}, closed {arm.bus.calibration['gripper'].range_min}")
@@ -287,7 +288,7 @@ def pick_tube(arm, collar_top):
     return {"verdict": "FAIL" if why else "done", "reason": (why or f"shut on the collar and lifted {LIFT * 1000:.0f} mm") + jaws}
 
 
-PLACE_UP, PLACE_BACK = PLACE_ABOVE, 0.06  # out of the well (as high as the place started, which reached), then toward the arm: the arm went home past the open lid (Nov 8)
+PLACE_UP, PLACE_BACK = 0.06, 0.03  # out of the well this far up, then toward the arm: enough to clear the open lid
 
 
 def _toward(p):
@@ -312,6 +313,7 @@ def place_tube(arm, seat):
                 ("shut the jaws", 0.0)], q
     held = getattr(arm, "tube_tilt", None)  # the pick's tilt, so the tube goes in as upright as it came out
     _, met = _run(arm, label, *_tube_legs(arm, label, build, (held, *(t for t in TUBE_TILTS if t != held)) if held else TUBE_TILTS))
+    arm.holding = False
     short = (PLACE_ABOVE - met["lower"] if "lower" in met else PLACE_DROP)
     return {"verdict": "done", "reason": f"let go {short * 1000:.1f} mm above the seat" if short > 0.001
             else "let go at the seat", "short_mm": round(short * 1000, 1)}
