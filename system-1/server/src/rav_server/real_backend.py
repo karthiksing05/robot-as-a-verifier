@@ -120,7 +120,8 @@ class RealBackend(PipelineRobot):
         import display_view
         # the display, which the scan never finds, from the buttons before their press shift: an observe photographs it
         # display_view places the MC-6's screen from its buttons: on another appliance it marked the cardboard (Nov 8)
-        display = None if self.appliance != "centrifuge" or any(p.kind == "display" for p in self.parts)             else display_view.display_part(self.parts, self.plane_T)
+        display = None if self.appliance != "centrifuge" or any(p.kind == "display" for p in self.parts) \
+            else display_view.display_part(self.parts, self.plane_T)
         shift = getattr(self.arm, "part_shift", None)
         if shift is not None:  # as tools/press_part.py: the scan's parts and each last look's answer
             self.parts = [shifted(p, shift) for p in self.parts]
@@ -181,7 +182,8 @@ class RealBackend(PipelineRobot):
         import skills
 
         # straight on from the last step where home is only a detour: a held tube to the well, the well to the lid
-        straight = (step.skill == "tube_place" and getattr(self.arm, "holding", False)) or                    (step.skill == "lid_close" and prev == "tube_place")
+        straight = (step.skill == "tube_place" and getattr(self.arm, "holding", False)) or \
+                   (step.skill == "lid_close" and prev == "tube_place")
         if not self.at_home and not straight:
             skills.go_home(self.arm)
         self.arm.status = "between steps"  # reading the device here sets its baseline, with nothing to ask
