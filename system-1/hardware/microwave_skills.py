@@ -62,10 +62,10 @@ PULL_LAG = 0.025       # the tip this far behind its command: the door won't com
 PULL_N_REAL = 40.0     # real arm: stop the pull past this (tared): 20 N stopped it before the real latch let go (Nov 8)
 IN_LAG = 0.008         # going in to the bar, the tip this far behind its command has met something (the sim's force
                        # estimate read 7.6 N in free air there)
-
-# --- door_close: the shut jaws on the bar's front, pushed round to shut ---
 IN_LAG_REAL = 0.02     # real: the arm lags more; 9 mm at 6.3 N in free air read as hitting something (Nov 8)
 IN_SPEED_REAL = 0.02   # real: going in round the bar
+
+# --- door_close: the shut jaws on the bar's front, pushed round to shut ---
 PUSH_IN = 0.001        # the tip this far into the bar's front
 SHUT_AT = 1.0          # pushed to this far short of shut, inside the latch's 2 deg pull-in: pushed on past shut, the
                        # sim's estimate jumped from 3 N to the 15 N cap in one tick at the door's stop
